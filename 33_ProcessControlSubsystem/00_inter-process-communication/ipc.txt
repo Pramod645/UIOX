@@ -444,3 +444,5 @@ The getsockopt and setsockopt calls retrieve and set various options associated 
 the socket, according to the communications domain and protocol of the socket.
 
 */
+
+// 19. 4. 5. 11. 9(Process Address Space),10

@@ -5,7 +5,8 @@
 #define reserved 
 #define KERNEL
 
-
+https://docs.kernel.org/arch/arm64/memory.html
+https://gcc.gnu.org/projects/c-status.html
 
 machine_specific_memory_setup(){
     Table 2-10. Variables describing the kernel’s physical memory layout
