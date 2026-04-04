@@ -1,5 +1,5 @@
-//can you provide the POXIS header file list?
-Yes — here’s a clean, categorized list of all the standard library header files in C, as defined by the ISO C17 / C23 standard (a.k.a. Standard C Library or “libc”) — not system‑specific POSIX/GNU headers.  
+
+Clean, categorized list of all the standard library header files in C, as defined by the ISO C17 / C23 standard (a.k.a. Standard C Library or “libc”) — not system‑specific POSIX/GNU headers.  
 
 These are the “core” portable headers every C implementation provides.
 
