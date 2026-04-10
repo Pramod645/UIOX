@@ -12,6 +12,11 @@ This version is educational—it represents the public interface and semantics c
 
 ctype.h — Character classification and conversion 
 */
+/* This is for both POXIS and Standerd Library */
+
+#include "features.h"
+
+#if  (define __POSIX  || define __GLIBC)
 
 #ifdef _cplusplus
 extern "C" {
@@ -41,4 +46,10 @@ int toupper(int c);
 }
 #endif
 
+
+#endif /* End  of POXIS and STDLIB */
+
+
+
 #endif /* End of __CTYPE__H */
+/* ***This is End of file, there is no more line should be added after this line*** */

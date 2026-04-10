@@ -7,7 +7,11 @@ includes the standard underlying pieces.
 A real distro’s sys/types.h is usually layered across multiple internal headers and varies by architecture, 
 libc (glibc, musl), and feature macros. So the code below is a clean approximation.
 */
+/* This is for only POXIS */
 
+#include "features.h"
+
+#if  (define __POSIX)
 
 #ifdef _cplusplus
 extern "C" {
@@ -72,4 +76,8 @@ typedef enum {
 }
 #endif
 
+
+#endif /* End  of POXIS */
+
 #endif /* End of __SYS_TYPES__H */
+/* ***This is End of file, there is no more line should be added after this line*** */
