@@ -18,45 +18,45 @@ extern "C" {
 #endif
 
 /* Basic integer types */
-typedef signed char         int8_t;
-typedef unsigned char       uint8_t;
+typedef signed char         int8t;
+typedef unsigned char       uint8t;
 
-typedef signed short        int16_t;
-typedef unsigned short      uint16_t;
+typedef signed short        int16t;
+typedef unsigned short      uint16t;
 
-typedef signed int          int32_t;
-typedef unsigned int        uint32_t;
+typedef signed int          int32t;
+typedef unsigned int        uint32t;
 
-typedef signed long long    int64_t;
-typedef unsigned long long  uint64_t;
+typedef signed long long    int64t;
+typedef unsigned long long  uint64t;
 
 /* Size-related types */
-typedef unsigned long       size_t;
-typedef signed long         ssize_t;
+typedef unsigned long       sizet;
+typedef signed long         ssizet;
 
 /* Pointer/integer types */
-typedef signed long         intptr_t;
-typedef unsigned long       uintptr_t;
+typedef signed long         intptrt;
+typedef unsigned long       uintptrt;
 
 /* Common system types */
-typedef unsigned int        mode_t;
-typedef long                off_t;
-typedef int                 pid_t;
-typedef long                time_t;
-typedef long                clock_t;
+typedef unsigned int        modet;
+typedef long                offt;
+typedef int                 pidt;
+typedef long                timet;
+typedef long                clockt;
 
 /* Device/inode-like types */
-typedef unsigned long       dev_t;
-typedef unsigned long       ino_t;
-typedef unsigned long       nlink_t;
+typedef unsigned long       devt;
+typedef unsigned long       inot;
+typedef unsigned long       nlinkt;
 
 /* User/group IDs */
-typedef unsigned int        uid_t;
-typedef unsigned int        gid_t;
+typedef unsigned int        uidt;
+typedef unsigned int        gidt;
 
 /* Block/count types */
-typedef long                blkcnt_t;
-typedef long                blksize_t;
+typedef long                blkcntt;
+typedef long                blksizet;
 
 /* Boolean style */
 #ifndef __cplusplus
@@ -70,7 +70,6 @@ typedef enum {
 #ifndef NULL
 #define NULL ((void *)0)
 #endif
-
 
 #ifdef cplusplus
 }
