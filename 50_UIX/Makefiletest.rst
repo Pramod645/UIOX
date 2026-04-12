@@ -336,3 +336,217 @@ build/$(BUILD)/bin/%: build/$(BUILD)/build/%.o $(O_FILES) $(STATIC_LIBRARY_OUTPU
 	mkdir -p $(@D)
 	$(CXX) $(ALL_LDFLAGS) $^ $(ALL_LDLIBS) -o $@
 endif
+/////////////////////////////////////////
+### rules for building library and objects files
+#1.the static library is built using th ar command , which archieves the object files into libkk.a
+#2.the obeject files are generated from the source files which the specified includes and flags.\
+the directory for object files is created if it does not exist.
+### warning and debugging
+#1.to help with debuuging , you can uncommented the info function to print the \
+information about the source and object files
+
+NAME= libkk.a # indicate the name of statis library
+CC := gcc#compiler
+CFLAGS := -Wall -g #compiler flags, -WLL enables all warning, and -g nenerates debug information
+SRCDIR := src # source file directory
+OBJDIR := obj # object file directory
+INCLUDES := -I/Users/pramodkumar/Hack/WS/Maketest/src
+
+#LFLAGS := -L/usr/local/lib64
+#LIBS :=-L. -lrabbitmq
+SRCS_RAW := test.c # alist of source files to complie. SRCS this transforms SRCS_RAW into a \
+complete  path by adding the source directory
+
+SRCS := $(addprefix $(SRCDIR)/,$(SRCS_RAW))
+OBJS := $(addprefix $(OBJDIR)/,$(SRCS_RAW:.c=.o))#this convert source files  into their \
+corresponding object file paths.
+
+.PHONY: all # a phone target that build  the statis library
+all: $(NAME)
+	@echo "$(MAKE) : All is genereted"
+
+$(NAME): $(OBJS)
+	ar rcs $(NAME) $(OBJS)
+	ranlib $(NAME)
+
+$(OBJDIR):
+	mkdir $(OBJDIR)
+
+$(OBJS): $(OBJDIR)/%.o: $(SRCDIR)/%.c | $(OBJDIR)
+	$(CC) $(CFLAGS) $(INCLUDES) -c $< -o $@
+
+.PHONY: clean
+clean:
+	$(RM) *~ $(NAME)
+	$(RM) -r $(OBJDIR)
+	////////////////////
+
+NAME= libkk.a
+CC := gcc
+CFLAGS := -Wall -g
+SRCDIR := src
+OBJDIR := obj
+INCLUDES := -I/Users/pramodkumar/Hack/WS/Maketest/src
+
+LFLAGS := -L/usr/local/lib64
+LIBS :=-L. -lrabbitmq
+SRCS_RAW := test.c 
+
+SRCS := $(addprefix $(SRCDIR)/,$(SRCS_RAW))
+OBJS := $(addprefix $(OBJDIR)/,$(SRCS_RAW:.c=.o))
+
+.PHONY: all
+all: $(NAME)
+	@echo "$(MAKE) : All is genereted"
+
+$(NAME): $(OBJS)
+	ar rcs $(NAME) $(OBJS)
+	ranlib $(NAME)
+
+$(OBJDIR):
+	mkdir $(OBJDIR)
+
+$(OBJS): $(OBJDIR)/%.o: $(SRCDIR)/%.c | $(OBJDIR)
+	$(CC) $(CFLAGS) $(INCLUDES) -c $< -o $@
+
+.PHONY: clean
+	clean:
+		$(RM) *~ $(NAME)
+		$(RM) -r $(OBJDIR)
+		///////
+# Compiler and flags
+CC       := gcc
+CFLAGS   := -Wall -Wextra -fPIC -O2
+AR       := ar
+ARFLAGS  := rcs
+
+# Project config
+LIB_NAME := mylib
+SRC_DIR  := src
+OBJ_DIR  := obj
+
+# Sources and objects
+SRCS     := $(wildcard $(SRC_DIR)/*.c)
+OBJS     := $(patsubst $(SRC_DIR)/%.c, $(OBJ_DIR)/%.o, $(SRCS))
+
+# Output targets
+STATIC   := lib$(LIB_NAME).a
+SHARED   := lib$(LIB_NAME).so
+
+# ─────────────────────────────────────────────
+.PHONY: all static shared clean
+
+all: static shared
+
+static: $(STATIC)
+
+shared: $(SHARED)
+
+# Static library
+$(STATIC): $(OBJS)
+	$(AR) $(ARFLAGS) $@ $^
+	@echo "Built static library: $@"
+
+# Shared library
+$(SHARED): $(OBJS)
+	$(CC) -shared -o $@ $^
+	@echo "Built shared library: $@"
+
+# Compile object files
+$(OBJ_DIR)/%.o: $(SRC_DIR)/%.c | $(OBJ_DIR)
+	$(CC) $(CFLAGS) -c $< -o $@
+
+# Create obj dir if missing
+$(OBJ_DIR):
+	mkdir -p $(OBJ_DIR)
+
+clean:
+	rm -rf $(OBJ_DIR) $(STATIC) $(SHARED)
+////
+Key points:
+
+-fPIC — position-independent code, required for shared libraries (harmless for static too, so it's unified here).
+ar rcs — creates/replaces the static archive with an index (s flag).
+-shared — tells the linker to produce a shared object instead of an executable.
+The | $(OBJ_DIR) order-only prerequisite ensures the directory exists before compilation without triggering unnecessary rebuilds.
+Typical layout expected:
+project/
+├── Makefile
+└── src/
+    ├── foo.c
+    └── bar.c
+Usage:
+make          # builds both
+make static   # static only
+make shared   # shared only
+make clean    # remove all build artifacts
+
+//////////
+can you provide Makefile to make executable with source files and also with static library?
+# Compiler and flags
+CC       := gcc
+CFLAGS   := -Wall -Wextra -O2
+LDFLAGS  :=
+LDLIBS   :=
+
+# Project config
+TARGET   := myapp
+SRC_DIR  := src
+OBJ_DIR  := obj
+
+# Static library config
+LIB_NAME := mylib
+LIB_DIR  := lib        # directory containing libmylib.a
+INC_DIR  := include    # directory containing library headers
+
+# Sources and objects (only app sources, not the library)
+SRCS     := $(wildcard $(SRC_DIR)/*.c)
+OBJS     := $(patsubst $(SRC_DIR)/%.c, $(OBJ_DIR)/%.o, $(SRCS))
+
+# Link flags
+LDFLAGS  += -L$(LIB_DIR)
+LDLIBS   += -l$(LIB_NAME)
+CFLAGS   += -I$(INC_DIR)
+
+# ─────────────────────────────────────────────
+.PHONY: all clean
+
+all: $(TARGET)
+
+# Link executable with static library
+$(TARGET): $(OBJS)
+	$(CC) $(CFLAGS) $^ -o $@ $(LDFLAGS) $(LDLIBS)
+	@echo "Built executable: $@"
+
+# Compile object files
+$(OBJ_DIR)/%.o: $(SRC_DIR)/%.c | $(OBJ_DIR)
+	$(CC) $(CFLAGS) -c $< -o $@
+
+# Create obj dir if missing
+$(OBJ_DIR):
+	mkdir -p $(OBJ_DIR)
+
+clean:
+	rm -rf $(OBJ_DIR) $(TARGET)
+Expected layout:
+project/
+├── Makefile
+├── src/
+│   ├── main.c
+│   └── utils.c
+├── include/
+│   └── mylib.h
+└── lib/
+    └── libmylib.a
+If the library lives in the same project and you want to build it first automatically, add a dependency on it:
+# Path to the static library
+STATIC_LIB := $(LIB_DIR)/lib$(LIB_NAME).a
+
+$(TARGET): $(OBJS) $(STATIC_LIB)
+	$(CC) $(CFLAGS) $^ -o $@ $(LDFLAGS) $(LDLIBS)
+This way, if libmylib.a is missing or out of date, Make will rebuild it before linking the executable.
+Usage:
+make        # build executable
+make clean  # remove build artifacts
+To force static linking (prevent fallback to a shared version of the same lib):
+LDLIBS += -Wl,-Bstatic -l$(LIB_NAME) -Wl,-Bdynamic
