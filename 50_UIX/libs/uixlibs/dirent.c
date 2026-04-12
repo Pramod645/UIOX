@@ -3,7 +3,9 @@
 #include <dirent.h>
 #include <errno.h>
 
-int dirent(int argc, char argv[]) {
+int dirent(/*int argc, char argv[]*/) {
+    int argc = 1;
+    char argv[] = ./usr;
     const char path = (argc > 1) ? argv[1] : ".";
     DIR dir;
     struct dirent entry;
