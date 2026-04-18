@@ -347,8 +347,8 @@ Build & Use
 #bash
 
 make              # builds both static and shared
-make static       # static only  → lib/libunixfs.a
-make shared       # shared only  → lib/libunixfs.so
+make static       # static only  → lib/libuioxscfs.a
+make shared       # shared only  → lib/libuioxscfs.so
 make clean
 
 */
@@ -356,6 +356,6 @@ make clean
 #Link your own program against the static library:
 #bash
 
-gcc main.c -Iinclude -Llib -lunixfs -o myapp
+gcc main.c -Iinclude -Llib -luioxscfs -o myapp
 
 */
