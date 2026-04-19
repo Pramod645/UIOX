@@ -1,0 +1,32 @@
+graph TD
+    subgraph Crawler["🕷️ Crawler / Spider"]
+        SEED["Seed URLs"]
+        FETCH["HTTP Fetcher"]
+        PARSE["HTML Parser"]
+        QUEUE["URL Queue"]
+    end
+
+    subgraph Indexer["📦 Indexer"]
+        TOKENIZE["Tokenizer"]
+        STOPWORD["Stop Word Filter"]
+        STEM["Stemmer"]
+        INVINDEX["Inverted Index\n(word → [doc1, doc2...])"]
+    end
+
+    subgraph Ranker["📊 Ranker"]
+        TFIDF["TF-IDF Scoring"]
+        PAGERANK["PageRank"]
+        RANK["Final Ranking"]
+    end
+
+    subgraph Query["🔍 Query Engine"]
+        INPUT["User Query"]
+        QPARSE["Query Parser"]
+        LOOKUP["Index Lookup"]
+        RESULTS["Ranked Results"]
+    end
+
+    SEED --> FETCH --> PARSE --> QUEUE --> FETCH
+    PARSE --> TOKENIZE --> STOPWORD --> STEM --> INVINDEX
+    INVINDEX --> TFIDF --> PAGERANK --> RANK
+    INPUT --> QPARSE --> LOOKUP --> RANK --> RESULTS

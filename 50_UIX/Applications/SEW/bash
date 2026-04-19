@@ -1,0 +1,21 @@
+pip install flask requests beautifulsoup4
+python app.py
+
+
+#Then open [127.0.0.1](http://127.0.0.1:5000) in your browser.
+
+
+#Component	Tech	Role
+#Crawler	requests + BeautifulSoup	Fetches and parses web pages
+#Indexer	Pure Python	Tokenizes, filters, builds inverted index
+#Ranker	TF-IDF	Scores documents against query
+#Web UI	Flask + HTML/CSS	Search interface
+
+
+
+#To crawl a real site
+#In app.py, replace the engine line with:
+engine = SearchEngine(
+    seed_url="[en.wikipedia.org](https://en.wikipedia.org/wiki/Python_(programming_language))",
+    max_pages=40
+)

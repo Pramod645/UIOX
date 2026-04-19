@@ -1,0 +1,82 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>MiniSearch</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: Arial, sans-serif; background: #f1f3f4; }
+
+    .header {
+      background: #4285f4; padding: 20px;
+      text-align: center; color: white;
+    }
+    .header h1 { font-size: 2rem; margin-bottom: 12px; }
+
+    .search-bar {
+      display: flex; justify-content: center; gap: 8px;
+    }
+    .search-bar input {
+      width: 500px; padding: 12px 16px;
+      font-size: 1rem; border: none; border-radius: 24px;
+      outline: none;
+    }
+    .search-bar button {
+      padding: 12px 24px; background: white; color: #4285f4;
+      border: none; border-radius: 24px; font-size: 1rem;
+      cursor: pointer; font-weight: bold;
+    }
+
+    .results { max-width: 700px; margin: 30px auto; }
+
+    .result-card {
+      background: white; border-radius: 8px;
+      padding: 16px 20px; margin-bottom: 16px;
+      box-shadow: 0 1px 4px rgba(0,0,0,0.1);
+    }
+    .result-card a {
+      font-size: 1.1rem; color: #1a0dab;
+      text-decoration: none; font-weight: bold;
+    }
+    .result-card a:hover { text-decoration: underline; }
+    .result-url  { color: #006621; font-size: 0.85rem; margin: 4px 0; }
+    .result-snippet { color: #444; font-size: 0.95rem; line-height: 1.5; }
+    .result-score { color: #999; font-size: 0.8rem; margin-top: 6px; }
+
+    .no-results { text-align: center; color: #666; margin-top: 40px; }
+  </style>
+</head>
+<body>
+
+<div class="header">
+  <h1>🔍 MiniSearch</h1>
+  <form method="POST">
+    <div class="search-bar">
+      <input type="text" name="query"
+             placeholder="Search the web..."
+             value="{{ query }}" autofocus>
+      <button type="submit">Search</button>
+    </div>
+  </form>
+</div>
+
+<div class="results">
+  {% if results %}
+    <p style="color:#666; margin-bottom:12px;">
+      {{ results|length }} result(s) for <strong>"{{ query }}"</strong>
+    </p>
+    {% for r in results %}
+    <div class="result-card">
+      <a href="{{ r.url }}" target="_blank">{{ r.title }}</a>
+      <div class="result-url">{{ r.url }}</div>
+      <div class="result-snippet">{{ r.snippet }}</div>
+      <div class="result-score">Relevance score: {{ r.score }}</div>
+    </div>
+    {% endfor %}
+  {% elif query %}
+    <div class="no-results">No results found for "<strong>{{ query }}</strong>".</div>
+  {% endif %}
+</div>
+
+</body>
+</html>
