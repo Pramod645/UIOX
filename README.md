@@ -1,5 +1,5 @@
 # UIOX
-UIOX as an whole system (Applications + sysmel calls + core funtinlity(kernel))
+UIOX as an whole system (Applications + sysmel calls + core functoinality(kernel))
 
 Types of kernels:
 
