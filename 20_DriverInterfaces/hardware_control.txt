@@ -1,0 +1,8 @@
+//hardware control
+Finally, the hardware control is responsible for handling interrupts and for
+ccmmunicating with the machine. Devices such as disks or terminals may interrupt
+the CPU while a process is executing. If so, the kernel may resume execution of
+the interrupted process after servicing the interrupt: Interrupts are not serviced by
+special processes but by special functions in the kernel, called in the context of the
+-
+currently running process.

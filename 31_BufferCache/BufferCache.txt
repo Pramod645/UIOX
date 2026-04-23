@@ -1,4 +1,15 @@
 /*
+1.algorithm getblk // 
+2.algonthm brelse //
+3.algorithm bread  //
+4.algorithm breada //block read and read ahead
+5.algorithm bwrite // block write
+6.
+
+*/
+
+
+/*
 The buffer is currently locked (looked is used busy sometyimes).
 The bufer contains valid data.
 The kernel must write the bfeer contents to disk before reassigning the buffer. this is knowas as delayed-write.
@@ -61,9 +72,52 @@ struct HashQueueHeaders{
 	uint8 *blockNumber[]; // block number and mod numbers ,anagements
 	
 };
+/*
+1.
 
+algorithm getblk
+input: file system .number
+block number
+output: locked buffer that can now be used for block
+{
+	while (buffer not found)
+	{
+		if (block in hash queue)
+		{
+			if (buffer busy)//scenario 5 •t
+			{
+				sleep (event buffer becomes free);
+			continue; //back to while loop 
+			}
+			mark buffer busy; //scenario 1 
+			remove buffer from free list;
+			return buffer;
+		}
+		else /* block not on hash queue */
+		{
+			if (there are no buffers on free list) t• s�nario 4 •t
+			{
+				sleep (event any buffer becomes free);
+				continue; /* back to while loop */
+			}
+			remove buffer from free list;
+			if (buffer marked for delayed write) { /* scenario 3 */
+			{
+				asynchronous write buffer to disk;
+				continue; //back to while loop 
+			}
+			//scenario 2 -- found a free buffer 
+			remove buffer from old hash queue;
+			put buffer onto new hash queue;
+			return buffer;
+		}
+	}
+}
+
+*/
 
 /*
+2. 
 Algorithm brelse use  to releasing the buffer.
 input: locked buffer
 output: node
@@ -84,6 +138,8 @@ output: node
 
 
 /*
+3.
+
 Algorithm bread use for reading a disk block.
 input: file system block number
 output: buffer containing data
@@ -99,6 +155,8 @@ output: buffer containing data
 
 
 /*
+4.
+
 Algorithm breada use for read and read ahead
 input: 1. file system block number for immediate read
 	   2. file system block number for asynchronous read
@@ -129,6 +187,8 @@ output: buffer coantaining data for immediate read
 */
 
 /*
+5.
+
 Algorithm bwrite for block write
 input: buffer
 output: none
