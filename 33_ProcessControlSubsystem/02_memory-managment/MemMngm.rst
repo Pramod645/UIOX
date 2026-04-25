@@ -1,6 +1,6 @@
-=========================================
+================================================================================================================
 Tagged Memory address in AArch64 UIOX
-=========================================
+================================================================================================================
 
 Author: Pramod Kumar <xxxxx>
 Memory Addess:
@@ -17,9 +17,9 @@ Linear Addess: A single 32-bit unsigned integer that can be used to address up t
 Physical Addess: address memory cells in memory chips.
 
 Seggment Selector/ Segmentations Registers/ Segment Identifier
-================================
+================================================================================================================
 |15 to 3 index    |TI|RPL1|RPL0|     
-================================
+================================================================================================================
 Seggment Registers: Code Segment(CS),stack Seggment(SS) and Data Seggment(DS)  
 
 Linear Addesses: 
@@ -59,9 +59,9 @@ When a cache miss occurs, the cache line is written to memory, if necessary, and
 UNIFORM PAGGING for 32 and 64 Bit Arch:
 Linear Addess 64 bits = Global Dir + Upper Dir +Middle Dir + Table + Offset
 Linear Addess 32 bits = Global Dir + Upper Dir:0bit + Middle Dir:0bit + Table + Offset
-================================
+==============================================================================================================
 Memory Management   
-================================
+==============================================================================================================
 1.How Kernel allocate dynamic memory to itself by below these three techniques
     a.Page frame Management(Handle physically contineous memory area)
         1.Page descriptors 2.NUMA, 3.Memory Zones, 4.Pool  of reserved page frames
