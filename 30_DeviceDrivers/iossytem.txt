@@ -244,6 +244,39 @@ algonthm login // procedure for logging in
 */
 /*
 //STREAMS
+t•  assume file descriptors 0 and  I  already refer to physical tty  */ 
+for  (;;)  ·I* loop */ 
+{  select(input);  /*  wait for some  line with in&>ut */ 
+read input line; 
+switch Oine with input data) 
+{ case physical tty:  1• input on physical tty line */ 
+t• e.g. create new window */ if (control command) 
+{  open a free pseudo-tty; 
+fork a new process: 
+if (parent) 
+{  push a msg discipline on mpx side; 
+·continue;  /* back to for loop */ 
+1• child here */ 
+close unnecessary file descriptors; 
+open other member of pseudo-tty pair, get 
+stdin,  stdout, stderr; 
+push tty line discipline; 
+exec shell;  J• looks like virtual tty •/ 
+1•  "regular" data  from tty coming up for virtual tty  */ 
+demultiplex data  read from physical tty, strip off 
+headers and write to appropriate pty; 
+continue;  /* back to for loop */ 
+case logical tty:  /* a virtual tty is writing a window */ 
+encode header indicating what window data is for; 
+write header and data to physical tty; 
+continue;  /* back to for loop */ 
+Figure  10.l4.  Pseudo-code for Multiplexing Windows 
+349 
+When  it  receives  notification  that  a  user  ·wants  to  cr.eate  a  new  window,  mpx 
+creates  a  pr�ss  to  control  the  new  window  and  commu!licates  with  it  ov�r  a 
+pseudo- terminal  (abbreviated pty ) .   A  pty  is a  software  device  that  operates  in 
+pairs:  Output directed to one  member of the pair is sent to the input of the other member; input is sent to the upstream module.  To set up .a window (Figure 1 0 .24), 
+mpx  allocates a pty  pair and  ope n s   one  member, establishing a  stream  to it (the driver open  insures that the pty was not previously allocated).  Mpx  fo rks,  a�d th-:: 
 
 
 */
