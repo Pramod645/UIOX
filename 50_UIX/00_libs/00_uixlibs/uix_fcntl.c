@@ -1,0 +1,43 @@
+#include "uix_fcntl.h"
+#include "uix_errno.h"
+#include "uix_stat.h"
+#include <stdarg.h>
+
+int uix_open(const char *path, int flags, ...)
+{
+    uix_mode_t mode = 0;
+    if (flags & UIX_O_CREAT) {
+        va_list ap; va_start(ap, flags);
+        mode = va_arg(ap, uix_mode_t);
+        va_end(ap);
+    }
+    extern int sys_open(const char *, int, uix_mode_t)
+        __attribute__((weak));
+    if (sys_open) return sys_open(path, flags, mode);
+    uix_errno = UIX_ENOENT;
+    return -1;
+}
+
+int uix_creat(const char *path, uix_mode_t mode)
+{
+    return uix_open(path, UIX_O_CREAT | UIX_O_WRONLY | UIX_O_TRUNC,
+                    mode);
+}
+
+int uix_fcntl(int fd, int cmd, ...)
+{
+    va_list ap; va_start(ap, cmd);
+    int arg = va_arg(ap, int);
+    va_end(ap);
+
+    extern int sys_fcntl(int, int, int) __attribute__((weak));
+    if (sys_fcntl) return sys_fcntl(fd, cmd, arg);
+
+    switch (cmd) {
+    case UIX_F_GETFD: return 0;
+    case UIX_F_SETFD: return 0;
+    case UIX_F_GETFL: return 0;
+    case UIX_F_SETFL: return 0;
+    default: uix_errno = UIX_EINVAL; return -1;
+    }
+}

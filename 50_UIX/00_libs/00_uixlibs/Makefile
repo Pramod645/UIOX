@@ -1,6 +1,15 @@
+makefile
+
+
+# ──────────────────────────────────────────────────────────────
+# UIOX Standard Libraries (00_uixlibs) — Complete Build
+# ──────────────────────────────────────────────────────────────
+
 # Compiler and flags
 CC       := gcc
 CFLAGS   := -Wall -Wextra -fPIC -O2
+#CFLAGS  := -Wall -Wextra -std=gnu99 -fPIC -O2 \
+           -Iinclude -ffreestanding -fno-builtin
 AR       := ar
 ARFLAGS  := rcs
 
