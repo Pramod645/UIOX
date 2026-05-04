@@ -51,5 +51,39 @@ void endpwent(void);
 
 #endif /* End  of POXIS */
 
+
+
+#ifndef UIX_PWD_H
+#define UIX_PWD_H
+
+#include "uix_types.h"
+
+typedef struct uix_passwd {
+    char      *pw_name;
+    char      *pw_passwd;
+    uix_uid_t  pw_uid;
+    uix_gid_t  pw_gid;
+    char      *pw_gecos;
+    char      *pw_dir;
+    char      *pw_shell;
+} uix_passwd_t;
+
+uix_passwd_t *uix_getpwuid  (uix_uid_t uid);
+uix_passwd_t *uix_getpwnam  (const char *name);
+int           uix_getpwuid_r(uix_uid_t uid, uix_passwd_t *pwd,
+                              char *buf, uix_size_t buflen,
+                              uix_passwd_t **result);
+int           uix_getpwnam_r(const char *name, uix_passwd_t *pwd,
+                              char *buf, uix_size_t buflen,
+                              uix_passwd_t **result);
+void          uix_setpwent  (void);
+void          uix_endpwent  (void);
+uix_passwd_t *uix_getpwent  (void);
+
+#endif /* UIX_PWD_H */
+
+
+
+
 #endif /* End of __UIX_PWD__H */
 /* ***This is End of file, there is no more line should be added after this line*** */

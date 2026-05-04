@@ -76,6 +76,7 @@ extern int openat64(int fd, const char file, int oflag, ...) nonnull((2));
 
 #endif /* End  of POXIS */
 
+#ifdef fcntl
 #ifdef _cplusplus
 extern "C" {
 #endif
@@ -131,6 +132,59 @@ int fcntl(int fd, int cmd, ...);
 #ifdef _cplusplus
 }
 #endif
+
+#endif
+
+#ifndef UIX_FCNTL_H
+#define UIX_FCNTL_H
+
+#include "uix_types.h"
+
+#define UIX_O_RDONLY    0x0000
+#define UIX_O_WRONLY    0x0001
+#define UIX_O_RDWR      0x0002
+#define UIX_O_CREAT     0x0040
+#define UIX_O_EXCL      0x0080
+#define UIX_O_NOCTTY    0x0100
+#define UIX_O_TRUNC     0x0200
+#define UIX_O_APPEND    0x0400
+#define UIX_O_NONBLOCK  0x0800
+#define UIX_O_SYNC      0x1000
+#define UIX_O_NOFOLLOW  0x2000
+#define UIX_O_DIRECTORY 0x4000
+#define UIX_O_CLOEXEC   0x80000
+
+#define UIX_F_DUPFD   0
+#define UIX_F_GETFD   1
+#define UIX_F_SETFD   2
+#define UIX_F_GETFL   3
+#define UIX_F_SETFL   4
+#define UIX_F_GETLK   5
+#define UIX_F_SETLK   6
+#define UIX_F_SETLKW  7
+#define UIX_F_GETOWN  9
+#define UIX_F_SETOWN  8
+
+#define UIX_FD_CLOEXEC 1
+
+#define UIX_F_RDLCK 0
+#define UIX_F_WRLCK 1
+#define UIX_F_UNLCK 2
+
+typedef struct uix_flock {
+    short     l_type;
+    short     l_whence;
+    uix_off_t l_start;
+    uix_off_t l_len;
+    uix_pid_t l_pid;
+} uix_flock_t;
+
+int uix_open (const char *path, int flags, ...);
+int uix_creat(const char *path, uix_mode_t mode);
+int uix_fcntl(int fd, int cmd, ...);
+
+#endif /* UIX_FCNTL_H */
+
 
 #endif /* End of __UIX_FCNTL__H */
 /* ***This is End of file, there is no more line should be added after this line*** */

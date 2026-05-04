@@ -76,5 +76,51 @@ typedef struct {
 
 #endif /* End  of POXIS and STDLIB*/
 
+#ifndef UIX_STDLIB_H
+#define UIX_STDLIB_H
+
+#include "uix_types.h"
+
+#define UIX_EXIT_SUCCESS  0
+#define UIX_EXIT_FAILURE  1
+#define UIX_RAND_MAX      32767
+
+void        *uix_malloc (uix_size_t size);
+void        *uix_calloc (uix_size_t nmemb, uix_size_t size);
+void        *uix_realloc(void *ptr, uix_size_t size);
+void         uix_free   (void *ptr);
+
+void         uix_exit   (int status) __attribute__((noreturn));
+void         uix_abort  (void)       __attribute__((noreturn));
+int          uix_atexit (void (*fn)(void));
+int          uix_system (const char *cmd);
+
+char        *uix_getenv  (const char *name);
+int          uix_setenv  (const char *name, const char *value, int overwrite);
+int          uix_unsetenv(const char *name);
+int          uix_putenv  (char *string);
+
+int          uix_atoi (const char *str);
+long         uix_atol (const char *str);
+double       uix_atof (const char *str);
+long         uix_strtol (const char *str, char **endptr, int base);
+unsigned long uix_strtoul(const char *str, char **endptr, int base);
+double       uix_strtod (const char *str, char **endptr);
+
+int          uix_abs (int x);
+long         uix_labs(long x);
+
+int          uix_rand (void);
+void         uix_srand(unsigned int seed);
+
+void         uix_qsort  (void *base, uix_size_t nmemb, uix_size_t size,
+                          int (*compar)(const void *, const void *));
+void        *uix_bsearch(const void *key, const void *base,
+                          uix_size_t nmemb, uix_size_t size,
+                          int (*compar)(const void *, const void *));
+
+#endif /* UIX_STDLIB_H */
+
+
 #endif /* End of __STDLIB__H */
 /* ***This is End of file, there is no more line should be added after this line*** */

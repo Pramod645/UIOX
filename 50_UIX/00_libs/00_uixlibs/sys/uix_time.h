@@ -88,5 +88,68 @@ int clockgetres(int clkid, struct timespec res);
 
 #endif /* End  of POXIS */
 
+#ifndef UIX_TIME_H
+#define UIX_TIME_H
+
+#include "uix_types.h"
+
+typedef struct uix_timespec {
+    uix_time_t tv_sec;
+    long       tv_nsec;
+} uix_timespec_t;
+
+typedef struct uix_timeval {
+    uix_time_t tv_sec;
+    long       tv_usec;
+} uix_timeval_t;
+
+typedef struct uix_tm {
+    int tm_sec;
+    int tm_min;
+    int tm_hour;
+    int tm_mday;
+    int tm_mon;
+    int tm_year;
+    int tm_wday;
+    int tm_yday;
+    int tm_isdst;
+} uix_tm_t;
+
+typedef struct uix_itimerval {
+    uix_timeval_t it_interval;
+    uix_timeval_t it_value;
+} uix_itimerval_t;
+
+#define UIX_CLOCK_REALTIME           0
+#define UIX_CLOCK_MONOTONIC          1
+#define UIX_CLOCK_PROCESS_CPUTIME_ID 2
+#define UIX_CLOCK_THREAD_CPUTIME_ID  3
+
+#define UIX_ITIMER_REAL    0
+#define UIX_ITIMER_VIRTUAL 1
+#define UIX_ITIMER_PROF    2
+
+uix_time_t   uix_time        (uix_time_t *tloc);
+int          uix_gettimeofday(uix_timeval_t *tv, void *tz);
+int          uix_settimeofday(const uix_timeval_t *tv, const void *tz);
+int          uix_clock_gettime(int clkid, uix_timespec_t *tp);
+int          uix_clock_settime(int clkid, const uix_timespec_t *tp);
+int          uix_clock_getres (int clkid, uix_timespec_t *res);
+int          uix_nanosleep   (const uix_timespec_t *req, uix_timespec_t *rem);
+int          uix_getitimer   (int which, uix_itimerval_t *curr);
+int          uix_setitimer   (int which, const uix_itimerval_t *new_val,
+                               uix_itimerval_t *old_val);
+uix_tm_t    *uix_gmtime      (const uix_time_t *timep);
+uix_tm_t    *uix_localtime   (const uix_time_t *timep);
+uix_time_t   uix_mktime      (uix_tm_t *tm);
+double       uix_difftime    (uix_time_t t1, uix_time_t t0);
+uix_size_t   uix_strftime    (char *s, uix_size_t max,
+                               const char *fmt, const uix_tm_t *tm);
+uix_clock_t  uix_clock       (void);
+
+#endif /* UIX_TIME_H */
+
+
+
 #endif /* End of __SYS_UIX_TIME__H */
 /* ***This is End of file, there is no more line should be added after this line*** */

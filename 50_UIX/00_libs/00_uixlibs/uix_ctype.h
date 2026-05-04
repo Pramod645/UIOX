@@ -49,6 +49,27 @@ int toupper(int c);
 
 #endif /* End  of POXIS and STDLIB */
 
+#ifndef UIX_CTYPE_H
+#define UIX_CTYPE_H
+
+int uix_isalpha (int c);
+int uix_isdigit (int c);
+int uix_isalnum (int c);
+int uix_isspace (int c);
+int uix_isupper (int c);
+int uix_islower (int c);
+int uix_ispunct (int c);
+int uix_isprint (int c);
+int uix_isgraph (int c);
+int uix_iscntrl (int c);
+int uix_isxdigit(int c);
+int uix_isblank (int c);
+int uix_toupper (int c);
+int uix_tolower (int c);
+
+#endif /* UIX_CTYPE_H */
+
+
 
 
 #endif /* End of __UIX_CTYPE__H */

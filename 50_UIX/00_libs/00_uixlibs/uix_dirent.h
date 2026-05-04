@@ -63,5 +63,57 @@ void seekdir(DIR dirp, long loc);
 
 #endif /* End  of POXIS */
 
+#ifndef UIX_DIRENT_H
+#define UIX_DIRENT_H
+
+#include "uix_types.h"
+
+#define UIX_NAME_MAX 255
+#define UIX_PATH_MAX 4096
+
+#define UIX_DT_UNKNOWN 0
+#define UIX_DT_FIFO    1
+#define UIX_DT_CHR     2
+#define UIX_DT_DIR     4
+#define UIX_DT_BLK     6
+#define UIX_DT_REG     8
+#define UIX_DT_LNK     10
+#define UIX_DT_SOCK    12
+
+typedef struct uix_dirent {
+    uix_ino_t      d_ino;
+    uix_off_t      d_off;
+    unsigned short d_reclen;
+    unsigned char  d_type;
+    char           d_name[UIX_NAME_MAX + 1];
+} uix_dirent_t;
+
+typedef struct uix_DIR {
+    int          fd;
+    char         buf[4096];
+    int          buf_pos;
+    int          buf_len;
+    uix_off_t    offset;
+    uix_dirent_t entry;
+} uix_DIR;
+
+uix_DIR      *uix_opendir   (const char *name);
+uix_DIR      *uix_fdopendir (int fd);
+uix_dirent_t *uix_readdir   (uix_DIR *dirp);
+int           uix_readdir_r (uix_DIR *dirp, uix_dirent_t *entry,
+                              uix_dirent_t **result);
+int           uix_closedir  (uix_DIR *dirp);
+void          uix_rewinddir (uix_DIR *dirp);
+long          uix_telldir   (uix_DIR *dirp);
+void          uix_seekdir   (uix_DIR *dirp, long loc);
+int           uix_scandir   (const char *path, uix_dirent_t ***namelist,
+                              int (*filter)(const uix_dirent_t *),
+                              int (*compar)(const uix_dirent_t **,
+                                            const uix_dirent_t **));
+int           uix_alphasort (const uix_dirent_t **a, const uix_dirent_t **b);
+
+#endif /* UIX_DIRENT_H */
+
+
 #endif /* End of __UIX_DIRENT__H */
 /* ***This is End of file, there is no more line should be added after this line*** */

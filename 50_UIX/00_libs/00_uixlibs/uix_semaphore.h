@@ -45,5 +45,35 @@ int semgetvalue(semt sem, int sval);
 
 #endif /* End  of POXIS */
 
+
+#ifndef UIX_SEMAPHORE_H
+#define UIX_SEMAPHORE_H
+
+#include "uix_types.h"
+#include "uix_time.h"
+
+typedef struct uix_sem {
+    volatile int value;
+    int          pshared;
+} uix_sem_t;
+
+#define UIX_SEM_FAILED ((uix_sem_t *)-1)
+
+int        uix_sem_init     (uix_sem_t *sem, int pshared, unsigned int value);
+int        uix_sem_destroy  (uix_sem_t *sem);
+int        uix_sem_wait     (uix_sem_t *sem);
+int        uix_sem_trywait  (uix_sem_t *sem);
+int        uix_sem_timedwait(uix_sem_t *sem, const uix_timespec_t *abs);
+int        uix_sem_post     (uix_sem_t *sem);
+int        uix_sem_getvalue (uix_sem_t *sem, int *sval);
+uix_sem_t *uix_sem_open     (const char *name, int oflag, ...);
+int        uix_sem_close    (uix_sem_t *sem);
+int        uix_sem_unlink   (const char *name);
+
+#endif /* UIX_SEMAPHORE_H */
+
+
+
+
 #endif /* End of __UIX_SEMAPHORE__H */
 /* ***This is End of file, there is no more line should be added after this line*** */

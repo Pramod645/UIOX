@@ -47,5 +47,36 @@ int schedrrgetinterval(pidt pid, struct timespec interval);
 
 #endif /* End  of POXIS */
 
+#ifndef UIX_SCHED_H
+#define UIX_SCHED_H
+
+#include "uix_types.h"
+#include "uix_time.h"
+
+#define UIX_SCHED_OTHER 0
+#define UIX_SCHED_FIFO  1
+#define UIX_SCHED_RR    2
+#define UIX_SCHED_BATCH 3
+#define UIX_SCHED_IDLE  5
+
+typedef struct uix_sched_param {
+    int sched_priority;
+} uix_sched_param_t;
+
+int uix_sched_setscheduler    (uix_pid_t pid, int policy,
+                                const uix_sched_param_t *param);
+int uix_sched_getscheduler    (uix_pid_t pid);
+int uix_sched_setparam        (uix_pid_t pid,
+                                const uix_sched_param_t *param);
+int uix_sched_getparam        (uix_pid_t pid, uix_sched_param_t *param);
+int uix_sched_get_priority_max(int policy);
+int uix_sched_get_priority_min(int policy);
+int uix_sched_rr_get_interval (uix_pid_t pid, uix_timespec_t *tp);
+int uix_sched_yield           (void);
+
+#endif /* UIX_SCHED_H */
+
+
+
 #endif /* End of __UIX_SCHED__H */
 /* ***This is End of file, there is no more line should be added after this line*** */

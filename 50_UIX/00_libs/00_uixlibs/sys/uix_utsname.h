@@ -36,5 +36,24 @@ int uname(struct utsname buf);
 
 #endif /* End  of POXIS */
 
+#ifndef UIX_UTSNAME_H
+#define UIX_UTSNAME_H
+
+#define UIX_UTSNAME_LENGTH 65
+
+typedef struct uix_utsname {
+    char sysname   [UIX_UTSNAME_LENGTH];
+    char nodename  [UIX_UTSNAME_LENGTH];
+    char release   [UIX_UTSNAME_LENGTH];
+    char version   [UIX_UTSNAME_LENGTH];
+    char machine   [UIX_UTSNAME_LENGTH];
+    char domainname[UIX_UTSNAME_LENGTH];
+} uix_utsname_t;
+
+int uix_uname(uix_utsname_t *buf);
+
+#endif /* UIX_UTSNAME_H */
+
+
 #endif /* End of __SYS_UTSNAME__H */
 /* ***This is End of file, there is no more line should be added after this line*** */

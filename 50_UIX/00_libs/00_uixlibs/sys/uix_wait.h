@@ -53,5 +53,33 @@ pidt waitpid(pidt pid, int status, int options);
 
 #endif /* End  of POXIS */
 
+
+#ifndef UIX_WAIT_H
+#define UIX_WAIT_H
+
+#include "uix_types.h"
+
+#define UIX_WNOHANG    1
+#define UIX_WUNTRACED  2
+#define UIX_WCONTINUED 8
+
+#define UIX_WIFEXITED(s)    (((s)&0x7f)==0)
+#define UIX_WEXITSTATUS(s)  (((s)>>8)&0xff)
+#define UIX_WIFSIGNALED(s)  (((s)&0x7f)!=0 && ((s)&0x7f)!=0x7f)
+#define UIX_WTERMSIG(s)     ((s)&0x7f)
+#define UIX_WIFSTOPPED(s)   (((s)&0xff)==0x7f)
+#define UIX_WSTOPSIG(s)     (((s)>>8)&0xff)
+#define UIX_WIFCONTINUED(s) ((s)==0xffff)
+
+uix_pid_t uix_wait   (int *wstatus);
+uix_pid_t uix_waitpid(uix_pid_t pid, int *wstatus, int options);
+uix_pid_t uix_wait3  (int *wstatus, int options, void *rusage);
+uix_pid_t uix_wait4  (uix_pid_t pid, int *wstatus, int options,
+                       void *rusage);
+
+#endif /* UIX_WAIT_H */
+
+
+
 #endif /* End of __SYS_UIX_WAIT__H */
 /* ***This is End of file, there is no more line should be added after this line*** */

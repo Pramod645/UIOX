@@ -1,162 +1,152 @@
 #include "uix_string.h"
-#include "uix_errno.h"
 #include "uix_stdlib.h"
 
-/* ── Memory functions ───────────────────────────────────────── */
-void *uix_memset(void *ptr, int value, uix_size_t n)
+uix_size_t uix_strlen(const char *s)
 {
-    unsigned char *p = (unsigned char *)ptr;
-    while (n--) *p++ = (unsigned char)value;
-    return ptr;
+    const char *p = s; while (*p) p++; return (uix_size_t)(p - s);
 }
 
-void *uix_memcpy(void *dest, const void *src, uix_size_t n)
+char *uix_strcpy(char *d, const char *s)
 {
-    unsigned char       *d = (unsigned char *)dest;
-    const unsigned char *s = (const unsigned char *)src;
-    while (n--) *d++ = *s++;
-    return dest;
+    char *r = d; while ((*d++ = *s++)); return r;
 }
 
-void *uix_memmove(void *dest, const void *src, uix_size_t n)
+char *uix_strncpy(char *d, const char *s, uix_size_t n)
 {
-    unsigned char       *d = (unsigned char *)dest;
-    const unsigned char *s = (const unsigned char *)src;
-    if (d < s) {
-        while (n--) *d++ = *s++;
-    } else {
-        d += n; s += n;
-        while (n--) *--d = *--s;
-    }
-    return dest;
-}
-
-int uix_memcmp(const void *s1, const void *s2, uix_size_t n)
-{
-    const unsigned char *p1 = s1, *p2 = s2;
-    while (n--) {
-        if (*p1 != *p2) return (int)*p1 - (int)*p2;
-        p1++; p2++;
-    }
-    return 0;
-}
-
-void *uix_memchr(const void *ptr, int value, uix_size_t n)
-{
-    const unsigned char *p = (const unsigned char *)ptr;
-    while (n--) {
-        if (*p == (unsigned char)value) return (void *)p;
-        p++;
-    }
-    return NULL;
-}
-
-/* ── String functions ───────────────────────────────────────── */
-uix_size_t uix_strlen(const char *str)
-{
-    const char *p = str;
-    while (*p) p++;
-    return (uix_size_t)(p - str);
-}
-
-char *uix_strcpy(char *dest, const char *src)
-{
-    char *d = dest;
-    while ((*d++ = *src++)) continue;
-    return dest;
-}
-
-char *uix_strncpy(char *dest, const char *src, uix_size_t n)
-{
-    char *d = dest;
-    while (n && (*d++ = *src++)) n--;
+    char *r = d;
+    while (n && (*d++ = *s++)) n--;
     while (n--) *d++ = '\0';
-    return dest;
+    return r;
 }
 
-char *uix_strcat(char *dest, const char *src)
+char *uix_strcat(char *d, const char *s)
 {
-    char *d = dest + uix_strlen(dest);
-    while ((*d++ = *src++)) continue;
-    return dest;
+    char *r = d; d += uix_strlen(d); while ((*d++ = *s++)); return r;
 }
 
-char *uix_strncat(char *dest, const char *src, uix_size_t n)
+char *uix_strncat(char *d, const char *s, uix_size_t n)
 {
-    char *d = dest + uix_strlen(dest);
-    while (n && *src) { *d++ = *src++; n--; }
-    *d = '\0';
-    return dest;
+    char *r = d; d += uix_strlen(d);
+    while (n-- && *s) *d++ = *s++;
+    *d = '\0'; return r;
 }
 
 int uix_strcmp(const char *s1, const char *s2)
 {
     while (*s1 && *s1 == *s2) { s1++; s2++; }
-    return (int)(unsigned char)*s1 - (int)(unsigned char)*s2;
+    return (unsigned char)*s1 - (unsigned char)*s2;
 }
 
 int uix_strncmp(const char *s1, const char *s2, uix_size_t n)
 {
     while (n && *s1 && *s1 == *s2) { s1++; s2++; n--; }
-    return n ? (int)(unsigned char)*s1 -
-               (int)(unsigned char)*s2 : 0;
+    return n ? (unsigned char)*s1 - (unsigned char)*s2 : 0;
 }
 
-char *uix_strchr(const char *str, int c)
+char *uix_strchr(const char *s, int c)
 {
-    while (*str) {
-        if (*str == (char)c) return (char *)str;
-        str++;
-    }
-    return ((char)c == '\0') ? (char *)str : NULL;
+    while (*s) { if (*s == (char)c) return (char*)s; s++; }
+    return ((char)c == '\0') ? (char*)s : NULL;
 }
 
-char *uix_strrchr(const char *str, int c)
+char *uix_strrchr(const char *s, int c)
 {
     const char *last = NULL;
-    while (*str) {
-        if (*str == (char)c) last = str;
-        str++;
-    }
-    return ((char)c == '\0') ? (char *)str : (char *)last;
+    while (*s) { if (*s == (char)c) last = s; s++; }
+    return ((char)c == '\0') ? (char*)s : (char*)last;
 }
 
-char *uix_strstr(const char *haystack, const char *needle)
+char *uix_strstr(const char *h, const char *n)
 {
-    if (!*needle) return (char *)haystack;
-    while (*haystack) {
-        const char *h = haystack, *n = needle;
-        while (*h && *n && *h == *n) { h++; n++; }
-        if (!*n) return (char *)haystack;
-        haystack++;
+    if (!*n) return (char*)h;
+    while (*h) {
+        const char *a = h, *b = n;
+        while (*a && *b && *a == *b) { a++; b++; }
+        if (!*b) return (char*)h;
+        h++;
     }
     return NULL;
 }
 
-char *uix_strtok(char *str, const char *delim)
+char *uix_strtok(char *s, const char *d)
 {
-    static char *saved = NULL;
-    if (str) saved = str;
-    if (!saved) return NULL;
-    while (*saved && uix_strchr(delim, *saved)) saved++;
-    if (!*saved) { saved = NULL; return NULL; }
-    char *token = saved;
-    while (*saved && !uix_strchr(delim, *saved)) saved++;
-    if (*saved) *saved++ = '\0';
-    else         saved   = NULL;
-    return token;
+    static char *sv;
+    if (s) sv = s;
+    if (!sv) return NULL;
+    while (*sv && uix_strchr(d, *sv)) sv++;
+    if (!*sv) { sv = NULL; return NULL; }
+    char *t = sv;
+    while (*sv && !uix_strchr(d, *sv)) sv++;
+    if (*sv) *sv++ = '\0'; else sv = NULL;
+    return t;
 }
 
-uix_size_t uix_strspn(const char *str, const char *accept)
+uix_size_t uix_strspn(const char *s, const char *a)
 {
     uix_size_t n = 0;
-    while (*str && uix_strchr(accept, *str)) { str++; n++; }
+    while (*s && uix_strchr(a, *s)) { s++; n++; }
     return n;
 }
 
-uix_size_t uix_strcspn(const char *str, const char *reject)
+uix_size_t uix_strcspn(const char *s, const char *r)
 {
     uix_size_t n = 0;
-    while (*str && !uix_strchr(reject, *str)) { str++; n++; }
+    while (*s && !uix_strchr(r, *s)) { s++; n++; }
     return n;
+}
+
+char *uix_strdup(const char *s)
+{
+    uix_size_t n = uix_strlen(s) + 1;
+    char *p = (char *)uix_malloc(n);
+    if (p) uix_memcpy(p, s, n);
+    return p;
+}
+
+char *uix_strndup(const char *s, uix_size_t n)
+{
+    uix_size_t len = uix_strlen(s);
+    if (len > n) len = n;
+    char *p = (char *)uix_malloc(len + 1);
+    if (p) { uix_memcpy(p, s, len); p[len] = '\0'; }
+    return p;
+}
+
+void *uix_memset(void *p, int v, uix_size_t n)
+{
+    unsigned char *d = (unsigned char*)p;
+    while (n--) *d++ = (unsigned char)v;
+    return p;
+}
+
+void *uix_memcpy(void *d, const void *s, uix_size_t n)
+{
+    unsigned char *dp = (unsigned char*)d;
+    const unsigned char *sp = (const unsigned char*)s;
+    while (n--) *dp++ = *sp++;
+    return d;
+}
+
+void *uix_memmove(void *d, const void *s, uix_size_t n)
+{
+    unsigned char *dp = (unsigned char*)d;
+    const unsigned char *sp = (const unsigned char*)s;
+    if (dp < sp) { while (n--) *dp++ = *sp++; }
+    else { dp += n; sp += n; while (n--) *--dp = *--sp; }
+    return d;
+}
+
+int uix_memcmp(const void *a, const void *b, uix_size_t n)
+{
+    const unsigned char *p = (const unsigned char*)a;
+    const unsigned char *q = (const unsigned char*)b;
+    while (n--) { if (*p != *q) return *p - *q; p++; q++; }
+    return 0;
+}
+
+void *uix_memchr(const void *s, int c, uix_size_t n)
+{
+    const unsigned char *p = (const unsigned char*)s;
+    while (n--) { if (*p == (unsigned char)c) return (void*)p; p++; }
+    return NULL;
 }

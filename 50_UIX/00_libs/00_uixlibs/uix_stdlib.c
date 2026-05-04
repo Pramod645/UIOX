@@ -2,330 +2,203 @@
 #include "uix_string.h"
 #include "uix_errno.h"
 
-/* ── Minimal heap allocator ─────────────────────────────────── */
-#define HEAP_SIZE   (4 * 1024 * 1024)   /* 4 MB */
+/* ── Heap ─────────────────────────────────────────────────── */
+#define HEAP_SIZE (8*1024*1024)
+static unsigned char _heap[HEAP_SIZE];
+typedef struct chunk { uix_size_t sz; int free; struct chunk *next; } chunk_t;
+static chunk_t *_head = NULL;
 
-static unsigned char heap[HEAP_SIZE];
-
-typedef struct chunk {
-    uix_size_t    size;     /* payload size (bytes)             */
-    int           free;     /* 1 = free, 0 = in use             */
-    struct chunk *next;
-} chunk_t;
-
-static chunk_t *heap_head = NULL;
-
-static void heap_init(void)
+static void _heap_init(void)
 {
-    heap_head        = (chunk_t *)heap;
-    heap_head->size  = HEAP_SIZE - sizeof(chunk_t);
-    heap_head->free  = 1;
-    heap_head->next  = NULL;
+    _head = (chunk_t*)_heap;
+    _head->sz   = HEAP_SIZE - sizeof(chunk_t);
+    _head->free = 1;
+    _head->next = NULL;
 }
 
-void *uix_malloc(uix_size_t size)
+void *uix_malloc(uix_size_t sz)
 {
-    if (!heap_head) heap_init();
-    if (size == 0) return NULL;
-
-    /* Align to 8 bytes */
-    size = (size + 7) & ~(uix_size_t)7;
-
-    chunk_t *c = heap_head;
-    while (c) {
-        if (c->free && c->size >= size) {
-            /* Split chunk if large enough */
-            if (c->size >= size + sizeof(chunk_t) + 8) {
-                chunk_t *new_c = (chunk_t *)
-                    ((unsigned char *)c + sizeof(chunk_t) + size);
-                new_c->size  = c->size - size - sizeof(chunk_t);
-                new_c->free  = 1;
-                new_c->next  = c->next;
-                c->next = new_c;
-                c->size = size;
-            }
-            c->free = 0;
-            return (void *)((unsigned char *)c + sizeof(chunk_t));
+    if (!_head) _heap_init();
+    if (!sz) return NULL;
+    sz = (sz+7)&~(uix_size_t)7;
+    for (chunk_t *c = _head; c; c = c->next) {
+        if (!c->free || c->sz < sz) continue;
+        if (c->sz >= sz + sizeof(chunk_t) + 8) {
+            chunk_t *n = (chunk_t*)((unsigned char*)c+sizeof(chunk_t)+sz);
+            n->sz   = c->sz - sz - sizeof(chunk_t);
+            n->free = 1;
+            n->next = c->next;
+            c->next = n;
+            c->sz   = sz;
         }
-        c = c->next;
+        c->free = 0;
+        return (void*)((unsigned char*)c + sizeof(chunk_t));
     }
-    uix_errno = UIX_ENOMEM;
-    return NULL;
+    uix_errno = UIX_ENOMEM; return NULL;
 }
 
-void *uix_calloc(uix_size_t nmemb, uix_size_t size)
+void *uix_calloc(uix_size_t n, uix_size_t sz)
 {
-    uix_size_t total = nmemb * size;
-    void *ptr = uix_malloc(total);
-    if (ptr) uix_memset(ptr, 0, total);
-    return ptr;
+    void *p = uix_malloc(n*sz);
+    if (p) uix_memset(p, 0, n*sz);
+    return p;
 }
 
-void *uix_realloc(void *ptr, uix_size_t size)
+void *uix_realloc(void *ptr, uix_size_t sz)
 {
-    if (!ptr)   return uix_malloc(size);
-    if (!size)  { uix_free(ptr); return NULL; }
-
-    chunk_t *c = (chunk_t *)((unsigned char *)ptr - sizeof(chunk_t));
-    if (c->size >= size) return ptr;
-
-    void *new_ptr = uix_malloc(size);
-    if (!new_ptr) return NULL;
-    uix_memcpy(new_ptr, ptr, c->size);
+    if (!ptr) return uix_malloc(sz);
+    if (!sz)  { uix_free(ptr); return NULL; }
+    chunk_t *c = (chunk_t*)((unsigned char*)ptr - sizeof(chunk_t));
+    if (c->sz >= sz) return ptr;
+    void *np = uix_malloc(sz);
+    if (!np) return NULL;
+    uix_memcpy(np, ptr, c->sz);
     uix_free(ptr);
-    return new_ptr;
+    return np;
 }
 
 void uix_free(void *ptr)
 {
     if (!ptr) return;
-    chunk_t *c = (chunk_t *)((unsigned char *)ptr - sizeof(chunk_t));
+    chunk_t *c = (chunk_t*)((unsigned char*)ptr - sizeof(chunk_t));
     c->free = 1;
-
-    /* Coalesce adjacent free chunks */
-    chunk_t *cur = heap_head;
-    while (cur && cur->next) {
-        if (cur->free && cur->next->free) {
-            cur->size += sizeof(chunk_t) + cur->next->size;
-            cur->next  = cur->next->next;
-        } else {
-            cur = cur->next;
+    for (chunk_t *p = _head; p && p->next; p = p->next)
+        if (p->free && p->next->free) {
+            p->sz  += sizeof(chunk_t) + p->next->sz;
+            p->next = p->next->next;
         }
-    }
 }
 
-/* ── Process control ────────────────────────────────────────── */
-static void (*atexit_funcs[32])(void);
-static int   atexit_count = 0;
+/* ── atexit ──────────────────────────────────────────────── */
+static void (*_atexit[64])(void);
+static int   _atexit_n = 0;
 
-int uix_atexit(void (*function)(void))
-{
-    if (atexit_count >= 32) return -1;
-    atexit_funcs[atexit_count++] = function;
-    return 0;
-}
+int  uix_atexit(void (*fn)(void)) { if (_atexit_n>=64) return -1; _atexit[_atexit_n++]=fn; return 0; }
+void uix_exit  (int s) { for (int i=_atexit_n-1;i>=0;i--) _atexit[i](); (void)s; while(1){} }
+void uix_abort (void)  { while(1){} }
+int  uix_system(const char *c) { (void)c; return -1; }
 
-void uix_exit(int status)
-{
-    for (int i = atexit_count - 1; i >= 0; i--)
-        atexit_funcs[i]();
-    (void)status;
-    while (1) {}   /* halt — real impl calls sys_exit() */
-}
-
-void uix_abort(void)
-{
-    while (1) {}
-}
-
-int uix_system(const char *command)
-{
-    (void)command;
-    return -1;   /* stub */
-}
-
-/* ── Environment ─────────────────────────────────────────────── */
-static char *env_store[256];
-static int   env_count = 0;
+/* ── env ─────────────────────────────────────────────────── */
+static char *_env[256]; static int _envc=0;
 
 char *uix_getenv(const char *name)
 {
-    uix_size_t len = uix_strlen(name);
-    for (int i = 0; i < env_count; i++) {
-        if (uix_strncmp(env_store[i], name, len) == 0 &&
-            env_store[i][len] == '=')
-            return env_store[i] + len + 1;
-    }
+    uix_size_t l = uix_strlen(name);
+    for (int i=0;i<_envc;i++)
+        if (!uix_strncmp(_env[i],name,l) && _env[i][l]=='=') return _env[i]+l+1;
     return NULL;
 }
-
-int uix_setenv(const char *name, const char *value, int overwrite)
+int uix_setenv(const char *n, const char *v, int ow)
 {
-    uix_size_t nlen = uix_strlen(name);
-    uix_size_t vlen = uix_strlen(value);
-
-    for (int i = 0; i < env_count; i++) {
-        if (uix_strncmp(env_store[i], name, nlen) == 0 &&
-            env_store[i][nlen] == '=') {
-            if (!overwrite) return 0;
-            char *entry = uix_malloc(nlen + 1 + vlen + 1);
-            if (!entry) return -1;
-            uix_strcpy(entry, name);
-            entry[nlen] = '=';
-            uix_strcpy(entry + nlen + 1, value);
-            uix_free(env_store[i]);
-            env_store[i] = entry;
-            return 0;
+    uix_size_t nl=uix_strlen(n), vl=uix_strlen(v);
+    for (int i=0;i<_envc;i++)
+        if (!uix_strncmp(_env[i],n,nl) && _env[i][nl]=='=') {
+            if (!ow) return 0;
+            char *e = (char*)uix_malloc(nl+1+vl+1);
+            if (!e) return -1;
+            uix_memcpy(e,n,nl); e[nl]='='; uix_memcpy(e+nl+1,v,vl+1);
+            uix_free(_env[i]); _env[i]=e; return 0;
         }
-    }
-    if (env_count >= 256) { uix_errno = UIX_ENOMEM; return -1; }
-    char *entry = uix_malloc(nlen + 1 + vlen + 1);
-    if (!entry) return -1;
-    uix_strcpy(entry, name);
-    entry[nlen] = '=';
-    uix_strcpy(entry + nlen + 1, value);
-    env_store[env_count++] = entry;
+    if (_envc>=256) return -1;
+    char *e=(char*)uix_malloc(nl+1+vl+1);
+    if (!e) return -1;
+    uix_memcpy(e,n,nl); e[nl]='='; uix_memcpy(e+nl+1,v,vl+1);
+    _env[_envc++]=e; return 0;
+}
+int uix_unsetenv(const char *n)
+{
+    uix_size_t l=uix_strlen(n);
+    for (int i=0;i<_envc;i++)
+        if (!uix_strncmp(_env[i],n,l) && _env[i][l]=='=') {
+            uix_free(_env[i]); _env[i]=_env[--_envc]; return 0; }
     return 0;
 }
-
-int uix_unsetenv(const char *name)
+int uix_putenv(char *s)
 {
-    uix_size_t len = uix_strlen(name);
-    for (int i = 0; i < env_count; i++) {
-        if (uix_strncmp(env_store[i], name, len) == 0 &&
-            env_store[i][len] == '=') {
-            uix_free(env_store[i]);
-            env_store[i] = env_store[--env_count];
-            return 0;
-        }
-    }
-    return 0;
-}
-
-int uix_putenv(char *string)
-{
-    char *eq = uix_strchr(string, '=');
+    char *eq=uix_strchr(s,'=');
     if (!eq) return -1;
-    *eq = '\0';
-    int r = uix_setenv(string, eq + 1, 1);
-    *eq = '=';
-    return r;
+    *eq='\0'; int r=uix_setenv(s,eq+1,1); *eq='='; return r;
 }
 
-/* ── Number conversion ──────────────────────────────────────── */
-int uix_atoi(const char *str)
-{
-    int result = 0, sign = 1;
-    while (*str == ' ' || *str == '\t') str++;
-    if (*str == '-') { sign = -1; str++; }
-    else if (*str == '+') str++;
-    while (*str >= '0' && *str <= '9')
-        result = result * 10 + (*str++ - '0');
-    return sign * result;
-}
+/* ── conversions ─────────────────────────────────────────── */
+int  uix_atoi(const char *s) { return (int)uix_strtol(s,NULL,10); }
+long uix_atol(const char *s) { return uix_strtol(s,NULL,10); }
+double uix_atof(const char *s) { return uix_strtod(s,NULL); }
 
-long uix_atol(const char *str)
+long uix_strtol(const char *s, char **ep, int base)
 {
-    long result = 0;
-    int  sign   = 1;
-    while (*str == ' ' || *str == '\t') str++;
-    if (*str == '-') { sign = -1; str++; }
-    else if (*str == '+') str++;
-    while (*str >= '0' && *str <= '9')
-        result = result * 10 + (*str++ - '0');
-    return sign * result;
-}
-
-double uix_atof(const char *str)
-{
-    return uix_strtod(str, NULL);
-}
-
-long uix_strtol(const char *str, char **endptr, int base)
-{
-    long result = 0;
-    int  sign   = 1;
-    while (*str == ' ' || *str == '\t') str++;
-    if (*str == '-') { sign = -1; str++; }
-    else if (*str == '+') str++;
-    if (base == 0) {
-        if (*str == '0' && (*(str+1) == 'x' || *(str+1) == 'X'))
-            { base = 16; str += 2; }
-        else if (*str == '0') { base = 8; str++; }
-        else base = 10;
+    long r=0; int sg=1;
+    while (uix_isspace((unsigned char)*s)) s++;
+    if (*s=='-'){sg=-1;s++;} else if (*s=='+') s++;
+    if (base==0) {
+        if (*s=='0'&&(s[1]=='x'||s[1]=='X')){base=16;s+=2;}
+        else if (*s=='0'){base=8;s++;}
+        else base=10;
     }
-    while (*str) {
-        int digit;
-        if (*str >= '0' && *str <= '9')      digit = *str - '0';
-        else if (*str >= 'a' && *str <= 'f') digit = *str - 'a' + 10;
-        else if (*str >= 'A' && *str <= 'F') digit = *str - 'A' + 10;
+    while (*s) {
+        int d;
+        if (*s>='0'&&*s<='9') d=*s-'0';
+        else if (*s>='a'&&*s<='f') d=*s-'a'+10;
+        else if (*s>='A'&&*s<='F') d=*s-'A'+10;
         else break;
-        if (digit >= base) break;
-        result = result * base + digit;
-        str++;
+        if (d>=base) break;
+        r=r*base+d; s++;
     }
-    if (endptr) *endptr = (char *)str;
-    return sign * result;
+    if (ep) *ep=(char*)s;
+    return sg*r;
+}
+unsigned long uix_strtoul(const char *s, char **ep, int base)
+{ return (unsigned long)uix_strtol(s,ep,base); }
+double uix_strtod(const char *s, char **ep)
+{
+    double r=0,f=1; int sg=1;
+    while (uix_isspace((unsigned char)*s)) s++;
+    if (*s=='-'){sg=-1;s++;} else if (*s=='+') s++;
+    while (*s>='0'&&*s<='9') r=r*10+(*s++-'0');
+    if (*s=='.'){s++; while(*s>='0'&&*s<='9'){f/=10;r+=(*s++-'0')*f;}}
+    if (ep) *ep=(char*)s;
+    return sg*r;
 }
 
-unsigned long uix_strtoul(const char *str, char **endptr, int base)
+int  uix_abs (int  x) { return x<0?-x:x; }
+long uix_labs(long x) { return x<0?-x:x; }
+
+static unsigned long _rseed=1;
+int  uix_rand (void) { _rseed=_rseed*1103515245UL+12345UL; return (int)((_rseed>>16)&0x7FFF); }
+void uix_srand(unsigned int s) { _rseed=s; }
+
+void uix_qsort(void *base, uix_size_t n, uix_size_t sz,
+               int(*cmp)(const void*,const void*))
 {
-    return (unsigned long)uix_strtol(str, endptr, base);
-}
-
-double uix_strtod(const char *str, char **endptr)
-{
-    double result = 0.0, frac = 1.0;
-    int    sign   = 1;
-    while (*str == ' ' || *str == '\t') str++;
-    if (*str == '-') { sign = -1; str++; }
-    else if (*str == '+') str++;
-    while (*str >= '0' && *str <= '9')
-        result = result * 10.0 + (*str++ - '0');
-    if (*str == '.') {
-        str++;
-        while (*str >= '0' && *str <= '9') {
-            frac  /= 10.0;
-            result += (*str++ - '0') * frac;
-        }
-    }
-    if (endptr) *endptr = (char *)str;
-    return sign * result;
-}
-
-/* ── Math ────────────────────────────────────────────────────── */
-int  uix_abs (int  x) { return x < 0 ? -x : x; }
-long uix_labs(long x) { return x < 0 ? -x : x; }
-
-/* ── Random ──────────────────────────────────────────────────── */
-static unsigned long uix_rand_seed = 1;
-
-int uix_rand(void)
-{
-    uix_rand_seed = uix_rand_seed * 1103515245UL + 12345UL;
-    return (int)((uix_rand_seed >> 16) & 0x7FFF);
-}
-
-void uix_srand(unsigned int seed) { uix_rand_seed = seed; }
-
-/* ── Sorting ─────────────────────────────────────────────────── */
-void uix_qsort(void *base, uix_size_t nmemb, uix_size_t size,
-               int (*compar)(const void *, const void *))
-{
-    if (nmemb < 2) return;
-    unsigned char *arr = (unsigned char *)base;
-    unsigned char *tmp = uix_malloc(size);
+    if (n<2) return;
+    unsigned char *a=(unsigned char*)base;
+    unsigned char *tmp=(unsigned char*)uix_malloc(sz);
     if (!tmp) return;
-
-    /* Insertion sort (simple, adequate for UIOX) */
-    for (uix_size_t i = 1; i < nmemb; i++) {
-        uix_memcpy(tmp, arr + i * size, size);
-        uix_ssize_t j = (uix_ssize_t)i - 1;
-        while (j >= 0 &&
-               compar(arr + j * size, tmp) > 0) {
-            uix_memcpy(arr + (j + 1) * size,
-                       arr + j * size, size);
-            j--;
+    for (uix_size_t i=1;i<n;i++){
+        uix_memcpy(tmp,a+i*sz,sz);
+        uix_ssize_t j=(uix_ssize_t)i-1;
+        while (j>=0 && cmp(a+j*sz,tmp)>0) {
+            uix_memcpy(a+(j+1)*sz,a+j*sz,sz); j--;
         }
-        uix_memcpy(arr + (j + 1) * size, tmp, size);
+        uix_memcpy(a+(j+1)*sz,tmp,sz);
     }
     uix_free(tmp);
 }
 
 void *uix_bsearch(const void *key, const void *base,
-                  uix_size_t nmemb, uix_size_t size,
-                  int (*compar)(const void *, const void *))
+                  uix_size_t n, uix_size_t sz,
+                  int(*cmp)(const void*,const void*))
 {
-    const unsigned char *arr = (const unsigned char *)base;
-    uix_size_t lo = 0, hi = nmemb;
-
-    while (lo < hi) {
-        uix_size_t  mid = lo + (hi - lo) / 2;
-        const void *mid_ptr = arr + mid * size;
-        int cmp = compar(key, mid_ptr);
-        if      (cmp == 0) return (void *)mid_ptr;
-        else if (cmp <  0) hi  = mid;
-        else               lo  = mid + 1;
+    const unsigned char *a=(const unsigned char*)base;
+    uix_size_t lo=0,hi=n;
+    while (lo<hi){
+        uix_size_t mid=lo+(hi-lo)/2;
+        int c=cmp(key,a+mid*sz);
+        if (c==0) return (void*)(a+mid*sz);
+        else if (c<0) hi=mid; else lo=mid+1;
     }
     return NULL;
 }
+
+/* isspace needed above — keep reference here */
+int uix_isspace(int c);

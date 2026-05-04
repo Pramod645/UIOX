@@ -103,5 +103,54 @@ int setpriority(int which, idt who, int prio);
 
 #endif /* End  of POXIS */
 
+#ifndef UIX_RESOURCE_H
+#define UIX_RESOURCE_H
+
+#include "uix_types.h"
+#include "uix_time.h"
+
+#define UIX_RLIMIT_CPU     0
+#define UIX_RLIMIT_FSIZE   1
+#define UIX_RLIMIT_DATA    2
+#define UIX_RLIMIT_STACK   3
+#define UIX_RLIMIT_CORE    4
+#define UIX_RLIMIT_RSS     5
+#define UIX_RLIMIT_NPROC   6
+#define UIX_RLIMIT_NOFILE  7
+#define UIX_RLIMIT_MEMLOCK 8
+#define UIX_RLIMIT_AS      9
+#define UIX_RLIM_NLIMITS   10
+#define UIX_RLIM_INFINITY  (~0UL)
+
+#define UIX_RUSAGE_SELF     0
+#define UIX_RUSAGE_CHILDREN (-1)
+
+typedef struct uix_rlimit {
+    uix_uint64_t rlim_cur;
+    uix_uint64_t rlim_max;
+} uix_rlimit_t;
+
+typedef struct uix_rusage {
+    uix_timeval_t ru_utime;
+    uix_timeval_t ru_stime;
+    long ru_maxrss;
+    long ru_minflt;
+    long ru_majflt;
+    long ru_inblock;
+    long ru_oublock;
+    long ru_nvcsw;
+    long ru_nivcsw;
+} uix_rusage_t;
+
+int uix_getrlimit  (int resource, uix_rlimit_t *rlim);
+int uix_setrlimit  (int resource, const uix_rlimit_t *rlim);
+int uix_getrusage  (int who, uix_rusage_t *usage);
+int uix_getpriority(int which, int who);
+int uix_setpriority(int which, int who, int prio);
+
+#endif /* UIX_RESOURCE_H */
+
+
+
 #endif /* End of __SYS_UIX_RESOURCE__H */
 /* ***This is End of file, there is no more line should be added after this line*** */
