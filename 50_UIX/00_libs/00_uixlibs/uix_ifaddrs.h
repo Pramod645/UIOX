@@ -60,17 +60,17 @@ void freeifaddrs(struct ifaddrs ifa);
 #include "uix_socket.h"
 
 typedef struct uix_ifaddrs {
-    struct uix_ifaddrs  *ifa_next;
-    char                *ifa_name;
-    unsigned int         ifa_flags;
-    uix_sockaddr_t      *ifa_addr;
-    uix_sockaddr_t      *ifa_netmask;
+    struct uix_ifaddrs  *ifa_next;     // Next interface in linked list
+    char                *ifa_name;    // Interface name
+    unsigned int         ifa_flags;   // Interface flags (IFF_*)
+    uix_sockaddr_t      *ifa_addr;    // Interface address
+    uix_sockaddr_t      *ifa_netmask;    // Network mask
     uix_sockaddr_t      *ifa_broadaddr;
     void                *ifa_data;
 } uix_ifaddrs_t;
 
-int  uix_getifaddrs(uix_ifaddrs_t **ifap);
-void uix_freeifaddrs(uix_ifaddrs_t *ifa);
+int  uix_getifaddrs(uix_ifaddrs_t **ifap);   // Gets list of all interface addresses — POSIX
+void uix_freeifaddrs(uix_ifaddrs_t *ifa);    // Frees linked list from getifaddrs()
 
 #endif /* UIX_IFADDRS_H */
 

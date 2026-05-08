@@ -13,7 +13,7 @@ Overview
 */
 /* This is for only POXIS */
 
-#include "features.h"
+#include "uix_features.h"
 
 #include <sys/types.h>
 
@@ -51,26 +51,28 @@ void endgrent(void);
 #ifndef UIX_GRP_H
 #define UIX_GRP_H
 
-#include "uix_types.h"
+#include "sys/uix_types.h"
 
 typedef struct uix_group {
-    char      *gr_name;
+    char      *gr_name;      // Group name
     char      *gr_passwd;
-    uix_gid_t  gr_gid;
-    char     **gr_mem;
+    uix_gid_t  gr_gid;       // Group ID
+    char     **gr_mem;      // Null-terminated array of member names
 } uix_group_t;
 
-uix_group_t *uix_getgrgid  (uix_gid_t gid);
-uix_group_t *uix_getgrnam  (const char *name);
+uix_group_t *uix_getgrgid  (uix_gid_t gid); // Looks up group by GID
+uix_group_t *uix_getgrnam  (const char *name);  // Looks up group by name
+
+/* Reentrant version — POSIX */
 int          uix_getgrgid_r(uix_gid_t gid, uix_group_t *grp,
                              char *buf, uix_size_t buflen,
                              uix_group_t **result);
 int          uix_getgrnam_r(const char *name, uix_group_t *grp,
                              char *buf, uix_size_t buflen,
                              uix_group_t **result);
-void         uix_setgrent  (void);
+void         uix_setgrent  (void);   // Rewinds group database
 void         uix_endgrent  (void);
-uix_group_t *uix_getgrent  (void);
+uix_group_t *uix_getgrent  (void);  // Returns next group entry
 
 #endif /* UIX_GRP_H */
 

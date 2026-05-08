@@ -27,7 +27,7 @@ extern "C" {
 #ifndef UIX_STDNORETURN_H
 #define UIX_STDNORETURN_H
 
-#define uix_noreturn   __attribute__((noreturn))
+#define uix_noreturn   __attribute__((noreturn)) //C11 _Noreturn — tells compiler function never returns, enables optimization. Applied to exit(), abort(), pthread_exit()
 #define UIX_NORETURN   __attribute__((noreturn))
 
 #endif /* UIX_STDNORETURN_H */

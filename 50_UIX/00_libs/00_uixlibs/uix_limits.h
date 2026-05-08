@@ -66,7 +66,7 @@ define CHARMAX 127
 #ifndef UIX_LIMITS_H
 #define UIX_LIMITS_H
 
-#define UIX_CHAR_BIT    8
+#define UIX_CHAR_BIT    8 // Bits per char — POSIX mandates minimum 8, glibc always 8 on x86
 #define UIX_SCHAR_MIN   (-128)
 #define UIX_SCHAR_MAX   127
 #define UIX_UCHAR_MAX   255
@@ -75,7 +75,7 @@ define CHARMAX 127
 #define UIX_SHRT_MIN    (-32768)
 #define UIX_SHRT_MAX    32767
 #define UIX_USHRT_MAX   65535U
-#define UIX_INT_MIN     (-2147483647 - 1)
+#define UIX_INT_MIN     (-2147483647 - 1) //Written as subtraction to avoid signed overflow — same technique in glibc
 #define UIX_INT_MAX     2147483647
 #define UIX_UINT_MAX    4294967295U
 #define UIX_LONG_MIN    (-9223372036854775807L - 1L)
@@ -85,12 +85,12 @@ define CHARMAX 127
 #define UIX_LLONG_MAX   9223372036854775807LL
 #define UIX_ULLONG_MAX  18446744073709551615ULL
 
-#define UIX_PATH_MAX        4096
-#define UIX_NAME_MAX        255
+#define UIX_PATH_MAX        4096 // Maximum path length — POSIX PATH_MAX, glibc defines same value
+#define UIX_NAME_MAX        255 // Maximum filename length — POSIX NAME_MAX, filesystem-dependent
 #define UIX_ARG_MAX         131072
 #define UIX_CHILD_MAX       64
-#define UIX_OPEN_MAX        128
-#define UIX_PIPE_BUF        512
+#define UIX_OPEN_MAX        128 // Max simultaneously open files — POSIX OPEN_MAX
+#define UIX_PIPE_BUF        512 // Minimum atomic write size to a pipe — POSIX guarantees at least 512 bytes
 #define UIX_HOST_NAME_MAX   64
 #define UIX_LOGIN_NAME_MAX  256
 #define UIX_LINE_MAX        4096
@@ -101,7 +101,7 @@ define CHARMAX 127
 #define UIX_DBL_MAX       1.7976931348623157e+308
 #define UIX_DBL_MIN       2.2250738585072014e-308
 #define UIX_FLT_EPSILON   1.19209290e-07F
-#define UIX_DBL_EPSILON   2.2204460492503131e-16
+#define UIX_DBL_EPSILON   2.2204460492503131e-16 // Smallest double s.t. 1.0+epsilon != 1.0 — from <float.h> / C99
 #define UIX_FLT_DIG       6
 #define UIX_DBL_DIG       15
 

@@ -27,9 +27,9 @@ extern "C" {
 #define UIX_STDCKDINT_H
 
 /* Checked integer arithmetic (C23) */
-#define uix_ckd_add(res, a, b) __builtin_add_overflow((a),(b),(res))
-#define uix_ckd_sub(res, a, b) __builtin_sub_overflow((a),(b),(res))
-#define uix_ckd_mul(res, a, b) __builtin_mul_overflow((a),(b),(res))
+#define uix_ckd_add(res, a, b) __builtin_add_overflow((a),(b),(res)) //Checked addition — returns true if overflow occurred, C23 standard
+#define uix_ckd_sub(res, a, b) __builtin_sub_overflow((a),(b),(res)) //Checked subtraction — maps to __builtin_sub_overflow()
+#define uix_ckd_mul(res, a, b) __builtin_mul_overflow((a),(b),(res)) //Checked multiplication — prevents silent integer overflow bugs
 
 #endif /* UIX_STDCKDINT_H */
 

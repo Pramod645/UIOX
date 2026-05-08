@@ -9,7 +9,7 @@ current system (like OS name, version, and machine type).
 */
 /* This is for only POXIS */
 
-#include "features.h"
+#include "uix_features.h"
 
 #if  (define __POSIX)
 
@@ -42,15 +42,15 @@ int uname(struct utsname buf);
 #define UIX_UTSNAME_LENGTH 65
 
 typedef struct uix_utsname {
-    char sysname   [UIX_UTSNAME_LENGTH];
-    char nodename  [UIX_UTSNAME_LENGTH];
-    char release   [UIX_UTSNAME_LENGTH];
-    char version   [UIX_UTSNAME_LENGTH];
-    char machine   [UIX_UTSNAME_LENGTH];
-    char domainname[UIX_UTSNAME_LENGTH];
+    char sysname   [UIX_UTSNAME_LENGTH];  // Operating system name (e.g. "UIOX")
+    char nodename  [UIX_UTSNAME_LENGTH];  // Network node hostname
+    char release   [UIX_UTSNAME_LENGTH];  // OS release version
+    char version   [UIX_UTSNAME_LENGTH];  // OS version string
+    char machine   [UIX_UTSNAME_LENGTH];  // Hardware type (e.g., "x86_64")
+    char domainname[UIX_UTSNAME_LENGTH];  // NIS domain name — UIOX extension
 } uix_utsname_t;
 
-int uix_uname(uix_utsname_t *buf);
+int uix_uname(uix_utsname_t *buf); // Fills utsname structure with system info — POSIX
 
 #endif /* UIX_UTSNAME_H */
 

@@ -28,14 +28,14 @@ extern "C" {
 #define UIX_ISO646_H
 
 /* ISO 646 alternative tokens */
-#define uix_and    &&
+#define uix_and    && // Alternative token for && — ISO 646 C95 digraph support
 #define uix_and_eq &=
-#define uix_bitand &
+#define uix_bitand & //Alternative token for bitwise AND
 #define uix_bitor  |
 #define uix_compl  ~
-#define uix_not    !
+#define uix_not    ! // Alternative token for !
 #define uix_not_eq !=
-#define uix_or     ||
+#define uix_or     || //Alternative token for ||
 #define uix_or_eq  |=
 #define uix_xor    ^
 #define uix_xor_eq ^=

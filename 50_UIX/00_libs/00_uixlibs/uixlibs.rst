@@ -179,3 +179,49 @@ These are the “core” portable headers every C implementation provides.
 | Program Control | signal.h, setjmp.h, stdarg.h, stdnoreturn.h |
 | Modern C11 Threads | threads.h, stdatomic.h, stdalign.h |
 
+
+🧾 END
+
+Types of files
+
+📚 1. Group 1 — Core Type & Feature Definitions
+    FIles:uix_types.h, uix_features.h, uix_stddef.h, uix_stdint.h, uix_uix_stdarg.hlimits.h, uix_float.h
+          uix_stdbool.h, uix_stdalign.h, uix_stdnoreturn.h, uix_stdarg.h, uix_stdatomic.h, uix_stdbit.h
+          uix_stdckdint.h, uix_stdcompat.h, uix_inttypes.h, uix_iso646.h, uix_assert.h, uix_wchar.h, 
+          uix_wctype.h, uix_uchar.h
+
+📚 2. Group 2 — String, Character, and Math
+    Files: uix_string.h / uix_string.c, uix_ctype.h / uix_ctype.c, uix_math.h / uix_math.c, 
+
+📚 3. Group 3 — Memory, Standard Library, I/O
+    Files: uix_stdlib.h / uix_stdlib.c, uix_stdio.h / uix_stdio.c
+
+📚 4. Group 4 — Time
+    Files: uix_time.h / uix_time.c, uix_timeb.h / uix_timeb.c, uix_times.h / uix_times.c, uix_utime.h / uix_utime.c
+
+📚 5. Group 5 — Process, Signal, Threading
+    Files: uix_signal.h / uix_signal.c, uix_setjmp.h / uix_setjmp.c, uix_pthread.h / uix_pthread.c, 
+            uix_semaphore.h / uix_semaphore.c, uix_threads.h / uix_threads.c (C11 threads), uix_sched.h / uix_sched.c
+
+📚 6. Group 6 — File System
+    Files: uix_fcntl.h / uix_fcntl.c, uix_stat.h / uix_stat.c, uix_dirent.h / uix_dirent.c, 
+            uix_unistd.h / uix_unistd.c (listed as uix_uinstd), uix_mman.h / uix_mman.c, uix_ioctl.h / uix_ioctl.c
+            uix_termios.h / uix_termios.c, uix_select.h / uix_select.c, uix_poll.h / uix_poll.c, uix_wait.h / uix_wait.c, 
+            uix_resource.h / uix_resource.c
+
+📚 7. Group 7 — IPC
+    Files: uix_ipc.h / uix_ipc.c, uix_msg.h / uix_msg.c, uix_sem.h / uix_sem.c, uix_shm.h / uix_shm.c
+
+📚 8. Group 8 — Network
+    Files: uix_socket.h / uix_socket.c, uix_inet.h / uix_inet.c, uix_in.h / uix_in.c, uix_if.h / uix_if.c, 
+            uix_un.h / uix_un.c, uix_netdb.h / uix_netdb.c, uix_ifaddrs.h / uix_ifaddrs.c
+
+📚 9. Group 9 — File Matching and Traversal
+    Files: uix_fnmatch.h / uix_fnmatch.c, uix_ftw.h / uix_ftw.c, uix_glob.h / uix_glob.c
+
+📚 10. Group 10 — Locale, I18N, Logging
+    Files: uix_locale.h / uix_locale.c, uix_syslog.h / uix_syslog.c, uix_mqueue.h / uix_mqueue.c
+
+📚 Group 11 — Complex, FPU, Type-Generic Math
+    Files: uix_complex.h, uix_fenv.h / uix_fenv.c, uix_tgmath.h / uix_tgmath.c, uix_errno.h / uix_errno.c, 
+            uix_pwd.h / uix_pwd.c, uix_grp.h / uix_grp.c, uix_utsname.h / uix_utsname.c, uix_regex.h / uix_regex.c,

@@ -45,11 +45,11 @@ struct sockaddrun {
 
 #include "uix_socket.h"
 
-#define UIX_UNIX_PATH_MAX 108
+#define UIX_UNIX_PATH_MAX 108          // Maximum path length in UNIX domain socket address
 
 typedef struct uix_sockaddr_un {
-    uix_sa_family_t sun_family;
-    char            sun_path[UIX_UNIX_PATH_MAX];
+    uix_sa_family_t sun_family;                    // Must be AF_UNIX
+    char            sun_path[UIX_UNIX_PATH_MAX];     // Filesystem path for socket
 } uix_sockaddr_un_t;
 
 #endif /* UIX_UN_H */

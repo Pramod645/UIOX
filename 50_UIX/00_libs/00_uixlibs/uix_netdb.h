@@ -92,19 +92,19 @@ const char gaistrerror(int errcode);
 #include "uix_socket.h"
 
 /* h_errno values */
-#define UIX_HOST_NOT_FOUND 1
-#define UIX_TRY_AGAIN      2
+#define UIX_HOST_NOT_FOUND 1     // h_errno value — no such host
+#define UIX_TRY_AGAIN      2   // h_errno — temporary DNS failure
 #define UIX_NO_RECOVERY    3
 #define UIX_NO_DATA        4
 
 extern int uix_h_errno;
 
 typedef struct uix_hostent {
-    char   *h_name;
+    char   *h_name;           // Official host name
     char  **h_aliases;
     int     h_addrtype;
     int     h_length;
-    char  **h_addr_list;
+    char  **h_addr_list;     // Null-terminated list of addresses
 } uix_hostent_t;
 
 typedef struct uix_servent {
@@ -129,10 +129,10 @@ typedef struct uix_addrinfo {
     uix_sockaddr_t    *ai_addr;
     char              *ai_canonname;
     struct uix_addrinfo *ai_next;
-} uix_addrinfo_t;
+} uix_addrinfo_t;                     // Modern address resolution result
 
-#define UIX_AI_PASSIVE     0x0001
-#define UIX_AI_CANONNAME   0x0002
+#define UIX_AI_PASSIVE     0x0001     // For server bind — use wildcard address
+#define UIX_AI_CANONNAME   0x0002    // Return canonical name
 #define UIX_AI_NUMERICHOST 0x0004
 #define UIX_AI_NUMERICSERV 0x0008
 
@@ -145,19 +145,19 @@ typedef struct uix_addrinfo {
 #define UIX_EAI_SERVICE    -8
 #define UIX_EAI_SOCKTYPE   -7
 
-uix_hostent_t *uix_gethostbyname (const char *name);
+uix_hostent_t *uix_gethostbyname (const char *name);             // DNS lookup by name — obsolete, use getaddrinfo()
 uix_hostent_t *uix_gethostbyaddr (const void *addr, uix_socklen_t len, int type);
 uix_servent_t *uix_getservbyname (const char *name, const char *proto);
 uix_servent_t *uix_getservbyport (int port, const char *proto);
 uix_protoent_t *uix_getprotobyname(const char *name);
 int            uix_getaddrinfo   (const char *node, const char *service,
                                    const uix_addrinfo_t *hints,
-                                   uix_addrinfo_t **res);
-void           uix_freeaddrinfo  (uix_addrinfo_t *res);
+                                   uix_addrinfo_t **res);                 // Modern name resolution — POSIX.1-2001
+void           uix_freeaddrinfo  (uix_addrinfo_t *res);                 /// Frees linked list from getaddrinfo()
 int            uix_getnameinfo   (const uix_sockaddr_t *sa, uix_socklen_t salen,
                                    char *host, uix_size_t hostlen,
-                                   char *serv, uix_size_t servlen, int flags);
-const char    *uix_gai_strerror  (int ecode);
+                                   char *serv, uix_size_t servlen, int flags);    // Reverse DNS lookup — POSIX.1-2001
+const char    *uix_gai_strerror  (int ecode);                                    /// Returns string description of getaddrinfo error
 
 #endif /* UIX_NETDB_H */
 

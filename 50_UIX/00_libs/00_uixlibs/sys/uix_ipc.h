@@ -64,13 +64,13 @@ keyt ftok(const char pathname, int projid);
 
 typedef int uix_key_t;
 
-#define UIX_IPC_PRIVATE  ((uix_key_t)0)
-#define UIX_IPC_CREAT    01000
-#define UIX_IPC_EXCL     02000
+#define UIX_IPC_PRIVATE  ((uix_key_t)0)      // Key meaning private IPC object
+#define UIX_IPC_CREAT    01000        // Create IPC object if key doesn't exist
+#define UIX_IPC_EXCL     02000      // Fail if object already exists
 #define UIX_IPC_NOWAIT   04000
-#define UIX_IPC_RMID     0
+#define UIX_IPC_RMID     0             // Remove IPC object
 #define UIX_IPC_SET      1
-#define UIX_IPC_STAT     2
+#define UIX_IPC_STAT     2      // Get IPC object status
 #define UIX_IPC_INFO     3
 
 typedef struct uix_ipc_perm {
@@ -81,9 +81,9 @@ typedef struct uix_ipc_perm {
     uix_gid_t  cgid;
     uix_uint16_t mode;
     uix_uint16_t __seq;
-} uix_ipc_perm_t;
+} uix_ipc_perm_t;            // Permission structure shared by msg/sem/shm
 
-uix_key_t uix_ftok(const char *path, int id);
+uix_key_t uix_ftok(const char *path, int id); // Generates IPC key from path and id — POSIX
 
 #endif /* UIX_IPC_H */
 

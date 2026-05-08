@@ -87,17 +87,17 @@ struct ifconf {
 #include "uix_types.h"
 #include "uix_socket.h"
 
-#define UIX_IF_NAMESIZE   16
+#define UIX_IF_NAMESIZE   16                // Max interface name length including null
 #define UIX_IFNAMSIZ      UIX_IF_NAMESIZE
 
 /* Interface flags */
-#define UIX_IFF_UP        0x0001
-#define UIX_IFF_BROADCAST 0x0002
+#define UIX_IFF_UP        0x0001            // Interface is up
+#define UIX_IFF_BROADCAST 0x0002          // Loopback interface
 #define UIX_IFF_LOOPBACK  0x0008
 #define UIX_IFF_POINTOPOINT 0x0010
 #define UIX_IFF_RUNNING   0x0040
-#define UIX_IFF_PROMISC   0x0100
-#define UIX_IFF_MULTICAST 0x1000
+#define UIX_IFF_PROMISC   0x0100      // Promiscuous mode — receives all packets
+#define UIX_IFF_MULTICAST 0x1000         // Supports multicast
 
 typedef struct uix_ifreq {
     char               ifr_name[UIX_IFNAMSIZ];
@@ -110,15 +110,15 @@ typedef struct uix_ifreq {
         int            ifru_mtu;
         int            ifru_ifindex;
     } ifr_ifru;
-} uix_ifreq_t;
+} uix_ifreq_t;    // Interface request structure for ioctl()
 
 #define ifr_addr      ifr_ifru.ifru_addr
 #define ifr_flags     ifr_ifru.ifru_flags
 #define ifr_mtu       ifr_ifru.ifru_mtu
 #define ifr_ifindex   ifr_ifru.ifru_ifindex
 
-unsigned int uix_if_nametoindex(const char *ifname);
-char        *uix_if_indextoname(unsigned int ifindex, char *ifname);
+unsigned int uix_if_nametoindex(const char *ifname);                 // Returns interface index by name — POSIX
+char        *uix_if_indextoname(unsigned int ifindex, char *ifname);  // Returns interface name by index — POSIX
 
 #endif /* UIX_IF_H */
 

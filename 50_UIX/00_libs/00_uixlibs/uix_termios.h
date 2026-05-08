@@ -132,7 +132,7 @@ typedef uix_uint32_t uix_speed_t;
 #define UIX_CS5    0x0000
 #define UIX_CS6    0x0010
 #define UIX_CS7    0x0020
-#define UIX_CS8    0x0030
+#define UIX_CS8    0x0030       // 8-bit characters
 #define UIX_CSTOPB 0x0040
 #define UIX_CREAD  0x0080
 #define UIX_PARENB 0x0100
@@ -140,51 +140,51 @@ typedef uix_uint32_t uix_speed_t;
 #define UIX_HUPCL  0x0400
 #define UIX_CLOCAL 0x0800
 
-#define UIX_ISIG   0x0001
-#define UIX_ICANON 0x0002
-#define UIX_ECHO   0x0008
+#define UIX_ISIG   0x0001     // Enable signal generation (INTR, QUIT, SUSP)
+#define UIX_ICANON 0x0002     // Canonical mode — line-based input
+#define UIX_ECHO   0x0008     // Echo input characters
 #define UIX_ECHOE  0x0010
 #define UIX_ECHOK  0x0020
 #define UIX_ECHONL 0x0040
 #define UIX_NOFLSH 0x0080
 #define UIX_TOSTOP 0x0100
 
-#define UIX_VEOF   4
+#define UIX_VEOF   4     // Index of EOF character (Ctrl-D)
 #define UIX_VEOL   11
 #define UIX_VERASE 2
-#define UIX_VINTR  0
+#define UIX_VINTR  0      // Index of interrupt character (Ctrl-C)
 #define UIX_VKILL  3
-#define UIX_VMIN   6
+#define UIX_VMIN   6      // Minimum chars for non-canonical read
 #define UIX_VQUIT  1
 #define UIX_VSTART 8
 #define UIX_VSTOP  9
 #define UIX_VSUSP  10
-#define UIX_VTIME  5
+#define UIX_VTIME  5     // Timeout for non-canonical read
 
 #define UIX_B0      0
-#define UIX_B9600   13
+#define UIX_B9600   13    // 9600 baud rate constant
 #define UIX_B19200  14
 #define UIX_B38400  15
 #define UIX_B57600  4097
 #define UIX_B115200 4098
 
-#define UIX_TCSANOW   0
+#define UIX_TCSANOW   0      // Apply changes immediately
 #define UIX_TCSADRAIN 1
-#define UIX_TCSAFLUSH 2
+#define UIX_TCSAFLUSH 2       // Apply after flushing output, discard pending input
 
 typedef struct uix_termios {
-    uix_tcflag_t c_iflag;
-    uix_tcflag_t c_oflag;
-    uix_tcflag_t c_cflag;
-    uix_tcflag_t c_lflag;
+    uix_tcflag_t c_iflag;         // Input mode flags: parity, CR/NL translation
+    uix_tcflag_t c_oflag;        // Output mode flags: post-processing
+    uix_tcflag_t c_cflag;        // Control flags: baud rate, character size
+    uix_tcflag_t c_lflag;         // Local flags: echo, canonical mode, signals
     uix_cc_t     c_line;
-    uix_cc_t     c_cc[UIX_NCCS];
+    uix_cc_t     c_cc[UIX_NCCS];  // Special characters array
     uix_speed_t  c_ispeed;
     uix_speed_t  c_ospeed;
 } uix_termios_t;
 
-int         uix_tcgetattr  (int fd, uix_termios_t *t);
-int         uix_tcsetattr  (int fd, int action, const uix_termios_t *t);
+int         uix_tcgetattr  (int fd, uix_termios_t *t);   // Reads terminal attributes
+int         uix_tcsetattr  (int fd, int action, const uix_termios_t *t);// Writes terminal attributes
 int         uix_tcsendbreak(int fd, int duration);
 int         uix_tcdrain    (int fd);
 int         uix_tcflush    (int fd, int queue);
@@ -193,7 +193,7 @@ uix_speed_t uix_cfgetispeed(const uix_termios_t *t);
 uix_speed_t uix_cfgetospeed(const uix_termios_t *t);
 int         uix_cfsetispeed(uix_termios_t *t, uix_speed_t speed);
 int         uix_cfsetospeed(uix_termios_t *t, uix_speed_t speed);
-void        uix_cfmakeraw  (uix_termios_t *t);
+void        uix_cfmakeraw  (uix_termios_t *t);                   //Sets terminal to raw mode — disables all processing
 uix_pid_t   uix_tcgetpgrp  (int fd);
 int         uix_tcsetpgrp  (int fd, uix_pid_t pgrp);
 

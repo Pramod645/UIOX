@@ -60,20 +60,20 @@ struct lconv localeconv(void);
 
 #include "uix_types.h"
 
-#define UIX_LC_ALL      0
+#define UIX_LC_ALL      0    // All locale categories
 #define UIX_LC_COLLATE  1
-#define UIX_LC_CTYPE    2
-#define UIX_LC_MONETARY 3
-#define UIX_LC_NUMERIC  4
-#define UIX_LC_TIME     5
-#define UIX_LC_MESSAGES 6
+#define UIX_LC_CTYPE    2     // Character classification and conversion
+#define UIX_LC_MONETARY 3    // Currency formatting
+#define UIX_LC_NUMERIC  4    // Number formatting (decimal point)
+#define UIX_LC_TIME     5   // Date and time formatting
+#define UIX_LC_MESSAGES 6   // Error messages and diagnostics
 
 typedef struct uix_lconv {
-    char *decimal_point;
-    char *thousands_sep;
+    char *decimal_point;     // Decimal separator character
+    char *thousands_sep;     // Thousands grouping separator
     char *grouping;
-    char *int_curr_symbol;
-    char *currency_symbol;
+    char *int_curr_symbol;  
+    char *currency_symbol;      // Local currency symbol
     char *mon_decimal_point;
     char *mon_thousands_sep;
     char *mon_grouping;
@@ -89,8 +89,8 @@ typedef struct uix_lconv {
     char  n_sign_posn;
 } uix_lconv_t;
 
-char         *uix_setlocale(int category, const char *locale);
-uix_lconv_t  *uix_localeconv(void);
+char         *uix_setlocale(int category, const char *locale);  // Sets/queries locale — POSIX
+uix_lconv_t  *uix_localeconv(void);              // Returns current locale numeric/monetary conventions
 
 #endif /* UIX_LOCALE_H */
 

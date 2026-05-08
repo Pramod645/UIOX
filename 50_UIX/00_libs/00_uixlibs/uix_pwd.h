@@ -56,29 +56,31 @@ void endpwent(void);
 #ifndef UIX_PWD_H
 #define UIX_PWD_H
 
-#include "uix_types.h"
+#include "sys/uix_types.h"
 
 typedef struct uix_passwd {
-    char      *pw_name;
+    char      *pw_name;    // Login name
     char      *pw_passwd;
-    uix_uid_t  pw_uid;
-    uix_gid_t  pw_gid;
+    uix_uid_t  pw_uid;     // User ID
+    uix_gid_t  pw_gid;     // Primary group ID
     char      *pw_gecos;
-    char      *pw_dir;
-    char      *pw_shell;
+    char      *pw_dir;    // Home directory path
+    char      *pw_shell;  // Login shell
 } uix_passwd_t;
 
-uix_passwd_t *uix_getpwuid  (uix_uid_t uid);
-uix_passwd_t *uix_getpwnam  (const char *name);
+uix_passwd_t *uix_getpwuid  (uix_uid_t uid);   // Looks up user by UID — not reentrant
+uix_passwd_t *uix_getpwnam  (const char *name);  // Looks up user by name — not reentrant
+
+/* Reentrant version — POSIX.1-2001 */
 int           uix_getpwuid_r(uix_uid_t uid, uix_passwd_t *pwd,
                               char *buf, uix_size_t buflen,
                               uix_passwd_t **result);
 int           uix_getpwnam_r(const char *name, uix_passwd_t *pwd,
                               char *buf, uix_size_t buflen,
                               uix_passwd_t **result);
-void          uix_setpwent  (void);
-void          uix_endpwent  (void);
-uix_passwd_t *uix_getpwent  (void);
+void          uix_setpwent  (void);   // Rewinds password database iterator
+void          uix_endpwent  (void);  // Closes password database
+uix_passwd_t *uix_getpwent  (void);  // Returns next password entry
 
 #endif /* UIX_PWD_H */
 

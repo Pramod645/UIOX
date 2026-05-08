@@ -51,13 +51,13 @@ clockt times(struct tms buf);
 #include "uix_types.h"
 
 typedef struct uix_tms {
-    uix_clock_t tms_utime;
-    uix_clock_t tms_stime;
-    uix_clock_t tms_cutime;
-    uix_clock_t tms_cstime;
+    uix_clock_t tms_utime;  // User CPU time of process — in clock ticks
+    uix_clock_t tms_stime;  // Kernel CPU time of process
+    uix_clock_t tms_cutime;  // User time of waited-for children
+    uix_clock_t tms_cstime;  // Kernel time of waited-for children
 } uix_tms_t;
 
-uix_clock_t uix_times(uix_tms_t *buf);
+uix_clock_t uix_times(uix_tms_t *buf);  // times() — POSIX, returns elapsed real time in ticks, fills tms struct
 
 #endif /* UIX_TIMES_H */
 

@@ -53,10 +53,10 @@ int schedrrgetinterval(pidt pid, struct timespec interval);
 #include "uix_types.h"
 #include "uix_time.h"
 
-#define UIX_SCHED_OTHER 0
-#define UIX_SCHED_FIFO  1
-#define UIX_SCHED_RR    2
-#define UIX_SCHED_BATCH 3
+#define UIX_SCHED_OTHER 0  // Default time-sharing policy
+#define UIX_SCHED_FIFO  1  // Real-time FIFO — runs until blocks or yields
+#define UIX_SCHED_RR    2  // Real-time round-robin with timeslice
+#define UIX_SCHED_BATCH 3  // Batch policy — Linux extension
 #define UIX_SCHED_IDLE  5
 
 typedef struct uix_sched_param {
@@ -64,15 +64,15 @@ typedef struct uix_sched_param {
 } uix_sched_param_t;
 
 int uix_sched_setscheduler    (uix_pid_t pid, int policy,
-                                const uix_sched_param_t *param);
-int uix_sched_getscheduler    (uix_pid_t pid);
+                                const uix_sched_param_t *param);  // Sets scheduling policy and priority
+int uix_sched_getscheduler    (uix_pid_t pid);  // Returns current scheduling policy
 int uix_sched_setparam        (uix_pid_t pid,
                                 const uix_sched_param_t *param);
 int uix_sched_getparam        (uix_pid_t pid, uix_sched_param_t *param);
-int uix_sched_get_priority_max(int policy);
+int uix_sched_get_priority_max(int policy);  // Returns max priority for policy
 int uix_sched_get_priority_min(int policy);
 int uix_sched_rr_get_interval (uix_pid_t pid, uix_timespec_t *tp);
-int uix_sched_yield           (void);
+int uix_sched_yield           (void);  // Voluntarily yields CPU to other runnable threads
 
 #endif /* UIX_SCHED_H */
 

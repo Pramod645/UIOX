@@ -43,11 +43,11 @@ int utime(const char filename, const struct utimbuf times)
 #include "uix_types.h"
 
 typedef struct uix_utimbuf {
-    uix_time_t actime;
-    uix_time_t modtime;
+    uix_time_t actime;  // Access time to set on file
+    uix_time_t modtime;  // Modification time to set on file
 } uix_utimbuf_t;
 
-int uix_utime(const char *path, const uix_utimbuf_t *times);
+int uix_utime(const char *path, const uix_utimbuf_t *times); // utime() — POSIX, sets file access and modification times. Deprecated in favor of utimensat()
 
 #endif /* UIX_UTIME_H */
 

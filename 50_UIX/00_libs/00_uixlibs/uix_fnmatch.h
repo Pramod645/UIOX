@@ -44,13 +44,13 @@ int fnmatch(const char pattern, const char string, int flags);
 #ifndef UIX_FNMATCH_H
 #define UIX_FNMATCH_H
 
-#define UIX_FNM_NOMATCH  1
-#define UIX_FNM_NOESCAPE 0x01
-#define UIX_FNM_PATHNAME 0x02
-#define UIX_FNM_PERIOD   0x04
-#define UIX_FNM_CASEFOLD 0x08
+#define UIX_FNM_NOMATCH  1      // Return value when no match
+#define UIX_FNM_NOESCAPE 0x01     // Backslash is not escape character
+#define UIX_FNM_PATHNAME 0x02      // Slash only matches slash in pattern
+#define UIX_FNM_PERIOD   0x04     // Leading dot must be matched explicitly
+#define UIX_FNM_CASEFOLD 0x08     // Case-insensitive matching — glibc extension
 
-int uix_fnmatch(const char *pattern, const char *string, int flags);
+int uix_fnmatch(const char *pattern, const char *string, int flags);  // Shell-style pattern matching — POSIX.2
 
 #endif /* UIX_FNMATCH_H */
 

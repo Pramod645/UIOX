@@ -53,16 +53,16 @@ typedef int (*uix_thrd_start_t)(void *);
 #define UIX_mtx_recursive 1
 #define UIX_mtx_timed     2
 
-int         uix_thrd_create (uix_thrd_t *thr, uix_thrd_start_t func, void *arg);
-int         uix_thrd_join   (uix_thrd_t thr, int *res);
+int         uix_thrd_create (uix_thrd_t *thr, uix_thrd_start_t func, void *arg); // Creates thread — wraps pthread_create, adapter converts int return
+int         uix_thrd_join   (uix_thrd_t thr, int *res);  // Joins thread, gets int exit code
 int         uix_thrd_detach (uix_thrd_t thr);
-void        uix_thrd_exit   (int res) __attribute__((noreturn));
+void        uix_thrd_exit   (int res) __attribute__((noreturn));  // Exits thread with int code
 uix_thrd_t  uix_thrd_current(void);
 int         uix_thrd_equal  (uix_thrd_t a, uix_thrd_t b);
-int         uix_thrd_sleep  (const uix_timespec_t *d, uix_timespec_t *rem);
-void        uix_thrd_yield  (void);
+int         uix_thrd_sleep  (const uix_timespec_t *d, uix_timespec_t *rem);  // Sleeps using nanosleep
+void        uix_thrd_yield  (void);  // Yields CPU — calls sched_yield()
 
-int  uix_mtx_init   (uix_mtx_t *m, int type);
+int  uix_mtx_init   (uix_mtx_t *m, int type);  // Initializes mutex
 void uix_mtx_destroy(uix_mtx_t *m);
 int  uix_mtx_lock   (uix_mtx_t *m);
 int  uix_mtx_trylock(uix_mtx_t *m);
@@ -71,17 +71,17 @@ int  uix_mtx_timedlock(uix_mtx_t *m, const uix_timespec_t *ts);
 
 int  uix_cnd_init      (uix_cnd_t *c);
 void uix_cnd_destroy   (uix_cnd_t *c);
-int  uix_cnd_wait      (uix_cnd_t *c, uix_mtx_t *m);
+int  uix_cnd_wait      (uix_cnd_t *c, uix_mtx_t *m);  // Waits on condition
 int  uix_cnd_timedwait (uix_cnd_t *c, uix_mtx_t *m, const uix_timespec_t *ts);
 int  uix_cnd_signal    (uix_cnd_t *c);
 int  uix_cnd_broadcast (uix_cnd_t *c);
 
-int  uix_tss_create(uix_tss_t *key, void (*dtor)(void *));
+int  uix_tss_create(uix_tss_t *key, void (*dtor)(void *));  // Thread-local storage key
 void uix_tss_delete(uix_tss_t key);
 void *uix_tss_get  (uix_tss_t key);
 int  uix_tss_set   (uix_tss_t key, void *val);
 
-void uix_call_once(uix_once_flag *flag, void (*func)(void));
+void uix_call_once(uix_once_flag *flag, void (*func)(void));  // One-time initialization
 
 #endif /* UIX_THREADS_H */
 

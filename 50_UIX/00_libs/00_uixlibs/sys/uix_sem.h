@@ -97,9 +97,9 @@ typedef struct uix_semid_ds {
 } uix_semid_ds_t;
 
 typedef struct uix_sembuf {
-    unsigned short sem_num;
-    short          sem_op;
-    short          sem_flg;
+    unsigned short sem_num;  // Semaphore number in set
+    short          sem_op;   // Operation: positive=V, negative=P, zero=wait-for-zero
+    short          sem_flg;   // Flags: IPC_NOWAIT, SEM_UNDO
 } uix_sembuf_t;
 
 union uix_semun {
@@ -108,17 +108,17 @@ union uix_semun {
     unsigned short  *array;
 };
 
-#define UIX_GETVAL  12
-#define UIX_SETVAL  16
+#define UIX_GETVAL  12    // Get value of one semaphore
+#define UIX_SETVAL  16     // Set value of one semaphore
 #define UIX_GETALL  13
 #define UIX_SETALL  17
 #define UIX_GETNCNT 14
 #define UIX_GETPID  11
 #define UIX_GETZCNT 15
 
-int uix_semget(uix_key_t key, int nsems, int semflg);
-int uix_semop (int semid, uix_sembuf_t *sops, uix_size_t nsops);
-int uix_semctl(int semid, int semnum, int cmd, ...);
+int uix_semget(uix_key_t key, int nsems, int semflg);         // Creates or opens semaphore set
+int uix_semop (int semid, uix_sembuf_t *sops, uix_size_t nsops);  // Performs array of semaphore operations atomically
+int uix_semctl(int semid, int semnum, int cmd, ...);              // Controls semaphore (query/set/remove)
 
 #endif /* UIX_SEM_H */
 

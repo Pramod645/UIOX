@@ -51,12 +51,12 @@ int ftime(struct timeb tp);
 
 typedef struct uix_timeb {
     uix_time_t time;
-    unsigned short millitm;
-    short timezone;
+    unsigned short millitm;  // Milliseconds within current second
+    short timezone;  // Minutes west of GMT — largely obsolete
     short dstflag;
-} uix_timeb_t;
+} uix_timeb_t;  // Seconds since epoch — same as time_t
 
-int uix_ftime(uix_timeb_t *tp);
+int uix_ftime(uix_timeb_t *tp);  // ftime() — obsolete POSIX function, superseded by gettimeofday(). Fills uix_timeb_t
 
 #endif /* UIX_TIMEB_H */
 

@@ -59,16 +59,16 @@ typedef struct uix_sem {
 
 #define UIX_SEM_FAILED ((uix_sem_t *)-1)
 
-int        uix_sem_init     (uix_sem_t *sem, int pshared, unsigned int value);
-int        uix_sem_destroy  (uix_sem_t *sem);
-int        uix_sem_wait     (uix_sem_t *sem);
-int        uix_sem_trywait  (uix_sem_t *sem);
-int        uix_sem_timedwait(uix_sem_t *sem, const uix_timespec_t *abs);
-int        uix_sem_post     (uix_sem_t *sem);
-int        uix_sem_getvalue (uix_sem_t *sem, int *sval);
-uix_sem_t *uix_sem_open     (const char *name, int oflag, ...);
-int        uix_sem_close    (uix_sem_t *sem);
-int        uix_sem_unlink   (const char *name);
+int        uix_sem_init     (uix_sem_t *sem, int pshared, unsigned int value); // Initializes unnamed semaphore with value val
+int        uix_sem_destroy  (uix_sem_t *sem);  // Destroys unnamed semaphore
+int        uix_sem_wait     (uix_sem_t *sem);  // Decrements semaphore, blocks if zero
+int        uix_sem_trywait  (uix_sem_t *sem);  // Non-blocking decrement — returns EAGAIN
+int        uix_sem_timedwait(uix_sem_t *sem, const uix_timespec_t *abs);  // Timed decrement with absolute timeout
+int        uix_sem_post     (uix_sem_t *sem);   // Increments semaphore, wakes one waiter
+int        uix_sem_getvalue (uix_sem_t *sem, int *sval);  // Reads current semaphore value
+uix_sem_t *uix_sem_open     (const char *name, int oflag, ...);  // Opens or creates named semaphore
+int        uix_sem_close    (uix_sem_t *sem);  // Closes named semaphore handle
+int        uix_sem_unlink   (const char *name);  // Removes named semaphore from filesystem
 
 #endif /* UIX_SEMAPHORE_H */
 

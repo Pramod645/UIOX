@@ -76,23 +76,23 @@ typedef struct uix_msqid_ds {
     uix_size_t     msg_qbytes;
     uix_pid_t      msg_lspid;
     uix_pid_t      msg_lrpid;
-} uix_msqid_ds_t;
+} uix_msqid_ds_t;                // Message queue status structure
 
 typedef struct uix_msgbuf {
-    long mtype;
-    char mtext[1];
+    long mtype;               // Message type — must be positive long
+    char mtext[1];            // Message data — flexible array
 } uix_msgbuf_t;
 
-#define UIX_MSG_NOERROR 010000
+#define UIX_MSG_NOERROR 010000     // Truncate message if too long
 #define UIX_MSG_COPY    040000
 #define UIX_MSG_EXCEPT  020000
 
-int         uix_msgget(uix_key_t key, int msgflg);
+int         uix_msgget(uix_key_t key, int msgflg);       // Creates or opens message queue
 int         uix_msgsnd(int msqid, const void *msgp,
-                        uix_size_t msgsz, int msgflg);
+                        uix_size_t msgsz, int msgflg);         // Sends message to queue
 uix_ssize_t uix_msgrcv(int msqid, void *msgp, uix_size_t msgsz,
-                        long msgtyp, int msgflg);
-int         uix_msgctl(int msqid, int cmd, uix_msqid_ds_t *buf);
+                        long msgtyp, int msgflg);                 // Receives message from queue
+int         uix_msgctl(int msqid, int cmd, uix_msqid_ds_t *buf);    // Controls message queue (stat/set/remove)
 
 #endif /* UIX_MSG_H */
 

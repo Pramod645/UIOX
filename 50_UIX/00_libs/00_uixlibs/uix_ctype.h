@@ -52,20 +52,20 @@ int toupper(int c);
 #ifndef UIX_CTYPE_H
 #define UIX_CTYPE_H
 
-int uix_isalpha (int c);
-int uix_isdigit (int c);
-int uix_isalnum (int c);
-int uix_isspace (int c);
-int uix_isupper (int c);
-int uix_islower (int c);
-int uix_ispunct (int c);
-int uix_isprint (int c);
-int uix_isgraph (int c);
-int uix_iscntrl (int c);
-int uix_isxdigit(int c);
-int uix_isblank (int c);
-int uix_toupper (int c);
-int uix_tolower (int c);
+int uix_isalpha (int c); // True if c is a-z or A-Z
+int uix_isdigit (int c); // TTrue if c is 0-9
+int uix_isalnum (int c); // True if alpha or digit
+int uix_isspace (int c); // True if space, tab, newline, carriage return, form feed, vertical tab
+int uix_isupper (int c); // True if A-Z
+int uix_islower (int c); // True if a-z
+int uix_ispunct (int c); // True if printable but not alnum or space
+int uix_isprint (int c); // True if c is printable including space (0x20–0x7E)
+int uix_isgraph (int c); // True if printable and not space
+int uix_iscntrl (int c); // True if control character (0–31 or 127)
+int uix_isxdigit(int c); // True if 0-9, a-f, or A-F
+int uix_isblank (int c); // True if space or tab — C99/POSIX 2008 addition
+int uix_toupper (int c); // Converts lowercase to uppercase
+int uix_tolower (int c); // Converts uppercase to lowercase
 
 #endif /* UIX_CTYPE_H */
 
