@@ -1,31 +1,13 @@
 
-#ifndef __ISO646__H
-#define __ISO646__H
+#ifndef __UIX_ISO646__H
+#define __UIX_ISO646__H
 /*
-stddef.h
+iso646.h
 */
 /* This is for only STDLIB */
 
-#include "features.h"
+#include "uix_features.h"//
 
-#if  (define __GLIBC)
-
-#ifdef _cplusplus
-extern "C" {
-#endif
-
-
-
-#ifdef cplusplus
-}
-#endif
-
-
-#endif /* End  of STDLIB*/
-
-
-#ifndef UIX_ISO646_H
-#define UIX_ISO646_H
 
 /* ISO 646 alternative tokens */
 #define uix_and    && // Alternative token for && — ISO 646 C95 digraph support
@@ -40,8 +22,6 @@ extern "C" {
 #define uix_xor    ^
 #define uix_xor_eq ^=
 
-#endif /* UIX_ISO646_H */
 
-
-#endif /* End of __ISO646__H */
+#endif /* End of __UIX_ISO646__H */
 /* ***This is End of file, there is no more line should be added after this line*** */

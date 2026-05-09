@@ -10,45 +10,7 @@ for fine‑grained control of CPU scheduling.
 */
 /* This is for only POXIS */
 
-#include "features.h"
-
-#if  (define __POSIX)
-
-#ifdef _cplusplus
-extern "C" {
-#endif
-
-// Scheduling policies /
-#define SCHEDOTHER 0  // default time-sharing /
-#define SCHEDFIFO  1  // first-in, first-out real-time /
-#define SCHEDRR    2  // round-robin real-time /
-#define SCHEDBATCH 3  // non-interactive, CPU-bound /
-#define SCHEDIDLE  5  // very low priority background tasks /
-
-// Scheduling parameter structure /
-struct schedparam {
-    int schedpriority;  // thread or process priority /
-};
-
-// Function prototypes /
-int schedsetscheduler(pidt pid, int policy, const struct schedparam param);
-int schedgetscheduler(pidt pid);
-int schedsetparam(pidt pid, const struct schedparam param);
-int schedgetparam(pidt pid, struct schedparam param);
-int schedyield(void);
-int schedgetprioritymax(int policy);
-int schedgetprioritymin(int policy);
-int schedrrgetinterval(pidt pid, struct timespec interval);
-
-#ifdef cplusplus
-}
-#endif
-
-
-#endif /* End  of POXIS */
-
-#ifndef UIX_SCHED_H
-#define UIX_SCHED_H
+#include "uix_features.h"//??
 
 #include "uix_types.h"
 #include "uix_time.h"
@@ -73,8 +35,6 @@ int uix_sched_get_priority_max(int policy);  // Returns max priority for policy
 int uix_sched_get_priority_min(int policy);
 int uix_sched_rr_get_interval (uix_pid_t pid, uix_timespec_t *tp);
 int uix_sched_yield           (void);  // Voluntarily yields CPU to other runnable threads
-
-#endif /* UIX_SCHED_H */
 
 
 

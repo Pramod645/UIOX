@@ -1,31 +1,12 @@
 
-#ifndef __THREADS__H
-#define __THREADS__H
+#ifndef __UIX_THREADS__H
+#define __UIX_THREADS__H
 /*
 stddef.h
 */
 /* This is for only STDLIB */
 
 #include "features.h"
-
-#if  (define __GLIBC)
-
-#ifdef _cplusplus
-extern "C" {
-#endif
-
-
-
-#ifdef cplusplus
-}
-#endif
-
-
-#endif /* End  of STDLIB*/
-
-/* include/uix_threads.h — C11 <threads.h> */
-#ifndef UIX_THREADS_H
-#define UIX_THREADS_H
 
 #include "uix_types.h"
 #include "uix_time.h"
@@ -83,9 +64,6 @@ int  uix_tss_set   (uix_tss_t key, void *val);
 
 void uix_call_once(uix_once_flag *flag, void (*func)(void));  // One-time initialization
 
-#endif /* UIX_THREADS_H */
 
-
-
-#endif /* End of __THREADS__H */
+#endif /* End of __UIX_THREADS__H */
 /* ***This is End of file, there is no more line should be added after this line*** */

@@ -1,6 +1,6 @@
 #include "uix_ioctl.h"
 #include "uix_errno.h"
-#include <stdarg.h>
+#include "uix_stdarg.h"
 
 int uix_ioctl(int fd, unsigned long request, ...)
 {
@@ -32,3 +32,5 @@ int uix_ioctl(int fd, unsigned long request, ...)
         return -1;
     }
 }
+
+/* ***This is End of file, there is no more line should be added after this line*** */

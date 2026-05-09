@@ -1,31 +1,13 @@
 
-#ifndef __STDCOMPAT__H
-#define __STDCOMPAT__H
+#ifndef __UIX_STDCOMPAT__H
+#define __UIX_STDCOMPAT__H
 /*
 stddef.h
 */
 /* This is for only STDLIB */
 
-#include "features.h"
+#include "uix_features.h"
 
-#if  (define __GLIBC)
-
-#ifdef _cplusplus
-extern "C" {
-#endif
-
-
-
-#ifdef cplusplus
-}
-#endif
-
-
-#endif /* End  of STDLIB*/
-
-
-#ifndef UIX_STDCOMPAT_H
-#define UIX_STDCOMPAT_H
 
 /* Compatibility shims for POSIX / C99 / C11 / C23 */
 #include "uix_features.h"
@@ -54,9 +36,8 @@ extern "C" {
 #define UIX_EXPORT __attribute__((visibility("default"))) //Symbol visibility — maps to glibc's __attribute__((visibility("default")))
 #define UIX_HIDDEN __attribute__((visibility("hidden"))) // Internal symbol — maps to __attribute__((visibility("hidden")))
 
-#endif /* UIX_STDCOMPAT_H */
 
 
 
-#endif /* End of __STDCOMPAT__H */
+#endif /* End of __UIX_STDCOMPAT__H */
 /* ***This is End of file, there is no more line should be added after this line*** */

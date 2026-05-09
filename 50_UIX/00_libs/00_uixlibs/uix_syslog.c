@@ -1,23 +1,4 @@
-//Here’s syslogdemo.c, a simple demonstration of logging messages:
-
-#include <stdio.h>
-#include <syslog.h>
-#include <unistd.h>
-
-int libsyslog(void) {
-    // Open connection to system logger /
-    openlog("syslogdemo", LOGPID | LOGCONS, LOGUSER);
-
-    syslog(LOGINFO, "Program started (PID=%d)", getpid());
-    syslog(LOGWARNING, "This is a warning message.");
-    syslog(LOGERR, "This is an error message!");
-    syslog(LOGDEBUG, "Debugging details: var=%d", 42);
-
-    closelog();
-    return 0;
-}
-/////////////////
-/* src/uix_syslog.c */
+/************************ uix_syslog.c ***************************/
 #include "uix_syslog.h"
 #include "uix_stdio.h"
 #include "uix_time.h"
@@ -77,4 +58,4 @@ void uix_syslog(int priority, const char *format, ...)
     uix_va_end(ap);
 }
     
-
+/* ***This is End of file, there is no more line should be added after this line*** */

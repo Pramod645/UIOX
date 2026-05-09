@@ -1,31 +1,13 @@
 
-#ifndef __STDATOMIC__H
-#define __STDATOMIC__H
+#ifndef __UIX_STDATOMIC__H
+#define __UIX_STDATOMIC__H
 /*
 stddef.h
 */
 /* This is for only STDLIB */
 
-#include "features.h"
+#include "uix_features.h" //??
 
-#if  (define __GLIBC)
-
-#ifdef _cplusplus
-extern "C" {
-#endif
-
-
-
-#ifdef cplusplus
-}
-#endif
-
-
-#endif /* End  of STDLIB*/
-
-
-#ifndef UIX_STDATOMIC_H
-#define UIX_STDATOMIC_H
 
 #include "uix_types.h"
 
@@ -57,9 +39,7 @@ typedef volatile uix_bool_t   uix_atomic_bool;
 #define uix_atomic_fetch_sub(p,v)   uix_atomic_fetch_sub_explicit((p),(v), uix_memory_order_seq_cst)
 #define uix_atomic_thread_fence(o)  __atomic_thread_fence(o)
 
-#endif /* UIX_STDATOMIC_H */
 
 
-
-#endif /* End of __STDATOMIC__H */
+#endif /* End of __UIX_STDATOMIC__H */
 /* ***This is End of file, there is no more line should be added after this line*** */

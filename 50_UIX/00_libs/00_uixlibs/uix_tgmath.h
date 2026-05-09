@@ -1,31 +1,10 @@
 
-#ifndef __TGMATH__H
-#define __TGMATH__H
+#ifndef __UIX_TGMATH__H
+#define __UIX_TGMATH__H
 /*
 stddef.h
 */
 /* This is for only STDLIB */
-
-#include "features.h"
-
-#if  (define __GLIBC)
-
-#ifdef _cplusplus
-extern "C" {
-#endif
-
-
-
-#ifdef cplusplus
-}
-#endif
-
-
-#endif /* End  of STDLIB*/
-
-/* include/uix_tgmath.h */
-#ifndef UIX_TGMATH_H
-#define UIX_TGMATH_H
 
 #include "uix_math.h"
 
@@ -40,9 +19,8 @@ extern "C" {
 #define uix_tg_floor(x)  _Generic((x), float: uix_floorf,default: uix_floor)(x)
 #define uix_tg_round(x)  _Generic((x), float: uix_roundf,default: uix_round)(x)
 
-#endif /* UIX_TGMATH_H */
 
 
 
-#endif /* End of __TGMATH__H */
+#endif /* End of __UIX_TGMATH__H */
 /* ***This is End of file, there is no more line should be added after this line*** */

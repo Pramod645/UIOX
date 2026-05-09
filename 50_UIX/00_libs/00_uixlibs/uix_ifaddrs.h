@@ -1,6 +1,6 @@
 
-#ifndef __IFADDRS__H
-#define __IFADDRS__H
+#ifndef __UIX_IFADDRS__H
+#define __UIX_IFADDRS__H
 /*
 ifaddrs.h is a modern, POSIX/BSD-derived header that provides an easier, safer API for enumerating network interfaces and 
 their addresses, replacing older, ioctl()-based methods involving <net/if.h>.  
@@ -18,44 +18,7 @@ Overview
 */
 /* This is for only POXIS */
 
-#include "features.h"
-
-#include <sys/socket.h>
-#include <net/if.h>
-
-#if  (define __POSIX)
-
-#ifdef _cplusplus
-extern "C" {
-#endif
-
-struct ifaddrs {
-    struct ifaddrs  ifanext;    // Pointer to next structure /
-    char            ifaname;    // Interface name (e.g., "eth0") /
-    unsigned int     ifaflags;   // Flags from <net/if.h> (IFFUP, etc.) /
-    struct sockaddr ifaaddr;    // Address of interface /
-    struct sockaddr ifanetmask; // Netmask of interface /
-    struct sockaddr ifabroadaddr; // Broadcast address (if applicable) /
-    struct sockaddr ifadstaddr; // Destination address (P2P interfaces) /
-    void            ifadata;    // Per-interface data (if any) /
-};
-
-// Functions to allocate and free the list /
-int  getifaddrs(struct ifaddrs ifap);
-void freeifaddrs(struct ifaddrs ifa);
-
-#ifdef cplusplus
-}
-#endif
-
-
-#endif /* End  of POXIS */
-
-
-
-/* include/uix_ifaddrs.h */
-#ifndef UIX_IFADDRS_H
-#define UIX_IFADDRS_H
+#include "uix_features.h"//??
 
 #include "uix_socket.h"
 
@@ -72,9 +35,7 @@ typedef struct uix_ifaddrs {
 int  uix_getifaddrs(uix_ifaddrs_t **ifap);   // Gets list of all interface addresses — POSIX
 void uix_freeifaddrs(uix_ifaddrs_t *ifa);    // Frees linked list from getifaddrs()
 
-#endif /* UIX_IFADDRS_H */
 
 
-
-#endif /* End of __IFADDRS__H */
+#endif /* End of __UIX_IFADDRS__H */
 /* ***This is End of file, there is no more line should be added after this line*** */

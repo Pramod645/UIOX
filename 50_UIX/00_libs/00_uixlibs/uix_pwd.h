@@ -20,41 +20,6 @@ You don’t write this file yourself — it’s typically in /usr/include/pwd.h.
 
 #include "features.h"
 
-#include <sys/types.h>
-struct passwd {
-    char   pwname;   // Username /
-    char   pwpasswd; // Encrypted password /
-    uidt   pwuid;    // User ID /
-    gidt   pwgid;    // Group ID /
-    char   pwgecos;  // User information /
-    char   pwdir;    // Home directory /
-    char   pwshell;  // Login shell /
-};
-
-#if  (define __POSIX)
-
-#ifdef _cplusplus
-extern "C" {
-#endif
-
-struct passwd getpwuid(uidt uid);
-struct passwd getpwnam(const char name);
-
-struct passwd getpwent(void);
-void setpwent(void);
-void endpwent(void);
-
-#ifdef cplusplus
-}
-#endif
-
-
-#endif /* End  of POXIS */
-
-
-
-#ifndef UIX_PWD_H
-#define UIX_PWD_H
 
 #include "sys/uix_types.h"
 
@@ -81,10 +46,6 @@ int           uix_getpwnam_r(const char *name, uix_passwd_t *pwd,
 void          uix_setpwent  (void);   // Rewinds password database iterator
 void          uix_endpwent  (void);  // Closes password database
 uix_passwd_t *uix_getpwent  (void);  // Returns next password entry
-
-#endif /* UIX_PWD_H */
-
-
 
 
 #endif /* End of __UIX_PWD__H */

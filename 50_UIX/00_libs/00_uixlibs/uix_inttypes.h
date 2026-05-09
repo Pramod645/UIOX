@@ -1,32 +1,10 @@
 
-#ifndef __INTTYPES__H
-#define __INTTYPES__H
+#ifndef __UIX_INTTYPES_H__H
+#define __UIX_INTTYPES_H__H
 /*
 stddef.h
 */
 /* This is for only STDLIB */
-
-#include "features.h"
-
-#if  (define __GLIBC)
-
-#ifdef _cplusplus
-extern "C" {
-#endif
-
-
-
-#ifdef cplusplus
-}
-#endif
-
-
-#endif /* End  of STDLIB*/
-
-
-
-#ifndef UIX_INTTYPES_H
-#define UIX_INTTYPES_H
 
 #include "uix_stdint.h"
 
@@ -68,9 +46,6 @@ uix_intmax_t  uix_imaxabs (uix_intmax_t j);
 uix_intmax_t  uix_strtoimax(const char *s, char **ep, int base); //Converts string to intmax_t — POSIX strtoimax() from <inttypes.h>
 uix_uintmax_t uix_strtoumax(const char *s, char **ep, int base);
 
-#endif /* UIX_INTTYPES_H */
 
-
-
-#endif /* End of __INTTYPES__H */
+#endif /* End of __UIX_INTTYPES__H */
 /* ***This is End of file, there is no more line should be added after this line*** */

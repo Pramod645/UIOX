@@ -1,5 +1,5 @@
-#ifndef UIX_ATOMIC_H
-#define UIX_ATOMIC_H
+#ifndef __UIX_ATOMIC__H
+#define __UIX_ATOMIC__H
 
 #include "uix_types.h"
 
@@ -32,4 +32,6 @@ typedef struct { volatile void       *value; } uix_atomic_ptr_t;
 #define UIX_ATOMIC_LONG_INIT(v) { (v) }
 #define UIX_ATOMIC_PTR_INIT(v)  { (v) }
 
-#endif /* UIX_ATOMIC_H */
+#endif /* __UIX_ATOMIC__H */
+
+/* ***This is End of file, there is no more line should be added after this line*** */

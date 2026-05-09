@@ -1,6 +1,6 @@
 
-#ifndef __SYS_UTSNAME__H
-#define __SYS_UTSNAME__H
+#ifndef __SYS_UIX_UTSNAME__H
+#define __SYS_UIX_UTSNAME__H
 /*
 sys/utsname.h is another standard POSIX header.  
 It defines the struct utsname structure and declares the uname() function, which provides information about the 
@@ -9,35 +9,7 @@ current system (like OS name, version, and machine type).
 */
 /* This is for only POXIS */
 
-#include "uix_features.h"
-
-#if  (define __POSIX)
-
-#ifdef _cplusplus
-extern "C" {
-#endif
-
-/* Structure returned by uname() */
-struct utsname {
-    char sysname[65];   // Operating system name (e.g., "Linux") /
-    char nodename[65];  // Network node name (hostname) /
-    char release[65];   // OS release level /
-    char version[65];   // OS version level /
-    char machine[65];   // Hardware type (e.g., "x8664") /
-};
-
-/* Function prototype */
-int uname(struct utsname buf);
-
-#ifdef cplusplus
-}
-#endif
-
-
-#endif /* End  of POXIS */
-
-#ifndef UIX_UTSNAME_H
-#define UIX_UTSNAME_H
+#include "uix_features.h" //?
 
 #define UIX_UTSNAME_LENGTH 65
 
@@ -52,8 +24,6 @@ typedef struct uix_utsname {
 
 int uix_uname(uix_utsname_t *buf); // Fills utsname structure with system info — POSIX
 
-#endif /* UIX_UTSNAME_H */
 
-
-#endif /* End of __SYS_UTSNAME__H */
+#endif /* End of __SYS_UIX_UTSNAME__H */
 /* ***This is End of file, there is no more line should be added after this line*** */

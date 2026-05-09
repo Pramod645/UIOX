@@ -165,3 +165,6 @@ int uix_pthread_attr_setdetachstate(uix_pthread_attr_t *a, int d)
 int uix_pthread_attr_getdetachstate(const uix_pthread_attr_t *a,
                                     int *d)
     { if (!a||!d) return UIX_EINVAL; *d=a->detachstate; return 0; }
+
+/* ***This is End of file, there is no more line should be added after this line*** */
+

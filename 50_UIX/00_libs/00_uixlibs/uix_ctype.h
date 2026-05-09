@@ -14,43 +14,8 @@ ctype.h — Character classification and conversion
 */
 /* This is for both POXIS and Standerd Library */
 
-#include "features.h"
+#include "uix_features.h" //?
 
-#if  (define __POSIX  || define __GLIBC)
-
-#ifdef _cplusplus
-extern "C" {
-#endif
-
-/* Classification functions: each returns nonzero if true, 0 otherwise */
-int isalnum(int c);  /* Alphanumeric: isalpha() or isdigit() */
-int isalpha(int c);  /* Alphabetic: upper or lower */
-int iscntrl(int c);  /* Control character */
-int isdigit(int c);  /* Decimal digit [0–9] */
-int isgraph(int c);  /* Any visible character (not space) */
-int islower(int c);  /* Lowercase letter */
-int isprint(int c);  /* Printable (including space) */
-int ispunct(int c);  /* Punctuation character */
-int isspace(int c);  /* Whitespace (space, tab, newline, etc.) */
-int isupper(int c);  /* Uppercase letter */
-int isxdigit(int c); /* Hexadecimal digit [0–9a–fA–F] */
-
-/* Additional POSIX function */
-int isblank(int c);  /* Space or tab */
-
-/* Character conversions */
-int tolower(int c);
-int toupper(int c);
-
-#ifdef cplusplus
-}
-#endif
-
-
-#endif /* End  of POXIS and STDLIB */
-
-#ifndef UIX_CTYPE_H
-#define UIX_CTYPE_H
 
 int uix_isalpha (int c); // True if c is a-z or A-Z
 int uix_isdigit (int c); // TTrue if c is 0-9
@@ -66,9 +31,6 @@ int uix_isxdigit(int c); // True if 0-9, a-f, or A-F
 int uix_isblank (int c); // True if space or tab — C99/POSIX 2008 addition
 int uix_toupper (int c); // Converts lowercase to uppercase
 int uix_tolower (int c); // Converts uppercase to lowercase
-
-#endif /* UIX_CTYPE_H */
-
 
 
 

@@ -1,6 +1,6 @@
 
-#ifndef __STDBIT__H
-#define __STDBIT__H
+#ifndef __UIX_STDBIT__H
+#define __UIX_STDBIT__H
 /*
 stddef.h
 */
@@ -8,23 +8,6 @@ stddef.h
 
 #include "uix_features.h"
 
-#if  (define __GLIBC)
-
-#ifdef _cplusplus
-extern "C" {
-#endif
-
-
-
-#ifdef cplusplus
-}
-#endif
-
-
-#endif /* End  of STDLIB*/
-
-#ifndef UIX_STDBIT_H
-#define UIX_STDBIT_H
 
 #include "sys/uix_types.h"
 
@@ -51,9 +34,6 @@ UIX_INLINE uix_uint64_t uix_rotr64(uix_uint64_t v, int n)
 #define UIX_INLINE static inline
 #endif
 
-#endif /* UIX_STDBIT_H */
 
-
-
-#endif /* End of __STDBIT__H */
+#endif /* End of __UIX_STDBIT__H */
 /* ***This is End of file, there is no more line should be added after this line*** */

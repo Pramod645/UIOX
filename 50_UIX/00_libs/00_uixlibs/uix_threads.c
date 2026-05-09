@@ -1,4 +1,4 @@
-/* src/uix_threads.c */
+/********************** uix_threads.c *******************************************/
 #include "uix_threads.h"
 #include "uix_errno.h"
 #include "uix_stdlib.h"
@@ -62,3 +62,6 @@ int   uix_tss_set   (uix_tss_t k, void *v) { return uix_pthread_setspecific(k,v)
 
 void uix_call_once(uix_once_flag *flag, void (*func)(void))
     { uix_pthread_once(flag, func); }
+
+
+/* ***This is End of file, there is no more line should be added after this line*** */

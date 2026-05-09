@@ -7,64 +7,10 @@ fundamental data types (like char, int, long, etc.).
 These macros tell you the minimum and maximum values that each integer type can hold on your system.
 
 */
-/* This is for only POXIS */
+/* This is for only POXIS and standerd */
 
-#include "features.h"
+#include "uix_features.h"//??
 
-#if  (define __POSIX  || define __GLIBC)
-
-#ifdef _cplusplus
-extern "C" {
-#endif
-
-// Number of bits in a byte /
-#define CHARBIT 8
-
-// Signed char limits /
-#define SCHARMIN (-128)
-#define SCHARMAX 127
-
-// Unsigned char limits /
-#define UCHARMAX 255
-
-// char may be signed or unsigned depending on implementation /
-#ifdef CHARUNSIGNED
-define CHARMIN 0
-define CHARMAX 255
-#else
-define CHARMIN (-128)
-define CHARMAX 127
-#endif
-
-// Short integer limits /
-#define SHRTMIN (-32768)
-#define SHRTMAX 32767
-#define USHRTMAX 65535
-
-// Integer limits (typically 32-bit) /
-#define INTMIN (-2147483647 - 1)
-#define INTMAX 2147483647
-#define UINTMAX 4294967295U
-
-// Long integer limits (typically 64-bit on LP64 systems) /
-#define LONGMIN (-9223372036854775807L - 1L)
-#define LONGMAX 9223372036854775807L
-#define ULONGMAX 18446744073709551615UL
-
-// Long long integer limits (C99 and later) /
-#define LLONGMIN (-9223372036854775807LL - 1LL)
-#define LLONGMAX 9223372036854775807LL
-#define ULLONGMAX 18446744073709551615ULL
-
-#ifdef cplusplus
-}
-#endif
-
-
-#endif /* End  of POXIS and STDLIB*/
-
-#ifndef UIX_LIMITS_H
-#define UIX_LIMITS_H
 
 #define UIX_CHAR_BIT    8 // Bits per char — POSIX mandates minimum 8, glibc always 8 on x86
 #define UIX_SCHAR_MIN   (-128)
@@ -104,8 +50,6 @@ define CHARMAX 127
 #define UIX_DBL_EPSILON   2.2204460492503131e-16 // Smallest double s.t. 1.0+epsilon != 1.0 — from <float.h> / C99
 #define UIX_FLT_DIG       6
 #define UIX_DBL_DIG       15
-
-#endif /* UIX_LIMITS_H */
 
 
 #endif /* End of __UIX_LIMITS__H */

@@ -1,30 +1,10 @@
 
-#ifndef __COMPLEX__H
-#define __COMPLEX__H
+#ifndef __UIX_COMPLEX__H
+#define __UIX_COMPLEX__H
 /*
-stddef.h
+uix_complex.h
 */
 /* This is for only STDLIB */
-
-#include "features.h"
-
-#if  (define __GLIBC)
-
-#ifdef _cplusplus
-extern "C" {
-#endif
-
-
-
-#ifdef cplusplus
-}
-#endif
-
-
-#endif /* End  of STDLIB*/
-
-#ifndef UIX_COMPLEX_H
-#define UIX_COMPLEX_H
 
 #include "uix_types.h"
 
@@ -66,8 +46,5 @@ uix_complex_t uix_ccos (uix_complex_t c);
 #define UIX_INLINE static inline
 #endif
 
-#endif /* UIX_COMPLEX_H */
-
-
-#endif /* End of __COMPLEX__H */
+#endif /* End of __UIX_COMPLEX__H */
 /* ***This is End of file, there is no more line should be added after this line*** */

@@ -13,43 +13,7 @@ Overview
 */
 /* This is for only POXIS */
 
-#include "uix_features.h"
-
-#include <sys/types.h>
-
-struct group {
-    char   grname;   // Group name /
-    char   grpasswd; // Group password /
-    gidt   grgid;    // Group ID /
-    char  *grmem;    // Null-terminated list of member names /
-};
-
-#if  (define __POSIX)
-
-#ifdef _cplusplus
-extern "C" {
-#endif
-
-// Retrieve group entry by name or GID /
-struct group getgrnam(const char name);
-struct group getgrgid(gidt gid);
-
-// Sequential group access /
-struct group getgrent(void);
-void setgrent(void);
-void endgrent(void);
-
-#ifdef cplusplus
-}
-#endif
-
-
-#endif /* End  of POXIS */
-
-
-
-#ifndef UIX_GRP_H
-#define UIX_GRP_H
+#include "uix_features.h"//??
 
 #include "sys/uix_types.h"
 
@@ -73,8 +37,6 @@ int          uix_getgrnam_r(const char *name, uix_group_t *grp,
 void         uix_setgrent  (void);   // Rewinds group database
 void         uix_endgrent  (void);
 uix_group_t *uix_getgrent  (void);  // Returns next group entry
-
-#endif /* UIX_GRP_H */
 
 
 

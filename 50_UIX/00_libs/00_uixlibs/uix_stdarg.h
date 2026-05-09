@@ -2,29 +2,12 @@
 #ifndef __UIX_STDARG__H
 #define __UIX_STDARG__H
 /*
-stddef.h
+uix_stdargh
 */
 /* This is for only STDLIB */
 
-#include "features.h"
+#include "uix_features.h"///???
 
-#if  (define __GLIBC)
-
-#ifdef _cplusplus
-extern "C" {
-#endif
-
-
-
-#ifdef cplusplus
-}
-#endif
-
-
-#endif /* End  of STDLIB*/
-
-#ifndef UIX_STDARG_H
-#define UIX_STDARG_H
 
 typedef __builtin_va_list uix_va_list; // Variadic argument list type — compiler-intrinsic, maps to va_list in <stdarg.h>
 
@@ -32,8 +15,6 @@ typedef __builtin_va_list uix_va_list; // Variadic argument list type — compil
 #define uix_va_arg(ap, type)    __builtin_va_arg(ap, type) // Retrieves next argument of type from va_list
 #define uix_va_end(ap)          __builtin_va_end(ap) // Cleans up va_list — required after use to avoid undefined behavior
 #define uix_va_copy(dst, src)   __builtin_va_copy(dst, src) // Copies va_list state — required for functions that traverse args multiple times
-
-#endif /* UIX_STDARG_H */
 
 
 #endif /* End of __UIX_STDARG__H */

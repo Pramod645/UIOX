@@ -1,31 +1,12 @@
 
-#ifndef __FENV__H
-#define __FENV__H
+#ifndef __UIX_FENV_H
+#define __UIX_FENV_H
 /*
-stddef.h
+uix_fenv.h
 */
 /* This is for only STDLIB */
 
-#include "features.h"
-
-#if  (define __GLIBC)
-
-#ifdef _cplusplus
-extern "C" {
-#endif
-
-
-
-#ifdef cplusplus
-}
-#endif
-
-
-#endif /* End  of STDLIB*/
-
-
-#ifndef UIX_FENV_H
-#define UIX_FENV_H
+#include "uix_features.h"//??
 
 #include "uix_types.h"
 
@@ -61,8 +42,6 @@ int uix_fesetenv       (const uix_fenv_t *envp);                   // Restores F
 int uix_feholdexcept   (uix_fenv_t *envp);                         // Saves state and clears all exceptions
 int uix_feupdateenv    (const uix_fenv_t *envp);                  //
 
-#endif /* UIX_FENV_H */
 
-
-#endif /* End of __FENV__H */
+#endif /* End of __UIX_FENV_H */
 /* ***This is End of file, there is no more line should be added after this line*** */

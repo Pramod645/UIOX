@@ -1,8 +1,8 @@
  /* BSD and Linux */
- #ifndef UIX_IOCTL_H
-#define UIX_IOCTL_H
+ #ifndef __SYS_UIX_IOCTL__H
+#define __SYS_UIX_IOCTL__H
 
-#include "uix_types.h"
+#include "sys/uix_types.h"
 
 #define UIX_TCGETS     0x5401    // Gets terminal attributes via ioctl
 #define UIX_TCSETS     0x5402    // Sets terminal attributes immediately
@@ -28,4 +28,5 @@ typedef struct uix_winsize {
 
 int uix_ioctl(int fd, unsigned long request, ...);  // Device-specific control operation — POSIX
 
-#endif /* UIX_IOCTL_H */
+#endif /* __SYS_UIX_IOCTL__H */
+/* ***This is End of file, there is no more line should be added after this line*** */

@@ -1,31 +1,13 @@
 
-#ifndef __FLOAT__H
-#define __FLOAT__H
+#ifndef __UIX_FLOAT__H
+#define __UIX_FLOAT__H
 /*
-stddef.h
+uix_float.h
 */
 /* This is for only STDLIB */
 
-#include "features.h"
+#include "uix_features.h"//??
 
-#if  (define __GLIBC)
-
-#ifdef _cplusplus
-extern "C" {
-#endif
-
-
-
-#ifdef cplusplus
-}
-#endif
-
-
-#endif /* End  of STDLIB*/
-
-
-#ifndef UIX_FLOAT_H
-#define UIX_FLOAT_H
 
 #define UIX_FLT_RADIX       2 //Floating point base — always 2 (binary) on IEEE 754 systems
 #define UIX_FLT_ROUNDS      1
@@ -53,10 +35,6 @@ extern "C" {
 #define UIX_LDBL_DIG        18
 #define UIX_LDBL_EPSILON    1.08420217248550443401e-19L
 
-#endif /* UIX_FLOAT_H */
 
-
-
-
-#endif /* End of __FLOAT__H */
+#endif /* End of __UIX_FLOAT__H */
 /* ***This is End of file, there is no more line should be added after this line*** */

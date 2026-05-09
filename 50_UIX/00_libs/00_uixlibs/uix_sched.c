@@ -53,3 +53,5 @@ int uix_sched_yield(void)
     extern int sys_sched_yield(void) __attribute__((weak));
     return sys_sched_yield ? sys_sched_yield() : 0;
 }
+
+/* ***This is End of file, there is no more line should be added after this line*** */

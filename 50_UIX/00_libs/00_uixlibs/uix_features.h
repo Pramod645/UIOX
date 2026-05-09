@@ -1,5 +1,5 @@
-#ifndef UIX_FEATURES_H
-#define UIX_FEATURES_H
+#ifndef __UIX_FEATURES__H
+#define __UIX_FEATURES__H
 
 /* POSIX version */
 #define _UIX_POSIX_VERSION     200809L // Declares POSIX.1-2008 compliance — glibc uses _POSIX_VERSION similarly
@@ -38,4 +38,4 @@
 #  define UIX_WORDSIZE      64
 #endif
 
-#endif /* UIX_FEATURES_H */
+#endif /* __UIX_FEATURES__H */

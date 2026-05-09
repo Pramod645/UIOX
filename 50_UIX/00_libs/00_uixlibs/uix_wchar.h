@@ -1,6 +1,6 @@
 
-#ifndef __WCHAR__H
-#define __WCHAR__H
+#ifndef __UIX_WCHAR__H
+#define __UIX_WCHAR__H
 /*
 stddef.h
 */
@@ -8,24 +8,6 @@ stddef.h
 
 #include "features.h"
 
-#if  (define __GLIBC)
-
-#ifdef _cplusplus
-extern "C" {
-#endif
-
-
-
-#ifdef cplusplus
-}
-#endif
-
-
-#endif /* End  of STDLIB*/
-
-
-#ifndef UIX_WCHAR_H
-#define UIX_WCHAR_H
 
 #include "uix_types.h"
 #include "uix_stddef.h"
@@ -55,8 +37,7 @@ int        uix_mbtowc  (uix_wchar_t *pwc, const char *s, uix_size_t n);
 uix_wint_t  uix_btowc  (int c);
 int         uix_wctob  (uix_wint_t c);
 
-#endif /* UIX_WCHAR_H */
 
 
-#endif /* End of __WCHAR__H */
+#endif /* End of __UIX_WCHAR__H */
 /* ***This is End of file, there is no more line should be added after this line*** */

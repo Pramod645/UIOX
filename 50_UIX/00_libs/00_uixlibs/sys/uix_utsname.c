@@ -16,3 +16,5 @@ int uix_uname(uix_utsname_t *buf)
     uix_strncpy(buf->domainname, "(none)",    UIX_UTSNAME_LENGTH - 1);
     return 0;
 }
+
+/* ***This is End of file, there is no more line should be added after this line*** */

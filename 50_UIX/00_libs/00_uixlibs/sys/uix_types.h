@@ -9,77 +9,7 @@ libc (glibc, musl), and feature macros. So the code below is a clean approximati
 */
 /* This is for only POXIS */
 
-#include "features.h"
-
-#if  (define __POSIX)
-
-#ifdef _cplusplus
-extern "C" {
-#endif
-
-/* Basic integer types */
-typedef signed char         int8t;
-typedef unsigned char       uint8t;
-
-typedef signed short        int16t;
-typedef unsigned short      uint16t;
-
-typedef signed int          int32t;
-typedef unsigned int        uint32t;
-
-typedef signed long long    int64t;
-typedef unsigned long long  uint64t;
-
-/* Size-related types */
-typedef unsigned long       sizet;
-typedef signed long         ssizet;
-
-/* Pointer/integer types */
-typedef signed long         intptrt;
-typedef unsigned long       uintptrt;
-
-/* Common system types */
-typedef unsigned int        modet;
-typedef long                offt;
-typedef int                 pidt;
-typedef long                timet;
-typedef long                clockt;
-
-/* Device/inode-like types */
-typedef unsigned long       devt;
-typedef unsigned long       inot;
-typedef unsigned long       nlinkt;
-
-/* User/group IDs */
-typedef unsigned int        uidt;
-typedef unsigned int        gidt;
-
-/* Block/count types */
-typedef long                blkcntt;
-typedef long                blksizet;
-
-/* Boolean style */
-#ifndef __cplusplus
-typedef enum {
-    false = 0,
-    true = 1
-} bool;
-#endif
-
-/* Null pointer */
-#ifndef NULL
-#define NULL ((void *)0)
-#endif
-
-#ifdef cplusplus
-}
-#endif
-
-
-#endif /* End  of POXIS */
-
-#ifndef UIX_TYPES_H // Include guard — prevents double inclusion, standard practice in all POSIX headers
-#define UIX_TYPES_H
+#include "uix_features.h"//?
 
 typedef unsigned char      uix_uint8_t; // Maps to uint8_t from <stdint.h> — 8-bit unsigned integer, POSIX requirement
 typedef signed   char      uix_int8_t; // Maps to int8_t — signed 8-bit, C99/POSIX
@@ -115,8 +45,6 @@ typedef int            uix_bool_t; // Boolean type, equivalent to _Bool in C99 o
 #ifndef NULL
 #define NULL ((void*)0) /* POSIX/C null pointer constant */
 #endif
-
-#endif /* UIX_TYPES_H */
 
 
 #endif /* End of __SYS_UIX_TYPES__H */

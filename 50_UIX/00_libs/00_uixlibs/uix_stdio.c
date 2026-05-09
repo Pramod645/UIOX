@@ -233,3 +233,5 @@ int uix_scanf(const char *fmt,...){
     uix_va_list a; uix_va_start(a,fmt);
     int n=uix_sscanf(buf,fmt,a); uix_va_end(a); return n;
 }
+
+/* ***This is End of file, there is no more line should be added after this line*** */

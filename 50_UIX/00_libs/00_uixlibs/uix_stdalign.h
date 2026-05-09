@@ -1,27 +1,12 @@
 
-#ifndef __STDALIGN__H
-#define __STDALIGN__H
+#ifndef __UIX_STDALIGN__H
+#define __UIX_STDALIGN__H
 /*
 stddef.h
 */
 /* This is for only STDLIB */
 
-#include "features.h"
-
-#if  (define __GLIBC)
-
-#ifdef _cplusplus
-extern "C" {
-#endif
-
-
-
-#ifdef cplusplus
-}
-#endif
-
-
-#endif /* End  of STDLIB*/
+#include "uix_features.h"//??
 
 
 #ifndef UIX_STDALIGN_H
@@ -32,9 +17,8 @@ extern "C" {
 #define UIX_ALIGNOF(x)   __alignof__(x)
 #define UIX_ALIGNAS(x)   __attribute__((aligned(x))) // C11 alignof() — returns alignment requirement of a type
 
-#endif /* UIX_STDALIGN_H */
 
 
 
-#endif /* End of __STDALIGN__H */
+#endif /* End of __UIX_STDALIGN__H */
 /* ***This is End of file, there is no more line should be added after this line*** */

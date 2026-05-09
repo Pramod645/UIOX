@@ -9,45 +9,7 @@ or across processes via named semaphores.
 */
 /* This is for only POXIS */
 
-#include "features.h"
-
-#if  (define __POSIX)
-
-#ifdef _cplusplus
-extern "C" {
-#endif
-
-// Semaphore type /
-typedef struct {
-    unsigned int value;
-} semt;
-
-// Functions for named semaphores (usable between processes) /
-#include <fcntl.h>   // for O flags /
-
-semt semopen(const char name, int oflag, ...);
-int semclose(semt sem);
-int semunlink(const char name);
-
-// Functions for unnamed semaphores (usable within threads or shared memory) /
-int seminit(semt sem, int pshared, unsigned int value);
-int semdestroy(semt sem);
-
-int semwait(semt sem);
-int semtrywait(semt sem);
-int sempost(semt sem);
-int semgetvalue(semt sem, int sval);
-
-#ifdef cplusplus
-}
-#endif
-
-
-#endif /* End  of POXIS */
-
-
-#ifndef UIX_SEMAPHORE_H
-#define UIX_SEMAPHORE_H
+#include "uix_features.h"//??
 
 #include "uix_types.h"
 #include "uix_time.h"
@@ -69,9 +31,6 @@ int        uix_sem_getvalue (uix_sem_t *sem, int *sval);  // Reads current semap
 uix_sem_t *uix_sem_open     (const char *name, int oflag, ...);  // Opens or creates named semaphore
 int        uix_sem_close    (uix_sem_t *sem);  // Closes named semaphore handle
 int        uix_sem_unlink   (const char *name);  // Removes named semaphore from filesystem
-
-#endif /* UIX_SEMAPHORE_H */
-
 
 
 

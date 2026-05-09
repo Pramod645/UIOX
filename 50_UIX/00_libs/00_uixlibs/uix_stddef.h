@@ -1,30 +1,13 @@
 
-#ifndef __STDDEF__H
-#define __STDDEF__H
+#ifndef __UIX_STDDEF__H
+#define __UIX_STDDEF__H
 /*
 stddef.h
 */
 /* This is for only STDLIB */
 
-#include "features.h"
+#include "uix_features.h"
 
-#if  (define __GLIBC)
-
-#ifdef _cplusplus
-extern "C" {
-#endif
-
-
-
-#ifdef cplusplus
-}
-#endif
-
-
-#endif /* End  of STDLIB*/
-
-#ifndef UIX_STDDEF_H
-#define UIX_STDDEF_H
 
 #include "uix_types.h"
 
@@ -42,8 +25,6 @@ typedef uix_size_t    uix_size_t;
 typedef int uix_wchar_t; // Wide character type — POSIX wchar_t, used in wcslen(), wcscpy()
 #endif
 
-#endif /* UIX_STDDEF_H */
 
-
-#endif /* End of __STDDEF__H */
+#endif /* End of __UIX_STDDEF__H */
 /* ***This is End of file, there is no more line should be added after this line*** */

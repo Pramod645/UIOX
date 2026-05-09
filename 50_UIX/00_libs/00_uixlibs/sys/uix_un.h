@@ -1,6 +1,6 @@
 
-#ifndef __SYS_SOCKET__H
-#define __SYS_SOCKET__H
+#ifndef __SYS_UIX_UN__H
+#define __SYS_UIX_UN__H
 /*
 sys/un.h is the correct file for Unix domain sockets. It’s a standard POSIX header that defines the structure used for local (interprocess) socket communication on the same host.  
 
@@ -12,36 +12,7 @@ A mistyped or abbreviated form of another file — for example:
 */
 /* This is for only POXIS */
 
-#include "features.h"
-
-#include <sys/socket.h>  // for safamilyt
-
-#if  (define __POSIX)
-
-#ifdef _cplusplus
-extern "C" {
-#endif
-
-/* Structure describing a UNIX domain socket address */
-struct sockaddrun {
-    safamilyt sunfamily;  // AFUNIX or AFLOCAL /
-    char sunpath[108];      // pathname /
-};
-
-/* Backward compatibility macros */
-#define UNIXPATHMAX sizeof(((struct sockaddrun )0)->sunpath)
-
-#ifdef cplusplus
-}
-#endif
-
-
-#endif /* End  of POXIS */
-
-
-/* include/uix_un.h */
-#ifndef UIX_UN_H
-#define UIX_UN_H
+#include "uix_features.h"//??
 
 #include "uix_socket.h"
 
@@ -52,8 +23,5 @@ typedef struct uix_sockaddr_un {
     char            sun_path[UIX_UNIX_PATH_MAX];     // Filesystem path for socket
 } uix_sockaddr_un_t;
 
-#endif /* UIX_UN_H */
-
-
-#endif /* End of __SYS_SOCKET__H */
+#endif /* End of __SYS_UIX_UN__H */
 /* ***This is End of file, there is no more line should be added after this line*** */

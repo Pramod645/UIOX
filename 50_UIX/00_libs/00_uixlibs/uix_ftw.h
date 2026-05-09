@@ -1,6 +1,6 @@
 
-#ifndef __FTW__H
-#define __FTW__H
+#ifndef __UIX_FTW__H
+#define __UIX_FTW__H
 /*
 ftw.h header defines the File Tree Walk (FTW) interface, which provides functions like ftw() and nftw() that recursively 
 traverse directories and call a user-supplied callback function for each file or subdirectory encountered.  
@@ -11,57 +11,7 @@ functions (opendir, readdir, etc.).
 */
 /* This is for only POXIS */
 
-#include "features.h"
-
-#include <sys/types.h>
-#include <sys/stat.h>
-
-#if  (define __POSIX)
-
-#ifdef _cplusplus
-extern "C" {
-#endif
-
-// File type indicators passed to the callback function /
-#define FTWF   0   // Regular file /
-#define FTWD   1   // Directory /
-#define FTWDNR 2   // Directory not readable /
-#define FTWNS  3   // File for which stat failed /
-
-// Flags used with nftw() /
-#define FTWPHYS  0x01  // Physical walk, do not follow symlinks /
-#define FTWMOUNT 0x02  // Stay on the same filesystem /
-#define FTWDEPTH 0x04  // Call function for directory after visiting contents /
-#define FTWCHDIR 0x08  // Change to each directory before processing /
-
-// Structure used by nftw() /
-struct FTW {
-    int base;    / Offset of filename part in path /
-    int level;   / Depth from root of walk /
-};
-
-// Function prototypes /
-int ftw(const char dirpath,
-        int (fn)(const char fpath, const struct stat sb, int typeflag),
-        int descriptors);
-
-int nftw(const char dirpath,
-         int (fn)(const char fpath, const struct stat sb, int typeflag, struct FTW ftwbuf),
-         int descriptors, int flags);
-
-
-#ifdef cplusplus
-}
-#endif
-
-
-#endif /* End  of POXIS */
-
-
-
-/* include/uix_ftw.h */
-#ifndef UIX_FTW_H
-#define UIX_FTW_H
+#include "uix_features.h"//??
 
 #include "uix_stat.h"
 
@@ -91,10 +41,7 @@ typedef int (*uix_nftw_fn)(const char *path, const uix_stat_t *sb,
 int uix_ftw (const char *path, uix_ftw_fn fn, int nopenfd);              // Walks directory tree, calls fn for each entry
 int uix_nftw(const char *path, uix_nftw_fn fn, int nopenfd, int flags);  // Enhanced tree walk — POSIX.1-2001
 
-#endif /* UIX_FTW_H */
+//#endif /* UIX_FTW_H */
 
-
-
-
-#endif /* End of __FTW__H */
+#endif /* End of __UIX_FTW__H */
 /* ***This is End of file, there is no more line should be added after this line*** */

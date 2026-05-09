@@ -1,6 +1,6 @@
 
-#ifndef __TIMEB_H
-#define __TIMEB_H
+#ifndef __SYS_UIX_TIMEB__H
+#define __SYS_UIX_TIMEB__H
 /*
 let’s look at <sys/timeb.h>, what it does, and how you might use it.  
 
@@ -13,39 +13,7 @@ Newer code usually uses gettimeofday() (from <sys/time.h>) or clockgettime(), bu
 */
 /* This is for only POXIS */
 
-#include "features.h"
-
-#include <sys/types.h>
-#include <time.h>
-
-#if  (define __POSIX)
-
-#ifdef _cplusplus
-extern "C" {
-#endif
-
-
-struct timeb {
-    timet time;        // seconds since Epoch /
-    unsigned short millitm; // milliseconds part /
-    short timezone;     // minutes west of UTC /
-    short dstflag;      // daylight saving time flag /
-};
-
-/* Fill a struct timeb with current time */
-int ftime(struct timeb tp);
-
-#ifdef cplusplus
-}
-#endif
-
-
-#endif /* End  of POXIS */
-
-
-/* include/uix_timeb.h */
-#ifndef UIX_TIMEB_H
-#define UIX_TIMEB_H
+#include "uix_features.h"//?
 
 #include "uix_types.h"
 
@@ -58,9 +26,7 @@ typedef struct uix_timeb {
 
 int uix_ftime(uix_timeb_t *tp);  // ftime() — obsolete POSIX function, superseded by gettimeofday(). Fills uix_timeb_t
 
-#endif /* UIX_TIMEB_H */
 
 
-
-#endif /* End of __TIMEB_H */
+#endif /* End of __SYS_UIX_TIMEB__H */
 /* ***This is End of file, there is no more line should be added after this line*** */

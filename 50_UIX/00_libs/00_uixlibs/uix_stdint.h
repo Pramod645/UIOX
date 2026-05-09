@@ -1,6 +1,6 @@
 
-#ifndef __STDINT__H
-#define __STDINT__H
+#ifndef __UIX_STDINT__H
+#define __UIX_STDINT__H
 /*
 stddef.h
 */
@@ -8,24 +8,6 @@ stddef.h
 
 #include "features.h"
 
-#if  (define __GLIBC)
-
-#ifdef _cplusplus
-extern "C" {
-#endif
-
-
-
-#ifdef cplusplus
-}
-#endif
-
-
-#endif /* End  of STDLIB*/
-
-
-#ifndef UIX_STDINT_H
-#define UIX_STDINT_H
 
 #include "uix_types.h"
 
@@ -95,8 +77,6 @@ typedef uix_uint64_t  uix_uintmax_t;
 #define UIX_INTMAX_C(v) UIX_INT64_C(v)
 #define UIX_UINTMAX_C(v) UIX_UINT64_C(v)
 
-#endif /* UIX_STDINT_H */
 
-
-#endif /* End of __STDINT__H */
+#endif /* End of __UIX_STDINT__H */
 /* ***This is End of file, there is no more line should be added after this line*** */

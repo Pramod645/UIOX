@@ -1,6 +1,6 @@
 
-#ifndef __WCTYPE__H
-#define __WCTYPE__H
+#ifndef __UIX_WCTYPE__H
+#define __UIX_WCTYPE__H
 /*
 stddef.h
 */
@@ -8,24 +8,6 @@ stddef.h
 
 #include "features.h"
 
-#if  (define __GLIBC)
-
-#ifdef _cplusplus
-extern "C" {
-#endif
-
-
-
-#ifdef cplusplus
-}
-#endif
-
-
-#endif /* End  of STDLIB*/
-
-
-#ifndef UIX_WCTYPE_H
-#define UIX_WCTYPE_H
 
 #include "uix_wchar.h"
 
@@ -50,10 +32,8 @@ uix_wint_t   uix_towlower (uix_wint_t c);
 uix_wctype_t uix_wctype   (const char *name); //Returns class handle for named class like "alpha" — POSIX wctype()
 int          uix_iswctype (uix_wint_t c, uix_wctype_t type); //Tests wide char against class — POSIX iswctype()
 
-#endif /* UIX_WCTYPE_H */
 
 
 
-
-#endif /* End of __WCTYPE__H */
+#endif /* End of __UIX_WCTYPE__H */
 /* ***This is End of file, there is no more line should be added after this line*** */

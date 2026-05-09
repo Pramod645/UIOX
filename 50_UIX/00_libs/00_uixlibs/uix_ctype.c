@@ -14,3 +14,5 @@ int uix_isblank (int c) { return c==' ' || c=='\t'; }
 int uix_ispunct (int c) { return uix_isprint(c) && !uix_isalnum(c) && c!=' '; }
 int uix_toupper (int c) { return uix_islower(c) ? c - 'a' + 'A' : c; }
 int uix_tolower (int c) { return uix_isupper(c) ? c - 'A' + 'a' : c; }
+
+/* ***This is End of file, there is no more line should be added after this line*** */
