@@ -254,6 +254,7 @@ Types of files
 
 
 |*****************************************system call descriptions************************************************|
+
 1.File System Calls:
     a. open, create, dup, pipe, close                                                      : return file descriptor
     b. open, create, chdir, chroot, chown, chmod, stat, link, unlink, mknod, mount, unmount: use of namei
