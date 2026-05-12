@@ -1,7 +1,7 @@
 #include "uix_mman.h"
-#include "uix_stdlib.h"
-#include "uix_errno.h"
-#include "uix_string.h"
+#include "../uix_stdlib.h"
+#include "../uix_errno.h"
+#include "../uix_string.h"
 
 void *uix_mmap(void *addr, uix_size_t length, int prot,
                int flags, int fd, uix_off_t offset)

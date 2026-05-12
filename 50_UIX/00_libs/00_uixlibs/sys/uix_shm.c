@@ -1,6 +1,6 @@
 /********************* uix_shm.c **************************************/
 #include "uix_shm.h"
-#include "uix_errno.h"
+#include "../uix_errno.h"
 
 int uix_shmget(uix_key_t key, uix_size_t size, int shmflg)
 {

@@ -680,8 +680,37 @@ Returns: elapsed wall clock time in clock ticks if OK,−1 on error
 ==================================================================================================
 #9.Process relationship
 a.
+#include <unistd.h>
+pid_t getpgrp(void);
+Returns: process group ID of calling process
 
+#include <unistd.h>
+pid_t getpgid(pid_t pid);
+Returns: process group ID if OK,−1 on error
 
+#include <unistd.h>
+int setpgid(pid_t pid, pid_t pgid);
+Returns: 0 if OK,−1 on error
+
+b.
+#include <unistd.h>
+pid_t setsid(void);
+Returns: process group ID if OK,−1 on error
+
+#include <unistd.h>
+pid_t getsid(pid_t pid);
+Returns: session leader’s process group ID if OK,−1 on error
+
+c.
+#include <unistd.h>
+pid_t tcgetpgrp(int fd);
+Returns: process group ID of foreground process group if OK,−1 on error
+int tcsetpgrp(int fd, pid_t pgrpid);
+Returns: 0 if OK,−1 on error
+
+#include <termios.h>
+pid_t tcgetsid(int fd);
+Returns: session leader’s process group ID if OK,−1 on error
 
 ==================================================================================================
 ==================================================================================================

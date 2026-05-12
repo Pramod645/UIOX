@@ -1,5 +1,5 @@
 #include "uix_socket.h"
-#include "uix_errno.h"
+#include "../uix_errno.h"
 
 int uix_socket(int domain, int type, int protocol)
 {

@@ -1,5 +1,5 @@
 #include "uix_wait.h"
-#include "uix_errno.h"
+#include "../uix_errno.h"
 
 uix_pid_t uix_wait(int *wstatus)
 {

@@ -9,7 +9,7 @@ mechanisms in UNIX systems, along with shared memory and semaphores.
 */
 /* This is for only POXIS */
 
-#include "uix_features.h" //??
+//#include "uix_features.h" //??
 
 
 #include "uix_ipc.h"

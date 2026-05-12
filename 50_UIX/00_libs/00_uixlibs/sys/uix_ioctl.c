@@ -1,13 +1,13 @@
 #include "uix_ioctl.h"
-#include "uix_errno.h"
-#include "uix_stdarg.h"
+#include "../uix_errno.h"
+#include "../uix_stdarg.h"
 
 int uix_ioctl(int fd, unsigned long request, ...)
 {
-    va_list ap;
-    va_start(ap, request);
-    void *arg = va_arg(ap, void *);
-    va_end(ap);
+    uix_va_list ap;
+    uix_va_start(ap, request);
+    void *arg = uix_va_arg(ap, void *);
+    uix_va_end(ap);
 
     extern int sys_ioctl(int, unsigned long, void *)
         __attribute__((weak));

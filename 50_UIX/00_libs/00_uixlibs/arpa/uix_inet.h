@@ -9,11 +9,11 @@
 */
 /* This is for only POXIS */
 
-#include "uix_features.h"  //???
+//#include "uix_features.h"  //???
 
 
-#include "sys/uix_types.h"
-#include "sys/uix_socket.h"
+#include "../sys/uix_types.h"
+#include "../sys/uix_socket.h"
 
 /* inet_addr / inet_ntoa / inet_pton / inet_ntop */
 uix_in_addr_t  uix_inet_addr   (const char *cp);    // Converts dotted IPv4 string to binary — returns INADDR_NONE on error

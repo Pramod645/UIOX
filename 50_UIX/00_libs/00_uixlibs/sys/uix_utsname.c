@@ -1,6 +1,6 @@
 #include "uix_utsname.h"
-#include "uix_string.h"
-#include "uix_errno.h"
+#include "../uix_string.h"
+#include "../uix_errno.h"
 
 int uix_uname(uix_utsname_t *buf)
 {

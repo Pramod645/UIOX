@@ -1,6 +1,6 @@
 #include "uix_select.h"
-#include "uix_string.h"
-#include "uix_errno.h"
+#include "../uix_string.h"
+#include "../uix_errno.h"
 
 int uix_select(int nfds, uix_fd_set *readfds, uix_fd_set *writefds,
                uix_fd_set *exceptfds, uix_timeval_t *timeout)

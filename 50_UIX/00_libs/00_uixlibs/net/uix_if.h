@@ -17,10 +17,10 @@ Overview
 */
 /* This is for only POXIS */
 
-#include "uix_features.h" //??
+//#include "uix_features.h" //??
 
-#include "sys/uix_types.h"
-#include "sys/uix_socket.h"
+#include "../sys/uix_types.h"
+#include "../sys/uix_socket.h"
 
 #define UIX_IF_NAMESIZE   16                // Max interface name length including null
 #define UIX_IFNAMSIZ      UIX_IF_NAMESIZE

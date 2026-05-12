@@ -1,9 +1,11 @@
 /*************************  uix_inet.c ******************************/
 #include "uix_inet.h"
-#include "uix_string.h"
-#include "uix_stdlib.h"
-#include "uix_ctype.h"
-#include "uix_errno.h"
+#include "../uix_string.h"
+#include "../uix_stdlib.h"
+#include "../uix_ctype.h"
+#include "../uix_errno.h"
+
+#include "../uix_stdio.h"
 
 uix_in_addr_t uix_inet_addr(const char *cp)
 {

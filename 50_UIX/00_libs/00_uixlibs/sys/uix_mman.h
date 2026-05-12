@@ -8,7 +8,7 @@ mman.h is another standard POSIX header, used for memory management functions su
 */
 /* This is for only POXIS */
 
-#include "uix_features.h"
+//#include "uix_features.h"
 
 
 #include "uix_types.h"

@@ -9,7 +9,7 @@ libc (glibc, musl), and feature macros. So the code below is a clean approximati
 */
 /* This is for only POXIS */
 
-#include "uix_features.h"//?
+//#include "uix_features.h"//?
 
 typedef unsigned char      uix_uint8_t; // Maps to uint8_t from <stdint.h> — 8-bit unsigned integer, POSIX requirement
 typedef signed   char      uix_int8_t; // Maps to int8_t — signed 8-bit, C99/POSIX

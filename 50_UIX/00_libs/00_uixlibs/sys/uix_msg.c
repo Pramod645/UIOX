@@ -1,6 +1,6 @@
 /********************** uix_msg.c ********************************************/
 #include "uix_msg.h"
-#include "uix_errno.h"
+#include "../uix_errno.h"
 
 int uix_msgget(uix_key_t key, int msgflg)
 {

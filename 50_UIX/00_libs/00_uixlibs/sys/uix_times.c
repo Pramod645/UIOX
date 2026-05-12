@@ -1,7 +1,7 @@
 /****************************  uix_times.c *****************************************/
 #include "uix_times.h"
-#include "uix_string.h"
-#include "uix_errno.h"
+#include "../uix_string.h"
+#include "../uix_errno.h"
 
 uix_clock_t uix_times(uix_tms_t *buf)
 {

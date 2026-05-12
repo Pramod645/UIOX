@@ -4,8 +4,8 @@
 
 
 #include "uix_sem.h"
-#include "uix_errno.h"
-#include "uix_stdarg.h"
+#include "../uix_errno.h"
+#include "../uix_stdarg.h"
 
 int uix_semget(uix_key_t key, int nsems, int semflg)
 {

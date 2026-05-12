@@ -12,16 +12,16 @@ A mistyped or abbreviated form of another file — for example:
 */
 /* This is for only POXIS */
 
-#include "uix_features.h"//??
+//#include "uix_features.h"//??
 
 #include "uix_socket.h"
 
 #define UIX_UNIX_PATH_MAX 108          // Maximum path length in UNIX domain socket address
-
+#if 0
 typedef struct uix_sockaddr_un {
     uix_sa_family_t sun_family;                    // Must be AF_UNIX
     char            sun_path[UIX_UNIX_PATH_MAX];     // Filesystem path for socket
 } uix_sockaddr_un_t;
-
+#endif
 #endif /* End of __SYS_UIX_UN__H */
 /* ***This is End of file, there is no more line should be added after this line*** */

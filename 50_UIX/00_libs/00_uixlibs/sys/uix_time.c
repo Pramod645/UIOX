@@ -1,6 +1,8 @@
 #include "uix_time.h"
-#include "uix_errno.h"
-#include "uix_string.h"
+#include "../uix_errno.h"
+#include "../uix_string.h"
+
+#include "../uix_stdio.h"
 
 static uix_time_t base_time = 1000000000L; /* simulated epoch  */
 

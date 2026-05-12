@@ -13,7 +13,7 @@ Newer code usually uses gettimeofday() (from <sys/time.h>) or clockgettime(), bu
 */
 /* This is for only POXIS */
 
-#include "uix_features.h"//?
+//#include "uix_features.h"//?
 
 #include "uix_types.h"
 

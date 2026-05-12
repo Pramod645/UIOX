@@ -6,7 +6,7 @@ sys/socket.h
 */
 /* This is for only POXIS */
 
-#include "uix_features.h" //?
+//#include "uix_features.h" //?
 
 #include "uix_types.h"
 

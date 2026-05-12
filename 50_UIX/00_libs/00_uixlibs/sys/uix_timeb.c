@@ -2,6 +2,8 @@
 #include "uix_timeb.h"
 #include "uix_time.h"
 
+#include "../uix_string.h"
+
 int uix_ftime(uix_timeb_t *tp)
 {
     if (!tp) return -1;

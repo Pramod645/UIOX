@@ -1,4 +1,4 @@
-makefile
+#makefile
 
 
 # ──────────────────────────────────────────────────────────────
@@ -8,16 +8,21 @@ makefile
 # Compiler and flags
 CC       := gcc
 CFLAGS   := -Wall -Wextra -fPIC -O2
-#CFLAGS  := -Wall -Wextra -std=gnu99 -fPIC -O2 \
-           -Iinclude -ffreestanding -fno-builtin
+
 AR       := ar
 ARFLAGS  := rcs
 
 # Project config
 LIB_NAME := UIXlib
-SRC_DIR  := ../uixlibs
-OBJ_DIR  := $(SRC_DIR)/obj
-LIB_DIR  := $(SRC_DIR)/lib
+#SRC_DIR  := .#00_uixlibs
+#VPATH = ./arpa/:./net/:./netinet/:./PoStd/:./sys/
+#SRC_DIRS := ./arpa net netinet PoStd sys
+#SRC_DIR=$(wildcard *.c) 
+SRC_DIR  := ./arpa 
+SRC_DIR  += ./net
+
+OBJ_DIR  := $(SRC_DIR)/00_obj
+LIB_DIR  := $(SRC_DIR)/00_lib
 
 # Lib config
 BUILD_SHARED = 0

@@ -84,6 +84,17 @@ List of the common POSIX standard header files (from the IEEE POSIX.1 specificat
 
 #endif // end of __POXIS__H
 
+
+|********************End of List of the POXIS required files***************************|
+|********************End of List of the POXIS required files***************************|
+|********************End of List of the POXIS required files***************************|
+|********************End of List of the POXIS required files***************************|
+|********************End of List of the POXIS required files***************************|
+|********************End of List of the POXIS required files***************************|
+
+
+
+
 Clean, categorized list of all the standard library header files in C, as defined by the ISO C17 / C23 standard (a.k.a. Standard C Library or “libc”) — not system‑specific POSIX/GNU headers.  
 
 These are the “core” portable headers every C implementation provides.
@@ -126,7 +137,7 @@ These are the “core” portable headers every C implementation provides.
 
 | Header | Purpose | Key Elements |
 |--------|----------|--------------|
-| <time.h> | Date/time functions | clock(), time(), strftime, struct tm |
+|time.h> | Date/time functions | clock(), time(), strftime, struct tm | <
 
 🧵 5. Multithreading (C11 and later)
 
@@ -181,6 +192,18 @@ These are the “core” portable headers every C implementation provides.
 
 
 🧾 END
+
+
+
+|********************End of List of the Standderd Lib required files***************************|
+|********************End of List of the Standderd Lib required files***************************|
+|********************End of List of the Standderd Lib required files***************************|
+|********************End of List of the Standderd Lib required files***************************|
+|********************End of List of the Standderd Lib required files***************************|
+|********************End of List of the Standderd Lib required files***************************|
+|********************End of List of the Standderd Lib required files***************************|
+
+
 
 Types of files
 

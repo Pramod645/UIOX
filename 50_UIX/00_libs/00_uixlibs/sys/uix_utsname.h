@@ -9,7 +9,7 @@ current system (like OS name, version, and machine type).
 */
 /* This is for only POXIS */
 
-#include "uix_features.h" //?
+//#include "uix_features.h" //?
 
 #define UIX_UTSNAME_LENGTH 65
 

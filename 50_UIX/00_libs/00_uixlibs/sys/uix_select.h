@@ -6,12 +6,12 @@ sys/select.h
 */
 /* This is for only POXIS */
 
-#include "uix_features.h" //?
+//#include "uix_features.h" //?
 
 #include "uix_types.h"
 #include "uix_time.h"
-#include "uix_signal.h"
-#include "uix_string.h"
+#include "../uix_signal.h"
+#include "../uix_string.h"
 
 #define UIX_FD_SETSIZE 1024   // Maximum file descriptors monitored by select()
 

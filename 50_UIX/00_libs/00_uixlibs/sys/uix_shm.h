@@ -11,7 +11,7 @@ processes can access concurrently.
 */
 /* This is for only POXIS */
 
-#include "uix_features.h"  //?
+//#include "uix_features.h"  //?
 
 
 #include "uix_ipc.h"

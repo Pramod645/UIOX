@@ -2,7 +2,7 @@
  #ifndef __SYS_UIX_IOCTL__H
 #define __SYS_UIX_IOCTL__H
 
-#include "sys/uix_types.h"
+#include "uix_types.h"
 
 #define UIX_TCGETS     0x5401    // Gets terminal attributes via ioctl
 #define UIX_TCSETS     0x5402    // Sets terminal attributes immediately

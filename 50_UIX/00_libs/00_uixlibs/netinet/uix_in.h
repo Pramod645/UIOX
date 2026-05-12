@@ -13,9 +13,11 @@ Overview
 */
 /* This is for only POXIS */
 
-#include "uix_features.h" //??
+//#include "uix_features.h" //??
 
-#include "sys/uix_types.h"
+#include "../sys/uix_types.h"
+
+#include "../sys/uix_socket.h"
 
 /* IP protocols */
 #define UIX_IPPROTO_IP    0

@@ -9,7 +9,7 @@ It’s often used together with headers like sys/shm.h, sys/msg.h, and sys/sem.h
 */
 /* This is for only POXIS */
 
-#include "uix_features.h"  //??
+//#include "uix_features.h"  //??
 
 
 #include "uix_types.h"

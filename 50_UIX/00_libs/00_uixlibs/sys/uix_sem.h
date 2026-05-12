@@ -8,8 +8,7 @@ Semaphores are used to synchronize operations between processes, protecting shar
 */
 /* This is for only POXIS */
 
-#include "uix_features.h" //?
-
+//#include "uix_features.h" //?
 
 #include "uix_ipc.h"
 #include "uix_time.h"
