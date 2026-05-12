@@ -248,3 +248,27 @@ Types of files
 📚 Group 11 — Complex, FPU, Type-Generic Math
     Files: uix_complex.h, uix_fenv.h / uix_fenv.c, uix_tgmath.h / uix_tgmath.c, uix_errno.h / uix_errno.c, 
             uix_pwd.h / uix_pwd.c, uix_grp.h / uix_grp.c, uix_utsname.h / uix_utsname.c, uix_regex.h / uix_regex.c,
+
+
+🧾 END
+
+
+|*****************************************system call descriptions************************************************|
+1.File System Calls:
+    a. open, create, dup, pipe, close                                                      : return file descriptor
+    b. open, create, chdir, chroot, chown, chmod, stat, link, unlink, mknod, mount, unmount: use of namei
+    c. creat, mknod, link, unlink                                                          : assign nodes
+    d. chown, chmod, stat                                                                  : file attributes
+    e. read, write, lseek                                                                  : File I/O
+    f. mount, unmount                                                                      : File sys structure
+    g. chdir, chown                                                                        : Manupulation
+2.Process system Calls:
+    a. fork
+    b. exec
+    c. brk
+    d. exit
+    e. wait
+    f. signal
+    g. kill
+    h. setpgrp
+    i. setuid

@@ -1508,14 +1508,92 @@ Returns: size to allocate for data object nbytes large
 ==================================================================================================
 ==================================================================================================
 #18.Terminal
-a.
 
+a.Getting and Setting Terminal Attributes
+#include <termios.h>
+int tcgetattr(int fd, struct termios *termptr);
+int tcsetattr(int fd, int opt, const struct termios *termptr);
+Both return: 0 if OK,−1 on error
+
+b.Baud Rate Functions
+#include <termios.h>
+speed_t cfgetispeed(const struct termios *termptr);
+speed_t cfgetospeed(const struct termios *termptr);
+Both return: baud rate value
+int cfsetispeed(struct termios *termptr, speed_t speed);
+int cfsetospeed(struct termios *termptr, speed_t speed);
+Both return: 0 if OK,−1 on error
+
+c.Line Control Functions
+#include <termios.h>
+int tcdrain(int fd);
+int tcflow(int fd, int action);
+int tcflush(int fd, int queue);
+int tcsendbreak(int fd, int duration);
+All four return: 0 if OK,−1 on error
+
+d.Terminal Identification
+#include <stdio.h>
+char *ctermid(char *ptr);
+Returns: pointer to name of controlling terminal
+on success, pointer to empty string on error
+
+#include <unistd.h>
+int isatty(int fd);
+Returns: 1 (true) if terminal device, 0 (false) otherwise
+char *ttyname(int fd);
+Returns: pointer to pathname of terminal, NULLon error
 
 ==================================================================================================
 ==================================================================================================
 #19.Pseudo Terminals
+a.
+#include <stdlib.h>
+#include <fcntl.h>
+int posix_openpt(int oflag);
+Returns: file descriptor of next available PTY master if OK,−1 on error
+
+#include <stdlib.h>
+int grantpt(int fd);
+int unlockpt(int fd);
+Both return: 0 on success,−1 on error
+
+#include <stdlib.h>
+char *ptsname(int fd);
+Returns: pointer to name of PTY slave if OK, NULLon error
+
+
+int ptym_open(char *pts_name, int pts_namesz);
+Returns: file descriptor of PTY master if OK,−1 on error
+int ptys_open(char *pts_name);
+Returns: file descriptor of PTY slave if OK,−1 on error
+
+#include <termios.h>
+pid_t pty_fork(int *ptrfdm, char *slave_name, int slave_namesz,
+const struct termios *slave_termios,
+const struct winsize *slave_winsize);
+Returns: 0 in child, process ID of child in parent,−1 on error
 
 
 ==================================================================================================
 ==================================================================================================
 20.A Database Library
+a.
+DBHANDLE db_open(const char *pathname, int oflag, ... /* int mode */);
+Returns: database handle if OK, NULLon error
+void db_close(DBHANDLE db);
+
+int db_store(DBHANDLE db, const char *key, const char *data,
+int flag);
+Returns: 0 if OK, nonzero on error (see following)
+
+char *db_fetch(DBHANDLE db, const char *key);
+Returns: pointer to data if OK, NULLif record not found
+
+int db_delete(DBHANDLE db, const char *key);
+Returns: 0 if OK,−1 if record not found
+
+void db_rewind(DBHANDLE db);
+char *db_nextrec(DBHANDLE db, char *key);
+Returns: pointer to data if OK, NULLon end of file
+
