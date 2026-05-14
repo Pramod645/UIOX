@@ -3,13 +3,16 @@
 #include "uix_stdlib.h"
 #include "uix_string.h"
 #include "uix_errno.h"
-#include "arpa/uix_inet.h"
-#include "net/uix_if.h"
+#include "../arpa/uix_inet.h"
+#include "../net/uix_if.h"
+
+#include "../uix_sys.h"
+
 
 int uix_getifaddrs(uix_ifaddrs_t **ifap)
 {
     if (!ifap) { uix_errno = UIX_EFAULT; return -1; }
-    extern int sys_getifaddrs(uix_ifaddrs_t**) __attribute__((weak));
+    //extern int sys_getifaddrs(uix_ifaddrs_t**) __attribute__((weak));
     if (sys_getifaddrs) return sys_getifaddrs(ifap);
 
     /* Stub: return loopback only */

@@ -8,8 +8,8 @@ stddef.h
 
 //#include "features.h"
 
-#include "sys/uix_types.h"
-#include "sys/uix_time.h"
+#include "../sys/uix_types.h"
+#include "../sys/uix_time.h"
 #include "uix_pthread.h"
 
 typedef uix_pthread_t      uix_thrd_t;

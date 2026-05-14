@@ -1,15 +1,20 @@
 #include "uix_select.h"
-#include "../uix_string.h"
-#include "../uix_errno.h"
+#include "../PoStd/uix_string.h"
+#include "../PoStd/uix_errno.h"
+
+
+#include "../uix_sys.h"
+
 
 int uix_select(int nfds, uix_fd_set *readfds, uix_fd_set *writefds,
                uix_fd_set *exceptfds, uix_timeval_t *timeout)
 {
-    extern int sys_select(int, uix_fd_set*, uix_fd_set*,
-                          uix_fd_set*, uix_timeval_t*)
-        __attribute__((weak));
-    if (sys_select)
-        return sys_select(nfds,readfds,writefds,exceptfds,timeout);
+    //extern int sys_select(int, uix_fd_set*, uix_fd_set*,
+    //                      uix_fd_set*, uix_timeval_t*)
+    //    __attribute__((weak));
+    //if (sys_select)
+    //    return sys_select(nfds,readfds,writefds,exceptfds,timeout);
+    return sys_select(nfds,readfds,writefds,exceptfds,timeout);
 
     (void)timeout;
     int count = 0;

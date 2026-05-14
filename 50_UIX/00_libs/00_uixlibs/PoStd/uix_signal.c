@@ -2,6 +2,8 @@
 #include "uix_errno.h"
 #include "uix_string.h"
 
+#include "../uix_sys.h"
+
 static uix_sigaction_t sig_handlers[UIX_NSIG + 1];
 
 uix_sighandler_t uix_signal(int signum, uix_sighandler_t handler)
@@ -27,16 +29,18 @@ int uix_sigaction(int signum, const uix_sigaction_t *act,
 
 int uix_kill(uix_pid_t pid, int sig)
 {
-    extern int sys_kill(uix_pid_t, int) __attribute__((weak));
-    return sys_kill ? sys_kill(pid, sig)
-                    : (uix_errno = UIX_EPERM, -1);
+    //extern int sys_kill(uix_pid_t, int) __attribute__((weak));
+    //return sys_kill ? sys_kill(pid, sig)
+    //                : (uix_errno = UIX_EPERM, -1);
+    return sys_kill(pid, sig);
 }
 
 int uix_raise(int sig)
 {
-    extern uix_pid_t sys_getpid(void) __attribute__((weak));
-    uix_pid_t pid = sys_getpid ? (uix_pid_t)sys_getpid() : 1;
-    return uix_kill(pid, sig);
+    //extern uix_pid_t sys_getpid(void) __attribute__((weak));
+    //uix_pid_t pid = sys_getpid ? (uix_pid_t)sys_getpid() : 1;
+    //return uix_kill(pid, sig);
+    uix_pid_t pid = (uix_pid_t)sys_getpid();
 }
 
 int uix_sigemptyset(uix_sigset_t *set)

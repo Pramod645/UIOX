@@ -273,3 +273,27 @@ Types of files
     g. kill
     h. setpgrp
     i. setuid
+
+|*****************************************system call descriptions************************************************|
+mount, unmount, brk ;; these funtion not yet added in any file
+///////////////////////////////
+uix.unisdt.h
+dup, pipe ,close, chdir, chroot, link, unlink , read, write, lseek, fork, exec,exit, setpgrp, setuid
+
+uix_stdio.h
+open, close, 
+
+uix_state.h
+chown, chmod, stat, mknod, mkdir, chmod, stat,
+
+uix_signal.h
+kill, signal, 
+
+uix_wait.h
+wait
+
+uix_fcntl.h
+create, close, 
+
+----call to---->sys_call(ex.sys_fstat)
+sys_dup .

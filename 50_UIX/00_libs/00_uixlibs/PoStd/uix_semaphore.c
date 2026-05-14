@@ -1,6 +1,6 @@
 #include "uix_semaphore.h"
 #include "uix_errno.h"
-#include "sys/uix_time.h"
+#include "../sys/uix_time.h"
 #include <stdarg.h>
 
 int uix_sem_init(uix_sem_t *sem, int pshared, unsigned int value)

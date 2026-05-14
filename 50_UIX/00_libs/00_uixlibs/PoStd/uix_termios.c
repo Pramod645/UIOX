@@ -1,5 +1,5 @@
 #include "uix_termios.h"
-#include "sys/uix_ioctl.h"
+#include "../sys/uix_ioctl.h"
 #include "uix_errno.h"
 #include "uix_string.h"
 

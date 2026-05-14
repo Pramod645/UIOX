@@ -9,7 +9,7 @@ stddef.h
 //#include "features.h"
 
 
-#include "uix_types.h"
+#include "../sys/uix_types.h"
 #include "uix_wchar.h"
 
 typedef uix_uint16_t uix_char16_t; //UTF-16 code unit — C11 char16_t from <uchar.h>

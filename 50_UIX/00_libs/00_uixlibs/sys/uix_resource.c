@@ -1,6 +1,6 @@
 #include "uix_resource.h"
-#include "../uix_errno.h"
-#include "../uix_string.h"
+#include "../PoStd/uix_errno.h"
+#include "../PoStd/uix_string.h"
 
 static uix_rlimit_t rlimits[10] = {
     [UIX_RLIMIT_CPU]    = { UIX_RLIM_INFINITY, UIX_RLIM_INFINITY },

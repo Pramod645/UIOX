@@ -11,7 +11,7 @@ segmentation faults, or user-triggered actions (e.g. pressing Ctrl‑C).
 
 //#include "features.h"
 
-#include "sys/uix_types.h"
+#include "../sys/uix_types.h"
 
 #define UIX_SIGHUP    1   // Hangup — sent when terminal disconnects
 #define UIX_SIGINT    2   // Interrupt — sent by Ctrl+C

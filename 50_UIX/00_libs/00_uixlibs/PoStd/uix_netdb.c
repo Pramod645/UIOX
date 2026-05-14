@@ -1,10 +1,13 @@
 /*********************** uix_netdb.c *********************************/
 #include "uix_netdb.h"
-#include "arpa/uix_inet.h"
+#include "../arpa/uix_inet.h"
 #include "uix_string.h"
 #include "uix_stdlib.h"
 #include "uix_errno.h"
 #include "uix_stdio.h"
+
+#include "../uix_sys.h"
+
 
 int uix_h_errno = 0;
 
@@ -20,10 +23,11 @@ uix_hostent_t *uix_gethostbyname(const char *name)
     if (!name) { uix_h_errno = UIX_HOST_NOT_FOUND; return NULL; }
     if (uix_strcmp(name,"localhost")==0 ||
         uix_strcmp(name,"loopback")==0) return &_lo_host;
-    extern uix_hostent_t *sys_gethostbyname(const char*)
-        __attribute__((weak));
-    if (sys_gethostbyname) return sys_gethostbyname(name);
-    uix_h_errno = UIX_HOST_NOT_FOUND; return NULL;
+    //extern uix_hostent_t *sys_gethostbyname(const char*)
+    //    __attribute__((weak));
+    //if (sys_gethostbyname) return sys_gethostbyname(name);
+    //uix_h_errno = UIX_HOST_NOT_FOUND; return NULL;
+    return sys_gethostbyname(name);
 }
 
 uix_hostent_t *uix_gethostbyaddr(const void *addr,

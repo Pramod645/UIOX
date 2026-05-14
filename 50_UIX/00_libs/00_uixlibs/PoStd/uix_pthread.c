@@ -1,7 +1,7 @@
 #include "uix_pthread.h"
 #include "uix_errno.h"
 #include "uix_string.h"
-#include "sys/uix_time.h"
+#include "../sys/uix_time.h"
 
 static uix_pthread_t current_thread_id = 1;
 

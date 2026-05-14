@@ -1,7 +1,7 @@
 #ifndef UIX_POLL_H
 #define UIX_POLL_H
 
-#include "sys/uix_types.h"
+#include "../sys/uix_types.h"
 
 #define UIX_POLLIN    0x0001     // Data available to read
 #define UIX_POLLPRI   0x0002

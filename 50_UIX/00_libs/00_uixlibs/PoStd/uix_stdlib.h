@@ -11,7 +11,7 @@ It provides memory management, process control, numeric conversions, sorting/sea
 //#include "features.h"
 
 
-#include "sys/uix_types.h"
+#include "../sys/uix_types.h"
 
 #define UIX_EXIT_SUCCESS  0
 #define UIX_EXIT_FAILURE  1

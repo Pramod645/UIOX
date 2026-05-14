@@ -13,7 +13,7 @@ It’s part of the ISO C standard and required on all POSIX systems.
 //#include "features.h"
 
 
-#include "sys/uix_types.h"
+#include "../sys/uix_types.h"
 
 #define UIX_M_PI      3.14159265358979323846 // π constant — glibc extension, not strictly POSIX but universally available
 #define UIX_M_E       2.71828182845904523536

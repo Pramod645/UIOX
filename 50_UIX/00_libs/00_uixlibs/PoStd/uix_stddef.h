@@ -9,7 +9,7 @@ stddef.h
 //#include "uix_features.h"
 
 
-#include "uix_types.h"
+#include "../sys/uix_types.h"
 
 #ifndef NULL
 #  define NULL ((void *)0)

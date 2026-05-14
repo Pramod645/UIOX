@@ -17,7 +17,7 @@ system (Linux, macOS, BSD, etc.) provides it.
 
 //#include "features.h"
 
-#include "sys/uix_types.h"   // for clockt, timet, etc. ./
+#include "../sys/uix_types.h"   // for clockt, timet, etc. ./
 
 //#if  (define __POSIX  || define __GLIBC)
 

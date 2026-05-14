@@ -12,7 +12,7 @@ command line.
 
 //#include "uix_features.h"//??
 
-#include "sys/uix_types.h"
+#include "../sys/uix_types.h"
 
 #define UIX_GLOB_ERR      0x001     // Abort on read error
 #define UIX_GLOB_MARK     0x002     // Append / to directory names

@@ -9,7 +9,7 @@ stddef.h
 //#include "uix_features.h" //??
 
 
-#include "uix_types.h"
+#include "../sys/uix_types.h"
 
 typedef volatile uix_int32_t  uix_atomic_int; //Atomic integer — C11 _Atomic int, used in lock-free programming
 typedef volatile uix_uint32_t uix_atomic_uint;

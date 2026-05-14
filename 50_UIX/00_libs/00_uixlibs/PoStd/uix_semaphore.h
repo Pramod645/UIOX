@@ -11,8 +11,8 @@ or across processes via named semaphores.
 
 //#include "uix_features.h"//??
 
-#include "sys/uix_types.h"
-#include "sys/uix_time.h"
+#include "../sys/uix_types.h"
+#include "../sys/uix_time.h"
 
 typedef struct uix_sem {
     volatile int value;

@@ -22,8 +22,8 @@ Overview
 
 
 
-#include "sys/uix_types.h"
-#include "sys/uix_socket.h"
+#include "../sys/uix_types.h"
+#include "../sys/uix_socket.h"
 
 /* h_errno values */
 #define UIX_HOST_NOT_FOUND 1     // h_errno value — no such host

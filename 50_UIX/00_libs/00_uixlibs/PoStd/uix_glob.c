@@ -5,7 +5,7 @@
 #include "uix_string.h"
 #include "uix_stdlib.h"
 #include "uix_stdio.h"
-#include "sys/uix_stat.h"
+#include "../sys/uix_stat.h"
 
 int uix_glob(const char *pattern, int flags,
              int (*errfunc)(const char*, int), uix_glob_t *pglob)

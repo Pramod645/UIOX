@@ -11,7 +11,7 @@ API — i.e., file operations, process control, environmental queries, and more.
 //#include "features.h"
 
 
-#include "sys/uix_types.h"
+#include "../sys/uix_types.h"
 
 #define UIX_STDIN_FILENO  0       // File descriptor for standard input
 #define UIX_STDOUT_FILENO 1       // File descriptor for standard output

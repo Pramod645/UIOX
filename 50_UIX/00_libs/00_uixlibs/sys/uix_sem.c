@@ -4,31 +4,37 @@
 
 
 #include "uix_sem.h"
-#include "../uix_errno.h"
-#include "../uix_stdarg.h"
+#include "../PoStd/uix_errno.h"
+#include "../PoStd/uix_stdarg.h"
+
+
+#include "../uix_sys.h"
 
 int uix_semget(uix_key_t key, int nsems, int semflg)
 {
-    extern int sys_semget(uix_key_t,int,int) __attribute__((weak));
-    if (sys_semget) return sys_semget(key, nsems, semflg);
-    uix_errno = UIX_ENOSYS; return -1;
+    //extern int sys_semget(uix_key_t,int,int) __attribute__((weak));
+    //if (sys_semget) return sys_semget(key, nsems, semflg);
+    //uix_errno = UIX_ENOSYS; return -1;
+    return sys_semget(key, nsems, semflg);
 }
 
 int uix_semop(int semid, uix_sembuf_t *sops, uix_size_t nsops)
 {
-    extern int sys_semop(int,void*,uix_size_t) __attribute__((weak));
-    if (sys_semop) return sys_semop(semid, sops, nsops);
-    uix_errno = UIX_ENOSYS; return -1;
+    //extern int sys_semop(int,void*,uix_size_t) __attribute__((weak));
+    //if (sys_semop) return sys_semop(semid, sops, nsops);
+    //uix_errno = UIX_ENOSYS; return -1;
+    return sys_semop(semid, sops, nsops);
 }
 
 int uix_semctl(int semid, int semnum, int cmd, ...)
 {
     uix_va_list ap; uix_va_start(ap, cmd);
     void *arg = uix_va_arg(ap, void *);
-    uix_va_end(ap);
-    extern int sys_semctl(int,int,int,void*) __attribute__((weak));
-    if (sys_semctl) return sys_semctl(semid, semnum, cmd, arg);
-    uix_errno = UIX_ENOSYS; return -1;
+    //uix_va_end(ap);
+    //extern int sys_semctl(int,int,int,void*) __attribute__((weak));
+    //if (sys_semctl) return sys_semctl(semid, semnum, cmd, arg);
+    //uix_errno = UIX_ENOSYS; return -1;
+    return sys_semctl(semid, semnum, cmd, arg);
 }
 
 

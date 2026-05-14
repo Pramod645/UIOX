@@ -15,7 +15,7 @@ Overview
 
 //#include "uix_features.h"//??
 
-#include "sys/uix_types.h"
+#include "../sys/uix_types.h"
 
 typedef struct uix_group {
     char      *gr_name;      // Group name

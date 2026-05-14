@@ -13,7 +13,7 @@ The actual function bodies for open, fcntl, creat, etc. live in the C library an
 
 //#include "uix_features.h"//??
 
-#include "sys/uix_types.h"
+#include "../sys/uix_types.h"
 
 #define UIX_O_RDONLY    0x0000  // Open for reading only
 #define UIX_O_WRONLY    0x0001   // Open for writing only

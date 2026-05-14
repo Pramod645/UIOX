@@ -1,51 +1,42 @@
 # =============================================================
 # 00_uixlibs/uixlibs.mk
 #
-# Flags and rules shared by POSIX and Standard library builds.
-# Included by the top-level Makefile.
+# Shared compiler flags and pattern rules.
+# Included by Makefile — do NOT define OBJ_DIR / LIB_DIR
+# targets here; Makefile owns those to avoid duplicate warnings.
 # =============================================================
 
 # ── C standard and warnings ──────────────────────────────────
-COMMON_CFLAGS := -std=c11 -Wall -Wextra -Wpedantic       \
-                 -Wmissing-prototypes -Wstrict-prototypes  \
-                 -fno-common -ffunction-sections           \
-                 -fdata-sections                           \
-                 -O2
+COMMON_CFLAGS := \
+    -std=c11        \
+    -Wall           \
+    -Wextra         \
+    -Wpedantic      \
+    -Wmissing-prototypes  \
+    -Wstrict-prototypes   \
+    -fno-common           \
+    -ffunction-sections   \
+    -fdata-sections       \
+    -O2
 
-# ── Include search paths ─────────────────────────────────────
-# UIX_LIBS_DIR defaults to the directory containing this file.
-# Override on the command line:
-#   make UIX_LIBS_DIR=/path/to/00_uixlibs
-UIX_LIBS_DIR  ?= $(abspath .)
+# ── Include search path ───────────────────────────────────────
+# All headers live flat in the same directory as the sources.
+# SRC_DIR is set by Makefile before including this file.
+COMMON_INCS = -I$(SRC_ARPA)
+COMMON_INCS += -I$(SRC_NET)
+COMMON_INCS += -I$(SRC_NETINET)
+COMMON_INCS += -I$(SRC_POSTD)
+COMMON_INCS += -I$(SRC_SYS)
 
-COMMON_INCS   := -I$(UIX_LIBS_DIR)
-
-# ── Source files ─────────────────────────────────────────────
-# All .c files directly inside UIX_LIBS_DIR
-ALL_SRCS      := $(wildcard $(UIX_LIBS_DIR)/*.c)
-
-# ── Archiver ─────────────────────────────────────────────────
+# ── Archiver defaults (Makefile may override) ─────────────────
 AR      ?= ar
-ARFLAGS := rcs
+ARFLAGS ?= rcs
 
-# ── Linker flags ─────────────────────────────────────────────
+# ── Linker flags ──────────────────────────────────────────────
+# -Wl,--gc-sections is a GNU ld option; safe on Linux/macOS+ld64.
 COMMON_LDFLAGS :=
 
-# ── Object and library output directories ───────────────────
-OBJ_DIR ?= ./00_obj
-LIB_DIR ?= ./00_lib
-
-# ── Pattern rule: compile every .c → .o ──────────────────────
-# NOTE: recipe lines MUST use a real TAB character.
-$(OBJ_DIR)/%.o: $(UIX_LIBS_DIR)/%.c | $(OBJ_DIR)
+# ── Pattern rule: compile one .c → one .o ─────────────────────
+# Makefile sets SRC_DIR, OBJ_DIR before including this file.
+$(OBJ_DIR)/%.o: $(SRC_DIR)/%.c | $(OBJ_DIR)
 	$(CC) $(CFLAGS) $(COMMON_INCS) -fPIC -c $< -o $@
-
-# ── Directory creation ────────────────────────────────────────
-$(OBJ_DIR):
-	mkdir -p $(OBJ_DIR)
-
-$(LIB_DIR):
-	mkdir -p $(LIB_DIR)
-
-.PHONY: dirs
-dirs: $(OBJ_DIR) $(LIB_DIR)

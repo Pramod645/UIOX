@@ -15,7 +15,7 @@ program handles region‑specific formatting:
 
 
 
-#include "sys/uix_types.h"
+#include "../sys/uix_types.h"
 
 #define UIX_LC_ALL      0    // All locale categories
 #define UIX_LC_COLLATE  1

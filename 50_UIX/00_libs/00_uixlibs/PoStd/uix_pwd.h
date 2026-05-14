@@ -21,7 +21,7 @@ You don’t write this file yourself — it’s typically in /usr/include/pwd.h.
 //#include "features.h"
 
 
-#include "sys/uix_types.h"
+#include "../sys/uix_types.h"
 
 typedef struct uix_passwd {
     char      *pw_name;    // Login name

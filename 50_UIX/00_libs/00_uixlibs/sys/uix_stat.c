@@ -1,6 +1,6 @@
 #include "uix_stat.h"
-#include "../uix_errno.h"
-#include "../uix_string.h"
+#include "../PoStd/uix_errno.h"
+#include "../PoStd/uix_string.h"
 
 static uix_mode_t current_umask = 022;
 

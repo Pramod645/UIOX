@@ -8,7 +8,7 @@ uix_fenv.h
 
 //#include "uix_features.h"//??
 
-#include "sys/uix_types.h"
+#include "../sys/uix_types.h"
 
 typedef uix_uint32_t uix_fexcept_t;
 typedef struct { uix_uint32_t cw; uix_uint32_t sw; uix_uint32_t mxcsr; } uix_fenv_t;

@@ -1,5 +1,5 @@
 #include "uix_errno.h"
-#include "sys/uix_types.h"
+#include "../sys/uix_types.h"
 
 int uix_errno = 0;
 

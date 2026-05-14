@@ -2,7 +2,7 @@
 #include "uix_timeb.h"
 #include "uix_time.h"
 
-#include "../uix_string.h"
+#include "../PoStd/uix_string.h"
 
 int uix_ftime(uix_timeb_t *tp)
 {

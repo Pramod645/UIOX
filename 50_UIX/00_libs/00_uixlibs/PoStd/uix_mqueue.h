@@ -12,8 +12,8 @@ Below is a clear, representative version of the header and a full working exampl
 
 //#include "uix_features.h"//??
 
-#include "sys/uix_types.h"
-#include "sys/uix_time.h"
+#include "../sys/uix_types.h"
+#include "../sys/uix_time.h"
 
 typedef int uix_mqd_t;  // Message queue descriptor
 #define UIX_MQD_INVALID ((uix_mqd_t)-1)      // Invalid descriptor sentinel
@@ -25,12 +25,12 @@ typedef struct uix_mq_attr {
     long mq_curmsgs;      // Current message count (read-only)
 } uix_mq_attr_t;
 
-#define UIX_O_RDONLY  0
-#define UIX_O_WRONLY  1
-#define UIX_O_RDWR    2
-#define UIX_O_CREAT   0x40
-#define UIX_O_EXCL    0x80
-#define UIX_O_NONBLOCK 0x800
+//#define UIX_O_RDONLY  0
+//#define UIX_O_WRONLY  1
+//#define UIX_O_RDWR    2
+//#define UIX_O_CREAT   0x40
+//#define UIX_O_EXCL    0x80
+//#define UIX_O_NONBLOCK 0x800
 
 uix_mqd_t uix_mq_open   (const char *name, int oflag, ...);   // Opens/creates POSIX message queue
 int        uix_mq_close  (uix_mqd_t mqdes);                    // Closes message queue descriptor

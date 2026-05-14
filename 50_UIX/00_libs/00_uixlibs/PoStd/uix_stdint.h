@@ -9,7 +9,7 @@ stddef.h
 //#include "features.h"
 
 
-#include "sys/uix_types.h"
+#include "../sys/uix_types.h"
 
 /* Exact-width */  // Direct equivalents to C99 <stdint.h> int8_t..uint64_t — required by POSIX 2008
 typedef uix_int8_t    uix_int8_t;

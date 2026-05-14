@@ -1,6 +1,8 @@
 #include "uix_ioctl.h"
-#include "../uix_errno.h"
-#include "../uix_stdarg.h"
+#include "../PoStd/uix_errno.h"
+#include "../PoStd/uix_stdarg.h"
+
+#include "../uix_sys.h"
 
 int uix_ioctl(int fd, unsigned long request, ...)
 {
@@ -9,9 +11,11 @@ int uix_ioctl(int fd, unsigned long request, ...)
     void *arg = uix_va_arg(ap, void *);
     uix_va_end(ap);
 
-    extern int sys_ioctl(int, unsigned long, void *)
-        __attribute__((weak));
-    if (sys_ioctl) return sys_ioctl(fd, request, arg);
+    //extern int sys_ioctl(int, unsigned long, void *)
+    //    __attribute__((weak));
+    //if (sys_ioctl) return sys_ioctl(fd, request, arg);
+
+    return sys_ioctl(fd, request, arg);
 
     switch (request) {
     case UIX_TIOCGWINSZ: {

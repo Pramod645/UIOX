@@ -11,8 +11,8 @@ that form the foundation of concurrent programming on Unix-like systems.
 
 //#include "uix_features.h"//??
 
-#include "sys/uix_types.h"
-#include "sys/uix_time.h"
+#include "../sys/uix_types.h"
+#include "../sys/uix_time.h"
 
 typedef uix_uint64_t uix_pthread_t;   // Thread identifier
 typedef uix_uint64_t uix_pthread_mutex_t;  // Mutex lock

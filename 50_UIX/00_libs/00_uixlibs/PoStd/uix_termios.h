@@ -12,7 +12,7 @@ like baud rate, input modes, echo, canonical (line-editing) mode, etc.
 //#include "features.h"
 
 
-#include "sys/uix_types.h"
+#include "../sys/uix_types.h"
 
 typedef uix_uint32_t uix_tcflag_t;
 typedef uix_uint8_t  uix_cc_t;

@@ -12,7 +12,7 @@ This header is part of ISO C (and POSIX by inclusion).
 //#include "features.h"
 
 
-#include "sys/uix_types.h"
+#include "../sys/uix_types.h"
 #include "uix_stdarg.h"
 
 #define UIX_EOF      (-1)  // End-of-file indicator

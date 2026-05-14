@@ -5,11 +5,14 @@
 int uix_setjmp(uix_jmp_buf env)
 {
     // return here to fix error return __builtin_setjmp(env);
+    return 0;
 }
 
 void uix_longjmp(uix_jmp_buf env, int val)
 {
     // return here to fix error __builtin_longjmp(env, val ? val : 1);
+    //return 0;
+    val =0;
 }
 
 int uix_sigsetjmp(uix_sigjmp_buf env, int savemask)
@@ -22,6 +25,7 @@ int uix_sigsetjmp(uix_sigjmp_buf env, int savemask)
         env->saved_mask = 0;
     }
     // return here to fix error return __builtin_setjmp(env);
+    return 0;
 }
 
 void uix_siglongjmp(uix_sigjmp_buf env, int val)

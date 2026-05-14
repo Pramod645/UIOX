@@ -11,7 +11,7 @@ It defines functions and macros for handling C-style strings (null‑terminated 
 //#include "features.h"
 
 
-#include "sys/uix_types.h"
+#include "../sys/uix_types.h"
 
 uix_size_t  uix_strlen (const char *str); // Counts bytes until null terminator. O(n).
 char       *uix_strcpy (char *dest, const char *src); // Copies including null. POSIX warns: no bounds check — use strncpy

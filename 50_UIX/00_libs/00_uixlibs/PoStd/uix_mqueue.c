@@ -4,6 +4,8 @@
 #include "uix_fcntl.h"
 #include "uix_stdarg.h"
 
+#include "../uix_sys.h"
+
 uix_mqd_t uix_mq_open(const char *name, int oflag, ...)
 {
     uix_va_list ap; uix_va_start(ap, oflag);
@@ -11,43 +13,48 @@ uix_mqd_t uix_mq_open(const char *name, int oflag, ...)
                        uix_va_arg(ap, uix_mode_t) : 0;
     void *attr = (oflag & UIX_O_CREAT) ? uix_va_arg(ap, void*) : NULL;
     uix_va_end(ap);
-    extern long sys_mq_open(const char*,int,uix_mode_t,void*)
-        __attribute__((weak));
-    if (sys_mq_open) return (uix_mqd_t)sys_mq_open(name,oflag,mode,attr);
-    uix_errno = UIX_ENOSYS; return UIX_MQD_INVALID;
+    //extern long sys_mq_open(const char*,int,uix_mode_t,void*)
+    //    __attribute__((weak));
+    //if (sys_mq_open) return (uix_mqd_t)sys_mq_open(name,oflag,mode,attr);
+    //uix_errno = UIX_ENOSYS; return UIX_MQD_INVALID;
+    return (uix_mqd_t)sys_mq_open(name,oflag,mode,attr);
 }
 
 int uix_mq_close(uix_mqd_t mqdes)
 {
-    extern int sys_mq_close(uix_mqd_t) __attribute__((weak));
-    if (sys_mq_close) return sys_mq_close(mqdes);
-    uix_errno = UIX_ENOSYS; return -1;
+   // extern int sys_mq_close(uix_mqd_t) __attribute__((weak));
+   // if (sys_mq_close) return sys_mq_close(mqdes);
+   // uix_errno = UIX_ENOSYS; return -1;
+   return sys_mq_close(mqdes);
 }
 
 int uix_mq_unlink(const char *name)
 {
-    extern int sys_mq_unlink(const char*) __attribute__((weak));
-    if (sys_mq_unlink) return sys_mq_unlink(name);
-    uix_errno = UIX_ENOSYS; return -1;
+    //extern int sys_mq_unlink(const char*) __attribute__((weak));
+    //if (sys_mq_unlink) return sys_mq_unlink(name);
+    //uix_errno = UIX_ENOSYS; return -1;
+    return sys_mq_unlink(name);
 }
 
 int uix_mq_send(uix_mqd_t mqdes, const char *msg_ptr,
                 uix_size_t msg_len, unsigned int msg_prio)
 {
-    extern int sys_mq_send(uix_mqd_t,const char*,uix_size_t,unsigned)
-        __attribute__((weak));
-    if (sys_mq_send) return sys_mq_send(mqdes,msg_ptr,msg_len,msg_prio);
-    uix_errno = UIX_ENOSYS; return -1;
+    //extern int sys_mq_send(uix_mqd_t,const char*,uix_size_t,unsigned)
+    //    __attribute__((weak));
+    //if (sys_mq_send) return sys_mq_send(mqdes,msg_ptr,msg_len,msg_prio);
+    //uix_errno = UIX_ENOSYS; return -1;
+    return sys_mq_send(mqdes,msg_ptr,msg_len,msg_prio);
 }
 
 uix_ssize_t uix_mq_receive(uix_mqd_t mqdes, char *msg_ptr,
                             uix_size_t msg_len, unsigned int *msg_prio)
 {
-    extern long sys_mq_receive(uix_mqd_t,char*,uix_size_t,unsigned*)
-        __attribute__((weak));
-    if (sys_mq_receive)
-        return (uix_ssize_t)sys_mq_receive(mqdes,msg_ptr,msg_len,msg_prio);
-    uix_errno = UIX_ENOSYS; return -1;
+    //extern long sys_mq_receive(uix_mqd_t,char*,uix_size_t,unsigned*)
+    //    __attribute__((weak));
+    //if (sys_mq_receive)
+    //    return (uix_ssize_t)sys_mq_receive(mqdes,msg_ptr,msg_len,msg_prio);
+    //uix_errno = UIX_ENOSYS; return -1;
+    return (uix_ssize_t)sys_mq_receive(mqdes,msg_ptr,msg_len,msg_prio);
 }
 
 uix_ssize_t uix_mq_timedreceive(uix_mqd_t mqdes, char *msg_ptr,

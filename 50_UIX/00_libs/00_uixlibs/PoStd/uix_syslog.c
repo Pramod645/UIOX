@@ -1,7 +1,7 @@
 /************************ uix_syslog.c ***************************/
 #include "uix_syslog.h"
 #include "uix_stdio.h"
-#include "sys/uix_time.h"
+#include "../sys/uix_time.h"
 #include "uix_unistd.h"
 #include "uix_string.h"
 

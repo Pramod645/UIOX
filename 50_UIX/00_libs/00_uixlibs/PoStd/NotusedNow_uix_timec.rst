@@ -1,4 +1,4 @@
-#include "sys/uix_time.h"
+#include "../sys/uix_time.h"
 #include "uix_errno.h"
 #include "uix_string.h"
 #include "uix_stdio.h"

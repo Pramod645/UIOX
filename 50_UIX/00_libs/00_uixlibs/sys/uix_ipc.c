@@ -1,7 +1,7 @@
 /******************* uix_ipc.c ********************************/
 #include "uix_ipc.h"
 #include "uix_stat.h"
-#include "../uix_errno.h"
+#include "../PoStd/uix_errno.h"
 
 uix_key_t uix_ftok(const char *path, int id)
 {

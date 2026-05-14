@@ -5,6 +5,8 @@
 #include "uix_unistd.h"
 #include "uix_errno.h"
 
+#include "../uix_sys.h"
+
 uix_DIR *uix_opendir(const char *name)
 {
     int fd = uix_open(name, UIX_O_RDONLY | UIX_O_DIRECTORY, 0);
@@ -28,10 +30,10 @@ uix_DIR *uix_fdopendir(int fd)
 
 uix_dirent_t *uix_readdir(uix_DIR *dirp)
 {
-    if (!dirp) { uix_errno = UIX_EBADF; return NULL; }
-    extern long sys_getdents(int, void *, uix_size_t)
-        __attribute__((weak));
-    if (!sys_getdents) return NULL;
+    //if (!dirp) { uix_errno = UIX_EBADF; return NULL; }
+    //extern long sys_getdents(int, void *, uix_size_t)
+    //    __attribute__((weak));
+    //if (!sys_getdents) return NULL;
 
     if (dirp->buf_pos >= dirp->buf_len) {
         uix_ssize_t n = sys_getdents(dirp->fd,

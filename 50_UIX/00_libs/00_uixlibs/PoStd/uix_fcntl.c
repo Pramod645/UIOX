@@ -1,7 +1,11 @@
 #include "uix_fcntl.h"
 #include "uix_errno.h"
-#include "sys/uix_stat.h"
+#include "../sys/uix_stat.h"
+//#include "../sys/uix_types.h"
 #include <stdarg.h>
+//#include "uix_stdarg.h"
+
+#include "../uix_sys.h"
 
 int uix_open(const char *path, int flags, ...)
 {
@@ -11,11 +15,12 @@ int uix_open(const char *path, int flags, ...)
         mode = va_arg(ap, uix_mode_t);
         va_end(ap);
     }
-    extern int sys_open(const char *, int, uix_mode_t)
-        __attribute__((weak));
-    if (sys_open) return sys_open(path, flags, mode);
-    uix_errno = UIX_ENOENT;
-    return -1;
+    //extern int sys_open(const char *, int, uix_mode_t)
+    //    __attribute__((weak));
+    //if (sys_open) return sys_open(path, flags, mode);
+    //uix_errno = UIX_ENOENT;
+    //return -1;
+    return sys_open(path, flags, mode);
 }
 
 int uix_creat(const char *path, uix_mode_t mode)
@@ -30,8 +35,9 @@ int uix_fcntl(int fd, int cmd, ...)
     int arg = va_arg(ap, int);
     va_end(ap);
 
-    extern int sys_fcntl(int, int, int) __attribute__((weak));
-    if (sys_fcntl) return sys_fcntl(fd, cmd, arg);
+    //extern int sys_fcntl(int, int, int) __attribute__((weak));
+    //if (sys_fcntl) return sys_fcntl(fd, cmd, arg);
+    return sys_fcntl(fd, cmd, arg);
 
     switch (cmd) {
     case UIX_F_GETFD: return 0;

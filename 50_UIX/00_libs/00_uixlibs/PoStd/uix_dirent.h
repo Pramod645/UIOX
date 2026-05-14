@@ -10,7 +10,7 @@ It provides functions such as opendir(), readdir(), closedir(), and rewinddir() 
 
 //#include "uix_features.h"//?
 
-#include "sys/uix_types.h"
+#include "../sys/uix_types.h"
 
 #define UIX_NAME_MAX 255
 #define UIX_PATH_MAX 4096

@@ -1,7 +1,7 @@
 /******************************** uix_if.c ********************************************/
 #include "uix_if.h"
-#include "../uix_string.h"
-#include "../uix_errno.h"
+#include "../PoStd/uix_string.h"
+#include "../PoStd/uix_errno.h"
 
 unsigned int uix_if_nametoindex(const char *ifname)
 {

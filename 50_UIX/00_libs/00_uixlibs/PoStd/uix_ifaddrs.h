@@ -20,7 +20,7 @@ Overview
 
 //#include "uix_features.h"//??
 
-#include "sys/uix_socket.h"
+#include "../sys/uix_socket.h"
 
 typedef struct uix_ifaddrs {
     struct uix_ifaddrs  *ifa_next;     // Next interface in linked list

@@ -12,8 +12,8 @@ for fine‑grained control of CPU scheduling.
 
 //#include "uix_features.h"//??
 
-#include "sys/uix_types.h"
-#include "sys/uix_time.h"
+#include "../sys/uix_types.h"
+#include "../sys/uix_time.h"
 
 #define UIX_SCHED_OTHER 0  // Default time-sharing policy
 #define UIX_SCHED_FIFO  1  // Real-time FIFO — runs until blocks or yields

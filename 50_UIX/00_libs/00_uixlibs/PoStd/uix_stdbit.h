@@ -9,7 +9,7 @@ stddef.h
 //#include "uix_features.h"
 
 
-#include "sys/uix_types.h"
+#include "../sys/uix_types.h"
 
 UIX_INLINE int uix_popcount32(uix_uint32_t v)  { return __builtin_popcount(v); } //Count set bits — maps to __builtin_popcount(), used in hash functions
 UIX_INLINE int uix_popcount64(uix_uint64_t v)  { return __builtin_popcountll(v); }

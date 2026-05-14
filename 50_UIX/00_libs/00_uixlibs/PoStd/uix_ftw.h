@@ -13,7 +13,7 @@ functions (opendir, readdir, etc.).
 
 //#include "uix_features.h"//??
 
-#include "sys/uix_stat.h"
+#include "../sys/uix_stat.h"
 
 #define UIX_FTW_F    0       // Entry is regular file
 #define UIX_FTW_D    1      // Entry is directory

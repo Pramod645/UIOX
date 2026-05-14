@@ -1,7 +1,7 @@
 #ifndef UIX_REGEX_H
 #define UIX_REGEX_H
 
-#include "sys/uix_types.h"
+#include "../sys/uix_types.h"
 
 #define UIX_REG_EXTENDED 1   // Use extended regex syntax (ERE)
 #define UIX_REG_ICASE    2  // Case-insensitive matching
