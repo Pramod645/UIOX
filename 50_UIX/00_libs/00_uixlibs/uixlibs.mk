@@ -1,42 +1,48 @@
 # =============================================================
 # 00_uixlibs/uixlibs.mk
 #
-# Shared compiler flags and pattern rules.
-# Included by Makefile — do NOT define OBJ_DIR / LIB_DIR
-# targets here; Makefile owns those to avoid duplicate warnings.
+# Shared flags and pattern rule.
+# Included by Makefile AFTER SRC_DIR and OBJ_DIR are set.
+# Do NOT define $(OBJ_DIR) or $(LIB_DIR) targets here.
 # =============================================================
 
 # ── C standard and warnings ──────────────────────────────────
 COMMON_CFLAGS := \
-    -std=c11        \
-    -Wall           \
-    -Wextra         \
-    -Wpedantic      \
-    -Wmissing-prototypes  \
-    -Wstrict-prototypes   \
+    -std=c11              \
+    -Wall                 \
+    -Wextra               \
+    -Wno-unused-parameter \
+    -Wno-missing-prototypes \
+    -Wno-strict-prototypes  \
     -fno-common           \
-    -ffunction-sections   \
-    -fdata-sections       \
     -O2
 
-# ── Include search path ───────────────────────────────────────
-# All headers live flat in the same directory as the sources.
-# SRC_DIR is set by Makefile before including this file.
-COMMON_INCS = -I$(SRC_ARPA)
-COMMON_INCS += -I$(SRC_NET)
-COMMON_INCS += -I$(SRC_NETINET)
-COMMON_INCS += -I$(SRC_POSTD)
-COMMON_INCS += -I$(SRC_SYS)
+# ── Include paths ─────────────────────────────────────────────
+# Headers live in each sub-directory and in the root.
+# SRC_DIRS is set by Makefile before this file is included.
+COMMON_INCS = $(foreach d,$(SRC_DIRS),-I$(d)) -I$(ROOT_DIR)
 
-# ── Archiver defaults (Makefile may override) ─────────────────
+# ── Archiver defaults ─────────────────────────────────────────
 AR      ?= ar
 ARFLAGS ?= rcs
 
 # ── Linker flags ──────────────────────────────────────────────
-# -Wl,--gc-sections is a GNU ld option; safe on Linux/macOS+ld64.
 COMMON_LDFLAGS :=
 
-# ── Pattern rule: compile one .c → one .o ─────────────────────
-# Makefile sets SRC_DIR, OBJ_DIR before including this file.
-$(OBJ_DIR)/%.o: $(SRC_DIR)/%.c | $(OBJ_DIR)
+# ── Pattern rules: compile .c → .o ───────────────────────────
+# One rule per sub-directory so make can find the right source.
+# ROOT_DIR and SRC_DIRS are set by Makefile.
+$(OBJ_DIR)/%.o: $(ROOT_DIR)/PoStd/%.c | $(OBJ_DIR)
+	$(CC) $(CFLAGS) $(COMMON_INCS) -fPIC -c $< -o $@
+
+$(OBJ_DIR)/%.o: $(ROOT_DIR)/arpa/%.c | $(OBJ_DIR)
+	$(CC) $(CFLAGS) $(COMMON_INCS) -fPIC -c $< -o $@
+
+$(OBJ_DIR)/%.o: $(ROOT_DIR)/net/%.c | $(OBJ_DIR)
+	$(CC) $(CFLAGS) $(COMMON_INCS) -fPIC -c $< -o $@
+
+$(OBJ_DIR)/%.o: $(ROOT_DIR)/netinet/%.c | $(OBJ_DIR)
+	$(CC) $(CFLAGS) $(COMMON_INCS) -fPIC -c $< -o $@
+
+$(OBJ_DIR)/%.o: $(ROOT_DIR)/sys/%.c | $(OBJ_DIR)
 	$(CC) $(CFLAGS) $(COMMON_INCS) -fPIC -c $< -o $@
