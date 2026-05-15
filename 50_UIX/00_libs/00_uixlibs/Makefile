@@ -71,8 +71,8 @@ endif
 OBJS := $(addprefix $(OBJ_DIR)/,$(notdir $(patsubst %.c,%.o,$(SRCS))))
 
 # ── Build-control flags ────────────────────────────────────────
-BUILD_STATIC ?= 1
-BUILD_SHARED ?= 0
+BUILD_STATIC ?= 0
+BUILD_SHARED ?= 1
 
 # ── Output targets ────────────────────────────────────────────
 ifneq ($(BUILD_STATIC),0)
