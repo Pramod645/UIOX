@@ -13,7 +13,12 @@ int uix_getifaddrs(uix_ifaddrs_t **ifap)
 {
     if (!ifap) { uix_errno = UIX_EFAULT; return -1; }
     //extern int sys_getifaddrs(uix_ifaddrs_t**) __attribute__((weak));
-    if (sys_getifaddrs) return sys_getifaddrs(ifap);
+    //if (sys_getifaddrs) return sys_getifaddrs(ifap);
+    #ifndef __has_syscall_getifaddrs
+        return sys_getifaddrs(ifap);
+    #else
+        /* stub: return loopback only (existing code) */
+    #endif
 
     /* Stub: return loopback only */
     uix_ifaddrs_t       *ifa  = (uix_ifaddrs_t*)uix_malloc(sizeof(*ifa));
@@ -23,7 +28,11 @@ int uix_getifaddrs(uix_ifaddrs_t **ifap)
 
     uix_memset(addr, 0, sizeof(*addr));
     addr->sin_family   = UIX_AF_INET;
-    addr->sin_addr.s_addr = uix_htonl(0x7F000001);
+    //addr->sin_addr.s_addr = uix_htonl(0x7F000001);
+    addr->sin_addr.s_addr = (((unsigned int)0x7F000001U >> 24) & 0xFFU)
+                       | (((unsigned int)0x7F000001U >>  8) & 0xFF00U)
+                       | (((unsigned int)0x7F000001U <<  8) & 0xFF0000U)
+                       | (((unsigned int)0x7F000001U << 24) & 0xFF000000U);
 
     uix_memset(ifa, 0, sizeof(*ifa));
     ifa->ifa_name  = uix_strdup("lo");

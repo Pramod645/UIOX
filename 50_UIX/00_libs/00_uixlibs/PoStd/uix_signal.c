@@ -40,7 +40,7 @@ int uix_raise(int sig)
     //extern uix_pid_t sys_getpid(void) __attribute__((weak));
     //uix_pid_t pid = sys_getpid ? (uix_pid_t)sys_getpid() : 1;
     //return uix_kill(pid, sig);
-    uix_pid_t pid = (uix_pid_t)sys_getpid();
+    return uix_kill((uix_pid_t)sys_getpid(), sig);
 }
 
 int uix_sigemptyset(uix_sigset_t *set)

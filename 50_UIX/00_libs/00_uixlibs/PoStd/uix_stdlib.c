@@ -75,7 +75,15 @@ static void (*_atexit[64])(void);
 static int   _atexit_n = 0;
 
 int  uix_atexit(void (*fn)(void)) { if (_atexit_n>=64) return -1; _atexit[_atexit_n++]=fn; return 0; }
-void uix_exit  (int s) { for (int i=_atexit_n-1;i>=0;i--) _atexit[i](); (void)s; while(1){} }
+#if 0// UIX_EXIT_IN_UINSTD
+//void uix_exit  (int s) { for (int i=_atexit_n-1;i>=0;i--) _atexit[i](); (void)s; while(1){} } // duplicatie of uix_uinstd.c
+void uix_exit(int status)
+{
+    sys_exit(status);
+    __builtin_unreachable();   /* fixes -Wno-invalid-noreturn too */
+}
+#endif
+
 void uix_abort (void)  { while(1){} }
 int  uix_system(const char *c) { (void)c; return -1; }
 

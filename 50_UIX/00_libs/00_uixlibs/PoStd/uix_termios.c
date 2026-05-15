@@ -3,13 +3,16 @@
 #include "uix_errno.h"
 #include "uix_string.h"
 
+#include "../uix_sys.h"
+
 int uix_tcgetattr(int fd, uix_termios_t *termios_p)
 {
-    if (!termios_p) { uix_errno = UIX_EFAULT; return -1; }
-    extern int sys_ioctl(int,unsigned long,void*)
-        __attribute__((weak));
-    if (sys_ioctl)
-        return sys_ioctl(fd, UIX_TCGETS, termios_p);
+    //if (!termios_p) { uix_errno = UIX_EFAULT; return -1; }
+    //extern int sys_ioctl(int,unsigned long,void*)
+    //    __attribute__((weak));
+    //if (sys_ioctl)
+     //   return sys_ioctl(fd, UIX_TCGETS, termios_p);
+     sys_ioctl(fd, UIX_TCGETS, termios_p);
     /* Provide sensible defaults */
     uix_memset(termios_p, 0, sizeof(*termios_p));
     termios_p->c_iflag = UIX_ICRNL | UIX_IXON;
@@ -29,7 +32,7 @@ int uix_tcgetattr(int fd, uix_termios_t *termios_p)
 int uix_tcsetattr(int fd, int optional_actions,
                   const uix_termios_t *termios_p)
 {
-    if (!termios_p) { uix_errno = UIX_EFAULT; return -1; }
+   /*if (!termios_p) { uix_errno = UIX_EFAULT; return -1; }
     extern int sys_ioctl(int,unsigned long,void*)
         __attribute__((weak));
     unsigned long cmd;
@@ -41,7 +44,9 @@ int uix_tcsetattr(int fd, int optional_actions,
     }
     if (sys_ioctl)
         return sys_ioctl(fd, cmd, (void *)termios_p);
-    return 0;
+    return 0;*/
+    unsigned long cmd;
+    return sys_ioctl(fd, cmd, (void *)termios_p);
 }
 
 int uix_tcsendbreak(int fd, int duration)

@@ -87,7 +87,8 @@ uix_pid_t uix_getppid(void)
     //return sys_getppid ? (uix_pid_t)sys_getppid() : 0;
     return (uix_pid_t)sys_getppid();
 }
-
+#define UIX_EXIT_IN_UINSTD
+#ifndef UIX_EXIT_IN_UINSTD
 void uix_exit(int status)
 {
     //extern void sys_exit(int) __attribute__((weak));
@@ -95,7 +96,7 @@ void uix_exit(int status)
     //while (1) {}
     sys_exit(status);
 }
-
+#endif
 int uix_execv(const char *path, char *const argv[])
 {
     //extern int sys_execve(const char *, char *const *, char *const *)
