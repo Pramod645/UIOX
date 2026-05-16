@@ -6,7 +6,6 @@
 #define STUB 1// 0:STUB, 1:SYS funtinal call to Kernal
 
 
-#if 0
 #define SYS_EXIT            1 //done
 #define SYS_FORK            2 //done
 #define SYS_READ            3 //done
@@ -14,223 +13,223 @@
 #define SYS_OPEN            5   // done
 #define SYS_CLOSE           6 //done
 #define SYS_GETENTROPY      7
-#define SYS___TFORK         8
+#define SYS_TFORK         8
 #define SYS_LINK            9 //done
-#define SYS_unlink          10 //done
-#define sys_wait4           11//done
-#define sys_chdir           12 //done
-#define SYS_fchdir          13
-#define SYS_mknod           14//done
-#define SYS_chmod           15 //done
-#define SYS_chown           16//done
-#define SYS_break           17
-#define SYS_getdtablecount  18
-#define SYS_getrusage       19
-#define SYS_getpid          20 //done
-#define SYS_mount           21
-#define SYS_unmount         22
-#define SYS_setuid          23
-#define SYS_getuid          24
-#define SYS_geteuid         25
-#define SYS_ptrace          26
-#define SYS_recvmsg         27
-#define SYS_sendmsg         28
-#define SYS_recvfrom        29//done
-#define SYS_accept          30 //done
-#define SYS_getpeername     31 //done
-#define SYS_getsockname     32 //done
-#define SYS_access          33
-#define SYS_chflags         34
-#define SYS_fchflags        35
-#define SYS_sync            36
-#define SYS_stat            38 //done
-#define SYS_getppid         39 //done
-#define SYS_lstat           40//done
-#define SYS_dup             41 //done
-#define SYS_fstatat         42
-#define SYS_getegid         43
-#define SYS_ktrace          45
-#define SYS_sigaction       46
-#define SYS_getgid          47
-#define SYS_sigprocmask     48
-#define SYS_mmap            49
-#define SYS_setlogin        50
-#define SYS_acct            51
-#define SYS_sigpending      52
-#define SYS_fstat           53 //done
-#define SYS_ioctl           54 //done
-#define SYS_reboot          55
-#define SYS_revoke          56
-#define SYS_symlink         57
-#define SYS_readlink        58
-#define sys_execve          59
-#define SYS_execv           250 //done
-#define SYS_umask           60
-#define SYS_chroot          61 //done
-#define SYS_getfsstat       62
-#define SYS_statfs          63
-#define SYS_fstatfs         64
-#define SYS_fhstatfs        65
-#define SYS_vfork           66
-#define SYS_gettimeofday    67 //done
-#define SYS_settimeofday    68
-#define SYS_setitimer       69
-#define SYS_getitimer       70
-#define SYS_select          71 //done
-#define SYS_kevent          72
-#define SYS_munmap          73 //done
-#define SYS_mprotect        74 //done
-#define SYS_madvise         75
-#define SYS_utimes          76
-#define SYS_futimes         77
-#define SYS_mquery          78
-#define SYS_getgroups       79
-#define SYS_setgroups       80
-#define SYS_getpgrp         81
-#define SYS_setpgid         82
-#define SYS_futex           83
-#define SYS_utimensat       84
-#define SYS_futimens        85
-#define SYS_kbind           86
-#define sys_clock_gettime   87 //done
-#define SYS_clock_settime   88
-#define SYS_clock_getres    89
-#define SYS_dup2            90
-#define SYS_nanosleep       91
-#define sys_fcntl           92 // done
-#define SYS_accept4         93
-#define SYS___thrsleep      94
-#define SYS_fsync           95
-#define SYS_setpriority     96
-#define SYS_socket          97//done
-#define SYS_connect         98 //done
-#define SYS_getdents        99 //done
-#define SYS_getpriority     100
-#define SYS_pipe2           101
-#define SYS_dup3            102
-#define SYS_sigreturn       103
-#define SYS_bind            104 //done
-#define SYS_setsockopt      105 //done
-#define SYS_listen          106 //done
-#define SYS_chflagsat       107
-#define SYS_pledge          108
-#define SYS_ppoll           109
-#define SYS_pselect         110
-#define SYS_sigsuspend      111
-#define SYS_sendsyslog      112
-#define SYS_unveil          114
-#define SYS___realpath      115
-#define SYS_recvmmsg        116
-#define SYS_sendmmsg        117
-#define SYS_getsockopt      118 //done
-#define SYS_thrkill         119
-#define SYS_readv           120
-#define SYS_writev          121
-#define SYS_kill            122 //done
-#define SYS_fchown          123
-#define SYS_fchmod          124
-#define SYS___pledge_open   125
-#define SYS_setreuid        126
-#define SYS_setregid        127
-#define SYS_rename          128
-#define SYS_flock           131
-#define SYS_mkfifo          132
-#define SYS_sendto          133 //done
-#define SYS_shutdown        134 //done
-#define SYS_socketpair      135
-#define SYS_mkdir           136 //done
-#define SYS_rmdir           137 //done
-#define SYS_adjtime         140
-#define SYS_getlogin_r      141
-#define SYS_getthrname      142
-#define SYS_setthrname      143
-#define SYS_setsid          147
-#define SYS_quotactl        148
-#define SYS_ypconnect       150
-#define SYS_nfssvc          155
-#define SYS_pinsyscalls     158
-#define SYS_mimmutable      159
-#define SYS_waitid          160
-#define SYS_getfh           161
-#define SYS___tmpfd         164
-#define SYS_sysarch         165
-#define SYS_lseek           166 //done
-#define SYS_truncate        167
-#define SYS_ftruncate       168
-#define SYS_pread           169
-#define SYS_pwrite          170
-#define SYS_preadv          171
-#define SYS_pwritev         172
-#define SYS_profil          175
-#define SYS_setgid          181
-#define SYS_setegid         182
-#define SYS_seteuid         183
-#define SYS_pathconfat      190
-#define SYS_pathconf        191
-#define SYS_fpathconf       192
-#define SYS_swapctl         193
-#define SYS_getrlimit       194
-#define SYS_setrlimit       195
-#define SYS_sysctl          202
-#define SYS_mlock           203
-#define SYS_munlock         204
-#define SYS_getpgid         207
-#define SYS_utrace          209
-#define SYS_semget          221 //done
-#define SYS_msgget          225 //done
-#define SYS_msgsnd          226 //done
-#define SYS_msgrcv          227 //done
-#define SYS_shmat           228 //done
-#define SYS_shmdt           230 //done
-#define SYS_minherit        250
-#define sys_poll            252 //done
-#define SYS_issetugid       253
-#define SYS_lchown          254
-#define SYS_getsid          255
-#define SYS_msync           256
-#define SYS_pipe            263 //done
-#define SYS_fhopen          264
-#define SYS_kqueue          269
-#define SYS_kqueue1         270
-#define SYS_mlockall        271
-#define SYS_munlockall      272
-#define SYS_getresuid       281
-#define SYS_setresuid       282
-#define SYS_getresgid       283
-#define SYS_setresgid       284
-#define SYS_closefrom       287
-#define SYS_sigaltstack     288
-#define SYS_shmget          289
-#define SYS_semop           290 //done
-#define SYS_fhstat          294
-#define SYS___semctl        295
-#define SYS_shmctl          296 //dones
-#define SYS_msgctl          297 //done
-#define SYS_sched_yield     298 //done
-#define SYS_getthrid        299
-#define SYS___thrwakeup     301
-#define SYS___threxit       302
-#define SYS___thrsigdivert  303
-#define SYS___getcwd        304
-#define SYS_adjfreq         305
-#define SYS_setrtable       310
-#define SYS_getrtable       311
-#define SYS_faccessat       313
-#define SYS_fchmodat        314
-#define SYS_fchownat        315
-#define SYS_linkat          317
-#define SYS_mkdirat         318
+#define SYS_UNLINK         10 //done
+#define SYS_WAIT4           11//done
+#define sys_CHDIR           12 //done
+#define SYS_FCHDIR          13
+#define SYS_MKNOD           14//done
+#define SYS_CHMOD           15 //done
+#define SYS_CHOWN           16//done
+#define SYS_BREAK           17
+#define SYS_GETDTABLECOUNT  18
+#define SYS_GETRUSAGE       19
+#define SYS_GETPID         20 //done
+#define SYS_MOUNT           21
+#define SYS_UNMOUNT         22
+#define SYS_SETUID          23
+#define SYS_GETUID          24
+#define SYS_GETEUID         25
+#define SYS_PTRACE          26
+#define SYS_RECVMSG         27
+#define SYS_SENDMSG         28
+#define SYS_RECVFROM       29//done
+#define SYS_ACCEPT          30 //done
+#define SYS_GETPEERNAME     31 //done
+#define SYS_GETSOCKNAME     32 //done
+#define SYS_ACCESS         33
+#define SYS_CHFLAGS        34
+#define SYS_FCHFLAGS        35
+#define SYS_SYNC           36
+#define SYS_STAT           38 //done
+#define SYS_GETPID         39 //done
+#define SYS_LSTAT          40//done
+#define SYS_DUP             41 //done
+#define SYS_FSTATAT         42
+#define SYS_GETEPID         43
+#define SYS_KTRACE        45
+#define SYS_SIGACTION       46
+#define SYS_GETGID         47
+#define SYS_SIGPROCMASK     48
+#define SYS_MMAP           49
+#define SYS_SETLOGIN       50
+#define SYS_ACCT            51
+#define SYS_SIGPENDING      52
+#define SYS_FSTAT         53 //done
+#define SYS_IOCTL          54 //done
+#define SYS_REBOOT          55
+#define SYS_REVOKE        56
+#define SYS_SYMLINK         57
+#define SYS_READLINK        58
+#define sys_EXECVE          59
+#define SYS_EXECV          250 //done
+#define SYS_UMASK           60
+#define SYS_CHROOT          61 //done
+#define SYS_GETFSSTAT      62
+#define SYS_STATFS          63
+#define SYS_FSTATFS         64
+#define SYS_FHSTATFS        65
+#define SYS_VFORK        66
+#define SYS_GETTIMEOFDAY    67 //done
+#define SYS_SETTIMEOFDAY    68
+#define SYS_SETITIMER       69
+#define SYS_GETITIMER       70
+#define SYS_SELECT          71 //done
+#define SYS_KEVENT          72
+#define SYS_MUNMAP          73 //done
+#define SYS_MPROTECT        74 //done
+#define SYS_MADVISE         75
+#define SYS_UTIMES          76
+#define SYS_FUTIMES         77
+#define SYS_MQUERY          78
+#define SYS_GETGROUPS      79
+#define SYS_SETGROUPS      80
+#define SYS_GETPGRP         81
+#define SYS_SETPPID         82
+#define SYS_FUTEX           83
+#define SYS_UTIMENSAT       84
+#define SYS_FUTIMENS        85
+#define SYS_KBIND           86
+#define sys_CLOCK_GETTIME   87 //done
+#define SYS_CLOCK_SETTIME  88
+#define SYS_CLOCK_GETRES   89
+#define SYS_DUP2            90
+#define SYS_NANOSLEEP       91
+#define sys_FCNTL           92 // done
+#define SYS_ACCEPT4        93
+#define SYS_THRSLEEP      94
+#define SYS_FSYNC          95
+#define SYS_SETPRIORITY     96
+#define SYS_SOCKET         97//done
+#define SYS_CONNECT         98 //done
+#define SYS_GETDENTS        99 //done
+#define SYS_GETPRIORITY     100
+#define SYS_PIPE2           101
+#define SYS_DUP3            102
+#define SYS_SIGRETURN      103
+#define SYS_BIND            104 //done
+#define SYS_SETSOCKOPT     105 //done
+#define SYS_LISTEN          106 //done
+#define SYS_CHFLAGSAT       107
+#define SYS_PLEDGE         108
+#define SYS_PPOLL          109
+#define SYS_PSELECT         110
+#define SYS_SIGSUSPEND      111
+#define SYS_SENDSYSLOG     112
+#define SYS_UNVEIL         114
+#define SYS_REALPATH    115
+#define SYS_RECVMMSG       116
+#define SYS_SENDMMSG       117
+#define SYS_GETSOCKOPT     118 //done
+#define SYS_THRKILL        119
+#define SYS_READV           120
+#define SYS_WRITEV          121
+#define SYS_KILL            122 //done
+#define SYS_FCHOWN        123
+#define SYS_FCHMOD          124
+#define SYS_PLEDGE_OPEN   125
+#define SYS_SETREUID       126
+#define SYS_SETREUID       127
+#define SYS_RENAME         128
+#define SYS_FLOCK           131
+#define SYS_MKFIFO          132
+#define SYS_SENDTO          133 //done
+#define SYS_SHUTDOWN        134 //done
+#define SYS_SOCKETPAIR      135
+#define SYS_MKDIR          136 //done
+#define SYS_RMDIR           137 //done
+#define SYS_ADJTIME         140
+#define SYS_GETLOGIN_R      141
+#define SYS_GETTHRNAME      142
+#define SYS_SETTHRNAME     143
+#define SYS_SETSID          147
+#define SYS_QUOTACTL        148
+#define SYS_YPCONNECT       150
+#define SYS_NFSSVC          155
+#define SYS_PINSYSCALLS    158
+#define SYS_MIMMUTABLE     159
+#define SYS_WAITID         160
+#define SYS_GETFH           161
+#define SYS_TMPFD         164
+#define SYS_SYSARCH         165
+#define SYS_LSEEK          166 //done
+#define SYS_TRUNCATE        167
+#define SYS_FTRUNCATE        168
+#define SYS_PREAD           169
+#define SYS_PWRITE          170
+#define SYS_PREADV          171
+#define SYS_PWRITEV         172
+#define SYS_PROFIL          175
+#define SYS_SETGID          181
+#define SYS_SETEGID         182
+#define SYS_SETEUID         183
+#define SYS_PATHCONFAT      190
+#define SYS_PATHCONF        191
+#define SYS_FPATHCONF       192
+#define SYS_SWAPCTL         193
+#define SYS_GETRLIMIT       194
+#define SYS_SETRLIMIT       195
+#define SYS_SYSCTL          202
+#define SYS_MLOCK           203
+#define SYS_MUNLOCK         204
+#define SYS_GETPGID          207
+#define SYS_UTRACE          209
+#define SYS_SEMGET          221 //done
+#define SYS_MSGGET          225 //done
+#define SYS_MSGSND          226 //done
+#define SYS_MSGRCV          227 //done
+#define SYS_SHMAT           228 //done
+#define SYS_SHMDT           230 //done
+#define SYS_MINHERIT        250
+#define SYS_POLL            252 //done
+#define SYS_ISSETUGIT      253
+#define SYS_LCHOWN          254
+#define SYS_GETSID          255
+#define SYS_MSYNC           256
+#define SYS_PIPE            263 //done
+#define SYS_FHOPEN          264
+#define SYS_KQUEUE          269
+#define SYS_KQUEUE1        270
+#define SYS_MLOCKALL       271
+#define SYS_MUNLOCKALL     272
+#define SYS_GETRESUID      281
+#define SYS_SETRESUID       282
+#define SYS_GETRESUID       283
+#define SYS_SETRESGID       284
+#define SYS_CLOSEFROM       287
+#define SYS_SIGNALTSTACK     288
+#define SYS_SHMGET          289
+#define SYS_SEMOP           290 //done
+#define SYS_FHSTAT          294
+#define SYS_SEMCTL        295
+#define SYS_SHMCTL         296 //dones
+#define SYS_MSGCTL          297 //done
+#define SYS_SCHED_YIELD     298 //done
+#define SYS_GETTHRID        299
+#define SYS_THRWAKEUP     301
+#define SYS_THREXIT       302
+#define SYS_THRSIGDIVERT  303
+#define SYS_GETCWD        304
+#define SYS_ADJFREQ         305
+#define SYS_SETRTABLE       310
+#define SYS_GETRTABLE       311
+#define SYS_FACCESSAT       313
+#define SYS_FCHMODAT        314
+#define SYS_FCHOWNAT        315
+#define SYS_LINKAT         317
+#define SYS_MKDIRAT         318
 #define SYS_mkfifoat        319
-#define SYS_mknodat         320
-#define SYS_openat          321
-#define SYS_readlinkat      322
-#define SYS_renameat        323
-#define SYS_symlinkat       324
-#define SYS_unlinkat        325
-#define SYS___set_tcb       329
-#define SYS___get_tcb       330
+#define SYS_MKNODAT         320
+#define SYS_OPENAT          321
+#define SYS_READLINKAT      322
+#define SYS_RENAMEAT        323
+#define SYS_SYMLINKAT       324
+#define SYS_UNLINKAT        325
+#define SYS_SET_TCB       329
+#define SYS_GET_TCB       330
 #define SYS_MAXSYSCALL      331
-#endif
+
 
 /* ── sys-call stub selector ──────────────────────────────────
  * 0 = all stubs return 0 (simulation / hosted build)
