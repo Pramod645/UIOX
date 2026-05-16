@@ -12,19 +12,19 @@ int uix_sched_setscheduler(uix_pid_t pid, int policy,
     //extern int sys_sched_setscheduler(uix_pid_t,int,
      //                                 const uix_sched_param_t*)
     //    __attribute__((weak));
-    //if (sys_sched_setscheduler)
-    //    return sys_sched_setscheduler(pid, policy, param);
-    //(void)pid; (void)policy; (void)param;
-    //return 0;
-    return sys_sched_setscheduler(pid, policy, param);
+    if (SYS_SCHED_SETSCHEDULER)
+        return sys_sched_setscheduler(pid, policy, param);
+    (void)pid; (void)policy; (void)param;
+    return 0;
+
 }
 
 int uix_sched_getscheduler(uix_pid_t pid)
 {
     //extern int sys_sched_getscheduler(uix_pid_t) __attribute__((weak));
-    //if (sys_sched_getscheduler) return sys_sched_getscheduler(pid);
-    //(void)pid; return UIX_SCHED_OTHER;
-    return sys_sched_getscheduler(pid);
+    if (SYS_SCHED_GETSCHEDULER) return sys_sched_getscheduler(pid);
+    (void)pid; return UIX_SCHED_OTHER;
+
 }
 
 int uix_sched_setparam(uix_pid_t pid, const uix_sched_param_t *p)
@@ -58,8 +58,8 @@ int uix_sched_rr_get_interval(uix_pid_t pid, uix_timespec_t *tp)
 int uix_sched_yield(void)
 {
     //extern int sys_sched_yield(void) __attribute__((weak));
-    //return sys_sched_yield ? sys_sched_yield() : 0;
-    return sys_sched_yield();
+    return sys_sched_yield ? sys_sched_yield() : 0;
+
 }
 
 /* ***This is End of file, there is no more line should be added after this line*** */

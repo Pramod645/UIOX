@@ -25,9 +25,9 @@ uix_hostent_t *uix_gethostbyname(const char *name)
         uix_strcmp(name,"loopback")==0) return &_lo_host;
     //extern uix_hostent_t *sys_gethostbyname(const char*)
     //    __attribute__((weak));
-    //if (sys_gethostbyname) return sys_gethostbyname(name);
-    //uix_h_errno = UIX_HOST_NOT_FOUND; return NULL;
-    return sys_gethostbyname(name);
+    if (SYS_GETHOSTBYNAME) return sys_gethostbyname(name);
+    uix_h_errno = UIX_HOST_NOT_FOUND; return NULL;
+
 }
 
 uix_hostent_t *uix_gethostbyaddr(const void *addr,

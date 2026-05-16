@@ -13,9 +13,7 @@ int uix_ioctl(int fd, unsigned long request, ...)
 
     //extern int sys_ioctl(int, unsigned long, void *)
     //    __attribute__((weak));
-    //if (sys_ioctl) return sys_ioctl(fd, request, arg);
-
-    return sys_ioctl(fd, request, arg);
+    if (SYS_IOCTL) return sys_ioctl(fd, request, arg);
 
     switch (request) {
     case UIX_TIOCGWINSZ: {

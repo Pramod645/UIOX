@@ -30,9 +30,8 @@ int uix_sigaction(int signum, const uix_sigaction_t *act,
 int uix_kill(uix_pid_t pid, int sig)
 {
     //extern int sys_kill(uix_pid_t, int) __attribute__((weak));
-    //return sys_kill ? sys_kill(pid, sig)
-    //                : (uix_errno = UIX_EPERM, -1);
-    return sys_kill(pid, sig);
+    return sys_kill ? sys_kill(pid, sig) : (uix_errno = UIX_EPERM, -1);
+
 }
 
 int uix_raise(int sig)

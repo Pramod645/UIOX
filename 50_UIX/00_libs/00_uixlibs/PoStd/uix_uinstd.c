@@ -12,107 +12,103 @@ uix_ssize_t uix_read(int fd, void *buf, uix_size_t count)
 {
     //extern long sys_read(int, void *, uix_size_t)
     //    __attribute__((weak));
-    //if (sys_read) return (uix_ssize_t)sys_read(fd, buf, count);
-    //uix_errno = UIX_EBADF; return -1;
-    return (uix_ssize_t)sys_read(fd, buf, count);
+    if (SYS_READ) return (uix_ssize_t)sys_read(fd, buf, count);
+    uix_errno = UIX_EBADF; return -1;
+
 }
 
 uix_ssize_t uix_write(int fd, const void *buf, uix_size_t count)
 {
     //extern long sys_write(int, const void *, uix_size_t)
     //    __attribute__((weak));
-    //if (sys_write) return (uix_ssize_t)sys_write(fd, buf, count);
-    //uix_errno = UIX_EBADF; return -1;
-    return (uix_ssize_t)sys_write(fd, buf, count);
+    if (SYS_WRITE) return (uix_ssize_t)sys_write(fd, buf, count);
+    uix_errno = UIX_EBADF; return -1;
+
 }
 
 int uix_close(int fd)
 {
     //extern int sys_close(int) __attribute__((weak));
-    //if (sys_close) return sys_close(fd);
-    //uix_errno = UIX_EBADF; return -1;
-    return sys_close(fd);
+    if (SYS_CLOSE) return sys_close(fd);
+    uix_errno = UIX_EBADF; return -1;
+
 }
 
 uix_off_t uix_lseek(int fd, uix_off_t offset, int whence)
 {
     //extern long sys_lseek(int, uix_off_t, int) __attribute__((weak));
-    //if (sys_lseek) return (uix_off_t)sys_lseek(fd, offset, whence);
-    //uix_errno = UIX_ESPIPE; return -1;
-    return (uix_off_t)sys_lseek(fd, offset, whence);
+    if (SYS_LSEEK) return (uix_off_t)sys_lseek(fd, offset, whence);
+    uix_errno = UIX_ESPIPE; return -1;
+
 }
 
 int uix_dup(int oldfd)
 {
     //extern int sys_dup(int) __attribute__((weak));
-    //return sys_dup ? sys_dup(oldfd) : (uix_errno = UIX_EBADF, -1);
-    return sys_dup(oldfd);
+    return sys_dup ? sys_dup(oldfd) : (uix_errno = UIX_EBADF, -1);
 }
 
 int uix_dup2(int oldfd, int newfd)
 {
     //extern int sys_dup2(int, int) __attribute__((weak));
-    //return sys_dup2 ? sys_dup2(oldfd, newfd)
-    //                : (uix_errno = UIX_EBADF, -1);
-    return sys_dup2(oldfd, newfd);
+    return sys_dup2 ? sys_dup2(oldfd, newfd) : (uix_errno = UIX_EBADF, -1);
+
 }
 
 int uix_pipe(int pipefd[2])
 {
     //extern int sys_pipe(int *) __attribute__((weak));
-    //return sys_pipe ? sys_pipe(pipefd)
-    //            : (uix_errno = UIX_ENFILE, -1);
-    return sys_pipe(pipefd);
+    return sys_pipe ? sys_pipe(pipefd) : (uix_errno = UIX_ENFILE, -1);
+
 }
 
 /* ── Process ────────────────────────────────────────────────── */
 uix_pid_t uix_fork(void)
 {
     //extern long sys_fork(void) __attribute__((weak));
-    //return sys_fork ? (uix_pid_t)sys_fork()
-    //                : (uix_errno = UIX_EAGAIN, -1);
-    return (uix_pid_t)sys_fork();
+    return sys_fork ? (uix_pid_t)sys_fork() : (uix_errno = UIX_EAGAIN, -1);
+
 }
 
 uix_pid_t uix_getpid(void)
 {
     //extern long sys_getpid(void) __attribute__((weak));
-    //return sys_getpid ? (uix_pid_t)sys_getpid() : 1;
-    return (uix_pid_t)sys_getpid();
+    return sys_getpid ? (uix_pid_t)sys_getpid() : 1;
+
 }
 
 uix_pid_t uix_getppid(void)
 {
     //extern long sys_getppid(void) __attribute__((weak));
-    //return sys_getppid ? (uix_pid_t)sys_getppid() : 0;
-    return (uix_pid_t)sys_getppid();
+    return sys_getppid ? (uix_pid_t)sys_getppid() : 0;
+
 }
 #define UIX_EXIT_IN_UINSTD
 #ifndef UIX_EXIT_IN_UINSTD
 void uix_exit(int status)
 {
     //extern void sys_exit(int) __attribute__((weak));
-    //if (sys_exit) sys_exit(status);
-    //while (1) {}
-    sys_exit(status);
+    if (sys_exit) sys_exit(status);
+    while (1) {}
+
 }
 #endif
 int uix_execv(const char *path, char *const argv[])
 {
     //extern int sys_execve(const char *, char *const *, char *const *)
     //    __attribute__((weak));
-    //if (sys_execve) return sys_execve(path, argv, NULL);
-    //uix_errno = UIX_ENOEXEC; return -1;
-    return sys_execve(path, argv, 0);
+    if (SYS_EXECVE) return sys_execve(path, argv, NULL);
+    uix_errno = UIX_ENOEXEC; return -1;
+
 }
 
 int uix_execve(const char *path, char *const argv[], char *const envp[])
 {
     //extern int sys_execve(const char *, char *const *, char *const *)
     //    __attribute__((weak));
-    //if (sys_execve) return sys_execve(path, argv, envp);
-    //uix_errno = UIX_ENOEXEC; return -1;
-    return sys_execve(path, argv, envp);
+    if (SYS_EXECVE) return sys_execve(path, argv, envp);
+    uix_errno = UIX_ENOEXEC; return -1;
+
 }
 
 int uix_execvp(const char *file, char *const argv[])
@@ -142,18 +138,17 @@ char *uix_getcwd(char *buf, uix_size_t size)
 int uix_chdir(const char *path)
 {
     //extern int sys_chdir(const char *) __attribute__((weak));
-    //if (sys_chdir) return sys_chdir(path);
-    //uix_strcpy(cwd_buf, path);
-    //return 0;
-    return sys_chdir(path);
+    if (SYS_CHDIR) return sys_chdir(path);
+    uix_strcpy(cwd_buf, path);
+    return 0;
+
 }
 
 int uix_chroot(const char *path)
 {
     //extern int sys_chroot(const char *) __attribute__((weak));
-    //return sys_chroot ? sys_chroot(path)
-    //                  : (uix_errno = UIX_EPERM, -1);
-    return sys_chroot(path);
+    return sys_chroot ? sys_chroot(path) : (uix_errno = UIX_EPERM, -1);
+
 }
 
 /* ── File system ────────────────────────────────────────────── */
@@ -165,26 +160,23 @@ int uix_access(const char *path, int mode)
 int uix_unlink(const char *path)
 {
    // extern int sys_unlink(const char *) __attribute__((weak));
-    //return sys_unlink ? sys_unlink(path)
-    //                  : (uix_errno = UIX_ENOENT, -1);
-    return  sys_unlink(path);
+    return sys_unlink ? sys_unlink(path) : (uix_errno = UIX_ENOENT, -1);
+
 }
 
 int uix_rmdir(const char *path)
 {
     //extern int sys_rmdir(const char *) __attribute__((weak));
-    //return sys_rmdir ? sys_rmdir(path)
-    //                 : (uix_errno = UIX_ENOENT, -1);
-    return  sys_rmdir(path);
+    return sys_rmdir ? sys_rmdir(path) : (uix_errno = UIX_ENOENT, -1);
+
 }
 
 int uix_link(const char *oldpath, const char *newpath)
 {
     //extern int sys_link(const char *, const char *)
     //    __attribute__((weak));
-    //return sys_link ? sys_link(oldpath, newpath)
-    //                : (uix_errno = UIX_EPERM, -1);
-    return sys_link(oldpath, newpath);
+    return sys_link ? sys_link(oldpath, newpath) : (uix_errno = UIX_EPERM, -1);
+
 }
 
 int uix_symlink(const char *target, const char *linkpath)

@@ -12,8 +12,7 @@ static uix_time_t base_time = 1000000000L; /* simulated epoch  */
 uix_time_t uix_time(uix_time_t *tloc)
 {
     //extern long sys_time(uix_time_t *) __attribute__((weak));
-    //uix_time_t t = sys_time ? (uix_time_t)sys_time(NULL) : base_time++;
-    uix_time_t t = (uix_time_t)sys_time(NULL);
+    uix_time_t t = sys_time ? (uix_time_t)sys_time(NULL) : base_time++;
     if (tloc) *tloc = t;
     return t;
 }
@@ -24,8 +23,8 @@ int uix_gettimeofday(uix_timeval_t *tv, void *tz)
     if (!tv) { uix_errno = UIX_EFAULT; return -1; }
     //extern int sys_gettimeofday(uix_timeval_t *, void *)
     //    __attribute__((weak));
-    //if (sys_gettimeofday) return sys_gettimeofday(tv, NULL);
-    return sys_gettimeofday(tv, NULL);
+    if (SYS_GETTIMEOFDAY) return sys_gettimeofday(tv, NULL);
+
     tv->tv_sec  = uix_time(NULL);
     tv->tv_usec = 0;
     return 0;
@@ -44,8 +43,8 @@ int uix_clock_gettime(int clkid, uix_timespec_t *tp)
     if (!tp) { uix_errno = UIX_EFAULT; return -1; }
    // extern int sys_clock_gettime(int, uix_timespec_t *)
     //    __attribute__((weak));
-    //if (sys_clock_gettime) return sys_clock_gettime(clkid, tp);
-    return sys_clock_gettime(clkid, tp);
+    if (SYS_CLOCK_GETTIME) return sys_clock_gettime(clkid, tp);
+
     tp->tv_sec  = uix_time(NULL);
     tp->tv_nsec = 0;
     return 0;

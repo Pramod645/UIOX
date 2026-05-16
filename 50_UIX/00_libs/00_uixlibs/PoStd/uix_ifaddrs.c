@@ -13,7 +13,7 @@ int uix_getifaddrs(uix_ifaddrs_t **ifap)
 {
     if (!ifap) { uix_errno = UIX_EFAULT; return -1; }
     //extern int sys_getifaddrs(uix_ifaddrs_t**) __attribute__((weak));
-    //if (sys_getifaddrs) return sys_getifaddrs(ifap);
+    if (SYS_GETIFADDRS) return sys_getifaddrs(ifap);
     #ifndef __has_syscall_getifaddrs
         return sys_getifaddrs(ifap);
     #else

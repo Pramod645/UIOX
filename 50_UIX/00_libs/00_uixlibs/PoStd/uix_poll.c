@@ -8,9 +8,7 @@ int uix_poll(uix_pollfd_t *fds, uix_nfds_t nfds, int timeout)
 {
     //extern int sys_poll(uix_pollfd_t*,uix_nfds_t,int)
     //    __attribute__((weak));
-    //if (sys_poll) return sys_poll(fds, nfds, timeout);
-
-    return sys_poll(fds, nfds, timeout);
+    if (SYS_POLL)return sys_poll(fds, nfds, timeout);
     
     if (!fds) { uix_errno = UIX_EFAULT; return -1; }
     /* Stub: mark all readable fd 0..2, others as error */

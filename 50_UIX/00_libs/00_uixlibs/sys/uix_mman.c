@@ -11,37 +11,37 @@ void *uix_mmap(void *addr, uix_size_t length, int prot,
 {
     //extern void *sys_mmap(void *, uix_size_t, int, int,
     //                       int, uix_off_t) __attribute__((weak));
-    //if (sys_mmap) return sys_mmap(addr, length, prot, flags, fd, offset);
+    if (SYS_MMAP) return sys_mmap(addr, length, prot, flags, fd, offset);
 
-    //if (flags & UIX_MAP_ANONYMOUS) {
-    //    void *p = uix_malloc(length);
-    //    if (p) uix_memset(p, 0, length);
-    //    return p ? p : UIX_MAP_FAILED;
-    //}
-    //(void)addr; (void)fd; (void)offset;
-    //uix_errno = UIX_ENOMEM;
-    // UIX_MAP_FAILED;
-    return sys_mmap(addr, length, prot, flags, fd, offset);
+    if (flags & UIX_MAP_ANONYMOUS) {
+        void *p = uix_malloc(length);
+        if (p) uix_memset(p, 0, length);
+        return p ? p : UIX_MAP_FAILED;
+    }
+    (void)addr; (void)fd; (void)offset;
+    uix_errno = UIX_ENOMEM;
+    UIX_MAP_FAILED;
+
 }
 
 int uix_munmap(void *addr, uix_size_t length)
 {
    // extern int sys_munmap(void *, uix_size_t) __attribute__((weak));
-    //if (sys_munmap) return sys_munmap(addr, length);
-    //uix_free(addr);
-    //(void)length;
-    //return 0;
-    return sys_munmap(addr, length);
+    if (SYS_MUNMAP) return sys_munmap(addr, length);
+    uix_free(addr);
+    (void)length;
+    return 0;
+
 }
 
 int uix_mprotect(void *addr, uix_size_t len, int prot)
 {
     //extern int sys_mprotect(void *, uix_size_t, int)
     //    __attribute__((weak));
-    //if (sys_mprotect) return sys_mprotect(addr, len, prot);
-    //(void)addr; (void)len; (void)prot;
-    //return 0;
-    return sys_mprotect(addr, len, prot);
+    if (SYS_MPROTECT) return sys_mprotect(addr, len, prot);
+    (void)addr; (void)len; (void)prot;
+    return 0;
+
 }
 
 int uix_msync(void *addr, uix_size_t length, int flags)
@@ -85,17 +85,15 @@ int uix_shm_open(const char *name, int oflag, uix_mode_t mode)
 {
     //extern int sys_shm_open(const char *, int, uix_mode_t)
     //    __attribute__((weak));
-    //return sys_shm_open ? sys_shm_open(name, oflag, mode)
-    //                   : (uix_errno = UIX_ENOENT, -1);
-    return sys_shm_open(name, oflag, mode);
+    return sys_shm_open ? sys_shm_open(name, oflag, mode) : (uix_errno = UIX_ENOENT, -1);
+
 }
 
 int uix_shm_unlink(const char *name)
 {
     //extern int sys_shm_unlink(const char *) __attribute__((weak));
-    //return sys_shm_unlink ? sys_shm_unlink(name)
-    //                      : (uix_errno = UIX_ENOENT, -1);
-    return sys_shm_unlink(name);
+    return sys_shm_unlink ? sys_shm_unlink(name) : (uix_errno = UIX_ENOENT, -1);
+
 }
 
 /* ***This is End of file, there is no more line should be added after this line*** */
