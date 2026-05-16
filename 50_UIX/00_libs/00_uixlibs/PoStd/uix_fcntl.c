@@ -2,8 +2,7 @@
 #include "uix_errno.h"
 #include "../sys/uix_stat.h"
 //#include "../sys/uix_types.h"
-#include <stdarg.h>
-//#include "uix_stdarg.h"
+#include "uix_stdarg.h"
 
 #include "../uix_sys.h"
 
@@ -11,9 +10,9 @@ int uix_open(const char *path, int flags, ...)
 {
     uix_mode_t mode = 0;
     if (flags & UIX_O_CREAT) {
-        va_list ap; va_start(ap, flags);
-        mode = va_arg(ap, uix_mode_t);
-        va_end(ap);
+        uix_va_list ap; uix_va_start(ap, flags);
+        mode = uix_va_arg(ap, uix_mode_t);
+        uix_va_end(ap);
     }
     //extern int sys_open(const char *, int, uix_mode_t)
     //    __attribute__((weak));
@@ -31,9 +30,9 @@ int uix_creat(const char *path, uix_mode_t mode)
 
 int uix_fcntl(int fd, int cmd, ...)
 {
-    va_list ap; va_start(ap, cmd);
-    int arg = va_arg(ap, int);
-    va_end(ap);
+    uix_va_list ap; uix_va_start(ap, cmd);
+    int arg = uix_va_arg(ap, int);
+    uix_va_end(ap);
 
     //extern int sys_fcntl(int, int, int) __attribute__((weak));
     if (SYS_FCNTL) return sys_fcntl(fd, cmd, arg);
