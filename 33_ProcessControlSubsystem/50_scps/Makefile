@@ -1,4 +1,4 @@
-#uiox_proc_lifecycle/
+#uiox_scps/
 #├── include/
 #│   ├── fork.h
 #│   ├── signal.h

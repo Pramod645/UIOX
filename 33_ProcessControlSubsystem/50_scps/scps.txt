@@ -1,3 +1,4 @@
+/*SCPS:System call Process System*/
 /*
 The fork system call creates a new process, the exit call terminates process execution, and the wait call allows a parent process
 to synchronize its execution with the exit of a child process. Signals inform processes of asynchronous events. Because the kernel synchronizes execution of
