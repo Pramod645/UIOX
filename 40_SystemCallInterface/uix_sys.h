@@ -272,7 +272,9 @@ static inline int sys_open(const char *path, int flags, ...)
     (void)flags;
     return -1;
 #elif
- // acctual call to kernel
+    // acctual call to kernel
+    //UIOX/32_FileSystem/10_scfs/include/fs.h
+    fs_open(path, flags, mode)
 #endif
 }
 
@@ -284,6 +286,8 @@ static inline int sys_creat(const char *path, uix_mode_t mode) // not macro adde
     return -1;
 #elif
 // acctual call to kernel
+//UIOX/32_FileSystem/10_scfs/include/fs.h
+fs_creat  (path, mode);
 #endif
 }
 
@@ -294,6 +298,8 @@ static inline int sys_close(int fd)
     return 0;
 #elif
     // acctual call to kernel
+    //UIOX/32_FileSystem/10_scfs/include/fs.h
+    fs_close  (fd);
 #endif
 }
 
@@ -306,6 +312,8 @@ static inline uix_ssize_t sys_read(int fd, void *buf, uix_size_t count)
     return -1;
 #elif
     // acctual call to kernel
+    //UIOX/32_FileSystem/10_scfs/include/fs.h
+    fs_read   (fd, buf, count);
 #endif
 }
 
@@ -318,6 +326,8 @@ static inline uix_ssize_t sys_write(int fd, const void *buf, uix_size_t count)
     return -1;
 #elif
     // acctual call to kernel
+    //UIOX/32_FileSystem/10_scfs/include/fs.h
+    fs_write  (fd, buf, count);
 #endif
 }
 
@@ -330,6 +340,8 @@ static inline uix_off_t sys_lseek(int fd, uix_off_t off, int whence)
     return -1;
 #elif
     // acctual call to kernel
+    //UIOX/32_FileSystem/10_scfs/include/fs.h
+    fs_lseek  (fd, off, whence);
 #endif
 }
 
@@ -341,6 +353,8 @@ static inline int sys_fcntl(int fd, int cmd, ...)
     return -1;
 #elif
     // acctual call to kernel
+    //UIOX/32_FileSystem/10_scfs/include/fs.h
+    fs_fcntl  (fd, off, whence); // definition not availble in fs.h and need to be created
 #endif
 }
 
@@ -351,6 +365,8 @@ static inline int sys_dup(int fd)
     return -1;
 #elif
     // acctual call to kernel
+    //UIOX/32_FileSystem/10_scfs/include/fs.h
+    fs_dup    (fd);
 #endif
 }
 
@@ -362,6 +378,8 @@ static inline int sys_dup2(int old, int nw)
     return -1;
 #elif
     // acctual call to kernel
+    //UIOX/32_FileSystem/10_scfs/include/fs.h
+    fs_dup2  (old, nw); // definition not availble in fs.h and need to be created
 #endif
 }
 
@@ -372,6 +390,8 @@ static inline int sys_pipe(int pipefd[2])
     return -1;
 #elif
     // acctual call to kernel
+    //UIOX/32_FileSystem/10_scfs/include/fs.h
+    fs_pipe   (pipefd[2]);
 #endif
 }
 
@@ -383,6 +403,8 @@ static inline int sys_stat(const char *path, uix_stat_t *buf)
     return -1;
 #elif
     // acctual call to kernel
+    //UIOX/32_FileSystem/10_scfs/include/fs.h
+    fs_stat   (path, buf);
 #endif
 }
 
@@ -394,6 +416,8 @@ static inline int sys_fstat(int fd, uix_stat_t *buf)
     return -1;
 #elif
     // acctual call to kernel
+    //UIOX/32_FileSystem/10_scfs/include/fs.h
+    fs_fstat  (fd, buf);
 #endif
 }
 
@@ -405,6 +429,8 @@ static inline int sys_lstat(const char *path, uix_stat_t *buf)
     return -1;
 #elif
     // acctual call to kernel
+    //UIOX/32_FileSystem/10_scfs/include/fs.h
+    fs_lstat  (path, buf); // definition not availble in fs.h and need to be created
 #endif
 }
 
@@ -416,6 +442,8 @@ static inline int sys_chmod(const char *path, uix_mode_t mode)
     return -1;
 #elif
     // acctual call to kernel
+    //UIOX/32_FileSystem/10_scfs/include/fs.h
+    fs_chmod  (path, mode);
 #endif
 }
 
@@ -429,6 +457,8 @@ static inline int sys_chown(const char *path,
     return -1;
 #elif
     // acctual call to kernel
+    //UIOX/32_FileSystem/10_scfs/include/fs.h
+    fs_chown  (path, owner, group);
 #endif
 }
 
@@ -440,6 +470,8 @@ static inline int sys_mkdir(const char *path, uix_mode_t mode)
     return -1;
 #elif
     // acctual call to kernel
+    //UIOX/32_FileSystem/10_scfs/include/fs.h
+    fs_mkdir  (path, mode);// definition not availble in fs.h and need to be created
 #endif
 }
 
@@ -453,6 +485,8 @@ static inline int sys_mknod(const char *path,
     return -1;
 #elif
     // acctual call to kernel
+    //UIOX/32_FileSystem/10_scfs/include/fs.h
+    fs_mknod  (path, mode, dev,...); // defineation and calling funtion have arguments mismatch
 #endif
 }
 
@@ -463,6 +497,8 @@ static inline int sys_unlink(const char *path)
     return -1;
 #elif
     // acctual call to kernel
+    //UIOX/32_FileSystem/10_scfs/include/fs.h
+    fs_unlink (path);
 #endif
 }
 
@@ -473,6 +509,8 @@ static inline int sys_rmdir(const char *path)
     return -1;
 #elif
     // acctual call to kernel
+    //UIOX/32_FileSystem/10_scfs/include/fs.h
+    fs_rmdir  (path);// definition not availble in fs.h and need to be created
 #endif
 }
 
@@ -484,6 +522,8 @@ static inline int sys_link(const char *old, const char *nw)
     return -1;
 #elif
     // acctual call to kernel
+    //UIOX/32_FileSystem/10_scfs/include/fs.h
+    fs_link   (old, nw);
 #endif
 }
 
@@ -494,6 +534,8 @@ static inline int sys_chdir(const char *path)
     return -1;
 #elif
     // acctual call to kernel
+    //UIOX/32_FileSystem/10_scfs/include/fs.h
+    fs_chdir  (path);
 #endif
 }
 
@@ -504,6 +546,8 @@ static inline int sys_chroot(const char *path)
     return -1;
 #elif
     // acctual call to kernel
+    //UIOX/32_FileSystem/10_scfs/include/fs.h
+    fs_chroot (path);
 #endif
 }
 
@@ -516,6 +560,8 @@ static inline int sys_getdents(int fd, uix_DIR *dirp, int count)
     return -1;
 #elif
     // acctual call to kernel
+    //UIOX/32_FileSystem/10_scfs/include/fs.h
+    fs_getdents (fd, dirp, count);// definition not availble in fs.h and need to be created
 #endif
 }
 #endif /* file-system */
@@ -529,6 +575,8 @@ static inline uix_pid_t sys_fork(void)
      return -1; 
 #elif
     // acctual call to kernel
+    //UIOX/33_ProcessControlSubsystem/50_scps/include/fork.h
+    kernel_fork(void);
 #endif
 }
 static inline uix_pid_t sys_getpid(void) 
@@ -537,6 +585,8 @@ static inline uix_pid_t sys_getpid(void)
     return 1;
 #elif
     // acctual call to kernel
+    //UIOX/33_ProcessControlSubsystem/
+    kernel_getpid(void);// definition not availble and need to be created
 #endif
 }
 static inline uix_pid_t sys_getppid(void) 
@@ -544,7 +594,9 @@ static inline uix_pid_t sys_getppid(void)
 #if STUB
     return 0;
 #elif
-
+    // acctual call to kernel
+    //UIOX/33_ProcessControlSubsystem/
+    kernel_getppid(void);// definition not availble and need to be created
 #endif
 }
 
@@ -557,6 +609,8 @@ static inline void sys_exit(int status)
     }
 #elif
     // acctual call to kernel
+    //UIOX/33_ProcessControlSubsystem/50_scps/include/exit_wait.h
+    kernel_exit(status);
 #endif
 }
 
@@ -568,6 +622,8 @@ static inline int sys_execv(const char *p, char *const av[])
     return -1;
 #elif
     // acctual call to kernel
+    //UIOX/33_ProcessControlSubsystem/
+    kernel_execv(p, av);// definition not availble  and need to be created
 #endif
 }
 
@@ -581,6 +637,8 @@ static inline int sys_execve(const char *p,
     return -1;
 #elif
     // acctual call to kernel
+    //UIOX/33_ProcessControlSubsystem/
+    kernel_execve(p, av, env);//// definition not availble and need to be created
 #endif
 }
 
@@ -592,6 +650,8 @@ static inline int sys_kill(uix_pid_t pid, int sig)
     return -1;
 #elif
     // acctual call to kernel
+    //UIOX/33_ProcessControlSubsystem/
+    kernel_kill(pid, sig);//// definition not availble  and need to be created
 #endif
 }
 #endif /* process */
@@ -610,6 +670,9 @@ static inline uix_pid_t sys_wait4(uix_pid_t pid, int *wstatus,
     return -1;
 #elif
     // acctual call to kernel
+    //UIOX/33_ProcessControlSubsystem/
+    kernel_wait4();// definition not availble and need to be created
+    //kernel_wait(int *status_ptr); // only available
 #endif
 }
 #endif /* wait */
@@ -624,6 +687,8 @@ static inline uix_time_t sys_time(uix_time_t *tloc) // not added
     return 0;
 #elif
     // acctual call to kernel
+    //UIOX/33_ProcessControlSubsystem/
+    kernel_time();// definition not availble in and need to be created
 #endif
 }
 
@@ -635,6 +700,8 @@ static inline int sys_gettimeofday(uix_timeval_t *tv, void *tz)
     return 0;
 #elif
     // acctual call to kernel
+    //UIOX/33_ProcessControlSubsystem/
+    kernel_gettimeofday();// definition not availble in and need to be created
 #endif
 }
 
@@ -646,6 +713,8 @@ static inline int sys_clock_gettime(int clkid, uix_timespec_t *tp)
     return 0;
 #elif
     // acctual call to kernel
+    //UIOX/33_ProcessControlSubsystem/
+    kernel_clock_gettime();// definition not availble in and need to be created
 #endif
 }
 #endif /* time */
@@ -660,6 +729,8 @@ static inline uix_clock_t sys_times(uix_tms_t *buf) //not added
     return 0;
 #elif
     // acctual call to kernel
+    //UIOX/33_ProcessControlSubsystem/
+    kernel_times();// definition not availble in and need to be created
 #endif
 }
 #endif
@@ -676,6 +747,8 @@ static inline int sys_utime(const char *path,
     return 0;
 #elif
     // acctual call to kernel
+    //UIOX/33_ProcessControlSubsystem/
+    kernel_utime();// definition not availble in and need to be created
 #endif
 }
 #endif
@@ -690,6 +763,8 @@ static inline int sys_uname(uix_utsname_t *buf) //not added
     return 0;
 #elif
     // acctual call to kernel
+    //UIOX/33_ProcessControlSubsystem/
+    kernel_uname();// definition not availble in and need to be created
 #endif
 }
 #endif
@@ -711,6 +786,8 @@ static inline void *sys_mmap(void *addr, uix_size_t length,
     return (void *)-1;
 #elif
     // acctual call to kernel
+    //UIOX/33_ProcessControlSubsystem/
+    kernel_mmap();// definition not availble in and need to be created
 #endif
 }
 
@@ -722,6 +799,8 @@ static inline int sys_munmap(void *addr, uix_size_t length)
     return 0;
 #elif
     // acctual call to kernel
+    //UIOX/33_ProcessControlSubsystem/
+    kernel_munmap();// definition not availble in and need to be created
 #endif
 }
 
@@ -734,6 +813,8 @@ static inline int sys_mprotect(void *addr, uix_size_t len, int prot)
     return 0;
 #elif
     // acctual call to kernel
+    //UIOX/33_ProcessControlSubsystem/
+    kernel_mprotect();// definition not availble in and need to be created
 #endif
 }
 
@@ -747,6 +828,8 @@ static inline int sys_shm_open(const char *name,
     return -1;
 #elif
     // acctual call to kernel
+    //UIOX/33_ProcessControlSubsystem/
+    kernel_shm_open();// definition not availble in and need to be created
 #endif
 }
 
@@ -757,6 +840,8 @@ static inline int sys_shm_unlink(const char *name) //not added
     return -1;
 #elif
     // acctual call to kernel
+    //UIOX/33_ProcessControlSubsystem/
+    kernel_shm_unlink();// definition not availble in and need to be created
 #endif
 }
 #endif /* mman */
@@ -773,6 +858,8 @@ static inline int sys_socket(int domain, int type, int protocol)
     return -1;
 #elif
     // acctual call to kernel
+    //UIOX/33_ProcessControlSubsystem/
+    kernel_socket();// definition not availble in and need to be created
 #endif
 }
 
@@ -787,6 +874,8 @@ static inline int sys_bind(int sockfd,
     return -1;
 #elif
     // acctual call to kernel
+    //UIOX/33_ProcessControlSubsystem/
+    kernel_bind();// definition not availble in and need to be created
 #endif
 }
 
@@ -798,6 +887,8 @@ static inline int sys_listen(int sockfd, int backlog)
     return -1;
 #elif
     // acctual call to kernel
+    //UIOX/33_ProcessControlSubsystem/
+    kernel_listen();// definition not availble in and need to be created
 #endif
 }
 
@@ -812,6 +903,8 @@ static inline int sys_accept(int sockfd,
     return -1;
 #elif
     // acctual call to kernel
+    //UIOX/33_ProcessControlSubsystem/
+    kernel_accept();// definition not availble in and need to be created
 #endif
 }
 
@@ -826,6 +919,8 @@ static inline int sys_connect(int sockfd,
     return -1;
 #elif
     // acctual call to kernel
+    //UIOX/33_ProcessControlSubsystem/
+    kernel_connect();// definition not availble in and need to be created
 #endif
 }
 
@@ -837,6 +932,8 @@ static inline int sys_shutdown(int sockfd, int how)
     return -1;
 #elif
     // acctual call to kernel
+    //UIOX/33_ProcessControlSubsystem/
+    kernel_shutdown();// definition not availble in and need to be created
 #endif
 }
 
@@ -856,6 +953,8 @@ static inline uix_ssize_t sys_sendto(int sockfd,
     return -1;
 #elif
     // acctual call to kernel
+    //UIOX/33_ProcessControlSubsystem/
+    kernel_sendto();// definition not availble in and need to be created
 #endif
 }
 
@@ -875,6 +974,8 @@ static inline uix_ssize_t sys_recvfrom(int sockfd,
     return -1;
 #elif
     // acctual call to kernel
+    //UIOX/33_ProcessControlSubsystem/
+    kernel_recvfrom();// definition not availble in and need to be created
 #endif
 }
 
@@ -890,6 +991,8 @@ static inline int sys_getsockopt(int sockfd, int level, int optname,
     return -1;
 #elif
     // acctual call to kernel
+    //UIOX/33_ProcessControlSubsystem/
+    kernel_getsockopt();// definition not availble in and need to be created
 #endif
 }
 
@@ -906,6 +1009,8 @@ static inline int sys_setsockopt(int sockfd, int level, int optname,
     return -1;
 #elif
     // acctual call to kernel
+    //UIOX/33_ProcessControlSubsystem/
+    kernel_setsockopt();// definition not availble in and need to be created
 #endif
 }
 
@@ -919,7 +1024,9 @@ static inline int sys_getsockname(int sockfd,
     (void)addrlen;
     return -1;
 #elif
-
+    // acctual call to kernel
+    //UIOX/33_ProcessControlSubsystem/
+    kernel_getsockname();// definition not availble in and need to be created
 #endif
 }
 
@@ -934,6 +1041,8 @@ static inline int sys_getpeername(int sockfd,
     return -1;
 #elif
     // acctual call to kernel
+    //UIOX/33_ProcessControlSubsystem/
+    kernel_getpeername();// definition not availble in and need to be created
 #endif
 }
 #endif /* socket */
@@ -954,6 +1063,8 @@ static inline int sys_select(int nfds,
     return 0;
 #elif
     // acctual call to kernel
+    //UIOX/33_ProcessControlSubsystem/
+    kernel_cselect();// definition not availble in and need to be created
 #endif
 }
 #endif
@@ -971,6 +1082,8 @@ static inline int sys_poll(uix_pollfd_t *fds,
     return 0;
 #elif
     // acctual call to kernel
+    //UIOX/33_ProcessControlSubsystem/
+    kernel_poll();// definition not availble in and need to be created
 #endif
 }
 #endif
@@ -988,6 +1101,8 @@ static inline int sys_sched_setscheduler(uix_pid_t pid, int policy,
     return 0;
 #elif
     // acctual call to kernel
+    //UIOX/33_ProcessControlSubsystem/
+    kernel_sched_setscheduler();// definition not availble in and need to be created
 #endif
 }
 
@@ -998,10 +1113,22 @@ static inline int sys_sched_getscheduler(uix_pid_t pid) //not added
     return 0;
 #elif
     // acctual call to kernel
+    //UIOX/33_ProcessControlSubsystem/
+    kernel_sched_getscheduler();// definition not availble in and need to be created
 #endif
 }
 
-static inline int sys_sched_yield(void) { return 0; }
+static inline int sys_sched_yield(void) 
+{ 
+#if STUB
+    return 0;
+#elif
+    // acctual call to kernel
+    //UIOX/33_ProcessControlSubsystem/
+    kernel_sched_yield();// definition not availble in and need to be created
+#endif
+}
+
 #endif
 
 #if 1 /* ioctl */
@@ -1015,6 +1142,8 @@ static inline int sys_ioctl(int fd, unsigned long request, ...)
     return -1;
 #elif
     // acctual call to kernel
+    //UIOX/33_ProcessControlSubsystem/
+    kernel_ioctl();// definition not availble in and need to be created
 #endif
 }
 #endif
@@ -1033,6 +1162,8 @@ static inline int sys_msgsnd(int msqid, const void *msgp,
     return 0;
 #elif
     // acctual call to kernel
+    //UIOX/33_ProcessControlSubsystem/
+    kernel_msgsnd();// definition not availble in and need to be created
 #endif
 }
 
@@ -1044,6 +1175,8 @@ static inline int sys_msgget(uix_key_t key, int msgflg)
     return 0;
 #elif
     // acctual call to kernel
+    //UIOX/33_ProcessControlSubsystem/
+    kernel_msgget();// definition not availble in and need to be created
 #endif
 }
 
@@ -1059,7 +1192,9 @@ static inline uix_ssize_t sys_msgrcv(int msqid, void *msgp,
     (void)msgflg;
     return 0;
 #elif
-
+    // acctual call to kernel
+    //UIOX/33_ProcessControlSubsystem/
+    kernel_msgrcv();// definition not availble in and need to be created
 #endif
 }
 
@@ -1071,7 +1206,9 @@ static inline int sys_msgctl(int msqid, int cmd, uix_msqid_ds_t *buf)
     (void)buf;
     return 0;
 #elif
-
+   // acctual call to kernel
+    //UIOX/33_ProcessControlSubsystem/
+    kernel_msgctl();// definition not availble in and need to be created
 #endif
 }
 #endif /* msg */
@@ -1089,6 +1226,8 @@ static inline int sys_shmget(uix_key_t key,
     return 0;
 #elif
     // acctual call to kernel
+    //UIOX/33_ProcessControlSubsystem/
+    kernel_shmget();// definition not availble in and need to be created
 #endif
 }
 
@@ -1102,6 +1241,8 @@ static inline void *sys_shmat(int shmid,
     return (void *)-1;
 #elif
     // acctual call to kernel
+    //UIOX/33_ProcessControlSubsystem/
+    kernel_shmat();// definition not availble in and need to be created
 #endif
 }
 
@@ -1112,6 +1253,8 @@ static inline int sys_shmdt(const void *shmaddr)
     return 0;
 #elif
     // acctual call to kernel
+    //UIOX/33_ProcessControlSubsystem/
+    kernel_clock_shmdt();// definition not availble in and need to be created
 #endif
 }
 
@@ -1124,6 +1267,8 @@ static inline int sys_shmctl(int shmid, int cmd, uix_shmid_ds_t *buf)
     return 0;
 #elif
     // acctual call to kernel
+    //UIOX/33_ProcessControlSubsystem/
+    kernel_shmctl();// definition not availble in and need to be created
 #endif
 }
 #endif /* shm */
@@ -1140,6 +1285,8 @@ static inline int sys_semget(uix_key_t key, int nsems, int semflg)
     return 0;
 #elif
     // acctual call to kernel
+    //UIOX/33_ProcessControlSubsystem/
+    kernel_semget();// definition not availble in and need to be created
 #endif
 }
 
@@ -1153,6 +1300,8 @@ static inline int sys_semop(int semid,
     return 0;
 #elif
     // acctual call to kernel
+    //UIOX/33_ProcessControlSubsystem/
+    kernel_semop();// definition not availble in and need to be created
 #endif
 }
 
@@ -1165,6 +1314,8 @@ static inline int sys_semctl(int semid, int semnum, int cmd, ...) //not added
     return 0;
 #elif
     // acctual call to kernel
+    //UIOX/33_ProcessControlSubsystem/
+    kernel_semctl();// definition not availble in and need to be created
 #endif
 }
 #endif /* sem */
@@ -1181,6 +1332,8 @@ static inline int sys_getifaddrs(uix_ifaddrs_t **ifap) //not added
     return -1;
 #elif
     // acctual call to kernel
+    //UIOX/33_ProcessControlSubsystem/
+    kernel_getifaddrs();// definition not availble in and need to be created
 #endif
 }
 
@@ -1191,6 +1344,8 @@ static inline uix_hostent_t *sys_gethostbyname(const char *name) //not added
     return 0;
 #elif
     // acctual call to kernel
+    //UIOX/33_ProcessControlSubsystem/
+    kernel_gethostbyname();// definition not availble in and need to be created
 #endif
 }
 #endif
@@ -1207,6 +1362,8 @@ static inline uix_mqd_t sys_mq_open(const char *name,
     return (uix_mqd_t)-1;
 #elif
     // acctual call to kernel
+    //UIOX/33_ProcessControlSubsystem/
+    kernel_mq_open();// definition not availble in and need to be created
 #endif
 }
 
@@ -1217,6 +1374,8 @@ static inline int sys_mq_close(uix_mqd_t mqdes) //not added
     return 0;
 #elif
     // acctual call to kernel
+    //UIOX/33_ProcessControlSubsystem/
+    kernel_mq_close();// definition not availble in and need to be created
 #endif
 }
 
@@ -1227,6 +1386,8 @@ static inline int sys_mq_unlink(const char *name) //not added
     return 0;
 #elif
     // acctual call to kernel
+    //UIOX/33_ProcessControlSubsystem/
+    kernel_mq_unlink();// definition not availble in and need to be created
 #endif
 }
 
@@ -1243,6 +1404,8 @@ static inline int sys_mq_send(uix_mqd_t mqdes,
     return -1;
 #elif
     // acctual call to kernel
+    //UIOX/33_ProcessControlSubsystem/
+    kernel_mq_send();// definition not availble in and need to be created
 #endif
 }
 
@@ -1259,6 +1422,8 @@ static inline uix_ssize_t sys_mq_receive(uix_mqd_t mqdes,
     return -1;
 #elif
     // acctual call to kernel
+    //UIOX/33_ProcessControlSubsystem/
+    kernel_mq_receive();// definition not availble in and need to be created
 #endif
 }
 #endif /* mqueue */
