@@ -1,3 +1,4 @@
+/* file system Architecture */
 #iget  // 1. returen the preveously identified mode reading from disk via the buffer cache
 #iput // 2. release the mode
 #bmap // 3. set the kernel parametersfor accesing the file

@@ -1,3 +1,25 @@
+#uiox_fs/
+#├── include/
+#│   ├── inode.h
+#│   ├── file.h
+#│   ├── mount.h
+#│   ├── buf.h
+#│   └── fs.h
+#├── src/
+#│   ├── inode.c
+#│   ├── file.c
+#│   ├── open.c
+#│   ├── read.c
+#│   ├── write.c
+#│   ├── creat.c
+#│   ├── mknod.c
+#│   ├── chdir.c
+#│   ├── pipe.c
+#│   ├── mount.c
+#│   ├── link.c
+#│   └── unlink.c
+#└── Makefile
+
 CC      := gcc
 CFLAGS  := -Wall -Wextra -O2 -Iinclude
 AR      := ar

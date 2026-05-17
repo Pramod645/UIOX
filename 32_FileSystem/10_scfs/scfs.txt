@@ -1,3 +1,4 @@
+/*SCFS:System call File System*/
 /*#1. accessing existing files, such as open, read, write, lseek, and close,
 #2. create new files, namely, creat and mknod,
 #3. maneuver through the file system: chdir, chroot, chown, chrrtod, slat, and fstat. 
