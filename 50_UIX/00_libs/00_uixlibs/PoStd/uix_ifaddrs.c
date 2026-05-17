@@ -6,7 +6,11 @@
 #include "../arpa/uix_inet.h"
 #include "../net/uix_if.h"
 
+#if STUB
 #include "../uix_sys.h"
+#else
+#include "../../../40_SystemCallInterface/uix_sys.h"
+#endif
 
 
 int uix_getifaddrs(uix_ifaddrs_t **ifap)

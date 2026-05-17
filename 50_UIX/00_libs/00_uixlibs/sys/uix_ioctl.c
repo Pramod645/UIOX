@@ -2,7 +2,11 @@
 #include "../PoStd/uix_errno.h"
 #include "../PoStd/uix_stdarg.h"
 
+#if STUB
 #include "../uix_sys.h"
+#else
+#include "../../../40_SystemCallInterface/uix_sys.h"
+#endif
 
 int uix_ioctl(int fd, unsigned long request, ...)
 {

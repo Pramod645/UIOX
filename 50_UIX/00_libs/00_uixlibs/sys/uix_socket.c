@@ -1,7 +1,11 @@
 #include "uix_socket.h"
 #include "../PoStd/uix_errno.h"
 
+#if STUB
 #include "../uix_sys.h"
+#else
+#include "../../../40_SystemCallInterface/uix_sys.h"
+#endif
 
 
 int uix_socket(int domain, int type, int protocol)

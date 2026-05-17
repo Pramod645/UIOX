@@ -6,7 +6,11 @@
 #include "uix_errno.h"
 #include "uix_stdio.h"
 
+#if STUB
 #include "../uix_sys.h"
+#else
+#include "../../../40_SystemCallInterface/uix_sys.h"
+#endif
 
 
 int uix_h_errno = 0;

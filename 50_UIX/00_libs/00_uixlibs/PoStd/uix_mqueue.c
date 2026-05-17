@@ -4,7 +4,11 @@
 #include "uix_fcntl.h"
 #include "uix_stdarg.h"
 
+#if STUB
 #include "../uix_sys.h"
+#else
+#include "../../../40_SystemCallInterface/uix_sys.h"
+#endif
 
 uix_mqd_t uix_mq_open(const char *name, int oflag, ...)
 {

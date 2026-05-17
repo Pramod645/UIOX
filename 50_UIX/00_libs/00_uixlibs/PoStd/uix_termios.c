@@ -3,7 +3,11 @@
 #include "uix_errno.h"
 #include "uix_string.h"
 
+#if STUB
 #include "../uix_sys.h"
+#else
+#include "../../../40_SystemCallInterface/uix_sys.h"
+#endif
 
 int uix_tcgetattr(int fd, uix_termios_t *termios_p)
 {

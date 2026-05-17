@@ -2,7 +2,11 @@
 #include "uix_errno.h"
 #include "uix_string.h"
 
+#if STUB
 #include "../uix_sys.h"
+#else
+#include "../../../40_SystemCallInterface/uix_sys.h"
+#endif
 
 static uix_sigaction_t sig_handlers[UIX_NSIG + 1];
 

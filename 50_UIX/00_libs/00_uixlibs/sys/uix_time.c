@@ -5,7 +5,11 @@
 #include "../PoStd/uix_stdio.h"
 
 
+#if STUB
 #include "../uix_sys.h"
+#else
+#include "../../../40_SystemCallInterface/uix_sys.h"
+#endif
 
 static uix_time_t base_time = 1000000000L; /* simulated epoch  */
 

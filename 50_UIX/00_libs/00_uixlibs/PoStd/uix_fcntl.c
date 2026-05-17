@@ -4,7 +4,11 @@
 //#include "../sys/uix_types.h"
 #include "uix_stdarg.h"
 
+#if STUB
 #include "../uix_sys.h"
+#else
+#include "../../../40_SystemCallInterface/uix_sys.h"
+#endif
 
 int uix_open(const char *path, int flags, ...)
 {

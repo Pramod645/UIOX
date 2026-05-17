@@ -8,7 +8,11 @@
 #include "../PoStd/uix_stdarg.h"
 
 
+#if STUB
 #include "../uix_sys.h"
+#else
+#include "../../../40_SystemCallInterface/uix_sys.h"
+#endif
 
 int uix_semget(uix_key_t key, int nsems, int semflg)
 {

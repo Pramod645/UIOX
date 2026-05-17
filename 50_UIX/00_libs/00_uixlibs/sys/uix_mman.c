@@ -3,7 +3,11 @@
 #include "../PoStd/uix_errno.h"
 #include "../PoStd/uix_string.h"
 
+#if STUB
 #include "../uix_sys.h"
+#else
+#include "../../../40_SystemCallInterface/uix_sys.h"
+#endif
 
 
 void *uix_mmap(void *addr, uix_size_t length, int prot,
