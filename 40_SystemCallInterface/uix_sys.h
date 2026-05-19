@@ -1,10 +1,54 @@
 #ifndef __UIX_SYS__H
 #define __UIX_SYS__H
-
+/*
+ * uix_sys.h — System Call Interface Bridge
+ *
+ * Layer map:
+ *   50_UIX/00_libs/00_uixlibs/*.c
+ *       └── sys_*()          ← this file
+ *               ├── fs_*()   ← 32_FileSystem/10_scfs/include/fs.h
+ *               └── kernel_*()← 33_ProcessControlSubsystem/50_scps/include/
+ *
+ * SYS_CALL_ENBLE_DISABLE:
+ *   0 = stub returns  (simulation / hosted build)
+ *   1 = real calls into 32_FileSystem and 33_ProcessControlSubsystem
+ */
 #include "sys/uix_types.h"
+#define SYS_CALL_ENBLE_DISABLE  0   /* 0=stubs, 1=real kernel calls */
 
-#define STUB 1// 0:STUB, 1:SYS funtinal call to Kernal
-
+//#define STUB 1// 0:STUB, 1:SYS funtinal call to Kernal
+/* ── Kernel layer headers ──────────────────────────────────── */
+#if SYS_CALL_ENBLE_DISABLE
+#  include "../32_FileSystem/10_scfs/include/fs.h"
+#  include "../33_ProcessControlSubsystem/50_scps/include/fork.h"
+#  include "../33_ProcessControlSubsystem/50_scps/include/exit_wait.h"
+#  include "../33_ProcessControlSubsystem/50_scps/include/exec.h"
+#  include "../33_ProcessControlSubsystem/50_scps/include/proc.h"
+#  include "../33_ProcessControlSubsystem/50_scps/include/signal.h"
+#  include "../33_ProcessControlSubsystem/00_inter-process-communication/include/ipc.h"
+#  include "../33_ProcessControlSubsystem/01_schedular/include/sched.h"
+#  include "../33_ProcessControlSubsystem/02_memory-managment/include/mm.h"
+#endif
+#include "PoStd/uix_fcntl.h"
+#include "sys/uix_stat.h"
+#include "PoStd/uix_dirent.h"
+#include "PoStd/uix_unistd.h"
+#include "sys/uix_wait.h"
+#include "sys/uix_mman.h"
+#include "sys/uix_msg.h"
+#include "sys/uix_shm.h"
+#include "sys/uix_sem.h"
+#include "sys/uix_socket.h"
+#include "sys/uix_select.h"
+#include "sys/uix_time.h"
+#include "sys/uix_utsname.h"
+#include "PoStd/uix_poll.h"
+#include "PoStd/uix_mqueue.h"
+#include "PoStd/uix_sched.h"
+#include "PoStd/uix_utime.h"
+#include "PoStd/uix_netdb.h"
+#include "PoStd/uix_ifaddrs.h"
+#include "sys/uix_times.h"
 
 #define SYS_EXIT            1 //done
 #define SYS_FORK            2 //done
@@ -259,569 +303,401 @@
  * static the linker sees N definitions of the same symbol
  * (one per translation unit) and emits "duplicate symbol".
  * ---------------------------------------------------------- */
-
-#if 1 /* file-system calls */
-#include "PoStd/uix_fcntl.h"
-#include "sys/uix_stat.h"
-#include "PoStd/uix_dirent.h"
-
-static inline int sys_open(const char *path, int flags, ...)
+/* ════════════════════════════════════════════════════════════
+   FILE-SYSTEM SYSCALLS  →  32_FileSystem/10_scfs/include/fs.h
+   ════════════════════════════════════════════════════════════ */
+   static inline int sys_open(const char *path, int flags, ...)
+   {
+   #if !SYS_CALL_ENBLE_DISABLE
+       (void)path; (void)flags; return -1;
+   #else
+       uix_mode_t mode = 0;
+       return fs_open(path, flags, mode);
+   #endif
+   }
+   static inline int sys_creat(const char *path, uix_mode_t mode)
+   {
+   #if !SYS_CALL_ENBLE_DISABLE
+       (void)path; (void)mode; return -1;
+   #else
+       return fs_creat(path, mode);
+   #endif
+   }
+   static inline int sys_close(int fd)
+   {
+   #if !SYS_CALL_ENBLE_DISABLE
+       (void)fd; return 0;
+   #else
+       return fs_close(fd);
+   #endif
+   }
+   static inline uix_ssize_t sys_read(int fd, void *buf, uix_size_t count)
+   {
+   #if !SYS_CALL_ENBLE_DISABLE
+       (void)fd; (void)buf; (void)count; return -1;
+   #else
+       return fs_read(fd, buf, count);
+   #endif
+   }
+   static inline uix_ssize_t sys_write(int fd, const void *buf, uix_size_t count)
+   {
+   #if !SYS_CALL_ENBLE_DISABLE
+       (void)fd; (void)buf; (void)count; return -1;
+   #else
+       return fs_write(fd, buf, count);
+   #endif
+   }
+   static inline uix_off_t sys_lseek(int fd, uix_off_t off, int whence)
+   {
+   #if !SYS_CALL_ENBLE_DISABLE
+       (void)fd; (void)off; (void)whence; return -1;
+   #else
+       return fs_lseek(fd, off, whence);
+   #endif
+   }
+   static inline int sys_fcntl(int fd, int cmd, ...)
+   {
+   #if !SYS_CALL_ENBLE_DISABLE
+       (void)fd; (void)cmd; return -1;
+   #else
+       return fs_fcntl(fd, cmd);
+   #endif
+   }
+   static inline int sys_dup(int fd)
+   {
+   #if !SYS_CALL_ENBLE_DISABLE
+       (void)fd; return -1;
+   #else
+       return fs_dup(fd);
+   #endif
+   }
+   static inline int sys_dup2(int oldfd, int newfd)
+   {
+   #if !SYS_CALL_ENBLE_DISABLE
+       (void)oldfd; (void)newfd; return -1;
+   #else
+       return fs_dup2(oldfd, newfd);
+   #endif
+   }
+   static inline int sys_pipe(int pipefd[2])
+   {
+   #if !SYS_CALL_ENBLE_DISABLE
+       (void)pipefd; return -1;
+   #else
+       return fs_pipe(pipefd);
+   #endif
+   }
+   static inline int sys_stat(const char *path, uix_stat_t *buf)
+   {
+   #if !SYS_CALL_ENBLE_DISABLE
+       (void)path; (void)buf; return -1;
+   #else
+       return fs_stat(path, buf);
+   #endif
+   }
+   static inline int sys_fstat(int fd, uix_stat_t *buf)
+   {
+   #if !SYS_CALL_ENBLE_DISABLE
+       (void)fd; (void)buf; return -1;
+   #else
+       return fs_fstat(fd, buf);
+   #endif
+   }
+   static inline int sys_lstat(const char *path, uix_stat_t *buf)
+   {
+   #if !SYS_CALL_ENBLE_DISABLE
+       (void)path; (void)buf; return -1;
+   #else
+       return fs_lstat(path, buf);
+   #endif
+   }
+   static inline int sys_chmod(const char *path, uix_mode_t mode)
+   {
+   #if !SYS_CALL_ENBLE_DISABLE
+       (void)path; (void)mode; return -1;
+   #else
+       return fs_chmod(path, mode);
+   #endif
+   }
+   static inline int sys_chown(const char *path,
+                                 uix_uid_t owner, uix_gid_t group)
+   {
+   #if !SYS_CALL_ENBLE_DISABLE
+       (void)path; (void)owner; (void)group; return -1;
+   #else
+       return fs_chown(path, owner, group);
+   #endif
+   }
+   static inline int sys_mkdir(const char *path, uix_mode_t mode)
+   {
+   #if !SYS_CALL_ENBLE_DISABLE
+       (void)path; (void)mode; return -1;
+   #else
+       return fs_mkdir(path, mode);
+   #endif
+   }
+   static inline int sys_mknod(const char *path,
+                                 uix_mode_t mode, uix_dev_t dev)
+   {
+   #if !SYS_CALL_ENBLE_DISABLE
+       (void)path; (void)mode; (void)dev; return -1;
+   #else
+       return fs_mknod(path, mode, (uint8_t)(dev>>8), (uint8_t)(dev&0xFF));
+   #endif
+   }
+   static inline int sys_unlink(const char *path)
+   {
+   #if !SYS_CALL_ENBLE_DISABLE
+       (void)path; return -1;
+   #else
+       return fs_unlink(path);
+   #endif
+   }
+   static inline int sys_link(const char *old, const char *nw)
+   {
+   #if !SYS_CALL_ENBLE_DISABLE
+       (void)old; (void)nw; return -1;
+   #else
+       return fs_link(old, nw);
+   #endif
+   }
+   static inline int sys_rmdir(const char *path)
+   {
+   #if !SYS_CALL_ENBLE_DISABLE
+       (void)path; return -1;
+   #else
+       return fs_rmdir(path);
+   #endif
+   }
+   static inline int sys_chdir(const char *path)
+   {
+   #if !SYS_CALL_ENBLE_DISABLE
+       (void)path; return -1;
+   #else
+       return fs_chdir(path);
+   #endif
+   }
+   static inline int sys_chroot(const char *path)
+   {
+   #if !SYS_CALL_ENBLE_DISABLE
+       (void)path; return -1;
+   #else
+       return fs_chroot(path);
+   #endif
+   }
+   static inline int sys_mount(const char *special,
+                                 const char *dir, int flags)
+   {
+   #if !SYS_CALL_ENBLE_DISABLE
+       (void)special; (void)dir; (void)flags; return -1;
+   #else
+       return fs_mount(special, dir, flags);
+   #endif
+   }
+   static inline int sys_umount(const char *special)
+   {
+   #if !SYS_CALL_ENBLE_DISABLE
+       (void)special; return -1;
+   #else
+       return fs_umount(special);
+   #endif
+   }
+   static inline int sys_getdents(int fd, uix_DIR *dirp, int count)
+   {
+   #if !SYS_CALL_ENBLE_DISABLE
+       (void)fd; (void)dirp; (void)count; return -1;
+   #else
+       return fs_getdents(fd, dirp, count);
+   #endif
+   }
+/* ════════════════════════════════════════════════════════════
+   PROCESS SYSCALLS  →  33_ProcessControlSubsystem/50_scps/
+   ════════════════════════════════════════════════════════════ */
+   static inline uix_pid_t sys_fork(void)
+   {
+   #if !SYS_CALL_ENBLE_DISABLE
+       return -1;
+   #else
+       return (uix_pid_t)kernel_fork();
+   #endif
+   }
+   static inline uix_pid_t sys_getpid(void)
+   {
+   #if !SYS_CALL_ENBLE_DISABLE
+       return 1;
+   #else
+       return (uix_pid_t)kernel_getpid();
+   #endif
+   }
+   static inline uix_pid_t sys_getppid(void)
+   {
+   #if !SYS_CALL_ENBLE_DISABLE
+       return 0;
+   #else
+       return (uix_pid_t)kernel_getppid();
+   #endif
+   }
+   static inline void sys_exit(int status)
+   {
+   #if !SYS_CALL_ENBLE_DISABLE
+       (void)status; while(1){}
+   #else
+       kernel_exit(status);
+   #endif
+   }
+   static inline int sys_execv(const char *p, char *const av[])
+   {
+   #if !SYS_CALL_ENBLE_DISABLE
+       (void)p; (void)av; return -1;
+   #else
+       return kernel_exec(p, av, (char *const*)0);
+   #endif
+   }
+   static inline int sys_execve(const char *p,
+                                  char *const av[], char *const env[])
+   {
+   #if !SYS_CALL_ENBLE_DISABLE
+       (void)p; (void)av; (void)env; return -1;
+   #else
+       return kernel_exec(p, av, env);
+   #endif
+   }
+   static inline int sys_kill(uix_pid_t pid, int sig)
+   {
+   #if !SYS_CALL_ENBLE_DISABLE
+       (void)pid; (void)sig; return -1;
+   #else
+       return kernel_kill((uint32_t)pid, sig);
+   #endif
+   }
+   static inline uix_pid_t sys_wait4(uix_pid_t pid, int *wstatus,
+                                       int options, void *rusage)
+   {
+   #if !SYS_CALL_ENBLE_DISABLE
+       (void)pid; (void)wstatus; (void)options; (void)rusage; return -1;
+   #else
+       return (uix_pid_t)kernel_wait(wstatus);
+   #endif
+   }
+/* ════════════════════════════════════════════════════════════
+   SIGNAL SYSCALLS  →  33_ProcessControlSubsystem/50_scps/signal.h
+   ════════════════════════════════════════════════════════════ */
+#if 0
+static inline int sys_signal(int signum, sig_handler_t handler)
 {
-#if STUB
-    (void)path;
-    (void)flags;
-    return -1;
-#elif
-    // acctual call to kernel
-    //UIOX/32_FileSystem/10_scfs/include/fs.h
-    fs_open(path, flags, mode)
+#if !SYS_CALL_ENBLE_DISABLE
+    (void)signum; (void)handler; return -1;
+#else
+    return kernel_signal(signum, handler);
 #endif
 }
-
-static inline int sys_creat(const char *path, uix_mode_t mode) // not macro added
+static inline int sys_sigaction(int signum,
+                                  const sig_action_t *act,
+                                  sig_action_t *oldact)
 {
-#if STUB
-    (void)path;
-    (void)mode;
-    return -1;
-#elif
-// acctual call to kernel
-//UIOX/32_FileSystem/10_scfs/include/fs.h
-fs_creat  (path, mode);
+#if !SYS_CALL_ENBLE_DISABLE
+    (void)signum; (void)act; (void)oldact; return -1;
+#else
+    return kernel_sigaction(signum, act, oldact);
 #endif
 }
-
-static inline int sys_close(int fd)
+#endif
+/* ════════════════════════════════════════════════════════════
+   TIME SYSCALLS
+   ════════════════════════════════════════════════════════════ */
+static inline uix_time_t sys_time(uix_time_t *tloc)
 {
-#if STUB
-    (void)fd;
-    return 0;
-#elif
-    // acctual call to kernel
-    //UIOX/32_FileSystem/10_scfs/include/fs.h
-    fs_close  (fd);
+#if !SYS_CALL_ENBLE_DISABLE
+    (void)tloc; return 0;
+#else
+    return kernel_time(tloc);
 #endif
 }
-
-static inline uix_ssize_t sys_read(int fd, void *buf, uix_size_t count)
-{
-#if STUB    
-    (void)fd;
-    (void)buf;
-    (void)count;
-    return -1;
-#elif
-    // acctual call to kernel
-    //UIOX/32_FileSystem/10_scfs/include/fs.h
-    fs_read   (fd, buf, count);
-#endif
-}
-
-static inline uix_ssize_t sys_write(int fd, const void *buf, uix_size_t count)
-{
-#if STUB
-    (void)fd;
-    (void)buf;
-    (void)count;
-    return -1;
-#elif
-    // acctual call to kernel
-    //UIOX/32_FileSystem/10_scfs/include/fs.h
-    fs_write  (fd, buf, count);
-#endif
-}
-
-static inline uix_off_t sys_lseek(int fd, uix_off_t off, int whence)
-{
-#if STUB
-    (void)fd;
-    (void)off;
-    (void)whence;
-    return -1;
-#elif
-    // acctual call to kernel
-    //UIOX/32_FileSystem/10_scfs/include/fs.h
-    fs_lseek  (fd, off, whence);
-#endif
-}
-
-static inline int sys_fcntl(int fd, int cmd, ...)
-{
-#if STUB
-    (void)fd;
-    (void)cmd;
-    return -1;
-#elif
-    // acctual call to kernel
-    //UIOX/32_FileSystem/10_scfs/include/fs.h
-    fs_fcntl  (fd, off, whence); // definition not availble in fs.h and need to be created
-#endif
-}
-
-static inline int sys_dup(int fd)
-{
-#if STUB
-    (void)fd;
-    return -1;
-#elif
-    // acctual call to kernel
-    //UIOX/32_FileSystem/10_scfs/include/fs.h
-    fs_dup    (fd);
-#endif
-}
-
-static inline int sys_dup2(int old, int nw)
-{
-#if STUB
-    (void)old;
-    (void)nw;
-    return -1;
-#elif
-    // acctual call to kernel
-    //UIOX/32_FileSystem/10_scfs/include/fs.h
-    fs_dup2  (old, nw); // definition not availble in fs.h and need to be created
-#endif
-}
-
-static inline int sys_pipe(int pipefd[2])
-{
-#if STUB
-    (void)pipefd;
-    return -1;
-#elif
-    // acctual call to kernel
-    //UIOX/32_FileSystem/10_scfs/include/fs.h
-    fs_pipe   (pipefd[2]);
-#endif
-}
-
-static inline int sys_stat(const char *path, uix_stat_t *buf)
-{
-#if STUB
-    (void)path;
-    (void)buf;
-    return -1;
-#elif
-    // acctual call to kernel
-    //UIOX/32_FileSystem/10_scfs/include/fs.h
-    fs_stat   (path, buf);
-#endif
-}
-
-static inline int sys_fstat(int fd, uix_stat_t *buf)
-{
-#if STUB
-    (void)fd;
-    (void)buf;
-    return -1;
-#elif
-    // acctual call to kernel
-    //UIOX/32_FileSystem/10_scfs/include/fs.h
-    fs_fstat  (fd, buf);
-#endif
-}
-
-static inline int sys_lstat(const char *path, uix_stat_t *buf)
-{
-#if STUB
-    (void)path;
-    (void)buf;
-    return -1;
-#elif
-    // acctual call to kernel
-    //UIOX/32_FileSystem/10_scfs/include/fs.h
-    fs_lstat  (path, buf); // definition not availble in fs.h and need to be created
-#endif
-}
-
-static inline int sys_chmod(const char *path, uix_mode_t mode)
-{
-#if STUB
-    (void)path;
-    (void)mode;
-    return -1;
-#elif
-    // acctual call to kernel
-    //UIOX/32_FileSystem/10_scfs/include/fs.h
-    fs_chmod  (path, mode);
-#endif
-}
-
-static inline int sys_chown(const char *path,
-                            uix_uid_t owner, uix_gid_t group)
-{
-#if STUB
-    (void)path;
-    (void)owner;
-    (void)group;
-    return -1;
-#elif
-    // acctual call to kernel
-    //UIOX/32_FileSystem/10_scfs/include/fs.h
-    fs_chown  (path, owner, group);
-#endif
-}
-
-static inline int sys_mkdir(const char *path, uix_mode_t mode)
-{
-#if STUB
-    (void)path;
-    (void)mode;
-    return -1;
-#elif
-    // acctual call to kernel
-    //UIOX/32_FileSystem/10_scfs/include/fs.h
-    fs_mkdir  (path, mode);// definition not availble in fs.h and need to be created
-#endif
-}
-
-static inline int sys_mknod(const char *path,
-                            uix_mode_t mode, uix_dev_t dev)
-{
-#if STUB
-    (void)path;
-    (void)mode;
-    (void)dev;
-    return -1;
-#elif
-    // acctual call to kernel
-    //UIOX/32_FileSystem/10_scfs/include/fs.h
-    fs_mknod  (path, mode, dev,...); // defineation and calling funtion have arguments mismatch
-#endif
-}
-
-static inline int sys_unlink(const char *path)
-{
-#if STUB
-    (void)path;
-    return -1;
-#elif
-    // acctual call to kernel
-    //UIOX/32_FileSystem/10_scfs/include/fs.h
-    fs_unlink (path);
-#endif
-}
-
-static inline int sys_rmdir(const char *path)
-{
-#if STUB
-    (void)path;
-    return -1;
-#elif
-    // acctual call to kernel
-    //UIOX/32_FileSystem/10_scfs/include/fs.h
-    fs_rmdir  (path);// definition not availble in fs.h and need to be created
-#endif
-}
-
-static inline int sys_link(const char *old, const char *nw)
-{
-#if STUB
-    (void)old;
-    (void)nw;
-    return -1;
-#elif
-    // acctual call to kernel
-    //UIOX/32_FileSystem/10_scfs/include/fs.h
-    fs_link   (old, nw);
-#endif
-}
-
-static inline int sys_chdir(const char *path)
-{
-#if STUB
-    (void)path;
-    return -1;
-#elif
-    // acctual call to kernel
-    //UIOX/32_FileSystem/10_scfs/include/fs.h
-    fs_chdir  (path);
-#endif
-}
-
-static inline int sys_chroot(const char *path)
-{
-#if STUB
-    (void)path;
-    return -1;
-#elif
-    // acctual call to kernel
-    //UIOX/32_FileSystem/10_scfs/include/fs.h
-    fs_chroot (path);
-#endif
-}
-
-static inline int sys_getdents(int fd, uix_DIR *dirp, int count)
-{
-#if STUB
-    (void)fd;
-    (void)dirp;
-    (void)count;
-    return -1;
-#elif
-    // acctual call to kernel
-    //UIOX/32_FileSystem/10_scfs/include/fs.h
-    fs_getdents (fd, dirp, count);// definition not availble in fs.h and need to be created
-#endif
-}
-#endif /* file-system */
-
-#if 1 /* process */
-#include "PoStd/uix_unistd.h"
-
-static inline uix_pid_t sys_fork(void) 
-{
-#if STUB
-     return -1; 
-#elif
-    // acctual call to kernel
-    //UIOX/33_ProcessControlSubsystem/50_scps/include/fork.h
-    kernel_fork(void);
-#endif
-}
-static inline uix_pid_t sys_getpid(void) 
-{ 
-#if STUB
-    return 1;
-#elif
-    // acctual call to kernel
-    //UIOX/33_ProcessControlSubsystem/
-    kernel_getpid(void);// definition not availble and need to be created
-#endif
-}
-static inline uix_pid_t sys_getppid(void) 
-{ 
-#if STUB
-    return 0;
-#elif
-    // acctual call to kernel
-    //UIOX/33_ProcessControlSubsystem/
-    kernel_getppid(void);// definition not availble and need to be created
-#endif
-}
-
-static inline void sys_exit(int status)
-{
-#if STUB
-    (void)status;
-    while (1)
-    {
-    }
-#elif
-    // acctual call to kernel
-    //UIOX/33_ProcessControlSubsystem/50_scps/include/exit_wait.h
-    kernel_exit(status);
-#endif
-}
-
-static inline int sys_execv(const char *p, char *const av[])
-{
-#if STUB
-    (void)p;
-    (void)av;
-    return -1;
-#elif
-    // acctual call to kernel
-    //UIOX/33_ProcessControlSubsystem/
-    kernel_execv(p, av);// definition not availble  and need to be created
-#endif
-}
-
-static inline int sys_execve(const char *p,
-                             char *const av[], char *const env[])
-{
-#if STUB
-    (void)p;
-    (void)av;
-    (void)env;
-    return -1;
-#elif
-    // acctual call to kernel
-    //UIOX/33_ProcessControlSubsystem/
-    kernel_execve(p, av, env);//// definition not availble and need to be created
-#endif
-}
-
-static inline int sys_kill(uix_pid_t pid, int sig)
-{
-#if STUB
-    (void)pid;
-    (void)sig;
-    return -1;
-#elif
-    // acctual call to kernel
-    //UIOX/33_ProcessControlSubsystem/
-    kernel_kill(pid, sig);//// definition not availble  and need to be created
-#endif
-}
-#endif /* process */
-
-#if 1 /* wait */
-#include "sys/uix_wait.h"
-
-static inline uix_pid_t sys_wait4(uix_pid_t pid, int *wstatus,
-                                  int options, void *rusage)
-{
-#if STUB
-    (void)pid;
-    (void)wstatus;
-    (void)options;
-    (void)rusage;
-    return -1;
-#elif
-    // acctual call to kernel
-    //UIOX/33_ProcessControlSubsystem/
-    kernel_wait4();// definition not availble and need to be created
-    //kernel_wait(int *status_ptr); // only available
-#endif
-}
-#endif /* wait */
-
-#if 1 /* time */
-#include "sys/uix_time.h"
-
-static inline uix_time_t sys_time(uix_time_t *tloc) // not added
-{
-#if STUB
-    (void)tloc;
-    return 0;
-#elif
-    // acctual call to kernel
-    //UIOX/33_ProcessControlSubsystem/
-    kernel_time();// definition not availble in and need to be created
-#endif
-}
-
 static inline int sys_gettimeofday(uix_timeval_t *tv, void *tz)
 {
-#if STUB
-    (void)tv;
-    (void)tz;
-    return 0;
-#elif
-    // acctual call to kernel
-    //UIOX/33_ProcessControlSubsystem/
-    kernel_gettimeofday();// definition not availble in and need to be created
+#if !SYS_CALL_ENBLE_DISABLE
+    (void)tv;(void)tz; return 0;
+#else
+    return kernel_gettimeofday(tv, tz);
 #endif
 }
-
 static inline int sys_clock_gettime(int clkid, uix_timespec_t *tp)
 {
-#if STUB
-    (void)clkid;
-    (void)tp;
-    return 0;
-#elif
-    // acctual call to kernel
-    //UIOX/33_ProcessControlSubsystem/
-    kernel_clock_gettime();// definition not availble in and need to be created
+#if !SYS_CALL_ENBLE_DISABLE
+    (void)clkid;(void)tp; return 0;
+#else
+    return kernel_clock_gettime(clkid, tp);
 #endif
 }
-#endif /* time */
-
-#if 1 /* times */
-#include "sys/uix_times.h"
-
-static inline uix_clock_t sys_times(uix_tms_t *buf) //not added
+static inline uix_clock_t sys_times(uix_tms_t *buf)
 {
-#if STUB
-    (void)buf;
-    return 0;
-#elif
-    // acctual call to kernel
-    //UIOX/33_ProcessControlSubsystem/
-    kernel_times();// definition not availble in and need to be created
+#if !SYS_CALL_ENBLE_DISABLE
+    (void)buf; return 0;
+#else
+    return kernel_times(buf);
 #endif
 }
-#endif
-
-#if 1 /* utime */
-#include "PoStd/uix_utime.h"
-
 static inline int sys_utime(const char *path,
-                            const uix_utimbuf_t *times) //not added
+                            const uix_utimbuf_t *times)
 {
-#if STUB
-    (void)path;
-    (void)times;
-    return 0;
-#elif
-    // acctual call to kernel
-    //UIOX/33_ProcessControlSubsystem/
-    kernel_utime();// definition not availble in and need to be created
+#if !SYS_CALL_ENBLE_DISABLE
+    (void)path;(void)times; return 0;
+#else
+    return fs_utime(path, times);
 #endif
 }
-#endif
-
-#if 1 /* utsname */
-#include "sys/uix_utsname.h"
-
-static inline int sys_uname(uix_utsname_t *buf) //not added
+/* ════════════════════════════════════════════════════════════
+   UTSNAME
+   ════════════════════════════════════════════════════════════ */
+static inline int sys_uname(uix_utsname_t *buf)
 {
-#if STUB
-    (void)buf;
-    return 0;
-#elif
-    // acctual call to kernel
-    //UIOX/33_ProcessControlSubsystem/
-    kernel_uname();// definition not availble in and need to be created
+#if !SYS_CALL_ENBLE_DISABLE
+    (void)buf; return 0;
+#else
+    return kernel_uname(buf);
 #endif
 }
-#endif
-
-#if 1 /* mman */
-#include "sys/uix_mman.h"
-
+/* ════════════════════════════════════════════════════════════
+   MEMORY MANAGEMENT  →  33_ProcessControlSubsystem/02_memory-managment/
+   ════════════════════════════════════════════════════════════ */
 static inline void *sys_mmap(void *addr, uix_size_t length,
-                             int prot, int flags,
-                             int fd, uix_off_t offset)
+                    int prot, int flags, int fd, uix_off_t offset)
 {
-#if STUB
-    (void)addr;
-    (void)length;
-    (void)prot;
-    (void)flags;
-    (void)fd;
-    (void)offset;
-    return (void *)-1;
-#elif
-    // acctual call to kernel
-    //UIOX/33_ProcessControlSubsystem/
-    kernel_mmap();// definition not availble in and need to be created
+#if !SYS_CALL_ENBLE_DISABLE
+    (void)addr;(void)length;(void)prot;
+    (void)flags;(void)fd;(void)offset; return (void*)-1;
+#else
+    return kernel_mmap(addr, length, prot, flags, fd, offset);
 #endif
 }
-
 static inline int sys_munmap(void *addr, uix_size_t length)
 {
-#if STUB
-    (void)addr;
-    (void)length;
-    return 0;
-#elif
-    // acctual call to kernel
-    //UIOX/33_ProcessControlSubsystem/
-    kernel_munmap();// definition not availble in and need to be created
+#if !SYS_CALL_ENBLE_DISABLE
+    (void)addr; (void)length; return 0;
+#else
+    return kernel_munmap(addr, length);
 #endif
 }
-
 static inline int sys_mprotect(void *addr, uix_size_t len, int prot)
 {
-#if STUB
-    (void)addr;
-    (void)len;
-    (void)prot;
-    return 0;
-#elif
-    // acctual call to kernel
-    //UIOX/33_ProcessControlSubsystem/
-    kernel_mprotect();// definition not availble in and need to be created
+#if !SYS_CALL_ENBLE_DISABLE
+    (void)addr; (void)len; (void)prot; return 0;
+#else
+    return kernel_mprotect(addr, len, prot);
 #endif
 }
-
+static inline uix_uintptr_t sys_brk(uix_uintptr_t newbrk)
+{
+#if !SYS_CALL_ENBLE_DISABLE
+    (void)newbrk; return 0;
+#else
+    return kernel_brk(newbrk);
+#endif
+}
 static inline int sys_shm_open(const char *name,
                                int oflag, uix_mode_t mode)//not added
 {
-#if STUB
+#if !SYS_CALL_ENBLE_DISABLE
     (void)name;
     (void)oflag;
     (void)mode;
@@ -835,7 +711,7 @@ static inline int sys_shm_open(const char *name,
 
 static inline int sys_shm_unlink(const char *name) //not added
 {
-#if STUB
+#if !SYS_CALL_ENBLE_DISABLE
     (void)name;
     return -1;
 #elif
@@ -843,589 +719,340 @@ static inline int sys_shm_unlink(const char *name) //not added
     //UIOX/33_ProcessControlSubsystem/
     kernel_shm_unlink();// definition not availble in and need to be created
 #endif
-}
-#endif /* mman */
-
-#if 1 /* socket */
-#include "sys/uix_socket.h"
-
+}/*End of ememory mamanagment*/
+/* ════════════════════════════════════════════════════════════
+   SOCKET / NETWORK  →  33_ProcessControlSubsystem/00_ipc/
+   ════════════════════════════════════════════════════════════ */
 static inline int sys_socket(int domain, int type, int protocol)
 {
-#if STUB
-    (void)domain;
-    (void)type;
-    (void)protocol;
-    return -1;
-#elif
-    // acctual call to kernel
-    //UIOX/33_ProcessControlSubsystem/
-    kernel_socket();// definition not availble in and need to be created
+#if !SYS_CALL_ENBLE_DISABLE
+    (void)domain;(void)type;(void)protocol; return -1;
+#else
+    return kernel_socket(domain, type, protocol);
 #endif
 }
-
-static inline int sys_bind(int sockfd,
-                           const uix_sockaddr_t *addr,
-                           uix_socklen_t addrlen)
+static inline int sys_bind(int sockfd, const uix_sockaddr_t *addr,
+                                uix_socklen_t addrlen)
 {
-#if STUB
-    (void)sockfd;
-    (void)addr;
-    (void)addrlen;
-    return -1;
-#elif
-    // acctual call to kernel
-    //UIOX/33_ProcessControlSubsystem/
-    kernel_bind();// definition not availble in and need to be created
+#if !SYS_CALL_ENBLE_DISABLE
+    (void)sockfd;(void)addr;(void)addrlen; return -1;
+#else
+    return kernel_bind(sockfd, addr, addrlen);
 #endif
 }
-
 static inline int sys_listen(int sockfd, int backlog)
 {
-#if STUB
-    (void)sockfd;
-    (void)backlog;
-    return -1;
-#elif
-    // acctual call to kernel
-    //UIOX/33_ProcessControlSubsystem/
-    kernel_listen();// definition not availble in and need to be created
+#if !SYS_CALL_ENBLE_DISABLE
+    (void)sockfd;(void)backlog; return -1;
+#else
+    return kernel_listen(sockfd, backlog);
 #endif
 }
-
-static inline int sys_accept(int sockfd,
-                             uix_sockaddr_t *addr,
-                             uix_socklen_t *addrlen)
+static inline int sys_accept(int sockfd, uix_sockaddr_t *addr,
+                                  uix_socklen_t *addrlen)
 {
-#if STUB
-    (void)sockfd;
-    (void)addr;
-    (void)addrlen;
-    return -1;
-#elif
-    // acctual call to kernel
-    //UIOX/33_ProcessControlSubsystem/
-    kernel_accept();// definition not availble in and need to be created
+#if !SYS_CALL_ENBLE_DISABLE
+    (void)sockfd;(void)addr;(void)addrlen; return -1;
+#else
+    return kernel_accept(sockfd, addr, addrlen);
 #endif
 }
-
 static inline int sys_connect(int sockfd,
-                              const uix_sockaddr_t *addr,
-                              uix_socklen_t addrlen)
+            const uix_sockaddr_t *addr,uix_socklen_t addrlen)
 {
-#if STUB
-    (void)sockfd;
-    (void)addr;
-    (void)addrlen;
-    return -1;
-#elif
-    // acctual call to kernel
-    //UIOX/33_ProcessControlSubsystem/
-    kernel_connect();// definition not availble in and need to be created
+#if !SYS_CALL_ENBLE_DISABLE
+    (void)sockfd;(void)addr;(void)addrlen; return -1;
+#else
+    return kernel_connect(sockfd, addr, addrlen);
 #endif
 }
-
 static inline int sys_shutdown(int sockfd, int how)
 {
-#if STUB
-    (void)sockfd;
-    (void)how;
-    return -1;
-#elif
-    // acctual call to kernel
-    //UIOX/33_ProcessControlSubsystem/
-    kernel_shutdown();// definition not availble in and need to be created
+#if !SYS_CALL_ENBLE_DISABLE
+    (void)sockfd;(void)how; return -1;
+#else
+    return kernel_shutdown(sockfd, how);
 #endif
 }
-
-static inline uix_ssize_t sys_sendto(int sockfd,
-                                     const void *buf, uix_size_t len,
-                                     int flags,
-                                     const uix_sockaddr_t *dest,
-                                     uix_socklen_t addrlen)
+static inline uix_ssize_t sys_sendto(int sockfd, const void *buf,
+                                          uix_size_t len, int flags,
+                                          const uix_sockaddr_t *dest,
+                                          uix_socklen_t addrlen)
 {
-#if STUB
-    (void)sockfd;
-    (void)buf;
-    (void)len;
-    (void)flags;
-    (void)dest;
-    (void)addrlen;
-    return -1;
-#elif
-    // acctual call to kernel
-    //UIOX/33_ProcessControlSubsystem/
-    kernel_sendto();// definition not availble in and need to be created
+#if !SYS_CALL_ENBLE_DISABLE
+    (void)sockfd;(void)buf;(void)len;(void)flags;
+    (void)dest;(void)addrlen; return -1;
+#else
+    return kernel_sendto(sockfd, buf, len, flags, dest, addrlen);
 #endif
 }
-
-static inline uix_ssize_t sys_recvfrom(int sockfd,
-                                       void *buf, uix_size_t len,
-                                       int flags,
-                                       uix_sockaddr_t *src,
+static inline uix_ssize_t sys_recvfrom(int sockfd, void *buf,
+                                            uix_size_t len, int flags,
+                                            uix_sockaddr_t *src,
+                                            uix_socklen_t *addrlen)
+{
+#if !SYS_CALL_ENBLE_DISABLE
+    (void)sockfd;(void)buf;(void)len;(void)flags;
+    (void)src;(void)addrlen; return -1;
+#else
+    return kernel_recvfrom(sockfd, buf, len, flags, src, addrlen);
+#endif
+}
+static inline int sys_getsockopt(int sockfd, int level, int optname,
+                                      void *optval, uix_socklen_t *optlen)
+{
+#if !SYS_CALL_ENBLE_DISABLE
+    (void)sockfd;(void)level;(void)optname;
+    (void)optval;(void)optlen; return -1;
+#else
+    return kernel_getsockopt(sockfd, level, optname, optval, optlen);
+#endif
+}
+static inline int sys_setsockopt(int sockfd, int level, int optname,
+                                    const void *optval, uix_socklen_t optlen)
+{
+#if !SYS_CALL_ENBLE_DISABLE
+    (void)sockfd;(void)level;(void)optname;
+    (void)optval;(void)optlen; return -1;
+#else
+    return kernel_setsockopt(sockfd, level, optname, optval, optlen);
+#endif
+}
+static inline int sys_getsockname(int sockfd, uix_sockaddr_t *addr,
+                                    uix_socklen_t *addrlen)
+{
+#if !SYS_CALL_ENBLE_DISABLE
+    (void)sockfd;(void)addr;(void)addrlen; return -1;
+#else
+    return kernel_getsockname(sockfd, addr, addrlen);
+#endif
+}
+static inline int sys_getpeername(int sockfd, uix_sockaddr_t *addr,
                                        uix_socklen_t *addrlen)
 {
-#if STUB
-    (void)sockfd;
-    (void)buf;
-    (void)len;
-    (void)flags;
-    (void)src;
-    (void)addrlen;
-    return -1;
-#elif
-    // acctual call to kernel
-    //UIOX/33_ProcessControlSubsystem/
-    kernel_recvfrom();// definition not availble in and need to be created
+#if !SYS_CALL_ENBLE_DISABLE
+    (void)sockfd;(void)addr;(void)addrlen; return -1;
+#else
+    return kernel_getpeername(sockfd, addr, addrlen);
 #endif
 }
-
-static inline int sys_getsockopt(int sockfd, int level, int optname,
-                                 void *optval, uix_socklen_t *optlen)
+/* ════════════════════════════════════════════════════════════
+   I/O MULTIPLEXING
+   ════════════════════════════════════════════════════════════ */
+static inline int sys_select(int nfds, uix_fd_set *rfds, uix_fd_set *wfds,
+                                uix_fd_set *efds, uix_timeval_t *timeout)
 {
-#if STUB
-    (void)sockfd;
-    (void)level;
-    (void)optname;
-    (void)optval;
-    (void)optlen;
-    return -1;
-#elif
-    // acctual call to kernel
-    //UIOX/33_ProcessControlSubsystem/
-    kernel_getsockopt();// definition not availble in and need to be created
+#if !SYS_CALL_ENBLE_DISABLE
+    (void)nfds;(void)rfds;(void)wfds;
+    (void)efds;(void)timeout; return 0;
+#else
+    return kernel_select(nfds, rfds, wfds, efds, timeout);
 #endif
 }
-
-static inline int sys_setsockopt(int sockfd, int level, int optname,
-                                 const void *optval,
-                                 uix_socklen_t optlen)
-{
-#if STUB
-    (void)sockfd;
-    (void)level;
-    (void)optname;
-    (void)optval;
-    (void)optlen;
-    return -1;
-#elif
-    // acctual call to kernel
-    //UIOX/33_ProcessControlSubsystem/
-    kernel_setsockopt();// definition not availble in and need to be created
-#endif
-}
-
-static inline int sys_getsockname(int sockfd,
-                                  uix_sockaddr_t *addr,
-                                  uix_socklen_t *addrlen)
-{
-#if STUB
-    (void)sockfd;
-    (void)addr;
-    (void)addrlen;
-    return -1;
-#elif
-    // acctual call to kernel
-    //UIOX/33_ProcessControlSubsystem/
-    kernel_getsockname();// definition not availble in and need to be created
-#endif
-}
-
-static inline int sys_getpeername(int sockfd,
-                                  uix_sockaddr_t *addr,
-                                  uix_socklen_t *addrlen)
-{
-#if STUB
-    (void)sockfd;
-    (void)addr;
-    (void)addrlen;
-    return -1;
-#elif
-    // acctual call to kernel
-    //UIOX/33_ProcessControlSubsystem/
-    kernel_getpeername();// definition not availble in and need to be created
-#endif
-}
-#endif /* socket */
-
-#if 1 /* select */
-#include "sys/uix_select.h"
-
-static inline int sys_select(int nfds,
-                             uix_fd_set *rfds, uix_fd_set *wfds,
-                             uix_fd_set *efds, uix_timeval_t *timeout)
-{
-#if STUB
-    (void)nfds;
-    (void)rfds;
-    (void)wfds;
-    (void)efds;
-    (void)timeout;
-    return 0;
-#elif
-    // acctual call to kernel
-    //UIOX/33_ProcessControlSubsystem/
-    kernel_cselect();// definition not availble in and need to be created
-#endif
-}
-#endif
-
-#if 1 /* poll */
-#include "PoStd/uix_poll.h"
-
 static inline int sys_poll(uix_pollfd_t *fds,
-                           uix_nfds_t nfds, int timeout)
+                            uix_nfds_t nfds, int timeout)
 {
-#if STUB
-    (void)fds;
-    (void)nfds;
-    (void)timeout;
-    return 0;
-#elif
-    // acctual call to kernel
-    //UIOX/33_ProcessControlSubsystem/
-    kernel_poll();// definition not availble in and need to be created
+#if !SYS_CALL_ENBLE_DISABLE
+    (void)fds;(void)nfds;(void)timeout; return 0;
+#else
+    return kernel_poll(fds, nfds, timeout);
 #endif
 }
-#endif
-
-#if 1 /* sched */
-#include "PoStd/uix_sched.h"
-
-static inline int sys_sched_setscheduler(uix_pid_t pid, int policy,
-                                         const uix_sched_param_t *p) //not added
-{
-#if STUB
-    (void)pid;
-    (void)policy;
-    (void)p;
-    return 0;
-#elif
-    // acctual call to kernel
-    //UIOX/33_ProcessControlSubsystem/
-    kernel_sched_setscheduler();// definition not availble in and need to be created
-#endif
-}
-
-static inline int sys_sched_getscheduler(uix_pid_t pid) //not added
-{
-#if STUB
-    (void)pid;
-    return 0;
-#elif
-    // acctual call to kernel
-    //UIOX/33_ProcessControlSubsystem/
-    kernel_sched_getscheduler();// definition not availble in and need to be created
-#endif
-}
-
-static inline int sys_sched_yield(void) 
-{ 
-#if STUB
-    return 0;
-#elif
-    // acctual call to kernel
-    //UIOX/33_ProcessControlSubsystem/
-    kernel_sched_yield();// definition not availble in and need to be created
-#endif
-}
-
-#endif
-
-#if 1 /* ioctl */
-#include "sys/uix_ioctl.h"
-
 static inline int sys_ioctl(int fd, unsigned long request, ...)
 {
-#if STUB
-    (void)fd;
-    (void)request;
-    return -1;
-#elif
-    // acctual call to kernel
-    //UIOX/33_ProcessControlSubsystem/
-    kernel_ioctl();// definition not availble in and need to be created
+#if !SYS_CALL_ENBLE_DISABLE
+    (void)fd;(void)request; return -1;
+#else
+    return kernel_ioctl(fd, request);
 #endif
 }
-#endif
-
-#if 1 /* msg */
-#include "sys/uix_msg.h"
-
-static inline int sys_msgsnd(int msqid, const void *msgp,
-                             uix_size_t msgsz, int msgflg)
+/* ════════════════════════════════════════════════════════════
+   SCHEDULER  →  33_ProcessControlSubsystem/01_schedular/
+   ════════════════════════════════════════════════════════════ */
+static inline int sys_sched_setscheduler(uix_pid_t pid, int policy,
+                                            const uix_sched_param_t *p)
 {
-#if STUB
-    (void)msqid;
-    (void)msgp;
-    (void)msgsz;
-    (void)msgflg;
-    return 0;
-#elif
-    // acctual call to kernel
-    //UIOX/33_ProcessControlSubsystem/
-    kernel_msgsnd();// definition not availble in and need to be created
+#if !SYS_CALL_ENBLE_DISABLE
+    (void)pid; (void)policy; (void)p; return 0;
+#else
+    return kernel_sched_setscheduler(pid, policy, p);
 #endif
 }
-
+static inline int sys_sched_getscheduler(uix_pid_t pid)
+{
+#if !SYS_CALL_ENBLE_DISABLE
+    (void)pid; return 0;
+#else
+    return kernel_sched_getscheduler(pid);
+#endif
+}
+static inline int sys_sched_yield(void)
+{
+#if !SYS_CALL_ENBLE_DISABLE
+    return 0;
+#else
+    return kernel_sched_yield();
+#endif
+}
+/* ════════════════════════════════════════════════════════════
+   IPC: MSG / SHM / SEM  →  33_ProcessControlSubsystem/00_ipc/
+   ════════════════════════════════════════════════════════════ */
 static inline int sys_msgget(uix_key_t key, int msgflg)
 {
-#if STUB
-    (void)key;
-    (void)msgflg;
-    return 0;
-#elif
-    // acctual call to kernel
-    //UIOX/33_ProcessControlSubsystem/
-    kernel_msgget();// definition not availble in and need to be created
+#if !SYS_CALL_ENBLE_DISABLE
+    (void)key; (void)msgflg; return 0;
+#else
+    return kernel_msgget(key, msgflg);
 #endif
 }
-
-static inline uix_ssize_t sys_msgrcv(int msqid, void *msgp,
-                                     uix_size_t msgsz,
-                                     long msgtyp, int msgflg)
+static inline int sys_msgsnd(int msqid, const void *msgp,
+                                uix_size_t msgsz, int msgflg)
 {
-#if STUB
-    (void)msqid;
-    (void)msgp;
-    (void)msgsz;
-    (void)msgtyp;
-    (void)msgflg;
-    return 0;
-#elif
-    // acctual call to kernel
-    //UIOX/33_ProcessControlSubsystem/
-    kernel_msgrcv();// definition not availble in and need to be created
+#if !SYS_CALL_ENBLE_DISABLE
+    (void)msqid;(void)msgp;(void)msgsz;(void)msgflg; return 0;
+#else
+    return kernel_msgsnd(msqid, msgp, msgsz, msgflg);
 #endif
 }
-
+static inline uix_ssize_t sys_msgrcv(int msqid, void *msgp,
+                    uix_size_t msgsz,long msgtyp, int msgflg)
+{
+#if !SYS_CALL_ENBLE_DISABLE
+    (void)msqid;(void)msgp;(void)msgsz;
+    (void)msgtyp;(void)msgflg; return 0;
+#else
+    return kernel_msgrcv(msqid, msgp, msgsz, msgtyp, msgflg);
+#endif
+}
 static inline int sys_msgctl(int msqid, int cmd, uix_msqid_ds_t *buf)
 {
-#if STUB
-    (void)msqid;
-    (void)cmd;
-    (void)buf;
-    return 0;
-#elif
-   // acctual call to kernel
-    //UIOX/33_ProcessControlSubsystem/
-    kernel_msgctl();// definition not availble in and need to be created
+#if !SYS_CALL_ENBLE_DISABLE
+    (void)msqid;(void)cmd;(void)buf; return 0;
+#else
+    return kernel_msgctl(msqid, cmd, buf);
 #endif
 }
-#endif /* msg */
-
-#if 1 /* shm */
-#include "sys/uix_shm.h"
-
-static inline int sys_shmget(uix_key_t key,
-                             uix_size_t size, int shmflg)
+static inline int sys_shmget(uix_key_t key, uix_size_t size, int shmflg)
 {
-#if STUB
-    (void)key;
-    (void)size;
-    (void)shmflg;
-    return 0;
-#elif
-    // acctual call to kernel
-    //UIOX/33_ProcessControlSubsystem/
-    kernel_shmget();// definition not availble in and need to be created
+#if !SYS_CALL_ENBLE_DISABLE
+    (void)key;(void)size;(void)shmflg; return 0;
+#else
+    return kernel_shmget(key, size, shmflg);
 #endif
 }
-
 static inline void *sys_shmat(int shmid,
-                              const void *shmaddr, int shmflg)
+                                const void *shmaddr, int shmflg)
 {
-#if STUB
-    (void)shmid;
-    (void)shmaddr;
-    (void)shmflg;
-    return (void *)-1;
-#elif
-    // acctual call to kernel
-    //UIOX/33_ProcessControlSubsystem/
-    kernel_shmat();// definition not availble in and need to be created
+#if !SYS_CALL_ENBLE_DISABLE
+    (void)shmid;(void)shmaddr;(void)shmflg; return (void*)-1;
+#else
+    return kernel_shmat(shmid, shmaddr, shmflg);
 #endif
 }
-
 static inline int sys_shmdt(const void *shmaddr)
 {
-#if STUB
-    (void)shmaddr;
-    return 0;
-#elif
-    // acctual call to kernel
-    //UIOX/33_ProcessControlSubsystem/
-    kernel_clock_shmdt();// definition not availble in and need to be created
+#if !SYS_CALL_ENBLE_DISABLE
+    (void)shmaddr; return 0;
+#else
+    return kernel_shmdt(shmaddr);
 #endif
 }
-
 static inline int sys_shmctl(int shmid, int cmd, uix_shmid_ds_t *buf)
 {
-#if STUB
-    (void)shmid;
-    (void)cmd;
-    (void)buf;
-    return 0;
-#elif
-    // acctual call to kernel
-    //UIOX/33_ProcessControlSubsystem/
-    kernel_shmctl();// definition not availble in and need to be created
+#if !SYS_CALL_ENBLE_DISABLE
+    (void)shmid;(void)cmd;(void)buf; return 0;
+#else
+    return kernel_shmctl(shmid, cmd, buf);
 #endif
 }
-#endif /* shm */
-
-#if 1 /* sem */
-#include "sys/uix_sem.h"
-
 static inline int sys_semget(uix_key_t key, int nsems, int semflg)
 {
-#if STUB
-    (void)key;
-    (void)nsems;
-    (void)semflg;
-    return 0;
-#elif
-    // acctual call to kernel
-    //UIOX/33_ProcessControlSubsystem/
-    kernel_semget();// definition not availble in and need to be created
+#if !SYS_CALL_ENBLE_DISABLE
+    (void)key;(void)nsems;(void)semflg; return 0;
+#else
+    return kernel_semget(key, nsems, semflg);
 #endif
 }
-
 static inline int sys_semop(int semid,
                             uix_sembuf_t *sops, uix_size_t nsops)
 {
-#if STUB
-    (void)semid;
-    (void)sops;
-    (void)nsops;
-    return 0;
-#elif
-    // acctual call to kernel
-    //UIOX/33_ProcessControlSubsystem/
-    kernel_semop();// definition not availble in and need to be created
+#if !SYS_CALL_ENBLE_DISABLE
+    (void)semid;(void)sops;(void)nsops; return 0;
+#else
+    return kernel_semop(semid, sops, nsops);
 #endif
 }
-
-static inline int sys_semctl(int semid, int semnum, int cmd, ...) //not added
+static inline int sys_semctl(int semid, int semnum, int cmd, ...)
 {
-#if STUB
-    (void)semid;
-    (void)semnum;
-    (void)cmd;
-    return 0;
-#elif
-    // acctual call to kernel
-    //UIOX/33_ProcessControlSubsystem/
-    kernel_semctl();// definition not availble in and need to be created
+#if !SYS_CALL_ENBLE_DISABLE
+    (void)semid;(void)semnum;(void)cmd; return 0;
+#else
+    return kernel_semctl(semid, semnum, cmd);
 #endif
 }
-#endif /* sem */
-
-#if 1 /* getdents / dir */
-#include "Postd/uix_ifaddrs.h"
-#include "sys/uix_socket.h"
-#include "Postd/uix_netdb.h"
-
-static inline int sys_getifaddrs(uix_ifaddrs_t **ifap) //not added
+/* ════════════════════════════════════════════════════════════
+   NETWORK HELPERS
+   ════════════════════════════════════════════════════════════ */
+static inline int sys_getifaddrs(uix_ifaddrs_t **ifap)
 {
-#if STUB
-    (void)ifap;
-    return -1;
-#elif
-    // acctual call to kernel
-    //UIOX/33_ProcessControlSubsystem/
-    kernel_getifaddrs();// definition not availble in and need to be created
+#if !SYS_CALL_ENBLE_DISABLE
+    (void)ifap; return -1;
+#else
+    return kernel_getifaddrs(ifap);
 #endif
 }
-
-static inline uix_hostent_t *sys_gethostbyname(const char *name) //not added
+static inline uix_hostent_t *sys_gethostbyname(const char *name)
 {
-#if STUB
-    (void)name;
-    return 0;
-#elif
-    // acctual call to kernel
-    //UIOX/33_ProcessControlSubsystem/
-    kernel_gethostbyname();// definition not availble in and need to be created
+#if !SYS_CALL_ENBLE_DISABLE
+    (void)name; return (uix_hostent_t*)0;
+#else
+    return kernel_gethostbyname(name);
 #endif
 }
-#endif
-
-#if 1 /* mqueue */
-#include "PoStd/uix_mqueue.h"
-
-static inline uix_mqd_t sys_mq_open(const char *name,
-                                    int oflag, ...) //not added
+/* ════════════════════════════════════════════════════════════
+   MQUEUE  →  33_ProcessControlSubsystem/00_ipc/
+   ════════════════════════════════════════════════════════════ */
+static inline uix_mqd_t sys_mq_open(const char *name, int oflag, ...)
 {
-#if STUB
-    (void)name;
-    (void)oflag;
-    return (uix_mqd_t)-1;
-#elif
-    // acctual call to kernel
-    //UIOX/33_ProcessControlSubsystem/
-    kernel_mq_open();// definition not availble in and need to be created
+#if !SYS_CALL_ENBLE_DISABLE
+    (void)name;(void)oflag; return (uix_mqd_t)-1;
+#else
+    return kernel_mq_open(name, oflag);
 #endif
 }
-
-static inline int sys_mq_close(uix_mqd_t mqdes) //not added
+static inline int sys_mq_close(uix_mqd_t mqdes)
 {
-#if STUB
-    (void)mqdes;
-    return 0;
-#elif
-    // acctual call to kernel
-    //UIOX/33_ProcessControlSubsystem/
-    kernel_mq_close();// definition not availble in and need to be created
+#if !SYS_CALL_ENBLE_DISABLE
+    (void)mqdes; return 0;
+#else
+    return kernel_mq_close(mqdes);
 #endif
 }
-
-static inline int sys_mq_unlink(const char *name) //not added
+static inline int sys_mq_unlink(const char *name)
 {
-#if STUB
-    (void)name;
-    return 0;
-#elif
-    // acctual call to kernel
-    //UIOX/33_ProcessControlSubsystem/
-    kernel_mq_unlink();// definition not availble in and need to be created
+#if !SYS_CALL_ENBLE_DISABLE
+    (void)name; return 0;
+#else
+    return kernel_mq_unlink(name);
 #endif
 }
-
-static inline int sys_mq_send(uix_mqd_t mqdes,
-                              const char *msg_ptr,
-                              uix_size_t msg_len,
-                              unsigned int msg_prio) //not added
+static inline int sys_mq_send(uix_mqd_t mqdes, const char *msg_ptr,
+                                uix_size_t msg_len, unsigned int msg_prio)
 {
-#if STUB
-    (void)mqdes;
-    (void)msg_ptr;
-    (void)msg_len;
-    (void)msg_prio;
-    return -1;
-#elif
-    // acctual call to kernel
-    //UIOX/33_ProcessControlSubsystem/
-    kernel_mq_send();// definition not availble in and need to be created
+#if !SYS_CALL_ENBLE_DISABLE
+    (void)mqdes;(void)msg_ptr;(void)msg_len;(void)msg_prio; return -1;
+#else
+    return kernel_mq_send(mqdes, msg_ptr, msg_len, msg_prio);
 #endif
 }
-
-static inline uix_ssize_t sys_mq_receive(uix_mqd_t mqdes,
-                                         char *msg_ptr,
-                                         uix_size_t msg_len,
-                                         unsigned int *msg_prio) //not added
+static inline uix_ssize_t sys_mq_receive(uix_mqd_t mqdes, char *msg_ptr,
+                                uix_size_t msg_len,unsigned int *msg_prio)
 {
-#if STUB
-    (void)mqdes;
-    (void)msg_ptr;
-    (void)msg_len;
-    (void)msg_prio;
-    return -1;
-#elif
-    // acctual call to kernel
-    //UIOX/33_ProcessControlSubsystem/
-    kernel_mq_receive();// definition not availble in and need to be created
+#if !SYS_CALL_ENBLE_DISABLE
+    (void)mqdes;(void)msg_ptr;(void)msg_len;(void)msg_prio; return -1;
+#else
+    return kernel_mq_receive(mqdes, msg_ptr, msg_len, msg_prio);
 #endif
 }
-#endif /* mqueue */
 
 #endif /* __UIX_SYS__H */
