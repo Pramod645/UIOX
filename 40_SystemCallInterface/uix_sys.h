@@ -1,10 +1,10 @@
 #ifndef __UIX_SYS__H
 #define __UIX_SYS__H
 /*
- * uix_sys.h — System Call Interface Bridge
+ * uix_sys.h — System Call Interface
  *
  * Layer map:
- *   50_UIX/00_libs/00_uixlibs/*.c
+ *   50_UIX/00_libs/00_uixlibs**.c
  *       └── sys_*()          ← this file
  *               ├── fs_*()   ← 32_FileSystem/10_scfs/include/fs.h
  *               └── kernel_*()← 33_ProcessControlSubsystem/50_scps/include/
@@ -61,7 +61,7 @@
 #define SYS_LINK            9 //done
 #define SYS_UNLINK          10 //done
 #define SYS_WAIT4           11//done
-#define sys_CHDIR           12 //done
+#define SYS_CHDIR           12 //done
 #define SYS_FCHDIR          13
 #define SYS_MKNOD           14//done
 #define SYS_CHMOD           15 //done
@@ -87,7 +87,7 @@
 #define SYS_FCHFLAGS        35
 #define SYS_SYNC            36
 #define SYS_STAT            38 //done
-#define SYS_GETPID          39 //done
+//#define SYS_GETPID          39 //done duplicatw
 #define SYS_LSTAT           40//done
 #define SYS_DUP             41 //done
 #define SYS_FSTATAT         42
@@ -106,7 +106,7 @@
 #define SYS_REVOKE          56
 #define SYS_SYMLINK         57
 #define SYS_READLINK        58
-#define sys_EXECVE          59
+//#define SYS_EXECVE          59 //duplicate
 #define SYS_EXECV           250 //done
 #define SYS_UMASK           60
 #define SYS_CHROOT          61 //done
@@ -135,7 +135,7 @@
 #define SYS_UTIMENSAT       84
 #define SYS_FUTIMENS        85
 #define SYS_KBIND           86
-#define sys_CLOCK_GETTIME   87 //done
+#define SYS_CLOCK_GETTIME   87 //done
 #define SYS_CLOCK_SETTIME   88
 #define SYS_CLOCK_GETRES    89
 #define SYS_DUP2            90
@@ -174,7 +174,7 @@
 #define SYS_FCHMOD          124
 #define SYS_PLEDGE_OPEN     125
 #define SYS_SETREUID        126
-#define SYS_SETREUID        127
+//#define SYS_SETREUID        127 duplicate
 #define SYS_RENAME          128
 #define SYS_FLOCK           131
 #define SYS_MKFIFO          132
@@ -239,7 +239,7 @@
 #define SYS_MUNLOCKALL      272
 #define SYS_GETRESUID       281
 #define SYS_SETRESUID       282
-#define SYS_GETRESUID       283
+//#define SYS_GETRESUID       283 duplicate
 #define SYS_SETRESGID       284
 #define SYS_CLOSEFROM       287
 #define SYS_SIGNALTSTACK    288
@@ -263,7 +263,7 @@
 #define SYS_FCHOWNAT        315
 #define SYS_LINKAT          317
 #define SYS_MKDIRAT         318
-#define SYS_mkfifoat        319
+#define SYS_MKFIFOAT        319
 #define SYS_MKNODAT         320
 #define SYS_OPENAT          321
 #define SYS_READLINKAT      322
@@ -282,21 +282,14 @@
 #define SYS_SCHED_SETSCHEDULER  338
 #define SYS_SCHED_GETSCHEDULER  339
 #define SYS_EXECVE          340
-#define SYS_EXECVE          341
-#define SYS_CHDIR           342
+//#define SYS_EXECVE          341 //duplicate
+//#define SYS_CHDIR           342 duplicate
 #define SYS_UTIME           343
 #define SYS_STST            344
-#define SYS_CLOCK_GETTIME   345
+//#define SYS_CLOCK_GETTIME   345 duplicate
 #define SYS_TIMES           346
 #define SYS_UNAME           347
 #define SYS_MAXSYSCALL      348
-
-
-/* ── sys-call stub selector ──────────────────────────────────
- * 0 = all stubs return 0 (simulation / hosted build)
- * 1 = real syscall wrappers (bare-metal / kernel build)
- * ---------------------------------------------------------- */
-#define SYS_CALL_ENBLE_DISABLE 0
 
 /* ── All sys_* stubs are static inline so that every .c that
  * includes this header gets its own private copy.  Without
