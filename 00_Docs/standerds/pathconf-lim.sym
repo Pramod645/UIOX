@@ -7,3 +7,11 @@ PATH_MAX		_PC_PATH_MAX
 PIPE_BUF		_PC_PIPE_BUF
 SYMLINK_MAX		_PC_SYMLINK_MAX
 _POSIX_TIMESTAMP_RESOLUTION	_PC_TIMESTAMP_RESOLUTION
+
+
+1. pathconf constants — per-file/filesystem limits queried via pathconf() / fpathconf()
+2. sysconf constants — system-wide limits/options queried via sysconf()
+
+pathconf_constants.h	Maps all PC_* token aliases + platform detection + pathconf_print() helper
+sysconf_constants.h	Maps all SC_* token aliases across limits, POSIX flags, and XSI flags + sysconf_print() helper
+standards_demo.c	Self-contained CLI probe: calls every constant on a user-specified path and prints results
