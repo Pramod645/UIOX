@@ -1,87 +1,93 @@
 # =============================================================
 # build_config/arm32.mk
-#
-# ARM32 (ARMv7-A) build configuration.
-#
-# Cross-compiler: arm-linux-gnueabihf-gcc
-# Target:         ARMv7-A, Thumb-2, hard-float, ELF32
+# ARM32 (ARMv7-A) compiler and linker configuration.
 # =============================================================
 
-ARCH          := arm32
-ARCH_DIR      := arm32
-TRIPLE        := arm-linux-gnueabihf
-
-CC            := $(TRIPLE)-gcc
-LD            := $(TRIPLE)-ld
-OBJCOPY       := $(TRIPLE)-objcopy
-OBJDUMP       := $(TRIPLE)-objdump
-AR            := $(TRIPLE)-ar
-SIZE          := $(TRIPLE)-size
-
-# ── Architecture-specific CFLAGS ─────────────────────────────
-ARCH_CFLAGS   := -march=armv7-a           \
-                 -mtune=cortex-a9         \
-                 -mfpu=vfpv3-d16          \
-                 -mfloat-abi=hard         \
-                 -mthumb                  \
-                 -DARCH_ARM32             \
-                 -DUIOX_ARCH_ARM32=1      \
-                 -Iarch/arm32/include
-
+include build_config/tools.mk
 include build_config/common.mk
 
-CFLAGS        := $(COMMON_CFLAGS) $(ARCH_CFLAGS) $(COMMON_INCS)
-LDFLAGS       := $(COMMON_LDFLAGS)
+# --- ARM32 arch-specific compiler flags ----------------------
+ARM32_ARCH_FLAGS := \
+    -march=armv7-a \
+    -mtune=cortex-a9 \
+    -mfpu=vfpv3-d16 \
+    -mfloat-abi=hard \
+    -marm \
+    -mabi=aapcs
 
-# ── Output paths ──────────────────────────────────────────────
-OBJ_DIR       := obj/arm32
-LIB_DIR       := lib/arm32
-TARGET_ELF    := uiox_arm32.elf
-TARGET_BIN    := uiox_arm32.bin
-STATIC_LIB    := $(LIB_DIR)/libuiox_arm32.a
-SHARED_LIB    := $(LIB_DIR)/libuiox_arm32.so
+# --- ARM32 preprocessor defines ------------------------------
+ARM32_DEFS := \
+    -DUIOX_ARCH_ARM32=1 \
+    -DUIOX_BITS=32 \
+    -DUIOX_ENDIAN_LITTLE=1
 
-FS_OBJS       := $(patsubst $(UIOX_ROOT)/uiox_fs/src/%.c, \
-                             $(OBJ_DIR)/%.o, $(FS_SRCS))
-DEV_OBJS      := $(patsubst $(UIOX_ROOT)/uiox_dev/src/%.c, \
-                             $(OBJ_DIR)/%.o, $(DEV_SRCS))
-HW_OBJS       := $(patsubst $(UIOX_ROOT)/uiox_hw/src/%.c, \
-                             $(OBJ_DIR)/%.o, $(HW_SRCS))
-ARCH_OBJS     := $(OBJ_DIR)/arch_init.o
-MAIN_OBJ      := $(OBJ_DIR)/main.o
-ALL_OBJS      := $(FS_OBJS) $(DEV_OBJS) $(HW_OBJS) \
-                 $(ARCH_OBJS) $(MAIN_OBJ)
+# --- ARM32 include paths -------------------------------------
+ARM32_INCLUDES := \
+    -I$(UIOX_ROOT)/$(DIR_ARCH)/arm32/include \
+    $(SUBSYS_INCLUDES)
 
-.PHONY: arm32 arm32_static arm32_shared arm32_bin arm32_clean
+# --- Combined ARM32 CFLAGS -----------------------------------
+ARM32_CFLAGS := \
+    $(COMMON_CFLAGS) \
+    $(ARM32_ARCH_FLAGS) \
+    $(ARM32_DEFS) \
+    $(ARM32_INCLUDES)
 
-arm32: dirs $(TARGET_ELF) arm32_static arm32_shared
-	@$(SIZE) $(TARGET_ELF) 2>/dev/null || true
-	@echo "=== ARM32 build complete ==="
+# --- ARM32 linker flags --------------------------------------
+ARM32_LDFLAGS := \
+    $(COMMON_LDFLAGS) \
+    -T $(UIOX_ROOT)/$(DIR_LINKER)/uiox_arm32.ld \
+    -Map=$(MAP_DIR)/uiox_arm32.map \
+    --print-memory-usage
 
-$(TARGET_ELF): $(ALL_OBJS)
-	$(CC) $(CFLAGS) $(LDFLAGS) $^ -o $@
-	@echo "Linked: $@"
+# --- ARM32 sources -------------------------------------------
+ARM32_ARCH_SRCS := \
+    $(UIOX_ROOT)/$(DIR_ARCH)/arm32/src/arch_init.c \
+    $(UIOX_ROOT)/$(DIR_ARCH)/arm32/src/arm_decode.c \
+    $(UIOX_ROOT)/$(DIR_ARCH)/arm32/src/arm_execute.c \
+    $(UIOX_ROOT)/$(DIR_ARCH)/arm32/src/arm_memory.c \
+    $(UIOX_ROOT)/$(DIR_ARCH)/arm32/src/arm_exceptions.c
 
-arm32_bin: $(TARGET_ELF)
-	$(OBJCOPY) -O binary $(TARGET_ELF) $(TARGET_BIN)
-	@echo "Binary image: $(TARGET_BIN)"
+ARM32_SRCS := \
+    $(UIOX_ROOT)/main.c \
+    $(ARM32_ARCH_SRCS) \
+    $(SUBSYS_SRCS)
 
-arm32_static: $(STATIC_LIB)
-$(STATIC_LIB): $(ALL_OBJS) | $(LIB_DIR)
-	$(AR) $(ARFLAGS) $@ $^
-	@echo "Static lib: $@"
+ARM32_OBJS := $(patsubst $(UIOX_ROOT)/%.c, \
+                $(OBJ_DIR)/arm32/%.o, \
+                $(ARM32_SRCS))
 
-arm32_shared: $(SHARED_LIB)
-$(SHARED_LIB): $(ALL_OBJS) | $(LIB_DIR)
-	$(CC) -shared -fPIC $(LDFLAGS) -o $@ $^
-	@echo "Shared lib: $@"
+ARM32_ELF  := $(BIN_DIR)/uiox_arm32.elf
+ARM32_BIN  := $(BIN_DIR)/uiox_arm32.bin
+ARM32_HEX  := $(BIN_DIR)/uiox_arm32.hex
+ARM32_LST  := $(BIN_DIR)/uiox_arm32.lst
+
+# --- ARM32 build rules ---------------------------------------
+.PHONY: arm32 arm32_clean
+
+arm32: $(ARM32_ELF) $(ARM32_BIN) $(ARM32_HEX) $(ARM32_LST)
+	@echo "[arm32] Build complete: $(ARM32_ELF)"
+	@$(ARM32_SIZE) $(ARM32_ELF)
+
+$(OBJ_DIR)/arm32/%.o: $(UIOX_ROOT)/%.c
+	@$(MKDIR_P) $(dir $@)
+	$(ARM32_CC) $(ARM32_CFLAGS) -c -o $@ $<
+
+$(ARM32_ELF): $(ARM32_OBJS)
+	@$(MKDIR_P) $(BIN_DIR) $(MAP_DIR)
+	$(ARM32_CC) $(ARM32_CFLAGS) \
+	    -Wl,$(subst $(space),$(comma),$(ARM32_LDFLAGS)) \
+	    -o $@ $^
+
+$(ARM32_BIN): $(ARM32_ELF)
+	$(ARM32_OBJCOPY) -O binary $< $@
+
+$(ARM32_HEX): $(ARM32_ELF)
+	$(ARM32_OBJCOPY) -O ihex $< $@
+
+$(ARM32_LST): $(ARM32_ELF)
+	$(ARM32_OBJDUMP) -d -S $< > $@
 
 arm32_clean:
-	rm -rf $(OBJ_DIR) $(LIB_DIR) $(TARGET_ELF) $(TARGET_BIN)
-
-arm32_run: arm32_bin
-	qemu-system-arm \
-	  -M versatilepb -cpu cortex-a9 -m 64M \
-	  -nographic \
-	  -kernel $(TARGET_BIN) \
-	  -serial mon:stdio
+	rm -rf $(OBJ_DIR)/arm32 $(ARM32_ELF) \
+	       $(ARM32_BIN) $(ARM32_HEX) $(ARM32_LST)

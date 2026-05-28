@@ -1,0 +1,60 @@
+# =============================================================
+# build_config/uiox_compile_flags.txt
+# Compile flags reference for IDEs (CLion, VS Code clangd).
+# Point your IDE's compile_commands.json or .clangd config
+# at this file for correct code-model and include paths.
+# =============================================================
+
+# --- Shared kernel flags ------------------------------------
+-std=c99
+-ffreestanding
+-fno-builtin
+-fno-stack-protector
+-fno-common
+-nostdlib
+-Wall
+-Wextra
+-Wshadow
+-Wstrict-prototypes
+-Wmissing-prototypes
+-Wno-unused-parameter
+-O2
+-g3
+
+# --- ARM64 specific -----------------------------------------
+# -march=armv8-a
+# -mtune=cortex-a53
+# -mabi=lp64
+# -DUIOX_ARCH_ARM64=1
+# -DUIOX_BITS=64
+# -I10_Arch/arm64/include
+
+# --- ARM32 specific -----------------------------------------
+# -march=armv7-a
+# -mtune=cortex-a9
+# -mfpu=vfpv3-d16
+# -mfloat-abi=hard
+# -marm
+# -DUIOX_ARCH_ARM32=1
+# -DUIOX_BITS=32
+# -I10_Arch/arm32/include
+
+# --- x86_64 specific ----------------------------------------
+# -m64
+# -march=x86-64
+# -mno-red-zone
+# -mno-sse
+# -mno-sse2
+# -mcmodel=kernel
+# -DUIOX_ARCH_X86_64=1
+# -DUIOX_BITS=64
+# -I10_Arch/x86_64/include
+
+# --- Common include paths ------------------------------------
+-I20_DriverInterfaces/include
+-I30_DeviceDrivers/include
+-I31_BufferCache/include
+-I32_FileSystem
+-I33_ProcessControlSubsystem
+-I40_SystemCallInterface
+-I50_UIX/00_libs
