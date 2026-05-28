@@ -16,22 +16,26 @@
  * difference is which arch_defs.h and arch_init.c are linked in.
  */
 
- #include <stdio.h>
- #include <string.h>
+ //#include <stdio.h>
+ #include "50_UIX/00_libs/00_uixlibs/PoStd/uix_stdio.h"
+ //#include "/Users/pramodkumar/Hack/WS/UIOX/50_UIX/00_libs/00_uixlibs/PoStd/uix_stdlib.h"
+ //#include <string.h>
+  #include "50_UIX/00_libs/00_uixlibs/PoStd/uix_string.h"
  
  /* ── Architecture definitions (injected by build system) ──── */
  #if   defined(UIOX_ARCH_ARM64)
- #  include "arch/arm64/include/arch_defs.h"
+ #  include "10_Arch/arm64/include/arch_defs.h"
  #elif defined(UIOX_ARCH_ARM32)
- #  include "arch/arm32/include/arch_defs.h"
+ #  include "10_Arch//arm32/include/arch_defs.h"
  #elif defined(UIOX_ARCH_X86_64)
- #  include "arch/x86_64/include/arch_defs.h"
+ #  include "10_Arch//x86_64/include/arch_defs.h"
  #else
- #  include "10_Arch/x86_64/include/arch_defs.h"  /* default */
+ #include "10_Arch/x86_64/include/arch_defs.h"  /* default */
  #endif
  
  /* ── uiox_fs ─────────────────────────────────────────────── */
- #include "fs_types.h"
+ //#include "fs_types.h"
+  #include "32_FileSystem/01_fsa/include/fs_types.h"
  #include "buffer.h"
  #include "inode.h"
  #include "superblock.h"
