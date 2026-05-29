@@ -139,9 +139,140 @@
  } uiox_hdmi_audio_fmt_t;
  
  typedef struct {
-     uiox_hdmi_audio_fmt_t fmt;
-     uint32_t  sample_rate_hz;   /**< 32000, 44100, 48000, 96000, 192000  */
-     uint8_t   channels;         /**< 2, 6, 8, 32                         */
-     uint8_t   bits_per_sample;  /**< 16, 20, 24                          */
- } uiox_
- 
+    uiox_hdmi_audio_fmt_t fmt;
+    uint32_t  sample_rate_hz;
+    uint8_t   channels;
+    uint8_t   bits_per_sample;
+} uiox_hdmi_audio_cfg_t;
+
+/* =========================================================================
+ * Hardware device descriptor
+ * ====================================================================== */
+
+typedef struct {
+    uintptr_t             base_addr;     /**< MMIO base of HDMI controller */
+    uint32_t              irq_hpd;       /**< Hot-plug detect IRQ           */
+    uint32_t              irq_hdcp;      /**< HDCP engine IRQ               */
+    uint32_t              irq_vblank;    /**< VBlank IRQ                    */
+    uint32_t              irq_audio;     /**< Audio FIFO underrun IRQ       */
+    uint32_t              caps;          /**< UIOX_HDMI_CAP_* bitmask      */
+    uiox_hdmi_ver_t       version;
+    uiox_hdmi_link_t      link;
+    uiox_hdmi_frl_rate_t  frl_rate;
+    uint32_t              pll_ref_hz;    /**< PLL reference clock (Hz)      */
+
+    /* Current config */
+    uiox_hdmi_timing_t    timing;
+    uiox_hdmi_colorspace_t colorspace;
+    uiox_hdmi_bpc_t       bpc;
+    uiox_hdmi_audio_cfg_t audio;
+
+    /* State */
+    bool                  connected;
+    bool                  enabled;
+    uiox_hdcp_state_t     hdcp_state;
+    volatile uint32_t     vblank_count;
+    bool                  flip_pending;
+
+    /* DDC I2C */
+    uint32_t              ddc_base;      /**< DDC I2C MMIO base             */
+
+    /* CEC */
+    uint32_t              cec_base;      /**< CEC controller MMIO base      */
+    uint8_t               cec_la;        /**< CEC logical address           */
+
+    /* Backlight (panel with embedded HDMI) */
+    uint8_t               bl_level;
+
+    void                 *priv;
+} uiox_hdmi_hw_t;
+
+/* =========================================================================
+ * Hardware operations vtable
+ * ====================================================================== */
+
+typedef struct {
+    int  (*init)           (uiox_hdmi_hw_t *hw);
+    void (*deinit)         (uiox_hdmi_hw_t *hw);
+    int  (*enable)         (uiox_hdmi_hw_t *hw);
+    void (*disable)        (uiox_hdmi_hw_t *hw);
+    int  (*set_timing)     (uiox_hdmi_hw_t *hw,
+                            const uiox_hdmi_timing_t *t);
+    int  (*set_colorspace) (uiox_hdmi_hw_t *hw,
+                            uiox_hdmi_colorspace_t cs,
+                            uiox_hdmi_bpc_t bpc);
+    int  (*set_audio)      (uiox_hdmi_hw_t *hw,
+                            const uiox_hdmi_audio_cfg_t *a);
+    int  (*set_frl_rate)   (uiox_hdmi_hw_t *hw,
+                            uiox_hdmi_frl_rate_t rate);
+    int  (*phy_power)      (uiox_hdmi_hw_t *hw, bool on);
+    int  (*pll_set)        (uiox_hdmi_hw_t *hw, uint32_t pixel_clk_khz);
+    int  (*wait_vblank)    (uiox_hdmi_hw_t *hw, uint32_t timeout_ms);
+    int  (*flip)           (uiox_hdmi_hw_t *hw,
+                            uintptr_t phys, uint32_t stride);
+
+    /* DDC / EDID */
+    int  (*ddc_read)       (uiox_hdmi_hw_t *hw,
+                            uint8_t dev_addr, uint8_t reg,
+                            uint8_t *buf, uint16_t len);
+    int  (*ddc_write)      (uiox_hdmi_hw_t *hw,
+                            uint8_t dev_addr, uint8_t reg,
+                            const uint8_t *buf, uint16_t len);
+
+    /* HDCP */
+    int  (*hdcp_start)     (uiox_hdmi_hw_t *hw, uint8_t version);
+    void (*hdcp_stop)      (uiox_hdmi_hw_t *hw);
+    int  (*hdcp_status)    (uiox_hdmi_hw_t *hw,
+                            uiox_hdcp_state_t *state_out);
+
+    /* CEC */
+    int  (*cec_send)       (uiox_hdmi_hw_t *hw,
+                            uint8_t dst_la,
+                            const uint8_t *msg, uint8_t len);
+    int  (*cec_recv)       (uiox_hdmi_hw_t *hw,
+                            uint8_t *src_la,
+                            uint8_t *msg, uint8_t *len);
+
+    /* Infoframe injection */
+    int  (*infoframe_send) (uiox_hdmi_hw_t *hw,
+                            const uint8_t *packet, uint8_t len);
+
+    /* Audio sample injection */
+    int  (*audio_write)    (uiox_hdmi_hw_t *hw,
+                            const uint8_t *samples, uint32_t bytes);
+
+    /* Hotplug */
+    bool (*hpd_state)      (uiox_hdmi_hw_t *hw);
+
+    /* ISRs */
+    void (*isr_hpd)        (uiox_hdmi_hw_t *hw);
+    void (*isr_hdcp)       (uiox_hdmi_hw_t *hw);
+    void (*isr_vblank)     (uiox_hdmi_hw_t *hw);
+    void (*isr_audio)      (uiox_hdmi_hw_t *hw);
+} uiox_hdmi_hw_ops_t;
+
+/* =========================================================================
+ * HAL public API
+ * ====================================================================== */
+
+int  uiox_hdmi_hw_init       (uiox_hdmi_hw_t *hw,
+                               const uiox_hdmi_hw_ops_t *ops);
+void uiox_hdmi_hw_deinit     (uiox_hdmi_hw_t *hw);
+int  uiox_hdmi_hw_enable     (uiox_hdmi_hw_t *hw);
+void uiox_hdmi_hw_disable    (uiox_hdmi_hw_t *hw);
+int  uiox_hdmi_hw_set_timing (uiox_hdmi_hw_t *hw,
+                               const uiox_hdmi_timing_t *t);
+int  uiox_hdmi_hw_flip       (uiox_hdmi_hw_t *hw,
+                               uintptr_t phys, uint32_t stride);
+int  uiox_hdmi_hw_wait_vblank(uiox_hdmi_hw_t *hw, uint32_t timeout_ms);
+int  uiox_hdmi_hw_ddc_read   (uiox_hdmi_hw_t *hw, uint8_t dev_addr,
+                               uint8_t reg, uint8_t *buf, uint16_t len);
+bool uiox_hdmi_hw_connected  (uiox_hdmi_hw_t *hw);
+
+static inline uint32_t uiox_hdmi_caps(const uiox_hdmi_hw_t *hw)
+{ return hw ? hw->caps : 0u; }
+
+#ifdef __cplusplus
+}
+#endif
+#endif /* UIOX_HDMI_HW_H */
