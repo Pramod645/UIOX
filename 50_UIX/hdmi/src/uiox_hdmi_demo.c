@@ -16,6 +16,7 @@
  #include <string.h>
  #include <stdint.h>
  #include <math.h>
+ #include <errno.h>
  
  /* =========================================================================
   * Fake EDID — simulates an HDMI 2.0 4K HDR10 sink
@@ -256,7 +257,7 @@
  
  static int stub_cec_recv(uiox_hdmi_hw_t *hw, uint8_t *src_la,
                            uint8_t *msg, uint8_t *len)
- { (void)hw; *src_la = 0; *len = 0; return 0; }
+ { (void)hw; *src_la = 0; *len = 0; return -EAGAIN; }
  
  static uint32_t s_if_count = 0;
  static int stub_infoframe_send(uiox_hdmi_hw_t *hw,
@@ -502,7 +503,30 @@
                                UIOX_CEC_OP_SYSTEM_AUDIO_MODE_REQ,
                                phys_addr, 2u);
      printf("  CEC SYSTEM_AUDIO_MODE_REQUEST  rc=%d\n", rc);
- 
+
+
+     /* ------------------------------------------------------------------ */
+     /* CEC receive poll (non-blocking)                                     */
+     /* ------------------------------------------------------------------ */
+
+     printf("\n--- CEC RX poll ---\n");
+     uint8_t src_la  = 0;
+     uint8_t opcode  = 0;
+     uint8_t params[14];
+     uint8_t plen    = 0;
+
+     int cec_rc = uiox_hdmi_proto_cec_recv(&dev.subsys.proto,
+                                        &src_la, &opcode,
+                                        params,  &plen);
+     if (cec_rc == 0) {
+         printf("  CEC RX  src=0x%X  opcode=0x%02X  plen=%u\n",
+                src_la, opcode, plen);
+     } else if (cec_rc == -EAGAIN) {
+         printf("  CEC RX  no message pending\n");   /* normal — not an error */
+     } else {
+         printf("  CEC RX  error: %d\n", cec_rc);
+     }
+
      /* ------------------------------------------------------------------ */
      /* 7. Framebuffer render and present                                   */
      /* ------------------------------------------------------------------ */
