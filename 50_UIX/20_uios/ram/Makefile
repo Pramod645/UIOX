@@ -40,25 +40,13 @@ CFLAGS  = -Wall -Wextra -std=c99 -g3 -O2 \
            -I./include
 
 LIB_SRCS = \
-    src/cpu_features.c    \
-    src/cpu_cache.c       \
-    src/cpu_mmu.c         \
-    src/cpu_irq.c         \
-    src/cpu_timer.c       \
-    src/cpu_power.c       \
-    src/cpu_smp.c         \
-    src/cpu_context.c     \
-    src/cpu_debug.c       \
-    src/cpu_io.c          \
-    src/cpu_soc.c         \
-    src/arch/cortex_a76.c \
-    src/arch/x86_64_cpu.c \
-    src/arch/riscv64.c    \
-    src/drivers/cpu_drv_gic.c   \
-    src/drivers/cpu_drv_apic.c  \
-    src/drivers/cpu_drv_plic.c  \
-    src/drivers/cpu_drv_timer.c \
-    src/drivers/cpu_drv_uart.c
+    $(SRCDIR)/uiox_ram_hw.c     \
+    $(SRCDIR)/uiox_ram_buf.c    \
+    $(SRCDIR)/uiox_ram_if.c     \
+    $(SRCDIR)/uiox_ram_ecc.c    \
+    $(SRCDIR)/uiox_ram_mgr.c    \
+    $(SRCDIR)/uiox_ram_subsys.c \
+    $(SRCDIR)/uiox_ram_device.c
 
 LIB_OBJS = $(patsubst src/%.c, build/$(ARCH)/%.o, $(LIB_SRCS))
 LIB      = build/$(ARCH)/libcpu_soc.a

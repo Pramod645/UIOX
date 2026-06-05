@@ -31,7 +31,8 @@ uiox-cpu/
 │   │                      #              (MRS/MSR ARM64, RDMSR/WRMSR x86,
 │   │                      #              CSR read/write RISC-V),
 │   │                      #              SoC MMIO, GIC/APIC/PLIC/CLINT,
-│   │                      #              SMP spin-table, TSC/CNTPCT/mtime,
+│   │                      #              SMP(Symmetrical multiprocessing) 
+│   │                      #              spin-table, TSC/CNTPCT/mtime,
 │   │                      #              hw_ops vtable, core descriptor
 │   ├── uiox_cpu_buf.h     # Layer 1.5 — Per-CPU data block (cache-line
 │   │                      #              padded, 64-byte aligned), IPI ring
@@ -91,6 +92,11 @@ uiox-cpu/
                            #   CPUID detect, 5 OPPs, SMP core up/down, IPI,
                            #   PMU counters, load-based DVFS, governor switch,
                            #   cache flush, timestamp, statistics
+=================================================================================
+GIC (Generic Interrupt Controller):Primarily used in ARM architectures.
+APIC(Advanced Programmable Interrupt Controller):Found in x86/x64 architectures (Intel/AMD)
+PLIC (Platform-Level Interrupt Controller):A standard for RISC-V architectures.
+CLINT (Core-Local Interruptor): Also a RISC-V standard, but distinct from the PLIC.
 =================================================================================
 Key Design Decisions
 Decision	Rationale

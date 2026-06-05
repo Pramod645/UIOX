@@ -20,7 +20,8 @@
 #   ARM32  : arm-linux-gnueabihf-gcc
 #   x86_64 : gcc  (native on x86_64 Linux/macOS)
 # =============================================================
-
+#To install aarch64-elf-gcc ✔, run:
+#  brew install aarch64-elf-gcc 
 # --- Always keep these targets phony -------------------------
 .PHONY: all arm64 arm32 x86_64 run \
         qemu_arm64 qemu_arm32 qemu_x86_64 \
