@@ -64,6 +64,7 @@
      uiox_therm_zone_t         zones[UIOX_THERM_MAX_ZONES];
      uint8_t                   num_zones;
      bool                      emergency;
+     bool                      throttled;
      uint32_t                  throttle_count;
      uint32_t                  emergency_count;
  } uiox_therm_policy_t;

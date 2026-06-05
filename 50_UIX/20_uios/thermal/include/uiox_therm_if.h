@@ -29,7 +29,7 @@
  #define UIOX_THERM_CONF_CMP_INT (1u << 1)  /**< Comparator/interrupt mode */
  #define UIOX_THERM_CONF_POL     (1u << 2)  /**< Alert polarity            */
  #define UIOX_THERM_CONF_FQ_MASK (3u << 3)  /**< Fault queue bits          */
- #define UIOX_THERM_CONF_RES_MASK(3u << 5)  /**< Resolution bits (TMP112)  */
+ #define UIOX_THERM_CONF_RES_MASK (3u << 5)  /**< Resolution bits (TMP112)  */
  
  /* =========================================================================
   * Interface statistics
