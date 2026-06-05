@@ -38,6 +38,7 @@ AR:=$(CROSS)ar
 RANLIB:=$(CROSS)ranlib
 SIZE:=$(CROSS)size
 STRIP:=$(CROSS)strip
+
 BUILD?=debug
 ifeq ($(BUILD),debug)
   OPT_FLAGS:=-O0 -g3 -DDEBUG
@@ -46,6 +47,7 @@ else
   OPT_FLAGS:=-O2 -DNDEBUG
   STRIP_FLAG:=$(STRIP) --strip-unneeded
 endif
+
 SRCDIR:=src
 INCDIR:=include
 BUILDDIR:=build/$(PLATFORM)/$(BUILD)
@@ -56,6 +58,7 @@ PREFIX?=/usr/local
 INST_INC:=$(PREFIX)/include/uiox/thermal
 INST_LIB:=$(PREFIX)/lib
 INST_BIN:=$(PREFIX)/bin
+
 LIB_SRCS:= \
     $(SRCDIR)/uiox_therm_hw.c      \
     $(SRCDIR)/uiox_therm_buf.c     \

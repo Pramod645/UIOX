@@ -11,11 +11,7 @@ ifeq ($(V),0)
   LOGLD    := @echo "  LD      $@"
   LOGCLEAN := @echo "  CLEAN"
 else
-  Q        :=
-  LOGCC    :=
-  LOGAR    :=
-  LOGLD    :=
-  LOGCLEAN :=
+  Q:= LOGCC:= LOGAR:= LOGLD:= LOGCLEAN:=
 endif
 
 ifndef PLATFORM
