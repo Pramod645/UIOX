@@ -16,6 +16,8 @@
 #include "sys/uix_types.h"
 #define SYS_CALL_ENBLE_DISABLE  0   /* 0=stubs, 1=real kernel calls */
 
+#define SYS_CALL_CAS_ENBLE  0   /* 0=stubs, 1=real kernel calls */
+
 //#define STUB 1// 0:STUB, 1:SYS funtinal call to Kernal
 /* ── Kernel layer headers ──────────────────────────────────── */
 #if SYS_CALL_ENBLE_DISABLE
@@ -716,12 +718,13 @@ static inline int sys_shm_unlink(const char *name) //not added
 /* ════════════════════════════════════════════════════════════
    SOCKET / NETWORK  →  33_ProcessControlSubsystem/00_ipc/
    ════════════════════════════════════════════════════════════ */
+   //uiox_socket.h
 static inline int sys_socket(int domain, int type, int protocol)
 {
 #if !SYS_CALL_ENBLE_DISABLE
     (void)domain;(void)type;(void)protocol; return -1;
 #else
-    return kernel_socket(domain, type, protocol);
+    return uiox_socket(domain, type, protocol);
 #endif
 }
 static inline int sys_bind(int sockfd, const uix_sockaddr_t *addr,
@@ -730,7 +733,7 @@ static inline int sys_bind(int sockfd, const uix_sockaddr_t *addr,
 #if !SYS_CALL_ENBLE_DISABLE
     (void)sockfd;(void)addr;(void)addrlen; return -1;
 #else
-    return kernel_bind(sockfd, addr, addrlen);
+    return uiox_bind(sockfd, addr, addrlen);
 #endif
 }
 static inline int sys_listen(int sockfd, int backlog)
@@ -738,7 +741,7 @@ static inline int sys_listen(int sockfd, int backlog)
 #if !SYS_CALL_ENBLE_DISABLE
     (void)sockfd;(void)backlog; return -1;
 #else
-    return kernel_listen(sockfd, backlog);
+    return uiox_listen(sockfd, backlog);
 #endif
 }
 static inline int sys_accept(int sockfd, uix_sockaddr_t *addr,
@@ -747,7 +750,7 @@ static inline int sys_accept(int sockfd, uix_sockaddr_t *addr,
 #if !SYS_CALL_ENBLE_DISABLE
     (void)sockfd;(void)addr;(void)addrlen; return -1;
 #else
-    return kernel_accept(sockfd, addr, addrlen);
+    return uiox_accept(sockfd, addr, addrlen);
 #endif
 }
 static inline int sys_connect(int sockfd,
@@ -756,7 +759,7 @@ static inline int sys_connect(int sockfd,
 #if !SYS_CALL_ENBLE_DISABLE
     (void)sockfd;(void)addr;(void)addrlen; return -1;
 #else
-    return kernel_connect(sockfd, addr, addrlen);
+    return uiox_connect(sockfd, addr, addrlen);
 #endif
 }
 static inline int sys_shutdown(int sockfd, int how)
@@ -764,7 +767,7 @@ static inline int sys_shutdown(int sockfd, int how)
 #if !SYS_CALL_ENBLE_DISABLE
     (void)sockfd;(void)how; return -1;
 #else
-    return kernel_shutdown(sockfd, how);
+    return uiox_shutdown(sockfd, how);
 #endif
 }
 static inline uix_ssize_t sys_sendto(int sockfd, const void *buf,
@@ -776,7 +779,7 @@ static inline uix_ssize_t sys_sendto(int sockfd, const void *buf,
     (void)sockfd;(void)buf;(void)len;(void)flags;
     (void)dest;(void)addrlen; return -1;
 #else
-    return kernel_sendto(sockfd, buf, len, flags, dest, addrlen);
+    return uiox_sendto(sockfd, buf, len, flags, dest, addrlen);
 #endif
 }
 static inline uix_ssize_t sys_recvfrom(int sockfd, void *buf,
@@ -788,7 +791,7 @@ static inline uix_ssize_t sys_recvfrom(int sockfd, void *buf,
     (void)sockfd;(void)buf;(void)len;(void)flags;
     (void)src;(void)addrlen; return -1;
 #else
-    return kernel_recvfrom(sockfd, buf, len, flags, src, addrlen);
+    return uiox_recvfrom(sockfd, buf, len, flags, src, addrlen);
 #endif
 }
 static inline int sys_getsockopt(int sockfd, int level, int optname,
@@ -798,7 +801,7 @@ static inline int sys_getsockopt(int sockfd, int level, int optname,
     (void)sockfd;(void)level;(void)optname;
     (void)optval;(void)optlen; return -1;
 #else
-    return kernel_getsockopt(sockfd, level, optname, optval, optlen);
+    return uiox_getsockopt(sockfd, level, optname, optval, optlen);
 #endif
 }
 static inline int sys_setsockopt(int sockfd, int level, int optname,
@@ -808,7 +811,7 @@ static inline int sys_setsockopt(int sockfd, int level, int optname,
     (void)sockfd;(void)level;(void)optname;
     (void)optval;(void)optlen; return -1;
 #else
-    return kernel_setsockopt(sockfd, level, optname, optval, optlen);
+    return uiox_setsockopt(sockfd, level, optname, optval, optlen);
 #endif
 }
 static inline int sys_getsockname(int sockfd, uix_sockaddr_t *addr,
@@ -1047,5 +1050,67 @@ static inline uix_ssize_t sys_mq_receive(uix_mqd_t mqdes, char *msg_ptr,
     return kernel_mq_receive(mqdes, msg_ptr, msg_len, msg_prio);
 #endif
 }
+/* ******** End system call here for core kernel  ***************** */
+
+
+/* ******** Start system call here for drivers kernel ***************** */
+/*
+1. Ethernet
+2. GPU
+3. HDMI
+4. Monitor
+5. USB
+6. Camera
+7. Keyboard
+8. Monitor
+9. Mouse
+10. TouchPassword
+11. WiFi
+12. Speaker
+13. BMS
+14. FAN
+15. MIC
+16. PMIC
+17. Thermal
+
+*/
+//#if SYS_CALL_CAS_ENBLE
+
+// Ethernet
+//Mentioned above for SOCKET / NETWORK  →  33_ProcessControlSubsystem/00_ipc/
+
+// GPU
+//uiox_gpu_subsys_init
+//uiox_gpu_subsys_deinit
+//uiox_gpu_subsys_create_pso
+//uiox_gpu_subsys_destroy_pso
+//uiox_gpu_subsys_begin_frame
+//uiox_gpu_subsys_begin_pass
+//uiox_gpu_subsys_end_pass
+//uiox_gpu_subsys_bind_pso
+//uiox_gpu_subsys_end_frame
+//uiox_gpu_subsys_frame_stats
+//GPU end here
+
+// HDMI
+// Monitor
+// USB
+// Camera
+// Keyboard
+// Monitor
+// Mouse
+// TouchPassword
+// WiFi
+// Speaker
+// BMS
+// FAN
+// MIC
+// PMIC
+// Thermal
+
+//#endif/* SYS_CALL_CAS_ENBLE */
+
+
+
 
 #endif /* __UIX_SYS__H */

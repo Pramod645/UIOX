@@ -1,0 +1,30 @@
+<?xml version="1.0" encoding="utf-8"?>
+<manifest xmlns:android="[schemas.android.com](http://schemas.android.com/apk/res/android)"
+    package="com.mario.adventure">
+
+    <uses-feature android:glEsVersion="0x00020000"
+                  android:required="true"/>
+    <uses-permission android:name="android.permission.VIBRATE"/>
+
+    <application
+        android:label="Mario Adventure"
+        android:icon="@drawable/icon"
+        android:allowBackup="false"
+        android:theme="@android:style/Theme.Black.NoTitleBar.Fullscreen">
+
+        <activity
+            android:name="org.libsdl.app.SDLActivity"
+            android:exported="true"
+            android:screenOrientation="landscape"
+            android:configChanges="orientation|screenSize|keyboard|
+                                   keyboardHidden|navigation"
+            android:launchMode="singleTask">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN"/>
+                <category android:name="android.intent.category.LAUNCHER"/>
+            </intent-filter>
+            <meta-data android:name="SDL_APP_NAME"
+                       android:value="MarioGame"/>
+        </activity>
+    </application>
+</manifest>
