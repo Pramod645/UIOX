@@ -1,6 +1,7 @@
 #include "Renderer.h"
 #include "Utils.h"
-#include <SDL2/SDL_image.h>
+//#include <SDL2/SDL_image.h>
+#include <SDL_image.h>
 
 namespace Mario {
 

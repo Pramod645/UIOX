@@ -21,7 +21,7 @@ set(SOURCES
     src/AssetManager.cpp
     src/AudioManager.cpp
     src/Camera.cpp
-#    src/Physics.cpp
+    src/Physics.cpp
     src/Level.cpp
     src/Tile.cpp
     src/Entity.cpp

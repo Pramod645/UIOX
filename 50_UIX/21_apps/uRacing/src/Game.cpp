@@ -1,8 +1,9 @@
 #include "Game.h"
 #include "AssetManager.h"
 #include "AudioManager.h"
-#include "StyleSheet.h"
-#include <SDL2/SDL.h>
+//#include "StyleSheet.h"
+//#include <SDL2/SDL.h>
+#include <SDL.h>
 
 namespace Mario {
 /*

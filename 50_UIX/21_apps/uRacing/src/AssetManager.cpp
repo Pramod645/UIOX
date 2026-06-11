@@ -1,6 +1,7 @@
 #include "AssetManager.h"
 #include <stdexcept>
-
+#include <SDL_image.h>
+#include <vector>
 namespace Mario {
 
 AssetManager& AssetManager::instance()

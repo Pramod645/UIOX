@@ -1,5 +1,6 @@
 #include "AudioManager.h"
-#include <SDL2/SDL.h>
+//#include <SDL2/SDL.h>
+#include <SDL.h>
 
 namespace Mario {
 
@@ -12,7 +13,7 @@ AudioManager& AudioManager::instance()
 void AudioManager::init()
 {
     Mix_OpenAudio(44100, MIX_DEFAULT_FORMAT, 2, 2048);
-    Mix_
+    //Mix_
     Mix_AllocateChannels(16);
 }
 

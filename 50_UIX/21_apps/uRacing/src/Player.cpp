@@ -2,7 +2,8 @@
 #include "Projectile.h"
 #include "AudioManager.h"
 #include "AssetManager.h"
-#include <SDL2/SDL.h>
+//#include <SDL2/SDL.h>
+#include <SDL.h>
 #include <algorithm>
 #include <vector>
 

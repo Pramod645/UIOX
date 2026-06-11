@@ -1,6 +1,6 @@
 #include "ParticleSystem.h"
 #include <algorithm>
-
+#include <random>
 namespace Mario {
 
 void ParticleSystem::spawn(Vec2 pos, Vec2 vel, SDL_Color col,

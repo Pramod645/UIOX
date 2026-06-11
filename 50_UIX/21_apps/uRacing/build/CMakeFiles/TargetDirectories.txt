@@ -1,3 +1,0 @@
-/Users/pramodkumar/Hack/WS/UIOX/50_UIX/21_apps/uRacing/build/CMakeFiles/MarioGame.dir
-/Users/pramodkumar/Hack/WS/UIOX/50_UIX/21_apps/uRacing/build/CMakeFiles/edit_cache.dir
-/Users/pramodkumar/Hack/WS/UIOX/50_UIX/21_apps/uRacing/build/CMakeFiles/rebuild_cache.dir

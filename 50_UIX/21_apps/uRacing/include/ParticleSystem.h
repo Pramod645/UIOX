@@ -1,6 +1,7 @@
 #pragma once
 #include "Utils.h"
-#include <SDL2/SDL.h>
+//#include <SDL2/SDL.h>
+#include <SDL.h>
 #include <vector>
 
 namespace Mario {

@@ -1,6 +1,7 @@
 #include "Koopa.h"
 #include "AudioManager.h"
-#include <SDL2/SDL.h>
+//#include <SDL2/SDL.h>
+#include <SDL.h>
 #include <cmath>
 
 namespace Mario {
