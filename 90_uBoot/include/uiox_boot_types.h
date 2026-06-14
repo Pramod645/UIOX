@@ -1,8 +1,8 @@
 #ifndef UIOX_BOOT_TYPES_H
 #define UIOX_BOOT_TYPES_H
 /*
- * uiox_boot_types.h - Base types for the UIOX bootloader.
- * No libc dependency — all types defined from scratch.
+ * uiox_boot_types.h  —  Base types for the UIOX bootloader.
+ * No libc. No external headers. Pure freestanding C99.
  */
 
 typedef unsigned char       uboot_u8_t;
@@ -22,7 +22,7 @@ typedef uboot_u32_t         uboot_addr_t;
 typedef uboot_u32_t         uboot_size_t;
 #endif
 
-typedef uboot_u32_t         uboot_bool_t;
+typedef uboot_u32_t  uboot_bool_t;
 #define UBOOT_TRUE   1u
 #define UBOOT_FALSE  0u
 
@@ -30,7 +30,7 @@ typedef uboot_u32_t         uboot_bool_t;
 #define NULL ((void*)0)
 #endif
 
-/* -- Error codes -------------------------------------------- */
+/* ── Error codes ─────────────────────────────────────────── */
 #define UBOOT_OK        0
 #define UBOOT_EINVAL   -1
 #define UBOOT_ENODEV   -2
@@ -40,28 +40,31 @@ typedef uboot_u32_t         uboot_bool_t;
 #define UBOOT_EVERIFY  -6
 #define UBOOT_ENOTSUP  -7
 
-/* -- Architecture IDs --------------------------------------- */
+/* ── Architecture IDs ────────────────────────────────────── */
 #define UBOOT_ARCH_ARM64   0x64u
 #define UBOOT_ARCH_ARM32   0x32u
 #define UBOOT_ARCH_X86_64  0x86u
 
-/* -- Magic numbers ------------------------------------------ */
-#define UIOX_BOOT_MAGIC    0x55494F58u   /* "UIOX"             */
-#define UIOX_KIMG_MAGIC    0x554B524Eu   /* "UKRN"             */
-#define ELF_MAGIC          0x464C457Fu   /* "\x7FELF"          */
+/* ── Magic numbers ───────────────────────────────────────── */
+#define UIOX_BOOT_MAGIC   0x55494F58u   /* "UIOX"             */
+#define UIOX_KIMG_MAGIC   0x554B524Eu   /* "UKRN"             */
 
-/* -- Key physical addresses --------------------------------- */
+/* ── Kernel load addresses (physical) ───────────────────── */
 #define UIOX_KERNEL_LOAD_ARM64   0x40080000ULL
 #define UIOX_KERNEL_LOAD_ARM32   0x00200000UL
 #define UIOX_KERNEL_LOAD_X86     0x00200000ULL
-#define UIOX_BOOT_ARGS_PHYS_ARM64 0x40070000ULL
-#define UIOX_BOOT_ARGS_PHYS_ARM32 0x00100000UL
-#define UIOX_BOOT_ARGS_PHYS_X86   0x00090000ULL
 
-/* -- Boot config -------------------------------------------- */
-#define UIOX_BOOT_HEAP_SIZE     (256u * 1024u)
-#define UIOX_BOOT_CMDLINE       512u
-#define UIOX_BOOT_MEM_REGIONS   32u
+/* ── Boot args physical addresses ───────────────────────── */
+#define UIOX_BOOT_ARGS_PHYS_ARM64  0x40070000ULL
+#define UIOX_BOOT_ARGS_PHYS_ARM32  0x00100000UL
+#define UIOX_BOOT_ARGS_PHYS_X86    0x00090000ULL
+
+/* ── Build-time limits ───────────────────────────────────── */
+#define UIOX_BOOT_HEAP_SIZE    (256u * 1024u)
+#define UIOX_BOOT_CMDLINE      512u
+#define UBOOT_MEM_REGIONS_MAX  32u
+
+/* ── Runtime config ──────────────────────────────────────── */
 #define UIOX_KERNEL_FILENAME    "uiox.kbin"
 #define UIOX_CMDLINE_DEFAULT    "root=/dev/mmcblk0p2 rw quiet"
 #define UIOX_UART_DEFAULT_BAUD  115200u

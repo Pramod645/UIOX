@@ -48,19 +48,41 @@ Main	uiox_boot_main.c	7-stage pipeline: memory → storage → load → verify �
 Linker	*.ld × 3	Per-arch memory layout (ARM64@0x40000000, ARM32@0x100000, x86@0x100000)
 Build	Makefile	make all builds all 3; make ARCH=arm64/arm32/x86_64 for single
 ====================================================================================================
-Build and run:
+
+===============================================
+Quick start:
+# Install toolchains (Ubuntu/Debian)
+sudo apt install gcc-aarch64-linux-gnu gcc-arm-linux-gnueabihf \
+                 gcc binutils qemu-system-arm qemu-system-x86
+
 # Build all three
 cd 00_Boot
 make all
 
-# ARM64 in QEMU
-qemu-system-aarch64 -machine virt -cpu cortex-a53 -m 64M \
-  -nographic -bios build/arm64/uiox_boot.bin
-
-# ARM32 in QEMU
-qemu-system-arm -machine versatilepb -cpu arm926 -m 16M \
-  -nographic -bios build/arm32/uiox_boot.bin
-
-# x86-64 in QEMU (multiboot2)
-qemu-system-x86_64 -m 64M -nographic \
-  -kernel build/x86_64/uiox_boot.bin
+# Run each in QEMU
+make run_arm64   # PL011 UART output on terminal
+make run_arm32
+make run_x86
+==========================================================
+============================================
+  UIOX Bootloader v1.0  (ARM64/ARM32/x86)
+  [github.com](https://github.com/Pramod645/UIOX)
+============================================
+[BOOT] Stage 2: Memory
+  Memory map (1 regions):
+    base=0000000040000000  size=0000000004000000  USABLE
+  Usable: 64 MB
+  OK
+[BOOT] Stage 3: Storage
+  No storage — simulation mode
+[BOOT] Stage 4: Load kernel
+  No kernel file — QEMU simulation handoff
+[BOOT] Stage 6: ELF
+  Flat binary load
+  Entry: 0000000040080000
+[BOOT] Stage 7: Handoff
+  args@0000000040070000
+  entry=0000000040080000
+  dtb=0000000040000000
+  cmd: root=/dev/mmcblk0p2 rw quiet
+[BOOT] Jumping to kernel...

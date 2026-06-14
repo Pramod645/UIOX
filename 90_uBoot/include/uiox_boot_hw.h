@@ -1,43 +1,34 @@
 #ifndef UIOX_BOOT_HW_H
 #define UIOX_BOOT_HW_H
 /*
- * uiox_boot_hw.h - Hardware Abstraction Layer for the UIOX bootloader.
+ * uiox_boot_hw.h  —  Hardware Abstraction Layer for the UIOX bootloader.
  * One ops vtable; each arch provides its own implementation.
  */
 #include "uiox_boot_types.h"
 
-/* -- UART types --------------------------------------------- */
+/* ── UART silicon types ──────────────────────────────────── */
 typedef enum {
-    UBOOT_UART_PL011  = 0,
-    UBOOT_UART_16550  = 1,
-    UBOOT_UART_SIFIVE = 2,
+    UBOOT_UART_PL011  = 0,  /* ARM PL011 (QEMU virt / versatile) */
+    UBOOT_UART_16550  = 1,  /* 16550 UART (x86 COM1)             */
+    UBOOT_UART_SIFIVE = 2,  /* SiFive UART (RISC-V)              */
 } uboot_uart_type_t;
 
-/* -- HW ops vtable ------------------------------------------ */
+/* ── HW ops vtable ───────────────────────────────────────── */
 typedef struct uboot_hw_ops {
-    /* one-time platform init                                    */
-    int  (*init)         (void);
-    /* UART single-byte TX (spin until FIFO not full)            */
-    void (*uart_putc)    (char c);
-    /* return CPU ID (core number / hart ID / APIC ID)           */
-    uboot_u32_t (*cpu_id)(void);
-    /* data + instruction cache clean/invalidate                  */
-    void (*cache_flush)  (uboot_addr_t start, uboot_size_t len);
-    /* data memory barrier                                        */
-    void (*mem_barrier)  (void);
-    /* CPU idle (WFI / HLT)                                      */
-    void (*cpu_idle)     (void);
-    /* system reset                                               */
-    void (*reset)        (void);
-    /* MMIO 32-bit read / write                                   */
-    uboot_u32_t (*mmio_read32) (uboot_addr_t addr);
-    void        (*mmio_write32)(uboot_addr_t addr, uboot_u32_t val);
+    int          (*init)        (void);
+    void         (*uart_putc)   (char c);
+    uboot_u32_t  (*cpu_id)      (void);
+    void         (*cache_flush) (uboot_addr_t start, uboot_size_t len);
+    void         (*mem_barrier) (void);
+    void         (*cpu_idle)    (void);
+    void         (*reset)       (void);
+    uboot_u32_t  (*mmio_read32) (uboot_addr_t addr);
+    void         (*mmio_write32)(uboot_addr_t addr, uboot_u32_t val);
 } uboot_hw_ops_t;
 
-/* -- Global ops pointer (set in arch hw_init) --------------- */
 extern const uboot_hw_ops_t *g_hw_ops;
 
-/* -- Inline wrappers ---------------------------------------- */
+/* ── Inline wrappers ─────────────────────────────────────── */
 static inline void uboot_uart_putc(char c)
 { if (g_hw_ops && g_hw_ops->uart_putc) g_hw_ops->uart_putc(c); }
 
@@ -62,7 +53,7 @@ static inline uboot_u32_t uboot_mmio_read32(uboot_addr_t a)
 static inline void uboot_mmio_write32(uboot_addr_t a, uboot_u32_t v)
 { if (g_hw_ops && g_hw_ops->mmio_write32) g_hw_ops->mmio_write32(a,v); }
 
-/* -- Arch-specific hw_init prototypes ----------------------- */
+/* ── Arch init prototypes ────────────────────────────────── */
 int uboot_hw_init_arm64(void);
 int uboot_hw_init_arm32(void);
 int uboot_hw_init_x86  (void);
