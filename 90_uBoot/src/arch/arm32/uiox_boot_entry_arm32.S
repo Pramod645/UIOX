@@ -1,48 +1,81 @@
 /*
- * uiox_boot_entry_arm32.S  —  ARMv7-A bootloader entry.
- * On entry: r0 = ATAG / DTB pointer.
+ * uiox_boot_entry_arm32.S
+ * UIOX Bootloader — ARMv7-A (Thumb-interworking) entry point.
+ *
+ * QEMU versatilepb: ROM at 0x00000000, RAM at 0x00100000.
+ * QEMU passes:  r0 = 0 (machine type), r1 = ATAG base, r2 = DTB PA.
  */
+
+    .syntax unified
     .arch   armv7-a
-    .arm
-    .section ".text.boot","ax"
+    .section ".boot", "ax", %progbits
     .global _start
     .type   _start, %function
+    .thumb_func
 
 _start:
-    mov     r10, r0
-    cpsid   if, #0x13              /* SVC mode, IRQ/FIQ off      */
+    /* ------------------------------------------------------------------ */
+    /* 1. Enter SVC mode, disable IRQ/FIQ, clear CPSR thumb flag          */
+    /* ------------------------------------------------------------------ */
+    cpsid   if
+    mrs     r4, cpsr
+    bic     r4, r4, #0x1F        /* clear mode bits                      */
+    orr     r4, r4, #0x13        /* SVC mode                             */
+    msr     cpsr_c, r4
 
-    /* disable MMU / caches */
-    mrc     p15,0,r0,c1,c0,0
-    bic     r0,r0,#0x1005
-    mcr     p15,0,r0,c1,c0,0
+    /* ------------------------------------------------------------------ */
+    /* 2. Disable MMU / D-cache / I-cache in SCTLR                        */
+    /* ------------------------------------------------------------------ */
+    mrc     p15, 0, r4, c1, c0, 0
+    bic     r4, r4, #(1 << 0)   /* M = 0 disable MMU                    */
+    bic     r4, r4, #(1 << 2)   /* C = 0 disable D-cache                */
+    bic     r4, r4, #(1 << 12)  /* I = 0 disable I-cache                */
+    mcr     p15, 0, r4, c1, c0, 0
     isb
 
-    /* TLB + I-cache invalidate */
-    mcr     p15,0,r0,c8,c7,0
-    mcr     p15,0,r0,c7,c5,0
+    /* Invalidate TLB */
+    mcr     p15, 0, r4, c8, c7, 0
     dsb
     isb
 
+    /* ------------------------------------------------------------------ */
+    /* 3. Set up early stack (grows down from _boot_stack_top)            */
+    /* ------------------------------------------------------------------ */
     ldr     sp, =_boot_stack_top
 
-    /* zero BSS */
-    ldr     r0,=_bss_start
-    ldr     r1,=_bss_end
-    mov     r2,#0
-.Lzb: cmp r0,r1; bge .Lzd; str r2,[r0],#4; b .Lzb
-.Lzd:
+    /* Save r2 = DTB PA */
+    mov     r9, r2
 
-    bl      uboot_hw_init_arm32
+    /* ------------------------------------------------------------------ */
+    /* 4. Zero BSS                                                        */
+    /* ------------------------------------------------------------------ */
+    ldr     r4, =__bss_start
+    ldr     r5, =__bss_end
+    mov     r6, #0
+.Lbss_zero:
+    cmp     r4, r5
+    bge     .Lbss_done
+    str     r6, [r4], #4
+    b       .Lbss_zero
+.Lbss_done:
 
-    mov     r0, r10
-    mov     r1, #0
+    /* ------------------------------------------------------------------ */
+    /* 5. Call C bootloader main(dtb_pa)                                  */
+    /* ------------------------------------------------------------------ */
+    mov     r0, r9
     bl      uiox_boot_main
 
-.Lhang: wfi; b .Lhang
-    .size _start,.-_start
+.Lhang:
+    wfe
+    b       .Lhang
 
-    .section ".bss.boot_stack","aw"
-    .align 3
-    .space 32768
+    .size _start, . - _start
+
+
+    .section ".bss.stack", "aw", %nobits
+    .balign 8
+    .global _boot_stack_base
+_boot_stack_base:
+    .space  (8 * 1024)
+    .global _boot_stack_top
 _boot_stack_top:

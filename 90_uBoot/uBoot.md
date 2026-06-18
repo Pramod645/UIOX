@@ -1,4 +1,4 @@
-00_Boot/
+90_uBoot/
 ├── include/
 │   ├── uiox_boot_types.h
 │   ├── uiox_boot_hw.h
@@ -86,3 +86,119 @@ make run_x86
   dtb=0000000040000000
   cmd: root=/dev/mmcblk0p2 rw quiet
 [BOOT] Jumping to kernel...
+=========================
+The error has nothing to do with your C code. It is a macOS make recursion problem. The all target in the Makefile calls $(MAKE) three times in sequence, but macOS ships an ancient make (from Xcode) that hits a process limit when you call make from inside make without proper flags.
+
+Here are all the fixes:
+
+Root Cause:
+# OLD — broken on macOS: recursive $(MAKE) hits process limit
+all:
+	$(MAKE) ARCH=arm64
+	$(MAKE) ARCH=arm32
+	$(MAKE) ARCH=x86_64
+  macOS make (BSD make from Xcode) does not handle recursive $(MAKE) the same way GNU make does. It runs out of child process slots.
+=======
+Fix 1 — Install GNU Make (recommended)
+brew install make
+
+# Then use gmake instead of make
+gmake all
+gmake ARCH=arm64
+
+Or add to your ~/.zshrc / ~/.bashrc:
+export PATH="$(brew --prefix make)/libexec/gnubin:$PATH"
+Then make will call GNU make automatically. added MAkefile heer
+
+
+Fix 3 — macOS cross-compiler names differ
+On macOS with Homebrew the compiler names are different from Linux:
+# Install correct toolchains on macOS
+brew install make
+brew install aarch64-elf-gcc          # for ARM64
+brew install arm-none-eabi-gcc        # for ARM32
+brew install x86_64-elf-gcc           # for x86-64 bare-metal
+brew install qemu
+
+Then override the cross prefix when building:
+# ARM64 on macOS
+make ARCH=arm64 CROSS=aarch64-elf-
+
+# ARM32 on macOS
+make ARCH=arm32 CROSS=arm-none-eabi-
+
+# x86-64 on macOS (native gcc works)
+make ARCH=x86_64 CROSS=
+
+To avoid typing this every time, add a macOS detect block at the top of the Makefile:
+# -- Auto-detect macOS and use Homebrew toolchain names ------
+UNAME_S := $(shell uname -s)
+ifeq ($(UNAME_S),Darwin)
+  ifeq ($(ARCH),arm64)
+    CROSS = aarch64-elf-
+  else ifeq ($(ARCH),arm32)
+    CROSS = arm-none-eabi-
+  else
+    CROSS =
+  endif
+endif
+===========
+Fix 4 — use GNU make from Homebrew
+Add this line to ~/.zshrc (macOS default shell):
+# Use GNU make instead of Xcode BSD make
+export PATH="$(brew --prefix make)/libexec/gnubin:$PATH"
+Then reload and build:
+source ~/.zshrc
+make --version      # should show GNU Make 4.x
+make ARCH=arm64
+make all_arches
+
+=======
+Error	Cause	Fix
+Resource temporarily unavailable	    macOS BSD make hits fork limit with recursive $(MAKE)	Replace         recursive $(MAKE) with shell for loop in all_arches
+wait: No child processes	            Same root cause — BSD make process table full	Use GNU make (brew install make)
+Error 2	                              Child make failed propagated upward	Fixed by using shell loop — failure exits cleanly
+Cross-compiler not found	           macOS uses aarch64-elf-gcc not aarch64-linux-gnu-gcc	Add macOS auto-detect block in Makefile
+==========================================================
+Expected Console Output
+Matching the uBoot.md sample output exactly:
+
+UIOX Bootloader v1.0 (ARM64) [github.com/Pramod645/UIOX]
+[BOOT] Stage 1: HW init
+OK
+[BOOT] Stage 2: Memory
+Memory map (1 regions):
+  base=0000000040000000 size=0000000004000000 USABLE
+Usable: 64 MB
+OK
+[BOOT] Stage 3: Storage
+No storage — simulation mode
+[BOOT] Stage 4: Load kernel
+  No kernel file — QEMU simulation handoff
+[BOOT] Stage 5: Verify
+  No kernel file — QEMU simulation handoff
+[BOOT] Stage 6: ELF
+  Flat binary load
+  Entry: 0000000040080000
+OK
+[BOOT] Stage 7: Handoff
+args@0000000040070000
+entry=0000000040080000
+dtb=0000000040000000
+cmd: root=/dev/mmcblk0p2 rw quiet console=ttyAMA0
+[BOOT] Jumping to kernel...
+==========================================================
+File	                            Layer	              Role
+uiox_boot_types.h	                Types	              Integer types, magic numbers, error codes, uiox_image_hdr_t, uiox_boot_args_t
+uiox_boot_hw.h/.c + arch hw_*.c	  HW HAL	            8-op vtable, MMIO helpers, PL011/16550, GIC/8259A, cache, timer
+uiox_boot_mem.h/.c	              Memory	            DTB FDT parser, E820 fallback, bump allocator, memset/memcpy
+uiox_boot_console.h/.c	          Console	            UART putc/puts, minimal printf (%s %d %u %x %llx %p)
+uiox_boot_fs.h/.c	                Storage	            FAT32 BPB mount, cluster chain walk, 8.3 file load
+uiox_boot_verify.h/.c	            Verify	            Full RFC 6234 SHA-256, UIOX image header magic + arch + hash check
+uiox_boot_handoff.h/.c	          Handoff	            ELF64 PT_LOAD mapper, flat binary loader, uiox_boot_args_t builder, arch jump
+entry_arm64.S	                    ARM64 Entry	        EL2→EL1 drop, SCTLR disable, BSS zero, stack, C call
+entry_arm32.S	                    ARM32 Entry	        SVC mode, SCTLR, TLB flush, BSS zero, C call
+entry_x86.S	                      x86 Entry	          Multiboot2 header, 32→64-bit page tables, long mode, C call
+uiox_boot_main.c	                7-Stage Pipeline	  Orchestrates all stages; simulation-mode fallback when no storage
+linker/*.ld	                      Linker Scripts	    ARM64@0x40000000, ARM32@0x00000000/0x00100000, x86@0x00100000
+Makefile	                        Build	              make all / make ARCH=arm64 / make run ARCH=arm64

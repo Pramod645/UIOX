@@ -1,39 +1,60 @@
-#ifndef UIOX_BOOT_VERIFY_H
-#define UIOX_BOOT_VERIFY_H
-/*
- * uiox_boot_verify.h  —  SHA-256 + UIOX kernel image verification.
+/**
+ * @file  uiox_boot_verify.h
+ * @brief UIOX Bootloader — SHA-256 (RFC 6234) and image header check.
+ * @version 1.0.0
+ * @date    2026-06-12
  */
-#include "uiox_boot_types.h"
 
-/* ── UIOX kernel image header (64 bytes, packed) ─────────── */
-typedef struct __attribute__((packed)) {
-    uboot_u32_t  magic;           /* UIOX_KIMG_MAGIC "UKRN"    */
-    uboot_u32_t  header_version;  /* must be 1                  */
-    uboot_u32_t  arch;            /* UBOOT_ARCH_*               */
-    uboot_u32_t  flags;
-    uboot_u64_t  load_addr;
-    uboot_u64_t  entry_point;
-    uboot_u64_t  image_size;
-    uboot_u64_t  text_size;
-    uboot_u8_t   sha256[32];      /* digest of image body       */
-} uiox_kimg_hdr_t;
-
-/* ── SHA-256 context ─────────────────────────────────────── */
-typedef struct {
-    uboot_u32_t  state[8];
-    uboot_u64_t  count;
-    uboot_u8_t   buf[64];
-    uboot_u32_t  buflen;
-} uboot_sha256_ctx_t;
-
-void uboot_sha256_init  (uboot_sha256_ctx_t *ctx);
-void uboot_sha256_update(uboot_sha256_ctx_t *ctx,
-                          const uboot_u8_t *data, uboot_size_t len);
-void uboot_sha256_final (uboot_sha256_ctx_t *ctx, uboot_u8_t digest[32]);
-void uboot_sha256       (const uboot_u8_t *data, uboot_size_t len,
-                          uboot_u8_t digest[32]);
-
-int  uboot_verify_image (const void *img, uboot_size_t size);
-void uboot_verify_print (const uiox_kimg_hdr_t *hdr, int ok);
-
-#endif /* UIOX_BOOT_VERIFY_H */
+ #ifndef UIOX_BOOT_VERIFY_H
+ #define UIOX_BOOT_VERIFY_H
+ 
+ #include "uiox_boot_types.h"
+ 
+ #ifdef __cplusplus
+ extern "C" {
+ #endif
+ 
+ /* =========================================================================
+  * SHA-256 context (RFC 6234 compliant)
+  * ====================================================================== */
+ 
+ typedef struct {
+     uint32_t state[8];
+     uint64_t bit_count;
+     uint32_t buf_len;
+     uint8_t  buf[64];
+ } uiox_sha256_ctx_t;
+ 
+ void uiox_sha256_init  (uiox_sha256_ctx_t *ctx);
+ void uiox_sha256_update(uiox_sha256_ctx_t *ctx,
+                         const uint8_t *data, size_t len);
+ void uiox_sha256_final (uiox_sha256_ctx_t *ctx, uint8_t digest[32]);
+ 
+ /** One-shot SHA-256. */
+ void uiox_sha256(const uint8_t *data, size_t len, uint8_t digest[32]);
+ 
+ /* =========================================================================
+  * Image verification
+  * ====================================================================== */
+ 
+ /**
+  * Verify the UIOX image header magic, version, arch, and SHA-256 of
+  * the payload bytes immediately following the header.
+  *
+  * @param hdr       Pointer to the uiox_image_hdr_t at the start of the
+  *                  loaded image buffer.
+  * @param payload   Pointer to the first byte after the header.
+  * @param pay_len   Byte length of the payload (image_size from header).
+  * @param expected_arch   uiox_arch_t to compare against header arch field.
+  * @return UIOX_BOOT_OK on success, error code otherwise.
+  */
+ uiox_boot_err_t uiox_boot_verify_image(const uiox_image_hdr_t *hdr,
+                                         const uint8_t *payload,
+                                         size_t pay_len,
+                                         uiox_arch_t expected_arch);
+ 
+ #ifdef __cplusplus
+ }
+ #endif
+ #endif /* UIOX_BOOT_VERIFY_H */
+ 

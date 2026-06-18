@@ -1,39 +1,90 @@
-/*
- * uiox_boot_hw_arm32.c  —  ARMv7-A HW ops (PL011 @ 0x10009000).
+/**
+ * @file  uiox_boot_hw_arm32.c
+ * @brief UIOX Bootloader — ARMv7-A hardware ops (PL011 @ versatilepb).
+ * @date  2026-06-12
  */
-#include "uiox_boot_hw.h"
 
-#define UART 0x10009000u
-static inline void mw(uboot_u32_t a,uboot_u32_t v)
-{*(volatile uboot_u32_t*)(uboot_addr_t)(a)=v;}
-static inline uboot_u32_t mr(uboot_u32_t a)
-{return*(volatile uboot_u32_t*)(uboot_addr_t)(a);}
+ #include "uiox_boot.h"
 
-static int a32_init(void)
-{
-    mw(UART+0x030u,0); mw(UART+0x024u,13); mw(UART+0x028u,1);
-    mw(UART+0x02Cu,0x70u); mw(UART+0x030u,0x301u);
-    return UBOOT_OK;
-}
-static void a32_putc(char c)
-{while(mr(UART+0x018u)&(1u<<5));mw(UART,(uboot_u8_t)c);}
-static uboot_u32_t a32_cpuid(void)
-{uboot_u32_t v;__asm__("mrc p15,0,%0,c0,c0,5":"=r"(v));return v&0xFFu;}
-static void a32_flush(uboot_addr_t s,uboot_size_t n)
-{uboot_u32_t a=(uboot_u32_t)s&~31u,e=(uboot_u32_t)s+n;
-while(a<e){__asm__("mcr p15,0,%0,c7,c14,1"::"r"(a):"memory");a+=32;}
-__asm__("dsb\nisb":::"memory");}
-static void a32_barrier(void){__asm__("dsb\nisb":::"memory");}
-static void a32_idle(void){__asm__("wfi");}
-static void a32_reset(void){for(;;);}
-static uboot_u32_t a32_r32(uboot_addr_t a){return mr(a);}
-static void        a32_w32(uboot_addr_t a,uboot_u32_t v){mw(a,v);}
-
-static const uboot_hw_ops_t arm32_ops={
-    .init=a32_init,.uart_putc=a32_putc,.cpu_id=a32_cpuid,
-    .cache_flush=a32_flush,.mem_barrier=a32_barrier,
-    .cpu_idle=a32_idle,.reset=a32_reset,
-    .mmio_read32=a32_r32,.mmio_write32=a32_w32,
-};
-const uboot_hw_ops_t *g_hw_ops=NULL;
-int uboot_hw_init_arm32(void){g_hw_ops=&arm32_ops;return a32_init();}
+ /* PL011 on QEMU versatilepb: base 0x101F1000, 24 MHz, 115200 baud */
+ static void pl011_arm32_init(void)
+ {
+     uintptr_t base = UIOX_PL011_BASE_ARM32;
+     mmio_write32(base + PL011_CR, 0u);
+     mmio_write32(base + PL011_IBRD, 13u);
+     mmio_write32(base + PL011_FBRD,  1u);
+     mmio_write32(base + PL011_LCR_H, PL011_LCR_WLEN8 | PL011_LCR_FEN);
+     mmio_write32(base + PL011_CR,
+                  PL011_CR_UARTEN | PL011_CR_TXE | PL011_CR_RXE);
+ }
+ 
+ static void pl011_arm32_putc(char c)
+ {
+     uintptr_t base = UIOX_PL011_BASE_ARM32;
+     while (mmio_read32(base + PL011_FR) & PL011_FR_TXFF)
+         ;
+     mmio_write32(base + PL011_DR, (uint32_t)(uint8_t)c);
+ }
+ 
+ static void arm32_dcache_flush(uintptr_t start, size_t len)
+ {
+     uintptr_t end  = start + len;
+     uintptr_t line = 32u;
+     uintptr_t addr = start & ~(line - 1u);
+     while (addr < end) {
+         __asm__ volatile("mcr p15, 0, %0, c7, c14, 1" :: "r"(addr));
+         addr += line;
+     }
+     __asm__ volatile("dsb" ::: "memory");
+ }
+ 
+ static void arm32_icache_inv(void)
+ {
+     uint32_t z = 0u;
+     __asm__ volatile("mcr p15, 0, %0, c7, c5, 0" :: "r"(z));
+     __asm__ volatile("dsb; isb" ::: "memory");
+ }
+ 
+ static uint64_t arm32_get_ticks(void)
+ {
+     /* SP804 Timer 1 on versatilepb: base 0x101E2000 */
+     return (uint64_t)mmio_read32(0x101E2004u);  /* Timer1Value */
+ }
+ 
+ static void arm32_udelay(uint32_t us)
+ {
+     /* 1 MHz SP804 tick = 1 µs */
+     uint64_t start = arm32_get_ticks();
+     while ((arm32_get_ticks() - start) < (uint64_t)us)
+         ;
+ }
+ 
+ static void arm32_barrier(void)
+ {
+     __asm__ volatile("dsb; isb" ::: "memory");
+ }
+ 
+ static void __attribute__((noreturn)) arm32_reset(void)
+ {
+     /* Watchdog reset via versatilepb system controller */
+     mmio_write32(0x10000000u + 0x040u, 0x07Du); /* LOCK */
+     mmio_write32(0x10000000u + 0x004u, 0x01u);  /* Reset */
+     for (;;) __asm__ volatile("wfi");
+ }
+ 
+ static const uiox_boot_hw_ops_t arm32_ops = {
+     .init         = pl011_arm32_init,
+     .uart_putc    = pl011_arm32_putc,
+     .dcache_flush = arm32_dcache_flush,
+     .icache_inv   = arm32_icache_inv,
+     .get_ticks    = arm32_get_ticks,
+     .udelay       = arm32_udelay,
+     .reset        = arm32_reset,
+     .barrier      = arm32_barrier,
+ };
+ 
+ void uiox_boot_hw_arm32_register(void)
+ {
+     uiox_boot_hw_register(&arm32_ops);
+ }
+ 

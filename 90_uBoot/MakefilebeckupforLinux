@@ -1,0 +1,365 @@
+# UIOX Bootloader — make ARCH=arm64|arm32|x86_64 or make all
+ARCH ?= arm64
+
+CC_arm64  = aarch64-linux-gnu-gcc
+LD_arm64  = aarch64-linux-gnu-ld
+OC_arm64  = aarch64-linux-gnu-objcopy
+
+CC_arm32  = arm-linux-gnueabihf-gcc
+LD_arm32  = arm-linux-gnueabihf-ld
+OC_arm32  = arm-linux-gnueabihf-objcopy
+
+CC_x86_64 = gcc
+LD_x86_64 = ld
+OC_x86_64 = objcopy
+
+CC     = $(CC_$(ARCH))
+LD     = $(LD_$(ARCH))
+OBJCPY = $(OC_$(ARCH))
+
+ifeq ($(ARCH),arm64)
+  MARCH     = -march=armv8-a
+  ARCH_DEF  = -D__aarch64__
+  LD_SCRIPT = linker/uiox_boot_arm64.ld
+  ENTRY_S   = src/arch/arm64/uiox_boot_entry_arm64.S
+  HW_C      = src/arch/arm64/uiox_boot_hw_arm64.c
+else ifeq ($(ARCH),arm32)
+  MARCH     = -march=armv7-a -marm
+  ARCH_DEF  = -D__arm__
+  LD_SCRIPT = linker/uiox_boot_arm32.ld
+  ENTRY_S   = src/arch/arm32/uiox_boot_entry_arm32.S
+  HW_C      = src/arch/arm32/uiox_boot_hw_arm32.c
+else
+  MARCH     = -m64 -mno-red-zone
+  ARCH_DEF  = -D__x86_64__
+  LD_SCRIPT = linker/uiox_boot_x86_64.ld
+  ENTRY_S   = src/arch/x86_64/uiox_boot_entry_x86.S
+  HW_C      = src/arch/x86_64/uiox_boot_hw_x86.c
+endif
+
+CFLAGS = -Wall -Wextra -std=c99 \
+         -ffreestanding -fno-builtin -fno-stack-protector \
+         -fno-common -fno-pic -nostdlib -nostdinc \
+         -O2 -g3 $(MARCH) $(ARCH_DEF) -Iinclude
+
+SRCS = src/uiox_boot_main.c    \
+       src/uiox_boot_mem.c     \
+       src/uiox_boot_console.c \
+       src/uiox_boot_fs.c      \
+       src/uiox_boot_verify.c  \
+       src/uiox_boot_handoff.c \
+       $(HW_C)
+
+B    = build/$(ARCH)
+OBJS = $(patsubst src/%.c,$(B)/%.o,$(SRCS)) $(B)/entry.o
+
+.PHONY: all arm64 arm32 x86_64 clean run_arm64 run_arm32 run_x86
+
+all:
+	$(MAKE) ARCH=arm64
+	$(MAKE) ARCH=arm32
+	$(MAKE) ARCH=x86_64
+
+arm64  : ; $(MAKE) ARCH=arm64   $(B)/uiox_boot.bin
+arm32  : ; $(MAKE) ARCH=arm32   $(B)/uiox_boot.bin
+x86_64 : ; $(MAKE) ARCH=x86_64  $(B)/uiox_boot.bin
+
+$(B)/entry.o: $(ENTRY_S)
+	@mkdir -p $(dir $@)
+	$(CC) $(CFLAGS) -c -o $@ $<
+
+$(B)/%.o: src/%.c
+	@mkdir -p $(dir $@)
+	@echo "  CC [$(ARCH)] $<"
+	$(CC) $(CFLAGS) -c -o $@ $<
+
+$(B)/uiox_boot.elf: $(OBJS)
+	$(LD) --no-undefined --build-id=none -nostdlib -static \
+	      -T $(LD_SCRIPT) -o $@ $^
+	@size $@
+
+$(B)/uiox_boot.bin: $(B)/uiox_boot.elf
+	$(OBJCPY) -O binary $< $@
+	@printf "  BIN %s  (%d bytes)\n" $@ $$(wc -c < $@)
+
+run_arm64: build/arm64/uiox_boot.bin
+	qemu-system-aarch64 -machine virt -cpu cortex-a53 \
+	  -m 64M -nographic -bios $<
+
+run_arm32: build/arm32/uiox_boot.bin
+	qemu-system-arm -machine versatilepb -cpu arm926 \
+	  -m 16M -nographic -bios $<
+
+run_x86: build/x86_64/uiox_boot.bin
+	qemu-system-x86_64 -m 64M -nographic -kernel $<
+
+clean:
+	rm -rf build/
+	@echo "Clean done."
+========================================================
+# =============================================================
+# 00_Boot/Makefile  —  UIOX Bootloader
+# Fixed for macOS (Xcode make) and GNU make.
+#
+# Usage:
+#   make                 # build arm64 only (safe default)
+#   make ARCH=arm64
+#   make ARCH=arm32
+#   make ARCH=x86_64
+#   make all_arches      # build all three sequentially
+#   make run_arm64
+#   make clean
+# =============================================================
+
+# -- Default architecture ------------------------------------
+ARCH ?= arm64
+
+# -- Toolchain selection -------------------------------------
+ifeq ($(ARCH),arm64)
+  CROSS     = aarch64-linux-gnu-
+  MARCH     = -march=armv8-a
+  ARCH_DEF  = -D__aarch64__
+  LD_SCRIPT = linker/uiox_boot_arm64.ld
+  ENTRY_S   = src/arch/arm64/uiox_boot_entry_arm64.S
+  HW_C      = src/arch/arm64/uiox_boot_hw_arm64.c
+else ifeq ($(ARCH),arm32)
+  CROSS     = arm-linux-gnueabihf-
+  MARCH     = -march=armv7-a -marm
+  ARCH_DEF  = -D__arm__
+  LD_SCRIPT = linker/uiox_boot_arm32.ld
+  ENTRY_S   = src/arch/arm32/uiox_boot_entry_arm32.S
+  HW_C      = src/arch/arm32/uiox_boot_hw_arm32.c
+else ifeq ($(ARCH),x86_64)
+  CROSS     =
+  MARCH     = -m64 -mno-red-zone
+  ARCH_DEF  = -D__x86_64__
+  LD_SCRIPT = linker/uiox_boot_x86_64.ld
+  ENTRY_S   = src/arch/x86_64/uiox_boot_entry_x86.S
+  HW_C      = src/arch/x86_64/uiox_boot_hw_x86.c
+else
+  $(error Unknown ARCH=$(ARCH). Use arm64, arm32, or x86_64)
+endif
+
+CC      = $(CROSS)gcc
+LD      = $(CROSS)ld
+OBJCOPY = $(CROSS)objcopy
+OBJDUMP = $(CROSS)objdump
+SIZE    = $(CROSS)size
+
+# -- Compiler flags ------------------------------------------
+CFLAGS  = \
+    -Wall -Wextra -std=c99 \
+    -ffreestanding -fno-builtin \
+    -fno-stack-protector -fno-common \
+    -fno-pic -fno-pie \
+    -nostdlib -nostdinc \
+    -O2 -g3 \
+    $(MARCH) $(ARCH_DEF) \
+    -Iinclude
+
+LDFLAGS = \
+    --no-undefined \
+    --build-id=none \
+    -nostdlib \
+    -static \
+    -T $(LD_SCRIPT)
+
+# -- Sources -------------------------------------------------
+C_SRCS = \
+    src/uiox_boot_main.c    \
+    src/uiox_boot_mem.c     \
+    src/uiox_boot_console.c \
+    src/uiox_boot_fs.c      \
+    src/uiox_boot_verify.c  \
+    src/uiox_boot_handoff.c \
+    $(HW_C)
+
+# -- Output paths --------------------------------------------
+BUILD   = build/$(ARCH)
+OBJS    = $(patsubst src/%.c, $(BUILD)/%.o, $(C_SRCS)) \
+          $(BUILD)/arch_entry.o
+
+ELF     = $(BUILD)/uiox_boot.elf
+BIN     = $(BUILD)/uiox_boot.bin
+LST     = $(BUILD)/uiox_boot.lst
+
+# =============================================================
+# Primary targets
+# =============================================================
+.PHONY: all all_arches clean \
+        run_arm64 run_arm32 run_x86_64 \
+        size lst help
+
+# Default: build for the selected ARCH
+all: $(BIN)
+	@echo ""
+	@echo "  Built: $(BIN)"
+	@$(SIZE) $(ELF) 2>/dev/null || true
+
+# Build all three architectures sequentially.
+# Uses a shell loop instead of recursive $(MAKE) to avoid
+# the macOS process-limit error.
+all_arches:
+	@for arch in arm64 arm32 x86_64; do \
+	    echo ""; \
+	    echo "=== Building ARCH=$$arch ==="; \
+	    $(MAKE) ARCH=$$arch || exit 1; \
+	done
+	@echo ""
+	@echo "=== All architectures built ==="
+	@ls -lh build/arm64/uiox_boot.bin \
+	        build/arm32/uiox_boot.bin \
+	        build/x86_64/uiox_boot.bin 2>/dev/null || true
+
+# =============================================================
+# Compile rules
+# =============================================================
+
+# Assembly entry stub
+$(BUILD)/arch_entry.o: $(ENTRY_S)
+	@mkdir -p $(dir $@)
+	@echo "  AS  [$(ARCH)] $<"
+	$(CC) $(CFLAGS) -c -o $@ $<
+
+# C sources (handles subdirectories under src/)
+$(BUILD)/%.o: src/%.c
+	@mkdir -p $(dir $@)
+	@echo "  CC  [$(ARCH)] $<"
+	$(CC) $(CFLAGS) -c -o $@ $<
+
+# Link ELF
+$(ELF): $(OBJS) $(LD_SCRIPT)
+	@mkdir -p $(BUILD)
+	@echo "  LD  [$(ARCH)] $@"
+	$(LD) $(LDFLAGS) -o $@ $(OBJS)
+
+# Strip to flat binary
+$(BIN): $(ELF)
+	$(OBJCOPY) -O binary $< $@
+	@printf "  BIN [$(ARCH)] %s  (%d bytes)\n" \
+	    "$@" "$$(wc -c < $@)"
+
+# =============================================================
+# Optional: disassembly listing
+# =============================================================
+lst: $(ELF)
+	$(OBJDUMP) -d -S $(ELF) > $(LST)
+	@echo "  LST $(LST)"
+
+size: $(ELF)
+	$(SIZE) -A $(ELF)
+
+# =============================================================
+# QEMU run targets
+# =============================================================
+run_arm64: build/arm64/uiox_boot.bin
+	qemu-system-aarch64 \
+	    -machine virt \
+	    -cpu cortex-a53 \
+	    -m 64M \
+	    -nographic \
+	    -serial mon:stdio \
+	    -bios $<
+
+run_arm32: build/arm32/uiox_boot.bin
+	qemu-system-arm \
+	    -machine versatilepb \
+	    -cpu arm926 \
+	    -m 16M \
+	    -nographic \
+	    -serial mon:stdio \
+	    -bios $<
+
+run_x86_64: build/x86_64/uiox_boot.bin
+	qemu-system-x86_64 \
+	    -m 64M \
+	    -nographic \
+	    -serial mon:stdio \
+	    -kernel $<
+
+# =============================================================
+# Clean
+# =============================================================
+clean:
+	rm -rf build/
+	@echo "  CLEAN done."
+
+# =============================================================
+# Help
+# =============================================================
+help:
+	@echo ""
+	@echo "  UIOX Bootloader — Build System"
+	@echo ""
+	@echo "  make                   build arm64 (default)"
+	@echo "  make ARCH=arm64        build ARM64"
+	@echo "  make ARCH=arm32        build ARM32"
+	@echo "  make ARCH=x86_64       build x86-64"
+	@echo "  make all_arches        build all three"
+	@echo "  make run_arm64         run in QEMU (ARM64)"
+	@echo "  make run_arm32         run in QEMU (ARM32)"
+	@echo "  make run_x86_64        run in QEMU (x86-64)"
+	@echo "  make lst               generate disassembly"
+	@echo "  make size              print section sizes"
+	@echo "  make clean             remove build/"
+	@echo ""
+	@echo "  Cross-compilers needed:"
+	@echo "    ARM64  : aarch64-linux-gnu-gcc"
+	@echo "    ARM32  : arm-linux-gnueabihf-gcc"
+	@echo "    x86-64 : gcc (native)"
+	@echo ""
+	@echo "  Install on macOS:"
+	@echo "    brew install make arm-none-eabi-gcc aarch64-elf-gcc qemu"
+	@echo "    export PATH=\$$(brew --prefix make)/libexec/gnubin:\$$PATH"
+	@echo ""
+====================
+# Install correct toolchains on macOS
+brew install make
+brew install aarch64-elf-gcc          # for ARM64
+brew install arm-none-eabi-gcc        # for ARM32
+brew install x86_64-elf-gcc           # for x86-64 bare-metal
+brew install qemu
+==============
+# Install correct toolchains on macOS
+brew install make
+brew install aarch64-elf-gcc          # for ARM64
+brew install arm-none-eabi-gcc        # for ARM32
+brew install x86_64-elf-gcc           # for x86-64 bare-metal
+brew install qemu
+
+=======================
+# -- Auto-detect macOS and use Homebrew toolchain names ------
+UNAME_S := $(shell uname -s)
+ifeq ($(UNAME_S),Darwin)
+  ifeq ($(ARCH),arm64)
+    CROSS = aarch64-elf-
+  else ifeq ($(ARCH),arm32)
+    CROSS = arm-none-eabi-
+  else
+    CROSS =
+  endif
+endif
+=================
+ARM 64
+CC      = aarch64-elf-gcc
+LD      = aarch64-elf-ld
+OBJCOPY = aarch64-elf-objcopy
+OBJDUMP = aarch64-elf-objdump
+SIZE    = aarch64-elf-size
+
+ARM32
+CC      = arm-none-eabi-gcc
+LD      = arm-none-eabi-ld
+OBJCOPY = arm-none-eabi-objcopy
+OBJDUMP = arm-none-eabi-objdump
+SIZE    = arm-none-eabi-size
+
+
+0x64
+
+CC      = gcc
+LD      = ld
+OBJCOPY = objcopy
+OBJDUMP = objdump
+SIZE    = size
+

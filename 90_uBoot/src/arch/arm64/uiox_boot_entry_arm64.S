@@ -1,71 +1,104 @@
 /*
- * uiox_boot_entry_arm64.S  —  AArch64 bootloader entry.
- * On entry: x0 = DTB physical address, CPU in EL2 or EL1,
- *           MMU off, caches off, IRQ/FIQ masked.
+ * uiox_boot_entry_arm64.S
+ * UIOX Bootloader — AArch64 entry point.
+ *
+ * Reset vector for QEMU virt machine (ARM64).
+ * Loaded by QEMU firmware at 0x40000000 (DRAM base).
+ *
+ * Sequence:
+ *   1. Drop from EL2 → EL1 if running at EL2
+ *   2. Disable MMU / D-cache / I-cache in SCTLR_EL1
+ *   3. Set up early stack
+ *   4. Zero BSS
+ *   5. Call uiox_boot_main(dtb_pa)   [x0 = DTB phys addr from QEMU]
  */
-    .arch armv8-a
-    .section ".text.boot","ax"
+
+    .section ".boot", "ax"
     .global _start
     .type   _start, %function
 
 _start:
-    mov     x20, x0                  /* save DTB pointer          */
+    /* ------------------------------------------------------------------ */
+    /* 1. Determine current EL and drop to EL1 if at EL2                  */
+    /* ------------------------------------------------------------------ */
+    mrs     x9, CurrentEL
+    lsr     x9, x9, #2
+    cmp     x9, #2
+    bne     .Lat_el1
 
-    /* ── drop from EL2 → EL1 if needed ────────────────────── */
-    mrs     x0, CurrentEL
-    lsr     x0, x0, #2
-    cmp     x0, #2
-    bne     .Lel1
+    /* We are at EL2 — configure HCR_EL2 to route to EL1 AArch64 */
+    mov     x10, #(1 << 31)         /* HCR_EL2.RW = 1 (EL1 is AArch64) */
+    msr     hcr_el2, x10
 
-    mov     x0, #(1 << 31)           /* HCR_EL2.RW = 1           */
-    msr     HCR_EL2, x0
-    mov     x0, xzr
-    msr     SCTLR_EL1, x0
-    mov     x0, #0x3C5               /* EL1h, DAIF masked         */
-    msr     SPSR_EL2, x0
-    adr     x0, .Lel1
-    msr     ELR_EL2, x0
+    /* Set SPSR_EL2 so eret drops to EL1h with IRQs/FIQs masked */
+    mov     x10, #0x3C5             /* EL1h, DAIF all masked             */
+    msr     spsr_el2, x10
+    adr     x10, .Lat_el1
+    msr     elr_el2, x10
     eret
 
-.Lel1:
-    /* ── invalidate caches / TLBs ──────────────────────────── */
-    ic      iallu
+.Lat_el1:
+    /* ------------------------------------------------------------------ */
+    /* 2. Disable MMU, D-cache, I-cache via SCTLR_EL1                     */
+    /* ------------------------------------------------------------------ */
+    mrs     x10, sctlr_el1
+    bic     x10, x10, #(1 << 0)    /* M   = 0 disable MMU               */
+    bic     x10, x10, #(1 << 2)    /* C   = 0 disable D-cache           */
+    bic     x10, x10, #(1 << 12)   /* I   = 0 disable I-cache           */
+    msr     sctlr_el1, x10
+    isb
+
+    /* Invalidate TLBs */
     tlbi    vmalle1
     dsb     sy
     isb
 
-    /* ── set stack ──────────────────────────────────────────── */
-    adrp    x0, _boot_stack_top
-    add     x0, x0, :lo12:_boot_stack_top
-    mov     sp, x0
+    /* ------------------------------------------------------------------ */
+    /* 3. Set up early stack (8-byte aligned, grows down from _boot_stack) */
+    /* ------------------------------------------------------------------ */
+    adrp    x10, _boot_stack_top
+    add     x10, x10, :lo12:_boot_stack_top
+    mov     sp,  x10
 
-    /* ── zero BSS ───────────────────────────────────────────── */
-    adrp    x0, _bss_start
-    add     x0, x0, :lo12:_bss_start
-    adrp    x1, _bss_end
-    add     x1, x1, :lo12:_bss_end
-.Lzbss:
-    cmp     x0, x1
-    bge     .Lzdone
-    str     xzr, [x0], #8
-    b       .Lzbss
-.Lzdone:
+    /* Save DTB pointer (x0 = DTB PA from QEMU) */
+    mov     x20, x0
 
-    /* ── arch HW init ───────────────────────────────────────── */
-    bl      uboot_hw_init_arm64
+    /* ------------------------------------------------------------------ */
+    /* 4. Zero .bss                                                        */
+    /* ------------------------------------------------------------------ */
+    adrp    x10, __bss_start
+    add     x10, x10, :lo12:__bss_start
+    adrp    x11, __bss_end
+    add     x11, x11, :lo12:__bss_end
+.Lbss_zero:
+    cmp     x10, x11
+    bge     .Lbss_done
+    str     xzr, [x10], #8
+    b       .Lbss_zero
+.Lbss_done:
 
-    /* ── call C main ────────────────────────────────────────── */
-    mov     x0, x20
-    mov     x1, xzr
+    /* ------------------------------------------------------------------ */
+    /* 5. Call C bootloader main                                           */
+    /* ------------------------------------------------------------------ */
+    mov     x0, x20                 /* arg0 = dtb_pa                     */
     bl      uiox_boot_main
 
+    /* Should never return — if it does, spin */
 .Lhang:
-    wfi
+    wfe
     b       .Lhang
 
     .size _start, . - _start
 
-    .section ".bss.boot_stack","aw"
-    .align  4
-    .space  65536
+
+/* =========================================================================
+ * Early boot stack (16 KB, placed in .bss.stack section)
+ * ====================================================================== */
+
+    .section ".bss.stack", "aw", %nobits
+    .balign 16
+    .global _boot_stack_base
+_boot_stack_base:
+    .space  (16 * 1024)
+    .global _boot_stack_top
 _boot_stack_top:
