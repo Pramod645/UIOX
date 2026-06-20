@@ -132,6 +132,7 @@ CFLAGS_COMMON := \
 #   • --gc-sections is a raw linker flag → pass via -Wl,
 # ─────────────────────────────────────────────────────────────────────────────
 GCC_LD_FLAGS  := -nostdlib -nostartfiles          # GCC driver flags — bare
+
 LINKER_FLAGS  := -Wl,--gc-sections               # Raw ld flags — via -Wl,
 
 DEPFLAGS = -MT $@ -MMD -MP -MF $(@:.o=.d)

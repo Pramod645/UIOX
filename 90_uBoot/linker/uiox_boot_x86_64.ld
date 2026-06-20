@@ -1,73 +1,81 @@
-/*
- * linker/uiox_boot_x86_64.ld
- * UIOX Bootloader — x86_64 linker script.
- *
- * Target    : QEMU q35 / bare-metal x86_64 via Multiboot2
- * Load addr : 0x00100000 (1 MB — standard Multiboot2 load address)
- * Stack     : 0x00090000 (below 1 MB, set up in 64-bit entry)
- *
- * Mirrors uiox_x86_64.ld KERNEL region.
- */
+/* * linker/uiox_boot_x86_64.ld * uiox bootloader — x86_64 linker script. * * target : qemu q35 / bare-metal x86_64 via multiboot2 * load addr : 0x00100000 (1 mb — standard multiboot2 load address) * stack : 0x00090000 (below 1 mb, set up in 64-bit entry) * * mirrors uiox_x86_64.ld kernel region. */ 
 
-OUTPUT_FORMAT("elf64-x86-64")
-OUTPUT_ARCH(i386:x86-64)
-ENTRY(_start)
+OUTPUT_FORMAT("elf64-x86-64") 
+OUTPUT_ARCH(i386:x86-64) 
+ENTRY(_start) 
 
-MEMORY
-{
-    LOW  (r)   : ORIGIN = 0x00000000, LENGTH = 1M
-    KERN (rwx) : ORIGIN = 0x00100000, LENGTH = 63M
-}
+MEMORY 
+{ 
+    low (r) : ORIGIN = 0x00000000, LENGTH = 1M 
+    kern (rwx) : ORIGIN = 0x00100000, LENGTH = 63M 
+} 
 
-SECTIONS
-{
-    . = 0x00100000;
+SECTIONS 
+{ 
+    . = 0x00100000; 
 
-    /* ── Multiboot2 header (must be within first 32 KB) ──────────── */
-    .multiboot ALIGN(8) :
-    {
-        KEEP(*(.multiboot))
-    } > KERN
+    /* ── multiboot2 header (must be within first 32 kb) ──────────── */ 
+    .multiboot ALIGN(8) : 
+    { 
+        KEEP(*(.multiboot)) 
+    } > kern 
 
-    /* ── Boot entry / 32→64 trampoline ───────────────────────────── */
-    .boot :
-    {
-        _boot_start = .;
-        KEEP(*(.boot))
-        _boot_end = .;
-    } > KERN
+    /* ── boot entry / 32→64 trampoline ───────────────────────────── */ 
+    .boot : 
+    { 
+        _boot_start = .; 
+        KEEP(*(.boot)) 
+        _boot_end = .; 
+    } > kern 
 
-    /* ── 64-bit code and data ─────────────────────────────────────── */
-    .text ALIGN(4K) :
-    {
-        *(.text*)
-        *(.gnu.linkonce.t*)
-    } > KERN
+    /* ── 64-bit code and data ─────────────────────────────────────── */ 
+    .text ALIGN(4096) : 
+    { 
+        *(.text*) 
+        *(.gnu.linkonce.t*) 
+    } > kern 
 
-    .rodata ALIGN(4K) :
-    {
-        *(.rodata*)
-        *(.gnu.linkonce.r*)
-    } > KERN
+    .rodata ALIGN(4096) : 
+    { 
+        *(.rodata*) 
+        *(.gnu.linkonce.r*) 
+    } > kern 
 
-    .data ALIGN(4K) :
-    {
-        *(.data*)
-        *(.gnu.linkonce.d*)
-    } > KERN
+    .data ALIGN(4096) : 
+    { 
+        *(.data*) 
+        *(.gnu.linkonce.d*) 
+    } > kern 
 
-    __bss_start = ALIGN(8);
-    .bss (NOLOAD) :
-    {
-        *(.bss*)
-        *(COMMON)
-    } > KERN
-    .bss.pagetables (NOLOAD) : { *(.bss.pagetables) ALIGN(4096) } > KERN
-    .bss.stack      (NOLOAD) : { *(.bss.stack)                  } > KERN
-    __bss_end = ALIGN(8);
+    . = ALIGN(8);
+    __bss_start = .; 
 
-    _boot_stack_top = __bss_end;
-    _boot_image_end = .;
+    .bss (NOLOAD) : 
+    { 
+        *(.bss*) 
+        *(COMMON) 
+    } > kern 
 
-    /DISCARD/ : { *(.comment) *(.note*) *(.eh_frame*) }
+    .bss.pagetables (NOLOAD) : 
+    { 
+        *(.bss.pagetables) 
+        . = ALIGN(4096); 
+    } > kern 
+
+    .bss.stack (NOLOAD) : 
+    { 
+        *(.bss.stack) 
+    } > kern 
+
+    . = ALIGN(8);
+    __bss_end = .; 
+    _boot_stack_top = __bss_end; 
+    _boot_image_end = .; 
+
+    /DISCARD/ : 
+    { 
+        *(.comment) 
+        *(.note*) 
+        *(.eh_frame*) 
+    } 
 }
