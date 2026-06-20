@@ -51,7 +51,8 @@ _start:
     movl    $pml4_table, %eax
     /* Zero all four tables (4 × 4096 bytes) */
     movl    $pml4_table, %edi
-    movl    $(4 * 4096 / 4), %ecx
+    /*movl    $(4 * 4096 / 4), %ecx*/
+    movl  $4096, %ecx
     xorl    %eax, %eax
     rep stosl
     movl    %ebx, %edi          /* restore Multiboot info ptr */

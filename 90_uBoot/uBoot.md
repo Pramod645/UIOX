@@ -202,3 +202,12 @@ entry_x86.S	                      x86 Entry	          Multiboot2 header, 32→64
 uiox_boot_main.c	                7-Stage Pipeline	  Orchestrates all stages; simulation-mode fallback when no storage
 linker/*.ld	                      Linker Scripts	    ARM64@0x40000000, ARM32@0x00000000/0x00100000, x86@0x00100000
 Makefile	                        Build	              make all / make ARCH=arm64 / make run ARCH=arm64
+-------------
+can you fix these two errorrs which still exits?
+error1: Error: unbalanced parenthesis in operand 1. in movl $(4 * 4096 / 4), %ecx
+
+error2:
+ LD    
+/opt/homebrew/opt/x86_64-elf-binutils/bin/x86_64-elf-ld: cannot find ALIGN: Invalid argument
+collect2: error: ld returned 1 exit status
+make: *** [build/x86_64/uiox_boot_x86_64.elf] Error 1
