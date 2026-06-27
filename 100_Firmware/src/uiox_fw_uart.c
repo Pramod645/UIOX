@@ -6,6 +6,26 @@
 
  #include "uiox_fw.h"
 
+/*
+ * udiv32_soft() — software 32-bit unsigned divide.
+ * Uses only bit-shifts and subtracts — no __aeabi_uidiv.
+ * Add this near the top of each affected .c file,
+ * or put it in a shared uiox_fw_math.h header.
+ */
+static inline uint32_t udiv32_soft_uart(uint32_t n, uint32_t d,
+    uint32_t *rem_out)
+{
+uint32_t q = 0u, r = 0u;
+if (d == 0u) { if (rem_out) *rem_out = 0u; return 0u; }
+for (int i = 31; i >= 0; i--) {
+r = (r << 1u) | ((n >> (uint32_t)i) & 1u);
+if (r >= d) { r -= d; q |= (1u << (uint32_t)i); }
+}
+if (rem_out) *rem_out = r;
+return q;
+}
+
+
  /* x86 port I/O helpers (compiled out on ARM) */
  #if defined(__x86_64__) || defined(__i386__)
  static inline void _outb(uint16_t port, uint8_t v)
@@ -21,7 +41,11 @@
      uintptr_t b = u->base;
      fw_mmio_write32(b + PL011_CR, 0u);          /* disable              */
      /* baud: IBRD + FBRD from clock / (16 × baud) */
+#if defined(__arm__)
+    uint32_t div16 = udiv32_soft_uart(u->clock_hz , u->cfg.baud, NULL);
+#else     
      uint32_t div16 = u->clock_hz / u->cfg.baud; /* × 16 fixed-point    */
+#endif
      fw_mmio_write32(b + PL011_IBRD, div16 >> 4u);
      fw_mmio_write32(b + PL011_FBRD, div16 & 0xFu);
      fw_mmio_write32(b + PL011_LCR_H, PL011_LCR_WLEN8 |
@@ -57,7 +81,11 @@
      uint16_t port = (uint16_t)u->base;
      _outb(port + UART16550_IER, 0x00u);
      _outb(port + UART16550_LCR, 0x80u);    /* DLAB=1                   */
+     #if defined(__arm__)
+     uint32_t div = udiv32_soft_uart(115200u, u->cfg.baud, NULL);
+     #else
      uint16_t div = (uint16_t)(115200u / u->cfg.baud);
+     #endif
      _outb(port + UART16550_DLL, (uint8_t)(div & 0xFFu));
      _outb(port + UART16550_DLM, (uint8_t)(div >> 8u));
      _outb(port + UART16550_LCR, 0x03u);    /* 8N1, DLAB=0              */

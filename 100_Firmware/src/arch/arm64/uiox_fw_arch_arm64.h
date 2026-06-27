@@ -22,7 +22,8 @@
  #ifndef UIOX_FW_ARCH_ARM64_H
  #define UIOX_FW_ARCH_ARM64_H
  
- #include "../../include/uiox_fw_types.h"
+ #include "../include/uiox_fw_types.h"
+ //include/uiox_fw_uart.h and include/uiox_fw_timer.h
  
  #ifdef __cplusplus
  extern "C" {
@@ -163,9 +164,9 @@
  #define PL011_FR_RI                 (1u << 8)   /**< Ring indicator        */
  #define PL011_FR_TXFE               (1u << 7)   /**< TX FIFO empty         */
  #define PL011_FR_RXFF               (1u << 6)   /**< RX FIFO full          */
- #define PL011_FR_TXFF               (1u << 5)   /**< TX FIFO full          */
- #define PL011_FR_RXFE               (1u << 4)   /**< RX FIFO empty         */
- #define PL011_FR_BUSY               (1u << 3)   /**< UART busy             */
+ //#define PL011_FR_TXFF               (1u << 5)   /**< TX FIFO full          */
+ //#define PL011_FR_RXFE               (1u << 4)   /**< RX FIFO empty         */
+ //#define PL011_FR_BUSY               (1u << 3)   /**< UART busy             */
  #define PL011_FR_DCD                (1u << 2)   /**< Data carrier detect   */
  #define PL011_FR_DSR                (1u << 1)   /**< Data set ready        */
  #define PL011_FR_CTS                (1u << 0)   /**< Clear to send         */
@@ -176,7 +177,7 @@
  #define PL011_LCR_WLEN7             (0x2u << 5)
  #define PL011_LCR_WLEN6             (0x1u << 5)
  #define PL011_LCR_WLEN5             (0x0u << 5)
- #define PL011_LCR_FEN               (1u << 4)   /**< FIFO enable           */
+ //#define PL011_LCR_FEN               (1u << 4)   /**< FIFO enable           */
  #define PL011_LCR_STP2              (1u << 3)   /**< Two stop bits         */
  #define PL011_LCR_EPS               (1u << 2)   /**< Even parity select    */
  #define PL011_LCR_PEN               (1u << 1)   /**< Parity enable         */
@@ -189,10 +190,10 @@
  #define PL011_CR_OUT1               (1u << 12)
  #define PL011_CR_RTS                (1u << 11)
  #define PL011_CR_DTR                (1u << 10)
- #define PL011_CR_RXE                (1u << 9)   /**< Receive enable        */
- #define PL011_CR_TXE                (1u << 8)   /**< Transmit enable       */
+ //#define PL011_CR_RXE                (1u << 9)   /**< Receive enable        */
+ //#define PL011_CR_TXE                (1u << 8)   /**< Transmit enable       */
  #define PL011_CR_LBE                (1u << 7)   /**< Loopback enable       */
- #define PL011_CR_UARTEN             (1u << 0)   /**< UART enable           */
+ //#define PL011_CR_UARTEN             (1u << 0)   /**< UART enable           */
  
  /* IMSC / RIS / MIS / ICR interrupt bits */
  #define PL011_INT_OEI               (1u << 10)  /**< Overrun error         */

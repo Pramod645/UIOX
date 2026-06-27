@@ -22,7 +22,8 @@
  #ifndef UIOX_FW_ARCH_ARM32_H
  #define UIOX_FW_ARCH_ARM32_H
  
- #include "../../include/uiox_fw_types.h"
+ #include "../include/uiox_fw_types.h"
+ //include/uiox_fw_uart.h and include/uiox_fw_timer.h
  
  #ifdef __cplusplus
  extern "C" {
@@ -193,18 +194,18 @@
  #define PL011_DR                    0x000u
  #define PL011_RSR_ECR               0x004u
  #define PL011_FR                    0x018u
- #define PL011_FR_TXFF               (1u << 5)
- #define PL011_FR_RXFE               (1u << 4)
- #define PL011_FR_BUSY               (1u << 3)
+ //#define PL011_FR_TXFF               (1u << 5)
+ //#define PL011_FR_RXFE               (1u << 4)
+ //#define PL011_FR_BUSY               (1u << 3)
  #define PL011_IBRD                  0x024u
  #define PL011_FBRD                  0x028u
  #define PL011_LCR_H                 0x02Cu
  #define PL011_LCR_WLEN8             (0x3u << 5)
- #define PL011_LCR_FEN               (1u << 4)
+ //#define PL011_LCR_FEN               (1u << 4)
  #define PL011_CR                    0x030u
- #define PL011_CR_UARTEN             (1u << 0)
- #define PL011_CR_TXE                (1u << 8)
- #define PL011_CR_RXE                (1u << 9)
+ //#define PL011_CR_UARTEN             (1u << 0)
+ //#define PL011_CR_TXE                (1u << 8)
+ //#define PL011_CR_RXE                (1u << 9)
  #define PL011_IMSC                  0x038u
  #define PL011_ICR                   0x044u
  #define PL011_INT_ALL               0x7FFu

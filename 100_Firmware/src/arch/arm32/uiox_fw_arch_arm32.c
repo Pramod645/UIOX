@@ -4,7 +4,30 @@
  * @date  2026-06-21
  */
 
- #include "uiox_fw.h"
+/* src/arch/arm32/uiox_fw_arch_arm32.c — add at top */
+#include "uiox_fw_arch_arm32.h"
+#include "uiox_fw.h"
+
+/*
+ * udiv32_soft() — software 32-bit unsigned divide.
+ * Uses only bit-shifts and subtracts — no __aeabi_uidiv.
+ * Add this near the top of each affected .c file,
+ * or put it in a shared uiox_fw_math.h header.
+ */
+static inline uint32_t udiv32_soft_a(uint32_t n, uint32_t d,
+    uint32_t *rem_out)
+{
+uint32_t q = 0u, r = 0u;
+if (d == 0u) { if (rem_out) *rem_out = 0u; return 0u; }
+for (int i = 31; i >= 0; i--) {
+r = (r << 1u) | ((n >> (uint32_t)i) & 1u);
+if (r >= d) { r -= d; q |= (1u << (uint32_t)i); }
+}
+if (rem_out) *rem_out = r;
+return q;
+}
+
+
 
  static uiox_fw_platform_t s_arm32_plat = {
      .magic        = UIOX_FW_MAGIC,
@@ -94,7 +117,12 @@
  {
      uintptr_t b = p->timer_base;
      fw_mmio_write32(b + SP804_TIMER1_CTRL, 0u);
+#if defined(__arm__)
+    uint32_t loadk = udiv32_soft_a(SP804_CLOCK_HZ, hz, NULL);
+    fw_mmio_write32(b + SP804_TIMER1_LOAD, loadk);
+#else
      fw_mmio_write32(b + SP804_TIMER1_LOAD, SP804_CLOCK_HZ / hz);
+#endif
      fw_mmio_write32(b + SP804_TIMER1_INTCLR, 1u);
      fw_mmio_write32(b + SP804_TIMER1_CTRL,
                      SP804_CTRL_EN | SP804_CTRL_PERIODIC |

@@ -6,6 +6,26 @@
 
  #include "uiox_fw.h"
 
+ /*
+ * udiv32_soft() — software 32-bit unsigned divide.
+ * Uses only bit-shifts and subtracts — no __aeabi_uidiv.
+ * Add this near the top of each affected .c file,
+ * or put it in a shared uiox_fw_math.h header.
+ */
+static inline uint32_t udiv32_soft_timer(uint32_t n, uint32_t d,
+    uint32_t *rem_out)
+{
+uint32_t q = 0u, r = 0u;
+if (d == 0u) { if (rem_out) *rem_out = 0u; return 0u; }
+for (int i = 31; i >= 0; i--) {
+r = (r << 1u) | ((n >> (uint32_t)i) & 1u);
+if (r >= d) { r -= d; q |= (1u << (uint32_t)i); }
+}
+if (rem_out) *rem_out = r;
+return q;
+}
+
+
  /* Global tick timer used by uiox_fw_udelay / uiox_fw_mdelay */
  static uiox_fw_timer_t *s_tick_timer = NULL;
  
@@ -17,7 +37,11 @@
      /* Disable timer before configuring */
      fw_mmio_write32(b + SP804_TIMER1_CTRL, 0u);
      /* Load value: 1 MHz SP804 / desired Hz */
+#if defined(__arm__)
+    uint32_t load = udiv32_soft_timer(SP804_CLOCK_HZ, t->hz, NULL);
+#else
      uint32_t load = SP804_CLOCK_HZ / t->hz;
+#endif 
      fw_mmio_write32(b + SP804_TIMER1_LOAD, load);
      /* Clear any pending interrupt */
      fw_mmio_write32(b + SP804_TIMER1_INTCLR, 1u);
@@ -143,7 +167,11 @@
  {
      if (!t) return;
      t->tick_count++;
+#if defined(__arm__)
+    t->uptime_ms += udiv32_soft_timer(1000u, t->hz, NULL);
+#else
      t->uptime_ms += (1000u / t->hz);
+#endif
      /* Acknowledge interrupt */
      if (t->type == UIOX_FW_TIMER_SP804) sp804_ack(t);
  #if defined(__aarch64__)

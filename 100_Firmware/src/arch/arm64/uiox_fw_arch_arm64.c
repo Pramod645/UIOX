@@ -4,7 +4,10 @@
  * @date  2026-06-21
  */
 
- #include "uiox_fw.h"
+/* src/arch/arm64/uiox_fw_arch_arm64.c — add at top */
+#include "uiox_fw_arch_arm64.h"
+#include "uiox_fw.h"
+
 
  /* ── Platform descriptor ───────────────────────────────────────────── */
  

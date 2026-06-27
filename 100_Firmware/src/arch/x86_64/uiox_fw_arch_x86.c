@@ -1,10 +1,15 @@
 /**
  * @file  uiox_fw_arch_x86.c
  * @brief UIOX Firmware — x86_64 (QEMU q35) HW ops.
- * @date  2026-06-21
+ * @version 1.0.1  (added missing arch header include)
+ * @date    2026-06-27
  */
 
- #include "uiox_fw.h"
+/* FIX: include the arch header that defines Q35_* and PIT_BASE_FREQ */
+#include "uiox_fw_arch_x86.h"   /* ← THIS WAS MISSING */
+#include "uiox_fw.h"
+
+
 
  static inline void _outb(uint16_t p, uint8_t v)
  { __asm__ volatile("outb %0,%1"::"a"(v),"dN"(p)); }
@@ -20,10 +25,10 @@
                      UIOX_FW_CAP_PIT8254  | UIOX_FW_CAP_ACPI,
      .arch         = UIOX_FW_ARCH_X86_64,
      .name         = "QEMU q35 (x86_64)",
-     .uart_base    = Q35_COM1_PORT,
-     .gic_dist_base= Q35_IOAPIC_BASE,
-     .gic_cpu_base = Q35_LAPIC_BASE,
-     .timer_base   = Q35_PIT_PORT,
+     .uart_base    = X86_COM1_PORT,
+     .gic_dist_base= IOAPIC_REGSEL,
+     .gic_cpu_base = X86_MSR_IA32_APIC_BASE,
+     .timer_base   = X86_PIT_CH0,
      .gpio_base    = 0u,
      .uart_irq     = UIOX_IRQ_X86_COM1 + UIOX_IRQ_X86_REMAP_BASE,
      .timer_irq    = UIOX_IRQ_X86_TIMER + UIOX_IRQ_X86_REMAP_BASE,
@@ -107,14 +112,14 @@
  
  static void x86_uart_putc(char c)
  {
-     while (!(_inb((uint16_t)(Q35_COM1_PORT + 5u)) & 0x20u)) ;
-     _outb((uint16_t)Q35_COM1_PORT, (uint8_t)c);
+     while (!(_inb((uint16_t)(X86_COM1_PORT + 5u)) & 0x20u)) ;
+     _outb((uint16_t)X86_COM1_PORT, (uint8_t)c);
  }
  
  static void x86_timer_init(uiox_fw_platform_t *p, uint32_t hz)
  {
      UIOX_FW_UNUSED(p);
-     uint16_t div = (uint16_t)(PIT_BASE_FREQ / hz);
+     uint16_t div = (uint16_t)(X86_PIT_BASE_FREQ / hz);
      _outb(PIT_CMD, PIT_CMD_CH0_MODE3);
      _outb(PIT_CHANNEL0, (uint8_t)(div & 0xFFu));
      _outb(PIT_CHANNEL0, (uint8_t)(div >> 8u));

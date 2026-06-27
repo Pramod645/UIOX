@@ -24,7 +24,7 @@
  #ifndef UIOX_FW_ARCH_X86_H
  #define UIOX_FW_ARCH_X86_H
  
- #include "../../include/uiox_fw_types.h"
+ #include "../include/uiox_fw_types.h"
  
  #ifdef __cplusplus
  extern "C" {

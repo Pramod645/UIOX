@@ -17,6 +17,7 @@
 
  #include "uiox_fw.h"
  #include <stdarg.h>
+ #include "../src/arch/x86_64/uiox_fw_arch_x86.h"
  
  /* =========================================================================
   * Platform forward declarations
@@ -42,6 +43,44 @@
   * Firmware printf helpers — no 64-bit division
   * ====================================================================== */
  
+/*
+ * Software 32-bit unsigned divide — NO / or % operator.
+ * Eliminates __aeabi_uidiv, __aeabi_uidivmod, __aeabi_uldivmod.
+ */
+static uint32_t udiv32_softp(uint32_t n, uint32_t d, uint32_t *rem_out)
+{
+    uint32_t q = 0u, r = 0u;
+    if (d == 0u) { if (rem_out) *rem_out = 0u; return 0u; }
+    for (int i = 31; i >= 0; i--) {
+        r = (r << 1u) | ((n >> (uint32_t)i) & 1u);
+        if (r >= d) { r -= d; q |= (1u << (uint32_t)i); }
+    }
+    if (rem_out) *rem_out = r;
+    return q;
+}
+/*
+ * 64-bit divide by 32-bit using only 32-bit operations.
+ * Avoids __aeabi_uldivmod entirely.
+ */
+static uint64_t div64_by_u32(uint64_t n, uint32_t d, uint32_t *rem_out)
+{
+    uint32_t hi  = (uint32_t)(n >> 32u);
+    uint32_t lo  = (uint32_t)(n);
+    uint32_t rh  = 0u;
+    uint32_t qh  = udiv32_softp(hi, d, &rh);
+    uint32_t tmp, qm, rm, ql, rl;
+    /* upper 16 bits of lo */
+    tmp = (rh << 16u) | (lo >> 16u);
+    qm  = udiv32_softp(tmp, d, &rm);
+    /* lower 16 bits of lo */
+    tmp = (rm << 16u) | (lo & 0xFFFFu);
+    ql  = udiv32_softp(tmp, d, &rl);
+    if (rem_out) *rem_out = rl;
+    return ((uint64_t)qh << 32u) | ((uint64_t)(qm << 16u) | ql);
+}
+
+
+  
  static void fw_puthex(uint64_t v, int width)
  {
      static const char h[] = "0123456789abcdef";
@@ -56,35 +95,59 @@
  {
      char buf[12]; int n = 0;
      if (v == 0u) { uiox_fw_hw_uart_putc('0'); return; }
-     do { buf[n++] = (char)('0' + v % 10u); v /= 10u; } while (v);
+     uint32_t rem = 0u;
+     do {
+         v = udiv32_softp(v, 10u, &rem);
+         buf[n++] = (char)('0' + rem);
+     } while (v != 0u);
      for (int i = n - 1; i >= 0; i--)
          uiox_fw_hw_uart_putc(buf[i]);
  }
  
  static void fw_putdec_u64(uint64_t v)
- {
-     if (v == 0u) { uiox_fw_hw_uart_putc('0'); return; }
-     uint32_t bot = (uint32_t)(v % 1000000000u);
-     uint32_t mid = (uint32_t)((v / 1000000000u) % 1000000000u);
-     uint32_t top = (uint32_t)(v / 1000000000000000000u);
-     char buf[28]; int n = 0;
-     uint32_t tmp;
-     tmp = bot;
-     do { buf[n++] = (char)('0' + tmp % 10u); tmp /= 10u; } while (tmp);
-     if (top || mid) {
-         while (n < 9) buf[n++] = '0';
-         tmp = mid;
-         do { buf[n++] = (char)('0' + tmp % 10u); tmp /= 10u; } while (tmp);
-     }
-     if (top) {
-         while (n < 18) buf[n++] = '0';
-         tmp = top;
-         do { buf[n++] = (char)('0' + tmp % 10u); tmp /= 10u; } while (tmp);
-     }
-     for (int i = n - 1; i >= 0; i--)
-         uiox_fw_hw_uart_putc(buf[i]);
- }
- 
+{
+    if (v == 0u) { uiox_fw_hw_uart_putc('0'); return; }
+    /* Split into three groups of 9 decimal digits using
+     * div64_by_u32 — zero 64-bit division operators. */
+    static const uint32_t BILLION = 1000000000u;
+    uint32_t rem = 0u;
+    uint64_t q;
+    q = div64_by_u32(v, BILLION, &rem);
+    uint32_t bot = rem;
+    q = div64_by_u32(q, BILLION, &rem);
+    uint32_t mid = rem;
+    uint32_t top = (uint32_t)q;   /* <= 18 for max uint64 */
+    char buf[20]; int n = 0;
+    /* bottom group */
+    {
+        uint32_t tmp = bot, r2 = 0u;
+        do {
+            tmp = udiv32_softp(tmp, 10u, &r2);
+            buf[n++] = (char)('0' + r2);
+        } while (tmp != 0u);
+    }
+    if (top != 0u || mid != 0u) {
+        while (n < 9) buf[n++] = '0';
+        /* middle group */
+        uint32_t tmp = mid, r2 = 0u;
+        do {
+            tmp = udiv32_softp(tmp, 10u, &r2);
+            buf[n++] = (char)('0' + r2);
+        } while (tmp != 0u);
+    }
+    if (top != 0u) {
+        while (n < 18) buf[n++] = '0';
+        /* top group */
+        uint32_t tmp = top, r2 = 0u;
+        do {
+            tmp = udiv32_softp(tmp, 10u, &r2);
+            buf[n++] = (char)('0' + r2);
+        } while (tmp != 0u);
+    }
+    for (int i = n - 1; i >= 0; i--)
+        uiox_fw_hw_uart_putc(buf[i]);
+}
+
  void uiox_fw_putc(char c)
  {
      if (c == '\n') uiox_fw_hw_uart_putc('\r');
@@ -260,7 +323,7 @@
                             UIOX_IRQ_ARM32_UART0, &cfg);
  #else
          uiox_fw_uart_init(&s_console,
-                            Q35_COM1_PORT,
+                            X86_COM1_PORT,
                             /*is_pl011=*/false,
                             UIOX_IRQ_X86_COM1, &cfg);
  #endif
@@ -330,7 +393,7 @@
  #else
      rc = uiox_fw_timer_init(&s_timer,
                               UIOX_FW_TIMER_PIT,
-                              Q35_PIT_PORT,
+                              X86_COM1_PORT,
                               UIOX_IRQ_X86_TIMER + UIOX_IRQ_X86_REMAP_BASE,
                               100u);
  #endif
@@ -474,7 +537,7 @@
      uiox_fw_hw_dsb();
      uiox_fw_hw_isb();
  
-     uiox_kernel_main(dtb_pa);
+     //uiox_kernel_main(dtb_pa);
  
      for (;;) uiox_fw_power_idle();
  }
