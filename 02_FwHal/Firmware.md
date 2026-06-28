@@ -1,38 +1,6 @@
 00_Firmware/
 ├── include/
 │   ├── uiox_fw_types.h        # Base types, error codes, magic numbers
-│   ├── uiox_fw_hal.h          # HAL vtable: MMIO, clocks, reset, power
-│   ├── uiox_fw_uart.h         # UART driver interface (PL011 / 16550)
-│   ├── uiox_fw_gic.h          # Interrupt controller (GIC-400 / 8259A)
-│   ├── uiox_fw_timer.h        # System timer (SP804 / PIT / ARM generic)
-│   ├── uiox_fw_gpio.h         # GPIO abstraction
-│   ├── uiox_fw_power.h        # Power management (PSCI / ACPI S-states)
-│   ├── uiox_fw_mmu.h          # Early MMU / page-table setup
-│   ├── uiox_fw_soc.h          # SoC descriptor: all peripheral bases
-│   └── uiox_fw.h              # Master umbrella include
-├── src/
-│   ├── arch/
-│   │   ├── arm64/
-│   │   │   ├── uiox_fw_hal_arm64.c
-│   │   │   └── uiox_fw_mmu_arm64.c
-│   │   ├── arm32/
-│   │   │   ├── uiox_fw_hal_arm32.c
-│   │   │   └── uiox_fw_mmu_arm32.c
-│   │   └── x86_64/
-│   │       ├── uiox_fw_hal_x86.c
-│   │       └── uiox_fw_mmu_x86.c
-│   ├── uiox_fw_uart.c
-│   ├── uiox_fw_gic.c
-│   ├── uiox_fw_timer.c
-│   ├── uiox_fw_gpio.c
-│   ├── uiox_fw_power.c
-│   ├── uiox_fw_soc.c
-│   └── uiox_fw_main.c
-└── Makefile
-===============================================
-00_Firmware/
-├── include/
-│   ├── uiox_fw_types.h        # Base types, error codes, magic numbers
 │   ├── uiox_fw_hw.h           # HW HAL: MMIO, vtable, platform ops
 │   ├── uiox_fw_irq.h          # IRQ controller abstraction (GIC/8259A/LAPIC)
 │   ├── uiox_fw_uart.h         # UART driver (PL011 / 16550)

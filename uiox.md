@@ -264,7 +264,7 @@ UIOX Improvement Priority Order
 `
 Priority │ Improvement                    │ Impact
 ─────────┼────────────────────────────────┼──────────────────────
-  1      │ POSIX syscall compatibility     │ Huge — run real software
+  1      │ POSIX syscall compatibility    │ Huge — run real software
   2      │ HAL + device tree              │ Huge — support more hardware
   3      │ Security: ASLR + MAC           │ High  — production safety
   4      │ Filesystem journaling          │ High  — data integrity
