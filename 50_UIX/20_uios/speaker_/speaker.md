@@ -71,7 +71,7 @@ uiox-speaker/
     └── uiox_spk_demo.c    # TAS5756 + I2S stub HAL, synthetic 440/660 Hz
                            #   sines + noise, multi-stream mix, EQ/bass/treble,
                            #   pause/resume, mute, fade stop, stats
-=======================
+============================
 Key Design Decisions
 Decision	Rationale
 Double-buffered DMA with silence fill	On underrun, silence is inserted rather than replaying stale data or crashing; prevents audible glitches during CPU overload
