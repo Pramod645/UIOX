@@ -2,12 +2,20 @@
  * @file    uiox_fw_post.h
  * @brief   UIOX Firmware — Power-On Self Test (POST).
  *
- * Runs a structured sequence of hardware tests immediately after
- * the platform HAL is initialised and before the kernel is loaded.
- * Each test records its result, duration, and a human-readable
- * detail string.  A critical failure halts the system.
+ * Runs a structured series of hardware checks before the firmware
+ * hands off to the kernel.  Each test is independent; a failure
+ * sets a result flag but (by default) does not halt the boot —
+ * the caller decides whether to abort or continue.
  *
- * Test IDs 0x01–0x09 are mandatory; 0x10+ are optional/platform.
+ * Tests performed (in order):
+ *   POST_CPU     — CPU identification and minimal register sanity
+ *   POST_CACHE   — L1 D-cache read-after-write pattern
+ *   POST_RAM     — Walking-ones march test over a small DRAM window
+ *   POST_UART    — UART TX FIFO ready and loopback (if wired)
+ *   POST_TIMER   — System-timer tick advances
+ *   POST_IRQ     — IRQ controller responds to a software-trigger
+ *   POST_STORAGE — Block device present and sector-0 readable
+ *   POST_CRYPTO  — SHA-256 self-test against known vector
  *
  * @version 1.0.0
  * @date    2026-07-06
@@ -22,98 +30,80 @@ extern "C" {
 #endif
 
 /* =========================================================================
- * POST test IDs
+ * Test IDs
  * ====================================================================== */
-#define UIOX_POST_CPU          0x01u  /**< CPU sanity (registers, EL)  */
-#define UIOX_POST_CACHE        0x02u  /**< L1 D-cache R/W test         */
-#define UIOX_POST_RAM          0x03u  /**< DRAM march pattern test     */
-#define UIOX_POST_UART         0x04u  /**< UART TX loopback            */
-#define UIOX_POST_TIMER        0x05u  /**< System timer tick test      */
-#define UIOX_POST_IRQ          0x06u  /**< IRQ controller sanity       */
-#define UIOX_POST_CLOCK        0x07u  /**< PLL / clock lock            */
-#define UIOX_POST_POWER        0x08u  /**< Power domain status         */
-#define UIOX_POST_STORAGE      0x09u  /**< Block device presence       */
-#define UIOX_POST_SECBOOT      0x0Au  /**< Secure boot config check    */
-#define UIOX_POST_TZ           0x0Bu  /**< TrustZone / EL3 state       */
-#define UIOX_POST_NUM_TESTS    0x0Cu  /**< Total mandatory test count  */
+#define UIOX_POST_CPU       0x01u
+#define UIOX_POST_CACHE     0x02u
+#define UIOX_POST_RAM       0x03u
+#define UIOX_POST_UART      0x04u
+#define UIOX_POST_TIMER     0x05u
+#define UIOX_POST_IRQ       0x06u
+#define UIOX_POST_STORAGE   0x07u
+#define UIOX_POST_CRYPTO    0x08u
+#define UIOX_POST_NUM       0x08u   /**< total number of POST tests     */
 
 /* =========================================================================
- * POST result severity
- * ====================================================================== */
-typedef enum {
-    UIOX_POST_PASS     = 0,   /**< Test passed                         */
-    UIOX_POST_WARN     = 1,   /**< Passed with advisory warning        */
-    UIOX_POST_FAIL     = 2,   /**< Test failed — non-critical          */
-    UIOX_POST_CRITICAL = 3,   /**< Test failed — system cannot boot    */
-} uiox_post_result_t;
-
-/* =========================================================================
- * Per-test record
+ * Result record — one per test
  * ====================================================================== */
 typedef struct {
-    uint8_t           test_id;
-    uiox_post_result_t result;
-    uint64_t          duration_us;
-    char              name  [32];
-    char              detail[128];
-} uiox_post_entry_t;
+    uint8_t          test_id;
+    uiox_fw_err_t    result;          /**< UIOX_FW_OK = pass            */
+    uint32_t         duration_us;     /**< wall-clock µs (approximate)  */
+    char             name[24];
+    char             detail[64];      /**< human-readable pass/fail note */
+} uiox_fw_post_result_t;
 
 /* =========================================================================
- * POST context
+ * POST context — filled by uiox_fw_post_run_all()
  * ====================================================================== */
-#define UIOX_POST_MAX_TESTS  16u
-
 typedef struct {
-    uiox_post_entry_t tests[UIOX_POST_MAX_TESTS];
-    uint8_t           count;
-    uint8_t           pass_count;
-    uint8_t           fail_count;
-    uint8_t           warn_count;
-    uint64_t          total_us;
-    bool              any_critical;
+    uiox_fw_post_result_t results[UIOX_POST_NUM];
+    uint8_t               count;
+    uint8_t               pass;
+    uint8_t               fail;
+    uint32_t              total_us;
 } uiox_fw_post_ctx_t;
 
 /* =========================================================================
- * POST API
+ * Configuration flags
+ * ====================================================================== */
+#define UIOX_POST_FL_HALT_ON_FAIL  (1u << 0)  /**< stop at first failure */
+#define UIOX_POST_FL_VERBOSE       (1u << 1)  /**< print each result     */
+#define UIOX_POST_FL_SKIP_STORAGE  (1u << 2)  /**< skip if no block dev  */
+#define UIOX_POST_FL_SKIP_IRQ      (1u << 3)  /**< skip SW-IRQ test      */
+
+/* =========================================================================
+ * API
  * ====================================================================== */
 
-/** Initialise context — call before any post_run_* function.           */
-void uiox_fw_post_init     (uiox_fw_post_ctx_t *ctx);
+/**
+ * Run all POST tests.
+ * @param ctx    caller-allocated context; filled on return
+ * @param flags  UIOX_POST_FL_* bitmask
+ * @return UIOX_FW_OK if all tests passed, UIOX_FW_ERR_POST otherwise
+ */
+uiox_fw_err_t uiox_fw_post_run_all  (uiox_fw_post_ctx_t *ctx,
+                                       uint32_t            flags);
 
-/** Run every mandatory test in sequence.
- *  @return UIOX_FW_OK if all pass/warn, UIOX_FW_ERR_FAIL if critical. */
-uiox_fw_err_t uiox_fw_post_run_all (uiox_fw_post_ctx_t *ctx,
-                                      uintptr_t ram_base,
-                                      uint64_t  ram_size);
+/** Run a single test by ID (UIOX_POST_*). */
+uiox_fw_err_t uiox_fw_post_run_one  (uiox_fw_post_result_t *r,
+                                       uint8_t               test_id);
 
-/** Run a single test by test_id.                                        */
-uiox_fw_err_t uiox_fw_post_run_one (uiox_fw_post_ctx_t *ctx,
-                                      uint8_t test_id,
-                                      uintptr_t ram_base,
-                                      uint64_t  ram_size);
+/** Print the full POST report via uiox_fw_printf(). */
+void          uiox_fw_post_print    (const uiox_fw_post_ctx_t *ctx);
 
-/** Print a formatted POST report via firmware UART.                     */
-void          uiox_fw_post_print   (const uiox_fw_post_ctx_t *ctx);
+/** Return non-zero if any test failed. */
+int           uiox_fw_post_any_fail (const uiox_fw_post_ctx_t *ctx);
 
-/** Halt with a POST failure message (never returns).                    */
-void __attribute__((noreturn))
-              uiox_fw_post_panic   (const uiox_fw_post_ctx_t *ctx,
-                                      uint8_t failed_test_id);
-
-/* Individual test functions (also callable directly for diagnostics)   */
-uiox_post_result_t uiox_fw_post_test_cpu    (uiox_post_entry_t *e);
-uiox_post_result_t uiox_fw_post_test_cache  (uiox_post_entry_t *e);
-uiox_post_result_t uiox_fw_post_test_ram    (uiox_post_entry_t *e,
-                                               uintptr_t base,
-                                               uint64_t  size);
-uiox_post_result_t uiox_fw_post_test_uart   (uiox_post_entry_t *e);
-uiox_post_result_t uiox_fw_post_test_timer  (uiox_post_entry_t *e);
-uiox_post_result_t uiox_fw_post_test_irq    (uiox_post_entry_t *e);
-uiox_post_result_t uiox_fw_post_test_clock  (uiox_post_entry_t *e);
-uiox_post_result_t uiox_fw_post_test_power  (uiox_post_entry_t *e);
-uiox_post_result_t uiox_fw_post_test_storage(uiox_post_entry_t *e);
-uiox_post_result_t uiox_fw_post_test_secboot(uiox_post_entry_t *e);
-uiox_post_result_t uiox_fw_post_test_tz     (uiox_post_entry_t *e);
+/* Individual test entry points (also callable directly) */
+uiox_fw_err_t uiox_fw_post_cpu     (uiox_fw_post_result_t *r);
+uiox_fw_err_t uiox_fw_post_cache   (uiox_fw_post_result_t *r);
+uiox_fw_err_t uiox_fw_post_ram     (uiox_fw_post_result_t *r);
+uiox_fw_err_t uiox_fw_post_uart    (uiox_fw_post_result_t *r);
+uiox_fw_err_t uiox_fw_post_timer   (uiox_fw_post_result_t *r);
+uiox_fw_err_t uiox_fw_post_irq     (uiox_fw_post_result_t *r);
+uiox_fw_err_t uiox_fw_post_storage (uiox_fw_post_result_t *r);
+uiox_fw_err_t uiox_fw_post_crypto  (uiox_fw_post_result_t *r);
 
 #ifdef __cplusplus
 }

@@ -1,17 +1,17 @@
 /**
  * @file    uiox_fw_tz.h
- * @brief   UIOX Firmware — ARM TrustZone / EL3 setup.
+ * @brief   UIOX Firmware — ARM TrustZone setup (EL3 / Secure World).
  *
- * Configures the ARM Secure/Non-Secure world partitioning:
- *   - TZPC (TrustZone Protection Controller) — marks memory/MMIO regions
- *   - TZASC (TrustZone Address Space Controller) — DRAM access control
- *   - SCR_EL3 — Secure Configuration Register
- *   - SCTLR_EL3 — minimal EL3 control
- *   - GIC-600 security groups (Group 0 = secure, Group 1 = normal)
- *   - SMC vector table (EL3 → OP-TEE or UIOX secure monitor)
+ * Configures the ARM TrustZone security partitioning:
+ *   - TZPC  (TrustZone Protection Controller) — memory window security
+ *   - TZASC (TrustZone Address Space Controller) — DRAM region security
+ *   - GIC   — interrupt routing between Secure and Non-Secure worlds
+ *   - SCR_EL3 / SCTLR_EL3 — EL3 security control registers
+ *   - ACTLR_EL3 / CPTR_EL3 — auxiliary + crypto access control
  *
- * On x86-64 and ARM32 without TrustZone, all functions are stubs
- * that return UIOX_FW_ERR_NOTSUP gracefully.
+ * This module is only compiled when __aarch64__ is defined.
+ * On ARM32 a reduced set of TZ registers is used.
+ * On x86-64 this module is a no-op stub.
  *
  * @version 1.0.0
  * @date    2026-07-06
@@ -26,108 +26,112 @@ extern "C" {
 #endif
 
 /* =========================================================================
- * SCR_EL3 bit definitions (ARM DDI 0487)
- * ====================================================================== */
-#define SCR_EL3_NS     (1u <<  0)  /**< Non-Secure bit                  */
-#define SCR_EL3_IRQ    (1u <<  1)  /**< IRQ routed to EL3               */
-#define SCR_EL3_FIQ    (1u <<  2)  /**< FIQ routed to EL3               */
-#define SCR_EL3_EA     (1u <<  3)  /**< External abort routed to EL3    */
-#define SCR_EL3_SMD    (1u <<  7)  /**< SMC disable (EL1/EL2)           */
-#define SCR_EL3_HCE    (1u <<  8)  /**< HVC enable                      */
-#define SCR_EL3_SIF    (1u <<  9)  /**< Secure instruction fetch        */
-#define SCR_EL3_RW     (1u << 10)  /**< EL2/EL1 = AArch64               */
-#define SCR_EL3_ST     (1u << 11)  /**< Secure EL1 access to timer regs */
-#define SCR_EL3_TWED   (1u << 29)  /**< Delayed WFE trap                */
-
-/* =========================================================================
- * TrustZone memory region types
+ * TrustZone memory region security attributes
  * ====================================================================== */
 typedef enum {
-    UIOX_TZ_MEM_SECURE     = 0, /**< Accessible only from Secure World  */
-    UIOX_TZ_MEM_NONSECURE  = 1, /**< Accessible from Non-Secure World   */
-    UIOX_TZ_MEM_SHARED     = 2, /**< Accessible from both worlds        */
-} uiox_tz_mem_type_t;
+    UIOX_TZ_MEM_SECURE     = 0,  /**< accessible only from Secure World */
+    UIOX_TZ_MEM_NONSECURE  = 1,  /**< accessible from both worlds       */
+    UIOX_TZ_MEM_INVALID    = 2,  /**< all accesses generate AXI error   */
+} uiox_tz_mem_attr_t;
 
 /* =========================================================================
  * TrustZone memory region descriptor
  * ====================================================================== */
-#define UIOX_TZ_MAX_REGIONS  16u
-
 typedef struct {
-    uintptr_t         base;
-    uint64_t          size;
-    uiox_tz_mem_type_t type;
-    char              name[24];
-} uiox_tz_region_t;
+    uint64_t         base;
+    uint64_t         size;
+    uiox_tz_mem_attr_t attr;
+    char             name[24];
+} uiox_fw_tz_region_t;
 
 /* =========================================================================
- * EL3 / TrustZone context
+ * GIC interrupt security assignment
  * ====================================================================== */
+typedef enum {
+    UIOX_TZ_IRQ_SECURE     = 0,  /**< Group 0 — routed to FIQ in EL3   */
+    UIOX_TZ_IRQ_NONSECURE  = 1,  /**< Group 1 — routed to IRQ in EL1   */
+} uiox_tz_irq_sec_t;
+
+/* =========================================================================
+ * SCR_EL3 bit definitions (AArch64)
+ * ====================================================================== */
+#define UIOX_SCR_EL3_NS    (1u <<  0)  /**< Non-Secure state bit        */
+#define UIOX_SCR_EL3_IRQ   (1u <<  1)  /**< IRQ taken to EL3            */
+#define UIOX_SCR_EL3_FIQ   (1u <<  2)  /**< FIQ taken to EL3            */
+#define UIOX_SCR_EL3_EA    (1u <<  3)  /**< External abort to EL3       */
+#define UIOX_SCR_EL3_RW    (1u << 10)  /**< EL2/EL1 is AArch64          */
+#define UIOX_SCR_EL3_ST    (1u << 11)  /**< Secure EL1 timer access     */
+#define UIOX_SCR_EL3_TWI   (1u << 12)  /**< Trap WFI from EL2/EL1/EL0  */
+#define UIOX_SCR_EL3_TWE   (1u << 13)  /**< Trap WFE from EL2/EL1/EL0  */
+#define UIOX_SCR_EL3_HCE   (1u << 8)   /**< HVC instruction enable      */
+#define UIOX_SCR_EL3_SIF   (1u <<  9)  /**< Secure instruction fetch    */
+
+/* =========================================================================
+ * TrustZone context
+ * ====================================================================== */
+#define UIOX_TZ_MAX_REGIONS  16u
+#define UIOX_TZ_MAX_IRQS     32u
+
 typedef struct {
-    bool            tz_supported;    /**< platform has TrustZone         */
-    bool            el3_active;      /**< firmware entered from EL3      */
-    bool            ns_configured;   /**< NS bit set for normal world    */
-    bool            gic_configured;  /**< GIC security groups set        */
-    uint64_t        scr_el3_val;     /**< value written to SCR_EL3       */
-    uiox_tz_region_t regions[UIOX_TZ_MAX_REGIONS];
-    uint8_t         num_regions;
-    uintptr_t       vbar_el3;        /**< EL3 vector base address        */
-    uintptr_t       optee_entry;     /**< OP-TEE / secure monitor entry  */
+    uiox_fw_tz_region_t regions[UIOX_TZ_MAX_REGIONS];
+    uint8_t             num_regions;
+    uint32_t            irq_group[UIOX_TZ_MAX_IRQS]; /**< UIOX_TZ_IRQ_*  */
+    uint8_t             num_irqs;
+    uint32_t            scr_el3_val;  /**< programmed SCR_EL3 value      */
+    bool                tz_enabled;
+    bool                el3_present;
+    char                world[16];    /**< "SECURE" or "NONSECURE"        */
 } uiox_fw_tz_ctx_t;
 
 /* =========================================================================
- * SMC function IDs (PSCI and monitor)
- * ====================================================================== */
-#define UIOX_SMC_FW_VERSION    0x80000000u
-#define UIOX_SMC_TZ_CONFIGURE  0x80000001u
-#define UIOX_SMC_TZ_MEM_SETUP  0x80000002u
-#define UIOX_SMC_DEBUG_LOCK    0x80000003u
-
-/* =========================================================================
- * TrustZone API
+ * API
  * ====================================================================== */
 
-/** Detect if TrustZone is supported on this platform.                   */
-bool          uiox_fw_tz_supported     (void);
+/**
+ * Probe whether the CPU is at EL3 and TrustZone is available.
+ * Must be called before any other TZ function.
+ */
+uiox_fw_err_t uiox_fw_tz_probe       (uiox_fw_tz_ctx_t *ctx);
 
-/** Initialise EL3 / TrustZone context.                                  */
-uiox_fw_err_t uiox_fw_tz_init         (uiox_fw_tz_ctx_t *ctx);
+/**
+ * Full TrustZone setup sequence:
+ *   1. Initialise SCR_EL3 / CPTR_EL3 / ACTLR_EL3
+ *   2. Configure TZPC / TZASC memory windows
+ *   3. Assign GIC interrupt groups
+ *   4. Configure Secure Monitor Call (SMC) routing
+ *   5. Set NS bit to prepare drop to EL1
+ */
+uiox_fw_err_t uiox_fw_tz_setup       (uiox_fw_tz_ctx_t *ctx);
 
-/** Configure SCR_EL3 — sets RW, NS policy, IRQ/FIQ routing.            */
-uiox_fw_err_t uiox_fw_tz_configure_scr(uiox_fw_tz_ctx_t *ctx,
-                                          uint64_t scr_bits);
+/** Add a memory region to the TrustZone security map. */
+uiox_fw_err_t uiox_fw_tz_add_region  (uiox_fw_tz_ctx_t    *ctx,
+                                         uint64_t             base,
+                                         uint64_t             size,
+                                         uiox_tz_mem_attr_t   attr,
+                                         const char          *name);
 
-/** Register a memory region with the TrustZone controller.              */
-uiox_fw_err_t uiox_fw_tz_add_region   (uiox_fw_tz_ctx_t *ctx,
-                                          uintptr_t base, uint64_t size,
-                                          uiox_tz_mem_type_t type,
-                                          const char *name);
+/** Assign a GIC interrupt to Secure or Non-Secure group. */
+uiox_fw_err_t uiox_fw_tz_assign_irq  (uiox_fw_tz_ctx_t *ctx,
+                                         uint32_t          irq,
+                                         uiox_tz_irq_sec_t sec);
 
-/** Apply all registered regions to TZASC / TZPC hardware.              */
-uiox_fw_err_t uiox_fw_tz_apply        (uiox_fw_tz_ctx_t *ctx);
-
-/** Configure GIC-600 security groups (Group 0 = secure FIQ).          */
-uiox_fw_err_t uiox_fw_tz_configure_gic(uiox_fw_tz_ctx_t *ctx,
-                                          uintptr_t gicd_base,
-                                          uintptr_t gicc_base);
-
-/** Install EL3 vector table for SMC handling.                           */
-uiox_fw_err_t uiox_fw_tz_install_vbar (uiox_fw_tz_ctx_t *ctx,
-                                          uintptr_t vbar_addr);
-
-/** Register OP-TEE or custom secure monitor entry point.               */
-uiox_fw_err_t uiox_fw_tz_register_monitor(uiox_fw_tz_ctx_t *ctx,
-                                             uintptr_t entry);
-
-/** Drop from EL3 to EL1 (Normal World) for kernel handoff.
- *  Sets SPSR_EL3 and ELR_EL3 then executes ERET.                       */
+/**
+ * Drop from EL3 to EL1 (Non-Secure) to continue normal boot.
+ * Configures SPSR_EL3 and ELR_EL3, then issues ERET.
+ * This function does NOT return — control passes to entry_pa.
+ */
 void __attribute__((noreturn))
-              uiox_fw_tz_drop_to_el1  (uiox_fw_tz_ctx_t *ctx,
-                                          uintptr_t el1_entry,
-                                          uint64_t  dtb_pa);
+      uiox_fw_tz_drop_to_el1         (uiox_fw_tz_ctx_t *ctx,
+                                         uint64_t          entry_pa,
+                                         uint64_t          arg0);
 
-/** Print TrustZone configuration via firmware UART.                    */
-void          uiox_fw_tz_print        (const uiox_fw_tz_ctx_t *ctx);
+/** Print TrustZone configuration. */
+void  uiox_fw_tz_print               (const uiox_fw_tz_ctx_t *ctx);
+
+/* Low-level EL3 register access (internal use + arch drivers) */
+uint64_t uiox_fw_read_scr_el3  (void);
+void     uiox_fw_write_scr_el3 (uint64_t val);
+uint32_t uiox_fw_current_el    (void);
 
 #ifdef __cplusplus
 }

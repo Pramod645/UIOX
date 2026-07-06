@@ -393,27 +393,45 @@ uiox_fw_secboot_init(&s_secboot, UIOX_SECBOOT_LEVEL_HASH);
  * as a canary value.  The secboot level is HASH-only so a missing
  * header is not a fatal error.
  */
-
- /* Stage 1d: Secure Boot */
-uiox_fw_printf("Stage 1d: Secure Boot\n");
-uiox_fw_secboot_init(&s_secboot, UIOX_SECBOOT_LEVEL_HASH);
-
-#if !defined(UIOX_SECBOOT_SKIP_IN_SIM)
-    {
-        const void    *img   = (const void *)(uintptr_t)UIOX_FW_LOAD_PA;
-        unsigned int sz    = (unsigned int)UIOX_FW_IMAGE_SIZE;
-        uiox_fw_err_t  sb_rc = uiox_fw_secboot_verify(&s_secboot, img, sz);
-        if (sb_rc != UIOX_FW_OK)
-            uiox_fw_printf("  SecBoot: WARNING %d\n", (int)sb_rc);
-    }
-#else
-    uiox_fw_printf("  SecBoot: simulation — skipped\n");
+#if defined(UIOX_SECBOOT_SKIP_IN_SIM)
+    /* Simulation: skip image verify, just log */
+    uiox_fw_printf("  SecBoot: simulation mode — verify skipped\n");
     s_secboot.verified = true;
+#else
+    {
+        const void  *img  = (const void *)(uintptr_t)UIOX_FW_LOAD_PA;
+        //uiox_fw_size_t sz = (uiox_fw_size_t)UIOX_FW_IMAGE_SIZE;
+        //uiox_fw_err_t sb_rc = uiox_fw_secboot_verify(&s_secboot, img, sz);
+        /* BEFORE (broken) */
+//uiox_fw_secboot_verify(&s_secboot,
+//    (const void *)UIOX_FW_LOAD_PA,
+//    UIOX_FW_IMAGE_SIZE);
+
+/* AFTER (compiles on all three arches) */
+#if defined(__aarch64__)
+#  define _FW_PA   ((const void *)0x40000000ULL)
+#  define _FW_SZ   ((size_t)0x00080000u)
+#elif defined(__arm__)
+#  define _FW_PA   ((const void *)0x00100000UL)
+#  define _FW_SZ   ((size_t)0x00040000u)
+#else
+#  define _FW_PA   ((const void *)0x00100000ULL)
+#  define _FW_SZ   ((size_t)0x00080000u)
+#endif
+
+uiox_fw_err_t sb_rc = uiox_fw_secboot_verify(&s_secboot, _FW_PA, _FW_SZ);
+#undef _FW_PA
+#undef _FW_SZ
+
+        if (sb_rc != UIOX_FW_OK) {
+            /* Non-fatal at HASH level in simulation — warn only */
+            uiox_fw_printf("  SecBoot: WARNING — verify returned %d "
+                           "(no header in QEMU image)\n", (int)sb_rc);
+        }
+    }
 #endif
 
 uiox_fw_secboot_print(&s_secboot);
-
-
 
 
 /* ── Stage 1e: PSCI ─────────────────────────────────────────── */

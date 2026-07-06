@@ -2,15 +2,19 @@
  * @file    uiox_fw_secboot.h
  * @brief   UIOX Firmware — Secure Boot verification.
  *
- * Implements the UIOX secure boot chain:
- *   1. Verify firmware image SHA-256 against stored golden hash
- *   2. Verify firmware Ed25519 signature against fused public key
- *   3. Verify kernel image signature before handoff
- *   4. Enforce rollback protection via monotonic counter (NV store)
- *   5. Record measurement into TPM PCR-style software log
+ * Provides SHA-256 image integrity checks and Ed25519 signature
+ * verification for kernel images before the firmware hands off.
  *
- * On ARM64 the fused keys live in "ROM" at a platform-defined address.
- * On x86-64 they live in a simulated flash region.
+ * Chain of trust:
+ *   Root-of-Trust key (fused into OTP / TPM)
+ *       └── Firmware signing key certificate
+ *               └── Kernel image signature
+ *
+ * Security levels:
+ *   SECBOOT_LEVEL_OFF      — no verification (development only)
+ *   SECBOOT_LEVEL_HASH     — SHA-256 integrity only (no signature)
+ *   SECBOOT_LEVEL_SIGN     — full Ed25519 signature verification
+ *   SECBOOT_LEVEL_MEASURED — signature + TPM PCR measurement
  *
  * @version 1.0.0
  * @date    2026-07-06
@@ -25,122 +29,114 @@ extern "C" {
 #endif
 
 /* =========================================================================
- * Secure boot configuration flags
+ * Constants
  * ====================================================================== */
-#define UIOX_SECBOOT_F_ENFORCE_SIG    (1u << 0) /**< Fail on bad sig     */
-#define UIOX_SECBOOT_F_ENFORCE_HASH   (1u << 1) /**< Fail on bad hash    */
-#define UIOX_SECBOOT_F_ROLLBACK_CHK   (1u << 2) /**< Check ver counter   */
-#define UIOX_SECBOOT_F_MEASURE        (1u << 3) /**< Extend PCR log      */
-#define UIOX_SECBOOT_F_LOCK_DEBUG     (1u << 4) /**< Disable JTAG/debug  */
-#define UIOX_SECBOOT_F_ALL \
-    (UIOX_SECBOOT_F_ENFORCE_SIG  | UIOX_SECBOOT_F_ENFORCE_HASH | \
-     UIOX_SECBOOT_F_ROLLBACK_CHK | UIOX_SECBOOT_F_MEASURE      | \
-     UIOX_SECBOOT_F_LOCK_DEBUG)
+#define UIOX_SECBOOT_HASH_LEN      32u   /**< SHA-256 digest bytes       */
+#define UIOX_SECBOOT_SIG_LEN       64u   /**< Ed25519 signature bytes    */
+#define UIOX_SECBOOT_PUBKEY_LEN    32u   /**< Ed25519 public key bytes   */
+#define UIOX_SECBOOT_MAX_KEYS       4u   /**< trusted keys in keyring    */
+#define UIOX_SECBOOT_PCR_INDEX      8u   /**< TPM PCR for kernel image   */
+#define UIOX_SECBOOT_IMG_MAGIC  0x554B524Eu  /**< "UKRN" image magic     */
 
 /* =========================================================================
- * Image descriptor — describes any signed binary (firmware or kernel)
+ * Security levels
  * ====================================================================== */
-#define UIOX_SB_MAGIC        0x55494F58u  /* "UIOX"                      */
-#define UIOX_SB_MAX_HASH_LEN 32u          /* SHA-256 = 32 bytes          */
-#define UIOX_SB_SIG_LEN      64u          /* Ed25519 signature = 64 bytes*/
-#define UIOX_SB_PUBKEY_LEN   32u          /* Ed25519 public key = 32 bytes*/
+typedef enum {
+    UIOX_SECBOOT_LEVEL_OFF      = 0,  /**< no verification (dev only)  */
+    UIOX_SECBOOT_LEVEL_HASH     = 1,  /**< SHA-256 only                */
+    UIOX_SECBOOT_LEVEL_SIGN     = 2,  /**< Ed25519 signature           */
+    UIOX_SECBOOT_LEVEL_MEASURED = 3,  /**< signature + TPM PCR extend  */
+} uiox_secboot_level_t;
 
+/* =========================================================================
+ * Kernel image header (embedded at offset 0 of the image)
+ * ====================================================================== */
 typedef struct __attribute__((packed)) {
-    uint32_t magic;                       /**< UIOX_SB_MAGIC              */
-    uint32_t version;                     /**< monotonic version counter  */
-    uint32_t image_size;                  /**< size of image body bytes   */
+    uint32_t magic;             /**< UIOX_SECBOOT_IMG_MAGIC "UKRN"     */
+    uint32_t header_version;    /**< must be 1                          */
+    uint32_t arch;              /**< UIOX_ARCH_* from uiox_fw_types.h  */
     uint32_t flags;
-    uint8_t  sha256[UIOX_SB_MAX_HASH_LEN];/**< SHA-256 of image body     */
-    uint8_t  signature[UIOX_SB_SIG_LEN]; /**< Ed25519 over sha256 field  */
-    char     name[32];                   /**< human name ("fw", "kernel")*/
+    uint64_t load_addr;         /**< target physical load address       */
+    uint64_t entry_point;       /**< kernel entry point                 */
+    uint64_t image_size;        /**< total image bytes (incl. header)   */
+    uint64_t text_size;         /**< .text section bytes                */
+    uint8_t  sha256[UIOX_SECBOOT_HASH_LEN];  /**< digest of image body */
+    uint8_t  signature[UIOX_SECBOOT_SIG_LEN];/**< Ed25519 over sha256  */
+    uint8_t  signer_key[UIOX_SECBOOT_PUBKEY_LEN]; /**< signer pub key  */
     uint32_t reserved[4];
-} uiox_sb_header_t;
+} uiox_fw_img_hdr_t;
 
 /* =========================================================================
- * Measurement log (PCR-style software record)
+ * Trusted key record
  * ====================================================================== */
-#define UIOX_SB_MAX_MEASUREMENTS  8u
-
 typedef struct {
-    char    component[32];               /**< "firmware", "kernel", …    */
-    uint8_t hash[UIOX_SB_MAX_HASH_LEN]; /**< SHA-256 of measured data   */
-    uint64_t timestamp_us;
-} uiox_sb_measurement_t;
+    uint8_t  pubkey[UIOX_SECBOOT_PUBKEY_LEN];
+    char     name[32];
+    bool     valid;
+} uiox_fw_trusted_key_t;
 
 /* =========================================================================
  * Secure boot context
  * ====================================================================== */
 typedef struct {
-    uint32_t              flags;         /**< UIOX_SECBOOT_F_* bitmask   */
-    uint8_t               root_pubkey[UIOX_SB_PUBKEY_LEN];
-    uint32_t              min_fw_version;/**< rollback floor for firmware*/
-    uint32_t              min_kn_version;/**< rollback floor for kernel  */
-    uiox_sb_measurement_t log[UIOX_SB_MAX_MEASUREMENTS];
-    uint8_t               log_count;
-    bool                  boot_verified;
-    bool                  kernel_verified;
-    bool                  debug_locked;
+    uiox_secboot_level_t   level;
+    uiox_fw_trusted_key_t  keys[UIOX_SECBOOT_MAX_KEYS];
+    uint8_t                num_keys;
+    bool                   verified;       /**< last verify() succeeded  */
+    char                   fail_reason[64];
+    uint8_t                measured_pcr[UIOX_SECBOOT_HASH_LEN];
 } uiox_fw_secboot_ctx_t;
 
 /* =========================================================================
- * Secure Boot API
- * ====================================================================== */
-
-/** Initialise context with platform root key and policy flags.          */
-uiox_fw_err_t uiox_fw_secboot_init (uiox_fw_secboot_ctx_t *ctx,
-                                      const uint8_t root_pubkey[32],
-                                      uint32_t      flags);
-
-/** Verify firmware image at @p img_base of @p img_size bytes.
- *  Checks magic, SHA-256, Ed25519 sig, and version counter.
- *  @return UIOX_FW_OK on success, UIOX_FW_ERR_SECURITY on failure.    */
-uiox_fw_err_t uiox_fw_secboot_verify_fw    (uiox_fw_secboot_ctx_t *ctx,
-                                              const void *img_base,
-                                              uint32_t    img_size);
-
-/** Verify kernel image before handoff.                                  */
-uiox_fw_err_t uiox_fw_secboot_verify_kernel(uiox_fw_secboot_ctx_t *ctx,
-                                              const void *img_base,
-                                              uint32_t    img_size);
-
-/** Extend the measurement log with a new component hash.               */
-uiox_fw_err_t uiox_fw_secboot_measure      (uiox_fw_secboot_ctx_t *ctx,
-                                              const char   *component,
-                                              const void   *data,
-                                              uint32_t      size);
-
-/** Lock debug ports (JTAG / SWD / serial console).                    */
-void          uiox_fw_secboot_lock_debug   (uiox_fw_secboot_ctx_t *ctx);
-
-/** Check monotonic rollback counter stored in OTP / NV.                */
-uiox_fw_err_t uiox_fw_secboot_check_version(const uiox_fw_secboot_ctx_t *ctx,
-                                              uint32_t image_version,
-                                              uint32_t min_version);
-
-/** Print current secure boot state via firmware UART.                  */
-void          uiox_fw_secboot_print        (const uiox_fw_secboot_ctx_t *ctx);
-
-/* =========================================================================
- * SHA-256 (self-contained, no libgcc dependency)
+ * SHA-256 context (self-contained, no libc)
  * ====================================================================== */
 typedef struct {
     uint32_t state[8];
     uint64_t count;
     uint8_t  buf[64];
     uint32_t buflen;
-} uiox_sb_sha256_ctx_t;
+} uiox_fw_sha256_ctx_t;
 
-void uiox_sb_sha256_init  (uiox_sb_sha256_ctx_t *ctx);
-void uiox_sb_sha256_update(uiox_sb_sha256_ctx_t *ctx,
-                             const uint8_t *data, uint32_t len);
-void uiox_sb_sha256_final (uiox_sb_sha256_ctx_t *ctx, uint8_t digest[32]);
-void uiox_sb_sha256       (const uint8_t *data, uint32_t len,
-                             uint8_t digest[32]);
+/* =========================================================================
+ * API
+ * ====================================================================== */
 
-/* Ed25519 verify — stub uses SHA-256 HMAC fallback when crypto unavail */
-uiox_fw_err_t uiox_sb_ed25519_verify(const uint8_t *msg,  uint32_t msg_len,
-                                       const uint8_t  sig[64],
-                                       const uint8_t  pubkey[32]);
+/** Initialise secure boot context with the given security level. */
+uiox_fw_err_t uiox_fw_secboot_init    (uiox_fw_secboot_ctx_t *ctx,
+                                         uiox_secboot_level_t   level);
+
+/** Add a trusted public key to the in-memory keyring. */
+uiox_fw_err_t uiox_fw_secboot_add_key (uiox_fw_secboot_ctx_t *ctx,
+                                         const uint8_t pubkey[UIOX_SECBOOT_PUBKEY_LEN],
+                                         const char   *name);
+
+/**
+ * Verify a loaded kernel image.
+ *  - Checks magic and header version
+ *  - Computes SHA-256 over image body and compares with header field
+ *  - If level >= SIGN: verifies Ed25519 signature with keyring
+ *  - If level >= MEASURED: extends TPM PCR[8] with the image hash
+ *
+ * @param ctx    secure boot context (must have been init'd)
+ * @param img    pointer to image in RAM (starts with uiox_fw_img_hdr_t)
+ * @param size   total bytes of image in RAM
+ * @return UIOX_FW_OK on success
+ */
+uiox_fw_err_t uiox_fw_secboot_verify  (uiox_fw_secboot_ctx_t *ctx,
+                                         const void *img, size_t size);
+
+/** Print verification status and key list. */
+void          uiox_fw_secboot_print   (const uiox_fw_secboot_ctx_t *ctx);
+
+/* SHA-256 primitives (used internally and by POST crypto test) */
+void uiox_fw_sha256_init   (uiox_fw_sha256_ctx_t *ctx);
+void uiox_fw_sha256_update (uiox_fw_sha256_ctx_t *ctx,
+                              const uint8_t *data, size_t len);
+void uiox_fw_sha256_final  (uiox_fw_sha256_ctx_t *ctx, uint8_t digest[32]);
+void uiox_fw_sha256        (const uint8_t *data, size_t len,
+                              uint8_t digest[32]);
+void uiox_fw_sha256_hex    (const uint8_t *data, size_t len,
+                              char hex_out[65]);
 
 #ifdef __cplusplus
 }

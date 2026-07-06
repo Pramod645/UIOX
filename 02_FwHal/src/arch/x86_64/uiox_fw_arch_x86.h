@@ -179,12 +179,14 @@
  #define UART16550_LCR_8N1           (UART16550_LCR_WLS8)
  
  /* LSR bits */
- #define UART16550_LSR_DR            (1u << 0)  /**< Data ready            */
+ /* DELETE these lines from uiox_fw_arch_x86.h already in include/uiox_fw_uart.h*/
+ //#define UART16550_LSR_DR            (1u << 0)  /**< Data ready            */
  #define UART16550_LSR_OE            (1u << 1)  /**< Overrun error         */
  #define UART16550_LSR_PE            (1u << 2)  /**< Parity error          */
  #define UART16550_LSR_FE            (1u << 3)  /**< Framing error         */
  #define UART16550_LSR_BI            (1u << 4)  /**< Break interrupt       */
- #define UART16550_LSR_THRE          (1u << 5)  /**< THR empty             */
+ /* DELETE these lines from uiox_fw_arch_x86.h already in include/uiox_fw_uart.h*/
+ //#define UART16550_LSR_THRE          (1u << 5)  /**< THR empty             */
  #define UART16550_LSR_TEMT          (1u << 6)  /**< Transmitter empty     */
  #define UART16550_LSR_FIFOE         (1u << 7)  /**< FIFO data error       */
  

@@ -1,13 +1,17 @@
 /**
- * @file    uiox_fw_secboot.c
- * @brief   UIOX Firmware — Secure Boot implementation.
- * @date    2026-07-06
+ * @file  uiox_fw_secboot.c
+ * @brief UIOX Firmware — Secure Boot verification implementation.
+ * @date  2026-07-06
  */
 #include "uiox_fw.h"
+#include "uiox_fw_secboot.h"
 #include <string.h>
 
-/* ── SHA-256 ─────────────────────────────────────────────── */
-static const uint32_t K256[64] = {
+/* =========================================================================
+ * SHA-256 implementation (NIST FIPS 180-4)
+ * No division operators — safe on ARM32 bare-metal.
+ * ====================================================================== */
+static const uint32_t s_K[64] = {
     0x428A2F98u,0x71374491u,0xB5C0FBCFu,0xE9B5DBA5u,
     0x3956C25Bu,0x59F111F1u,0x923F82A4u,0xAB1C5ED5u,
     0xD807AA98u,0x12835B01u,0x243185BEu,0x550C7DC3u,
@@ -26,35 +30,38 @@ static const uint32_t K256[64] = {
     0x90BEFFFAu,0xA4506CEBu,0xBEF9A3F7u,0xC67178F2u
 };
 
-#define RR(x,n) (((x)>>(n))|((x)<<(32u-(n))))
-#define SB0(x) (RR(x,2u)^RR(x,13u)^RR(x,22u))
-#define SB1(x) (RR(x,6u)^RR(x,11u)^RR(x,25u))
-#define GB0(x) (RR(x,7u)^RR(x,18u)^((x)>>3u))
-#define GB1(x) (RR(x,17u)^RR(x,19u)^((x)>>10u))
-#define CH(x,y,z) (((x)&(y))^(~(x)&(z)))
-#define MJ(x,y,z) (((x)&(y))^((x)&(z))^((y)&(z)))
+#define ROR32(x,n) (((x)>>(n))|((x)<<(32u-(n))))
+#define SHA_S0(x)  (ROR32(x,2u)^ROR32(x,13u)^ROR32(x,22u))
+#define SHA_S1(x)  (ROR32(x,6u)^ROR32(x,11u)^ROR32(x,25u))
+#define SHA_G0(x)  (ROR32(x,7u)^ROR32(x,18u)^((x)>>3u))
+#define SHA_G1(x)  (ROR32(x,17u)^ROR32(x,19u)^((x)>>10u))
+#define SHA_CH(x,y,z) (((x)&(y))^(~(x)&(z)))
+#define SHA_MJ(x,y,z) (((x)&(y))^((x)&(z))^((y)&(z)))
 
-static uint32_t be32_sb(const uint8_t *p)
-{ return ((uint32_t)p[0]<<24)|((uint32_t)p[1]<<16)
-        |((uint32_t)p[2]<<8)|p[3]; }
-
-static void sha256_block(uiox_sb_sha256_ctx_t *c, const uint8_t *b)
+static uint32_t sha_be32(const uint8_t *p)
 {
-    uint32_t W[64],a,bb,cc,d,e,f,g,h;
-    for(int i=0;i<16;i++) W[i]=be32_sb(b+i*4);
-    for(int i=16;i<64;i++) W[i]=GB1(W[i-2])+W[i-7]+GB0(W[i-15])+W[i-16];
+    return ((uint32_t)p[0]<<24)|((uint32_t)p[1]<<16)
+          |((uint32_t)p[2]<<8)|p[3];
+}
+
+static void sha256_block(uiox_fw_sha256_ctx_t *c, const uint8_t *b)
+{
+    uint32_t W[64], a,bb,cc,d,e,f,g,h;
+    for (int i=0;i<16;i++) W[i]=sha_be32(b+i*4);
+    for (int i=16;i<64;i++)
+        W[i]=SHA_G1(W[i-2])+W[i-7]+SHA_G0(W[i-15])+W[i-16];
     a=c->state[0];bb=c->state[1];cc=c->state[2];d=c->state[3];
     e=c->state[4];f=c->state[5];g=c->state[6];h=c->state[7];
-    for(int i=0;i<64;i++){
-        uint32_t t1=h+SB1(e)+CH(e,f,g)+K256[i]+W[i];
-        uint32_t t2=SB0(a)+MJ(a,bb,cc);
+    for (int i=0;i<64;i++){
+        uint32_t t1=h+SHA_S1(e)+SHA_CH(e,f,g)+s_K[i]+W[i];
+        uint32_t t2=SHA_S0(a)+SHA_MJ(a,bb,cc);
         h=g;g=f;f=e;e=d+t1;d=cc;cc=bb;bb=a;a=t1+t2;
     }
     c->state[0]+=a;c->state[1]+=bb;c->state[2]+=cc;c->state[3]+=d;
     c->state[4]+=e;c->state[5]+=f; c->state[6]+=g; c->state[7]+=h;
 }
 
-void uiox_sb_sha256_init(uiox_sb_sha256_ctx_t *c)
+void uiox_fw_sha256_init(uiox_fw_sha256_ctx_t *c)
 {
     c->state[0]=0x6A09E667u;c->state[1]=0xBB67AE85u;
     c->state[2]=0x3C6EF372u;c->state[3]=0xA54FF53Au;
@@ -63,218 +70,205 @@ void uiox_sb_sha256_init(uiox_sb_sha256_ctx_t *c)
     c->count=0;c->buflen=0;
 }
 
-void uiox_sb_sha256_update(uiox_sb_sha256_ctx_t *c,
-                             const uint8_t *data, uint32_t len)
+void uiox_fw_sha256_update(uiox_fw_sha256_ctx_t *c,
+                             const uint8_t *data, size_t len)
 {
-    while(len>0){
-        uint32_t take=64u-c->buflen;
-        if(take>(uint32_t)len) take=len;
-        memcpy(c->buf+c->buflen,data,take);
-        c->buflen+=take;c->count+=take;
-        data+=take;len-=take;
-        if(c->buflen==64u){sha256_block(c,c->buf);c->buflen=0;}
+    while (len > 0u) {
+        uint32_t take = 64u - c->buflen;
+        if ((size_t)take > len) take = (uint32_t)len;
+        memcpy(c->buf + c->buflen, data, take);
+        c->buflen += take; c->count  += take;
+        data += take; len -= take;
+        if (c->buflen == 64u) {
+            sha256_block(c, c->buf);
+            c->buflen = 0u;
+        }
     }
 }
 
-void uiox_sb_sha256_final(uiox_sb_sha256_ctx_t *c, uint8_t d[32])
+void uiox_fw_sha256_final(uiox_fw_sha256_ctx_t *c, uint8_t d[32])
 {
-    uint64_t bits=c->count*8u;
-    uint8_t p=0x80u;
-    uiox_sb_sha256_update(c,&p,1);
-    while(c->buflen!=56u){p=0;uiox_sb_sha256_update(c,&p,1);}
+    uint64_t bits = c->count * 8u;
+    uint8_t  p    = 0x80u;
+    uiox_fw_sha256_update(c, &p, 1u);
+    while (c->buflen != 56u) { p=0u; uiox_fw_sha256_update(c,&p,1u); }
     uint8_t lb[8];
-    for(int i=7;i>=0;i--){lb[i]=(uint8_t)(bits&0xFFu);bits>>=8;}
-    uiox_sb_sha256_update(c,lb,8);
-    for(int i=0;i<8;i++){
-        d[i*4+0]=(uint8_t)(c->state[i]>>24);
-        d[i*4+1]=(uint8_t)(c->state[i]>>16);
-        d[i*4+2]=(uint8_t)(c->state[i]>>8);
+    for (int i=7;i>=0;i--){ lb[i]=(uint8_t)(bits&0xFFu); bits>>=8u; }
+    uiox_fw_sha256_update(c, lb, 8u);
+    for (int i=0;i<8;i++){
+        d[i*4+0]=(uint8_t)(c->state[i]>>24u);
+        d[i*4+1]=(uint8_t)(c->state[i]>>16u);
+        d[i*4+2]=(uint8_t)(c->state[i]>>8u);
         d[i*4+3]=(uint8_t)(c->state[i]);
     }
 }
 
-void uiox_sb_sha256(const uint8_t *data, uint32_t len, uint8_t d[32])
+void uiox_fw_sha256(const uint8_t *data, size_t len, uint8_t digest[32])
 {
-    uiox_sb_sha256_ctx_t c;
-    uiox_sb_sha256_init(&c);
-    uiox_sb_sha256_update(&c, data, len);
-    uiox_sb_sha256_final(&c, d);
+    uiox_fw_sha256_ctx_t c;
+    uiox_fw_sha256_init(&c);
+    uiox_fw_sha256_update(&c, data, len);
+    uiox_fw_sha256_final(&c, digest);
 }
 
-/* ── Ed25519 stub (replace with Monocypher in production) ── */
-uiox_fw_err_t uiox_sb_ed25519_verify(const uint8_t *msg, uint32_t msg_len,
-                                       const uint8_t  sig[64],
-                                       const uint8_t  pubkey[32])
+void uiox_fw_sha256_hex(const uint8_t *data, size_t len, char hex[65])
 {
-    (void)msg; (void)msg_len; (void)sig; (void)pubkey;
-    /*
-     * Production: replace with:
-     *   return crypto_eddsa_check(sig, pubkey, msg, msg_len) == 0
-     *          ? UIOX_FW_OK : UIOX_FW_ERR_SECURITY;
-     * using Monocypher ([monocypher.org](https://monocypher.org)
-     * Stub always passes for QEMU simulation.
-     */
+    static const char h[] = "0123456789abcdef";
+    uint8_t d[32];
+    uiox_fw_sha256(data, len, d);
+    for (int i=0;i<32;i++){
+        hex[i*2+0] = h[(d[i]>>4)&0xFu];
+        hex[i*2+1] = h[d[i]&0xFu];
+    }
+    hex[64] = '\0';
+}
+
+/* =========================================================================
+ * Ed25519 verification stub
+ * Replace with Monocypher crypto_eddsa_check() for production.
+ * ====================================================================== */
+static uiox_fw_err_t ed25519_verify(const uint8_t *msg,   size_t len,
+                                      const uint8_t sig[64],
+                                      const uint8_t pub[32])
+{
+    /* Stub: accepts any signature in LEVEL_SIGN mode.
+     * Replace with: return monocypher_ed25519_check(sig,pub,msg,len)==0
+     *               ? UIOX_FW_OK : UIOX_FW_ERR_SECBOOT; */
+    (void)msg; (void)len; (void)sig; (void)pub;
     return UIOX_FW_OK;
 }
 
-/* ── Secure Boot API ─────────────────────────────────────── */
+/* =========================================================================
+ * Public API
+ * ====================================================================== */
 uiox_fw_err_t uiox_fw_secboot_init(uiox_fw_secboot_ctx_t *ctx,
-                                     const uint8_t root_pubkey[32],
-                                     uint32_t flags)
+                                     uiox_secboot_level_t   level)
 {
     if (!ctx) return UIOX_FW_ERR_INVAL;
     memset(ctx, 0, sizeof(*ctx));
-    ctx->flags = flags;
-    if (root_pubkey)
-        memcpy(ctx->root_pubkey, root_pubkey, UIOX_SB_PUBKEY_LEN);
-    ctx->min_fw_version = 1u;
-    ctx->min_kn_version = 1u;
+    ctx->level    = level;
+    ctx->verified = false;
     return UIOX_FW_OK;
 }
 
-static uiox_fw_err_t verify_image(uiox_fw_secboot_ctx_t *ctx,
-                                    const void *img_base,
-                                    uint32_t    img_size,
-                                    const char *role)
+uiox_fw_err_t uiox_fw_secboot_add_key(uiox_fw_secboot_ctx_t *ctx,
+                                         const uint8_t pubkey[32],
+                                         const char   *name)
 {
-    if (!ctx || !img_base || img_size < sizeof(uiox_sb_header_t))
-        return UIOX_FW_ERR_INVAL;
-
-    const uiox_sb_header_t *hdr = (const uiox_sb_header_t *)img_base;
-
-    /* 1. Magic check */
-    if (hdr->magic != UIOX_SB_MAGIC) {
-        uiox_fw_printf("  [secboot] %s: bad magic 0x%08x\n",
-                        role, hdr->magic);
-        return (ctx->flags & UIOX_SECBOOT_F_ENFORCE_SIG)
-               ? UIOX_FW_ERR_SECURITY : UIOX_FW_OK;
-    }
-
-    /* 2. SHA-256 check of image body (after header) */
-    const uint8_t *body = (const uint8_t *)img_base + sizeof(uiox_sb_header_t);
-    uint32_t body_size  = img_size - (uint32_t)sizeof(uiox_sb_header_t);
-    uint8_t computed[32];
-    uiox_sb_sha256(body, body_size, computed);
-
-    if (memcmp(computed, hdr->sha256, 32) != 0) {
-        uiox_fw_printf("  [secboot] %s: SHA-256 MISMATCH\n", role);
-        if (ctx->flags & UIOX_SECBOOT_F_ENFORCE_HASH)
-            return UIOX_FW_ERR_SECURITY;
-    }
-
-    /* 3. Ed25519 signature over sha256 field */
-    uiox_fw_err_t sig_rc =
-        uiox_sb_ed25519_verify(hdr->sha256, 32,
-                                 hdr->signature, ctx->root_pubkey);
-    if (sig_rc != UIOX_FW_OK) {
-        uiox_fw_printf("  [secboot] %s: signature INVALID\n", role);
-        if (ctx->flags & UIOX_SECBOOT_F_ENFORCE_SIG)
-            return UIOX_FW_ERR_SECURITY;
-    }
-
-    /* 4. Rollback version */
-    uint32_t min = (role[0] == 'k') ? ctx->min_kn_version
-                                     : ctx->min_fw_version;
-    uiox_fw_err_t rv =
-        uiox_fw_secboot_check_version(ctx, hdr->version, min);
-    if (rv != UIOX_FW_OK) {
-        uiox_fw_printf("  [secboot] %s: rollback detected v%u < min v%u\n",
-                        role, hdr->version, min);
-        if (ctx->flags & UIOX_SECBOOT_F_ROLLBACK_CHK)
-            return UIOX_FW_ERR_SECURITY;
-    }
-
-    /* 5. Measure */
-    if (ctx->flags & UIOX_SECBOOT_F_MEASURE)
-        uiox_fw_secboot_measure(ctx, role, body, body_size);
-
-    uiox_fw_printf("  [secboot] %s: verified OK  v%u\n",
-                    role, hdr->version);
+    if (!ctx || !pubkey) return UIOX_FW_ERR_INVAL;
+    if (ctx->num_keys >= UIOX_SECBOOT_MAX_KEYS) return UIOX_FW_ERR_FULL;
+    uiox_fw_trusted_key_t *k = &ctx->keys[ctx->num_keys++];
+    memcpy(k->pubkey, pubkey, UIOX_SECBOOT_PUBKEY_LEN);
+    if (name) strncpy(k->name, name, sizeof(k->name) - 1u);
+    k->valid = true;
     return UIOX_FW_OK;
 }
 
-uiox_fw_err_t uiox_fw_secboot_verify_fw(uiox_fw_secboot_ctx_t *ctx,
-                                          const void *img_base,
-                                          uint32_t    img_size)
+uiox_fw_err_t uiox_fw_secboot_verify(uiox_fw_secboot_ctx_t *ctx,
+                                        const void *img, size_t size)
 {
-    uiox_fw_err_t rc = verify_image(ctx, img_base, img_size, "firmware");
-    if (rc == UIOX_FW_OK) ctx->boot_verified = true;
-    return rc;
-}
+    if (!ctx || !img) return UIOX_FW_ERR_INVAL;
+    ctx->verified = false;
 
-uiox_fw_err_t uiox_fw_secboot_verify_kernel(uiox_fw_secboot_ctx_t *ctx,
-                                              const void *img_base,
-                                              uint32_t    img_size)
-{
-    uiox_fw_err_t rc = verify_image(ctx, img_base, img_size, "kernel");
-    if (rc == UIOX_FW_OK) ctx->kernel_verified = true;
-    return rc;
-}
+    /* Level OFF: skip all checks */
+    if (ctx->level == UIOX_SECBOOT_LEVEL_OFF) {
+        ctx->verified = true;
+        strncpy(ctx->fail_reason, "verification disabled",
+                sizeof(ctx->fail_reason) - 1u);
+        return UIOX_FW_OK;
+    }
 
-uiox_fw_err_t uiox_fw_secboot_measure(uiox_fw_secboot_ctx_t *ctx,
-                                        const char   *component,
-                                        const void   *data,
-                                        uint32_t      size)
-{
-    if (!ctx || !component || !data) return UIOX_FW_ERR_INVAL;
-    if (ctx->log_count >= UIOX_SB_MAX_MEASUREMENTS) return UIOX_FW_ERR_INVAL;
-    uiox_sb_measurement_t *m = &ctx->log[ctx->log_count++];
-    memset(m, 0, sizeof(*m));
-    uint32_t i = 0;
-    while(component[i] && i < sizeof(m->component)-1u)
-        { m->component[i]=component[i]; i++; }
-    uiox_sb_sha256((const uint8_t *)data, size, m->hash);
-    m->timestamp_us = uiox_fw_hw_timestamp_us();
+    if (size < sizeof(uiox_fw_img_hdr_t)) {
+        strncpy(ctx->fail_reason, "image too small for header",
+                sizeof(ctx->fail_reason) - 1u);
+        return UIOX_FW_ERR_SECBOOT;
+    }
+
+    const uiox_fw_img_hdr_t *hdr = (const uiox_fw_img_hdr_t *)img;
+
+    /* Check magic */
+    if (hdr->magic != UIOX_SECBOOT_IMG_MAGIC) {
+        strncpy(ctx->fail_reason, "bad image magic",
+                sizeof(ctx->fail_reason) - 1u);
+        return UIOX_FW_ERR_SECBOOT;
+    }
+    if (hdr->header_version != 1u) {
+        strncpy(ctx->fail_reason, "unsupported header version",
+                sizeof(ctx->fail_reason) - 1u);
+        return UIOX_FW_ERR_SECBOOT;
+    }
+
+    /* SHA-256 integrity check */
+    const uint8_t *body     = (const uint8_t *)img + sizeof(*hdr);
+    size_t         body_len = size - sizeof(*hdr);
+
+    if ((uint64_t)size != hdr->image_size) {
+        strncpy(ctx->fail_reason, "image_size header mismatch",
+                sizeof(ctx->fail_reason) - 1u);
+        return UIOX_FW_ERR_SECBOOT;
+    }
+
+    uint8_t digest[32];
+    uiox_fw_sha256(body, body_len, digest);
+
+    if (memcmp(digest, hdr->sha256, 32u) != 0) {
+        strncpy(ctx->fail_reason, "SHA-256 digest mismatch",
+                sizeof(ctx->fail_reason) - 1u);
+        return UIOX_FW_ERR_SECBOOT;
+    }
+
+    /* Ed25519 signature check */
+    if (ctx->level >= UIOX_SECBOOT_LEVEL_SIGN) {
+        uiox_fw_err_t sig_rc = UIOX_FW_ERR_SECBOOT;
+        for (uint8_t k = 0; k < ctx->num_keys; k++) {
+            if (!ctx->keys[k].valid) continue;
+            sig_rc = ed25519_verify(digest, 32u,
+                                     hdr->signature,
+                                     ctx->keys[k].pubkey);
+            if (sig_rc == UIOX_FW_OK) break;
+        }
+        /* Also try the key embedded in the header itself */
+        if (sig_rc != UIOX_FW_OK) {
+            sig_rc = ed25519_verify(digest, 32u,
+                                     hdr->signature,
+                                     hdr->signer_key);
+        }
+        if (sig_rc != UIOX_FW_OK) {
+            strncpy(ctx->fail_reason,
+                    "Ed25519 signature verification failed",
+                    sizeof(ctx->fail_reason) - 1u);
+            return UIOX_FW_ERR_SECBOOT;
+        }
+    }
+
+    /* TPM PCR measurement (level MEASURED) */
+    if (ctx->level >= UIOX_SECBOOT_LEVEL_MEASURED) {
+        /* Extend PCR[8] = SHA-256(PCR[8] || digest) */
+        uint8_t pcr_data[64];
+        memcpy(pcr_data,      ctx->measured_pcr, 32u);
+        memcpy(pcr_data + 32, digest,             32u);
+        uiox_fw_sha256(pcr_data, 64u, ctx->measured_pcr);
+        /* Real impl: call TPM2_PCR_Extend(8, digest) via SPI/I2C */
+    }
+
+    ctx->verified = true;
     return UIOX_FW_OK;
-}
-
-void uiox_fw_secboot_lock_debug(uiox_fw_secboot_ctx_t *ctx)
-{
-    if (!ctx) return;
-    if (!(ctx->flags & UIOX_SECBOOT_F_LOCK_DEBUG)) return;
-#if defined(__aarch64__)
-    /* OSDLR_EL1 — lock OS double lock (debug registers) */
-    __asm__ volatile("msr OSDLR_EL1, %0" :: "r"(1ULL) : "memory");
-    __asm__ volatile("isb" ::: "memory");
-    uiox_fw_printf("  [secboot] Debug ports locked\n");
-#endif
-    ctx->debug_locked = true;
-}
-
-uiox_fw_err_t uiox_fw_secboot_check_version(
-    const uiox_fw_secboot_ctx_t *ctx,
-    uint32_t image_version, uint32_t min_version)
-{
-    (void)ctx;
-    return (image_version >= min_version) ? UIOX_FW_OK : UIOX_FW_ERR_SECURITY;
 }
 
 void uiox_fw_secboot_print(const uiox_fw_secboot_ctx_t *ctx)
 {
     if (!ctx) return;
-    static const char hex[] = "0123456789abcdef";
-    uiox_fw_printf("  Secure Boot:\n");
-    uiox_fw_printf("    Flags          : 0x%08x\n", ctx->flags);
-    uiox_fw_printf("    FW verified    : %s\n",
-                    ctx->boot_verified   ? "YES" : "NO");
-    uiox_fw_printf("    Kernel verified: %s\n",
-                    ctx->kernel_verified ? "YES" : "NO");
-    uiox_fw_printf("    Debug locked   : %s\n",
-                    ctx->debug_locked    ? "YES" : "NO");
-    uiox_fw_printf("    Root pubkey    : ");
-    for (int i=0;i<8;i++){
-        uiox_fw_putc(hex[(ctx->root_pubkey[i]>>4)&0xF]);
-        uiox_fw_putc(hex[ctx->root_pubkey[i]&0xF]);
-    }
-    uiox_fw_puts("...\n");
-    uiox_fw_printf("    Measurements   : %u\n", ctx->log_count);
-    for (uint8_t i=0;i<ctx->log_count;i++) {
-        const uiox_sb_measurement_t *m = &ctx->log[i];
-        uiox_fw_printf("      [%u] %-12s  ", i, m->component);
-        for(int j=0;j<8;j++){
-            uiox_fw_putc(hex[(m->hash[j]>>4)&0xF]);
-            uiox_fw_putc(hex[m->hash[j]&0xF]);
-        }
-        uiox_fw_puts("...\n");
-    }
+    static const char *level_names[] = {
+        "OFF", "HASH", "SIGN", "MEASURED"
+    };
+    uiox_fw_printf("  SecureBoot level  : %s\n",
+                   ctx->level <= 3u ? level_names[ctx->level] : "?");
+    uiox_fw_printf("  Verification      : %s\n",
+                   ctx->verified ? "PASS" : "FAIL");
+    if (!ctx->verified && ctx->fail_reason[0])
+        uiox_fw_printf("  Fail reason       : %s\n", ctx->fail_reason);
+    uiox_fw_printf("  Trusted keys      : %u\n", ctx->num_keys);
+    for (uint8_t i = 0; i < ctx->num_keys; i++)
+        if (ctx->keys[i].valid)
+            uiox_fw_printf("    [%u] %s\n", i, ctx->keys[i].name);
 }

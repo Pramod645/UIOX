@@ -8,7 +8,29 @@
 
  #ifndef UIOX_FW_TYPES_H
  #define UIOX_FW_TYPES_H
+
  
+ //===========================================
+ /* ── Firmware image layout constants ────────────────────────
+ * These match the firmware linker scripts in 02_FwHal/linker/.
+ * Adjust the values to match your actual linker script ORIGIN.
+ * ====================================================================== */
+
+/* Replace the existing UIOX_FW_LOAD_PA / UIOX_FW_IMAGE_SIZE block
+   with this version — uses cast instead of ULL suffix               */
+
+   #if defined(__aarch64__)
+   #  define UIOX_FW_LOAD_PA     ((uintptr_t)0x40000000u)
+   #  define UIOX_FW_IMAGE_SIZE  ((uint32_t) 0x00080000u)
+   #elif defined(__arm__)
+   #  define UIOX_FW_LOAD_PA     ((uintptr_t)0x00100000u)
+   #  define UIOX_FW_IMAGE_SIZE  ((uint32_t) 0x00040000u)
+   #else
+   #  define UIOX_FW_LOAD_PA     ((uintptr_t)0x00100000u)
+   #  define UIOX_FW_IMAGE_SIZE  ((uint32_t) 0x00080000u)
+   #endif
+   
+
  /* =========================================================================
   * Portable integer types
   * ====================================================================== */
@@ -44,7 +66,14 @@
      UIOX_FW_ARCH_ARM32  = 1,
      UIOX_FW_ARCH_X86_64 = 2,
  } uiox_fw_arch_t;
- 
+ //==
+ /* Additional error codes needed by new modules */
+#define UIOX_FW_ERR_POST       -10   /* POST test failure             */
+#define UIOX_FW_ERR_SECBOOT    -11   /* Secure boot verification fail */
+#define UIOX_FW_ERR_SECURITY   -12   /* Security policy violation     */
+#define UIOX_FW_ERR_FULL       -13   /* table / buffer full           */
+#define UIOX_FW_ERR_NOTSUP     -14   /* feature not supported on arch */
+
  /* =========================================================================
   * Error codes
   * ====================================================================== */
