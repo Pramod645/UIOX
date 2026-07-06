@@ -339,7 +339,63 @@ static uint64_t div64_by_u32(uint64_t n, uint32_t d, uint32_t *rem_out)
                      "x86_64"
  #endif
                     );
- 
+
+                    /* In uiox_fw_main.c — after Stage 1: arch_register() + UART up */
+
+/* ── Stage 1b: Power-On Self Test ─────────────────────────── */
+uiox_fw_printf("Stage 1b: POST\n");
+static uiox_fw_post_ctx_t s_post;
+uiox_fw_post_init(&s_post);
+rc = uiox_fw_post_run_all(&s_post,
+                            0x40000000u,   /* RAM base — arch-specific */
+                            0x04000000u);  /* 64 MB */
+uiox_fw_post_print(&s_post);
+if (rc != UIOX_FW_OK) uiox_fw_post_panic(&s_post, 0xFF);
+
+/* ── Stage 1c: TrustZone / EL3 setup ──────────────────────── */
+uiox_fw_printf("Stage 1c: TrustZone\n");
+static uiox_fw_tz_ctx_t s_tz;
+uiox_fw_tz_init(&s_tz);
+if (s_tz.tz_supported && s_tz.el3_active) {
+    uiox_fw_tz_configure_scr(&s_tz, SCR_EL3_RW | SCR_EL3_NS | SCR_EL3_FIQ);
+    uiox_fw_tz_add_region(&s_tz, 0x40000000u, 0x02000000u,
+                           UIOX_TZ_MEM_SECURE,    "fw-secure");
+    uiox_fw_tz_add_region(&s_tz, 0x42000000u, 0x02000000u,
+                           UIOX_TZ_MEM_NONSECURE, "kernel-ns");
+    uiox_fw_tz_apply(&s_tz);
+    uiox_fw_tz_print(&s_tz);
+}
+
+/* ── Stage 1d: Secure Boot verification ───────────────────── */
+uiox_fw_printf("Stage 1d: Secure Boot\n");
+static uiox_fw_secboot_ctx_t s_secboot;
+static const uint8_t root_key[32] = {
+    /* Replace with real fused public key in production */
+    0x55,0x49,0x4F,0x58,0x53,0x45,0x43,0x55,
+    0x52,0x45,0x4B,0x45,0x59,0x50,0x52,0x4F,
+    0x44,0x55,0x43,0x54,0x49,0x4F,0x4E,0x30,
+    0x31,0x32,0x33,0x34,0x35,0x36,0x37,0x38,
+};
+uiox_fw_secboot_init(&s_secboot, root_key,
+                      UIOX_SECBOOT_F_ENFORCE_HASH |
+                      UIOX_SECBOOT_F_ROLLBACK_CHK |
+                      UIOX_SECBOOT_F_MEASURE);
+/* verify firmware itself */
+uiox_fw_secboot_verify_fw(&s_secboot,
+                            (void *)UIOX_FW_LOAD_ADDR,
+                            UIOX_FW_IMAGE_SIZE);
+uiox_fw_secboot_print(&s_secboot);
+
+/* ── Stage 1e: PSCI registration ──────────────────────────── */
+uiox_fw_printf("Stage 1e: PSCI\n");
+static uiox_fw_psci_ctx_t s_psci;
+uiox_fw_psci_init(&s_psci, 4u,          /* 4 CPUs on QEMU virt */
+                   UIOX_WARM_BOOT_ENTRY);
+uiox_fw_psci_register(&s_psci);
+uiox_fw_psci_print(&s_psci);
+
+/* ... continue
+
      /* ================================================================== */
      /* Stage 2: Memory map                                                 */
      /* ================================================================== */
