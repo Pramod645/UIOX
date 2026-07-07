@@ -18,102 +18,7 @@
  #include "uiox_fw.h"
  #include <stdarg.h>
  #include "../src/arch/x86_64/uiox_fw_arch_x86.h"
- /**
- * Integration patch for 02_FwHal/src/uiox_fw_main.c
- * Add these includes and the Stage 0 block.
- */
-/* ── New includes at top of uiox_fw_main.c ──────────────────────────── */
-
-
-#include "../include/uiox_fw_hw.h"       /* uiox_fw_hw_ops() accessor  */
-#include "../include/uiox_fw_tz.h"
-#include "../include/uiox_fw_psci.h"
-#include "../include/uiox_fw_post.h"
-#include "../include/uiox_fw_secboot.h"
-
-/* =========================================================================
- * Forward declaration of linker symbol (defined in entry .S stub)
- * ====================================================================== */
-extern uint8_t _fw_stack_base[];   /* bottom of firmware stack          */
-/* =========================================================================
- * Bare-metal memset (no libc — replaces memset() throughout this file)
- * ====================================================================== */
-static void fw_memset_fw(void *dst, int val, size_t n)
-{
-    uint8_t *d = (uint8_t *)dst;
-    while (n--) *d++ = (uint8_t)val;
-}
-/* =========================================================================
- * Arch-specific HW registration macro
- * (matches the pattern already used in the original uiox_fw_main.c)
- * ====================================================================== */
-#if defined(__aarch64__)
-  extern void uiox_fw_hw_arm64_register(void);
-  #define UIOX_FW_HW_REGISTER()  uiox_fw_hw_arm64_register()
-  #define UIOX_FW_ARCH_STR       "ARM64"
-#elif defined(__arm__)
-  extern void uiox_fw_hw_arm32_register(void);
-  #define UIOX_FW_HW_REGISTER()  uiox_fw_hw_arm32_register()
-  #define UIOX_FW_ARCH_STR       "ARM32"
-#else
-  extern void uiox_fw_hw_x86_register(void);
-  #define UIOX_FW_HW_REGISTER()  uiox_fw_hw_x86_register()
-  #define UIOX_FW_ARCH_STR       "x86_64"
-#endif
-/* =========================================================================
- * Global state (add alongside existing s_fw_soc etc.)
- * ====================================================================== */
-static uiox_tz_report_t      s_tz_report;
-static uiox_psci_ctx_t       s_psci_ctx;
-static uiox_post_report_t    s_post_report;
-static uiox_secboot_ctx_t    s_secboot_ctx;
-static uiox_secboot_report_t s_secboot_report;
-/* Simulated Root of Trust public-key hash (OTP / ROM constant on real HW) */
-static const uint8_t s_rot_hash[32] = {
-    0xDEu,0xADu,0xBEu,0xEFu, 0xCAu,0xFEu,0xBAu,0xBEu,
-    0x01u,0x23u,0x45u,0x67u, 0x89u,0xABu,0xCDu,0xEFu,
-    0xFEu,0xDCu,0xBAu,0x98u, 0x76u,0x54u,0x32u,0x10u,
-    0xAAu,0xBBu,0xCCu,0xDDu, 0xEEu,0xFFu,0x00u,0x11u,
-};
-/* =========================================================================
- * Platform PSCI callbacks
- * ====================================================================== */
-static void platform_cpu_on_cb(uint32_t cpu_id, uintptr_t entry)
-{
-    /* Real: write entry to per-CPU mailbox, assert power-on sequence */
-    (void)cpu_id; (void)entry;
-}
-static void __attribute__((noreturn)) platform_reset_cb(void)
-{
-    uiox_fw_hw_reset();
-}
-static void __attribute__((noreturn)) platform_off_cb(void)
-{
-    uiox_fw_power_shutdown();
-}
-/* =========================================================================
- * Firmware printf shim — uses registered HAL UART (no libc)
- * ====================================================================== */
-/*static void fw_puts_main(const char *s)
-{
-    const uiox_fw_hw_ops_t *hal = uiox_fw_hal_get();
-    if (!hal || !hal->uart_putc) return;
-    while (*s) {
-        if (*s == '\n') hal->uart_putc('\r');
-        hal->uart_putc(*s++);
-    }
-}*/
-static void fw_puts_main(const char *s)
-{
-    /* uiox_fw_hw_ops() is declared in uiox_fw_hw.h — already included */
-    const uiox_fw_hw_ops_t *ops = uiox_fw_hw_ops();
-    if (!ops || !ops->uart_putc) return;
-    while (*s) {
-        if (*s == '\n') ops->uart_putc('\r');
-        ops->uart_putc(*s++);
-    }
-}
-
+ 
  /* =========================================================================
   * Platform forward declarations
   * ====================================================================== */
@@ -396,126 +301,8 @@ static uint64_t div64_by_u32(uint64_t n, uint32_t d, uint32_t *rem_out)
   * uiox_fw_main — 8-stage firmware init pipeline
   * ====================================================================== */
  
-/* ====================================================================
- * Stage 0 block — insert at the very top of uiox_fw_main(), before
- * the existing "Stage 1: HW init" comment.
- * ==================================================================== */
-/* =========================================================================
- * uiox_fw_main — complete function with Stage 0 prepended
- * ====================================================================== */
-void __attribute__((noreturn))
-uiox_fw_main(uint64_t dtb_pa)
-{
-    /* ================================================================ */
-    /* Stage 0a: TrustZone / EL3 setup                                  */
-    /* ================================================================ */
-    uiox_tz_cfg_t tz_cfg;
-    fw_memset_fw(&tz_cfg, 0, sizeof(tz_cfg));  /* ← fw_memset, not memset */
-#if defined(__aarch64__)
-    tz_cfg.gic_dist_base      = 0x08000000u;
-    tz_cfg.gic_rdist_base     = 0u;
-    tz_cfg.el3_vbar           = 0u;
-    tz_cfg.tzc_base           = 0u;
-    tz_cfg.secure_dram_base   = 0x40000000ULL;
-    tz_cfg.secure_dram_size   = 0x01000000ULL;
-    tz_cfg.enable_fiq_routing = false;
-    tz_cfg.enable_gic_secure  = true;
-    tz_cfg.enable_tzc         = false;
-    tz_cfg.ns_entry_addr      = 0u;
-    tz_cfg.ns_spsr            = SPSR_EL3_TO_EL1H;
-#elif defined(__arm__)
-    tz_cfg.gic_dist_base      = 0x10140000u;
-    tz_cfg.enable_gic_secure  = false;
-#endif
-    /* Non-fatal: QEMU typically starts at EL1, not EL3 */
-    fw_memset_fw(&s_tz_report, 0, sizeof(s_tz_report));
-    uiox_tz_result_t tz_rc = uiox_fw_tz_init(&tz_cfg, &s_tz_report);
-    (void)tz_rc;
-    /* ================================================================ */
-    /* Stage 0b: PSCI registration                                       */
-    /* ================================================================ */
-    fw_memset_fw(&s_psci_ctx, 0, sizeof(s_psci_ctx));
-    uiox_fw_psci_init(&s_psci_ctx, 4u, /*use_smc=*/false);
-    uiox_fw_psci_set_cpu_on(&s_psci_ctx, platform_cpu_on_cb);
-    uiox_fw_psci_set_reset (&s_psci_ctx, platform_reset_cb);
-    uiox_fw_psci_set_off   (&s_psci_ctx, platform_off_cb);
-    /* ================================================================ */
-    /* Stage 1: HW init                                                  */
-    /* Register arch vtable → UART becomes live after this call.        */
-    /* ================================================================ */
-    UIOX_FW_HW_REGISTER();   /* ← corrected macro name, no uiox_boot_ */
-    /* Console is now live — print banner */
-    fw_puts_main("\r\n" UIOX_FW_VERSION_STR " [" UIOX_FW_URL "]\r\n");
-    fw_puts_main("Arch: " UIOX_FW_ARCH_STR "\r\n");
-    /* Print TZ + PSCI results */
-    uiox_fw_tz_print  (&s_tz_report);
-    uiox_fw_psci_print(&s_psci_ctx);
-    /* ================================================================ */
-    /* Stage 0c: POST                                                    */
-    /* (after Stage 1 so UART is available for the report)              */
-    /* ================================================================ */
-    uiox_post_cfg_t post_cfg;
-    fw_memset_fw(&post_cfg, 0, sizeof(post_cfg));  /* ← fw_memset */
-    post_cfg.test_mask = UIOX_POST_TEST_CPU   |
-                          UIOX_POST_TEST_RAM   |
-                          UIOX_POST_TEST_TIMER |
-                          UIOX_POST_TEST_GIC   |
-                          UIOX_POST_TEST_STACK;
-    /* Stack sentinel — written at firmware startup */
-    post_cfg.stack_base     = (uintptr_t)_fw_stack_base;  /* extern sym */
-    post_cfg.stack_sentinel = 0xDEADC0DEu;
-    uiox_fw_post_stack_mark(post_cfg.stack_base, post_cfg.stack_sentinel);
-#if defined(__aarch64__)
-    post_cfg.gic_dist_base  = 0x08000000u;
-    post_cfg.ram[0].base    = 0x40000000ULL;
-    post_cfg.ram[0].size    = 0x04000000ULL;
-    post_cfg.ram_count      = 1u;
-#elif defined(__arm__)
-    post_cfg.gic_dist_base  = 0x10140000u;
-    post_cfg.ram[0].base    = 0x00100000ULL;
-    post_cfg.ram[0].size    = 0x00F00000ULL;
-    post_cfg.ram_count      = 1u;
-#else
-    post_cfg.gic_dist_base  = 0u;
-    post_cfg.ram[0].base    = 0x00100000ULL;
-    post_cfg.ram[0].size    = 0x03F00000ULL;
-    post_cfg.ram_count      = 1u;
-#endif
-    fw_memset_fw(&s_post_report, 0, sizeof(s_post_report));
-    uiox_post_result_t post_rc =
-        uiox_fw_post_run(&post_cfg, &s_post_report);
-    uiox_fw_post_print(&s_post_report);
-    if (post_rc != UIOX_POST_OK) {
-        fw_puts_main("[FW] FATAL: POST failed\r\n");
-        for (;;) ;
-    }
-    /* ================================================================ */
-    /* Stage 0d: Secure Boot                                             */
-    /* ================================================================ */
-    fw_memset_fw(&s_secboot_ctx,    0, sizeof(s_secboot_ctx));
-    fw_memset_fw(&s_secboot_report, 0, sizeof(s_secboot_report));
-    uiox_fw_secboot_init(&s_secboot_ctx,
-                          s_rot_hash,
-                          UIOX_SIG_RSA2048,
-                          /*sim_mode=*/true);
-    if (!s_secboot_ctx.debug_mode) {
-        /* Production: uiox_fw_secboot_verify_cert + verify_image here */
-        uiox_fw_secboot_print(&s_secboot_report);
-        if (s_secboot_report.result != UIOX_SECBOOT_OK) {
-            fw_puts_main("[FW] FATAL: Secure Boot failed\r\n");
-            for (;;) ;
-        }
-    } else {
-        fw_puts_main("[SECBOOT] Simulation — verification skipped\r\n");
-    }
-    /* ================================================================ */
-    /* Stages 2–8: existing firmware pipeline (unchanged below here)    */
-    /* ================================================================ */
-    /* ... rest of original uiox_fw_main() stages 2–8 ... */
-    /* ================================================================ */
-    /* Stages 1–8: existing firmware pipeline (unchanged)               */
-    /* ================================================================ */
-    /* ... (existing Stage 1 through Stage 8 code follows) ... */
+ void __attribute__((noreturn)) uiox_fw_main(uint64_t dtb_pa)
+ {
      /* ================================================================== */
      /* Stage 1: Platform HW init                                           */
      /* ================================================================== */
@@ -551,7 +338,109 @@ uiox_fw_main(uint64_t dtb_pa)
  #else
                      "x86_64"
  #endif
-                    ); 
+                    );
+/* In uiox_fw_main.c — add these static contexts */
+static uiox_fw_post_ctx_t    s_post;
+static uiox_fw_secboot_ctx_t s_secboot;
+static uiox_fw_tz_ctx_t      s_tz;
+static uiox_fw_psci_ctx_t    s_psci;
+
+/* ── Inside uiox_fw_main(), after arch_register() + UART init ── */
+
+/* ── Stage 1b: POST ─────────────────────────────────────────── */
+uiox_fw_printf("Stage 1b: POST\n");
+uiox_fw_post_run_all(&s_post,
+                      UIOX_POST_FL_VERBOSE);
+uiox_fw_post_print(&s_post);
+if (uiox_fw_post_any_fail(&s_post))
+    FW_FATAL("POST failure — aborting boot");
+
+/* ── Stage 1c: TrustZone ────────────────────────────────────── */
+uiox_fw_printf("Stage 1c: TrustZone\n");
+uiox_fw_tz_probe(&s_tz);
+if (s_tz.el3_present) {
+    /* Secure memory: 0x40000000–0x42000000 (firmware) */
+    uiox_fw_tz_add_region(&s_tz,
+                           0x40000000ULL, 0x02000000ULL,
+                           UIOX_TZ_MEM_SECURE, "fw-secure");
+    /* Non-secure DRAM: 0x42000000–0x44000000 (kernel) */
+    uiox_fw_tz_add_region(&s_tz,
+                           0x42000000ULL, 0x02000000ULL,
+                           UIOX_TZ_MEM_NONSECURE, "kernel-ns");
+    /* All GIC SPIs → Non-Secure (Group 1) */
+    for (uint32_t irq = 32u; irq < 96u; irq++)
+        uiox_fw_tz_assign_irq(&s_tz, irq, UIOX_TZ_IRQ_NONSECURE);
+
+    uiox_fw_tz_setup(&s_tz);
+    uiox_fw_tz_print(&s_tz);
+} else {
+    uiox_fw_printf("  TZ: not at EL3 — skipped\n");
+}
+
+/* ── Stage 1d: Secure Boot ──────────────────────────────────── */
+/* ── Stage 1d: Secure Boot ──────────────────────────────────── */
+uiox_fw_printf("Stage 1d: Secure Boot\n");
+
+uiox_fw_secboot_init(&s_secboot, UIOX_SECBOOT_LEVEL_HASH);
+
+/*
+ * On real hardware: verify the kernel image that was loaded by
+ * the bootloader.  The bootloader stores the kernel at
+ * UIOX_FW_LOAD_PA + UIOX_FW_IMAGE_SIZE (just above the firmware).
+ *
+ * In QEMU simulation mode there is no signed image on disk, so
+ * we skip verification and just measure the firmware load address
+ * as a canary value.  The secboot level is HASH-only so a missing
+ * header is not a fatal error.
+ */
+#if defined(UIOX_SECBOOT_SKIP_IN_SIM)
+    /* Simulation: skip image verify, just log */
+    uiox_fw_printf("  SecBoot: simulation mode — verify skipped\n");
+    s_secboot.verified = true;
+#else
+    {
+        const void  *img  = (const void *)(uintptr_t)UIOX_FW_LOAD_PA;
+        //uiox_fw_size_t sz = (uiox_fw_size_t)UIOX_FW_IMAGE_SIZE;
+        //uiox_fw_err_t sb_rc = uiox_fw_secboot_verify(&s_secboot, img, sz);
+        /* BEFORE (broken) */
+//uiox_fw_secboot_verify(&s_secboot,
+//    (const void *)UIOX_FW_LOAD_PA,
+//    UIOX_FW_IMAGE_SIZE);
+
+/* AFTER (compiles on all three arches) */
+#if defined(__aarch64__)
+#  define _FW_PA   ((const void *)0x40000000ULL)
+#  define _FW_SZ   ((size_t)0x00080000u)
+#elif defined(__arm__)
+#  define _FW_PA   ((const void *)0x00100000UL)
+#  define _FW_SZ   ((size_t)0x00040000u)
+#else
+#  define _FW_PA   ((const void *)0x00100000ULL)
+#  define _FW_SZ   ((size_t)0x00080000u)
+#endif
+
+uiox_fw_err_t sb_rc = uiox_fw_secboot_verify(&s_secboot, _FW_PA, _FW_SZ);
+#undef _FW_PA
+#undef _FW_SZ
+
+        if (sb_rc != UIOX_FW_OK) {
+            /* Non-fatal at HASH level in simulation — warn only */
+            uiox_fw_printf("  SecBoot: WARNING — verify returned %d "
+                           "(no header in QEMU image)\n", (int)sb_rc);
+        }
+    }
+#endif
+
+uiox_fw_secboot_print(&s_secboot);
+
+
+/* ── Stage 1e: PSCI ─────────────────────────────────────────── */
+uiox_fw_printf("Stage 1e: PSCI\n");
+uiox_fw_psci_init(&s_psci);
+uiox_fw_psci_print(&s_psci);
+
+/* ... continue with existing Stage 2: Memory ... */
+ 
      /* ================================================================== */
      /* Stage 2: Memory map                                                 */
      /* ================================================================== */

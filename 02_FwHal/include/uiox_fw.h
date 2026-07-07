@@ -21,6 +21,14 @@
  #include "uiox_fw_net.h"
  #include "uiox_fw_devsw.h"
  #include "uiox_fw_sensor.h"
+
+/* Add inside uiox_fw.h after the existing #include lines */
+#include "uiox_fw_post.h"
+#include "uiox_fw_secboot.h"
+#include "uiox_fw_tz.h"
+#include "uiox_fw_psci.h"
+
+
  
  #define UIOX_FW_VERSION_STR  "UIOX Firmware v1.0"
  #define UIOX_FW_URL          "github.com/Pramod645/UIOX"

@@ -74,7 +74,11 @@ COMMON_SRCS := \
     $(SRCDIR)/uiox_fw_net.c     \
     $(SRCDIR)/uiox_fw_devsw.c   \
     $(SRCDIR)/uiox_fw_sensor.c  \
-    $(SRCDIR)/uiox_fw_main.c
+    $(SRCDIR)/uiox_fw_main.c    \
+    $(SRCDIR)/uiox_fw_post.c    \
+    $(SRCDIR)/uiox_fw_secboot.c \
+    $(SRCDIR)/uiox_fw_tz.c      \
+    $(SRCDIR)/uiox_fw_psci.c
 
 # ── Common CFLAGS ─────────────────────────────────────────────────────────────
 CFLAGS_COMMON := \
@@ -87,6 +91,9 @@ CFLAGS_COMMON := \
     -DUIOX_VERSION_MAJOR=$(VERSION_MAJOR) \
     -DUIOX_VERSION_MINOR=$(VERSION_MINOR) \
     -DUIOX_VERSION_PATCH=$(VERSION_PATCH)
+## In 70_build_config/common.mk or your per-arch .mk file
+#CFLAGS += -DUIOX_SECBOOT_SKIP_IN_SIM   # remove for production
+	
 
 # GCC driver flags (NOT passed via -Wl)
 GCC_LD_FLAGS := -nostdlib -nostartfiles

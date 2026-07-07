@@ -54,3 +54,9 @@ uiox_fw_net.h	Network HAL	30_DeviceDrivers/04_NonSecnsors
 uiox_fw_devsw.h/.c	Device switch	30_DeviceDrivers/iossytem.md devsw.h
 uiox_fw_sensor.h/.c	Sensor HAL	30_DeviceDrivers/03_Sensors / 20_DriverInterfaces/02_Sensors
 uiox_fw_main.c	8-stage pipeline	main.c 8-stage integration in uiox.md
+============================================================================
+Module	File pair	What it adds
+POST	uiox_fw_post.h/c	8 hardware self-tests run before boot: CPU, D-cache, RAM march, UART TX, timer, IRQ controller, storage presence, SHA-256 crypto self-test. Returns pass/fail per test; prints formatted report.
+Secure Boot	uiox_fw_secboot.h/c	SHA-256 image integrity (full FIPS 180-4 implementation, no libgcc), Ed25519 signature verification (stub ready for Monocypher), trusted key ring, TPM PCR measurement extension, three security levels (OFF / HASH / SIGN / MEASURED).
+TrustZone	uiox_fw_tz.h/c	EL3 probe, SCR_EL3 / CPTR_EL3 / ACTLR_EL3 configuration, TZASC memory region programming, GIC Group 0/1 assignment, uiox_fw_tz_drop_to_el1() for ERET into Normal World. Gracefully stubs on ARM32 and x86-64.
+PSCI	uiox_fw_psci.h/c	Full PSCI v1.1 SMC dispatcher: PSCI_VERSION, CPU_ON, CPU_OFF, CPU_SUSPEND, AFFINITY_INFO, SYSTEM_OFF, SYSTEM_RESET, SYSTEM_RESET2, PSCI_FEATURES, MEM_PROTECT. Per-CPU affinity state table, SMC call counter, QEMU SYSTEM_OFF/RESET stubs.

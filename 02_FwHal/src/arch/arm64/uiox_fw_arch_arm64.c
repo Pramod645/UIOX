@@ -172,4 +172,9 @@
  {
      uiox_fw_hw_register(&s_arm64_ops, &s_arm64_plat);
  }
- 
+ /* src/arch/arm64/uiox_fw_arch_arm64.c — must contain exactly this */
+
+void uiox_fw_hw_arm64_register(void)
+ {
+     uiox_fw_hw_register(&s_arm64_ops, &s_arm64_plat);
+ }

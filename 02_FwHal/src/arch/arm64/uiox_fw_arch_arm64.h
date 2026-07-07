@@ -351,14 +351,15 @@
  #define PSCI_FN_SYSTEM_RESET2       0x84000012u
  
  #define PSCI_RET_SUCCESS            0
- #define PSCI_RET_NOT_SUPPORTED     (-1)
- #define PSCI_RET_INVALID_PARAMS    (-2)
- #define PSCI_RET_DENIED            (-3)
- #define PSCI_RET_ALREADY_ON        (-4)
- #define PSCI_RET_ON_PENDING        (-5)
- #define PSCI_RET_INTERNAL_FAILURE  (-6)
- #define PSCI_RET_NOT_PRESENT       (-7)
- #define PSCI_RET_DISABLED          (-8)
+ /* DELETE these lines from uiox_fw_arch_arm64.h */
+ //#define PSCI_RET_NOT_SUPPORTED     (-1)
+ //#define PSCI_RET_INVALID_PARAMS    (-2)
+ //#define PSCI_RET_DENIED            (-3)
+ //#define PSCI_RET_ALREADY_ON        (-4)
+ //#define PSCI_RET_ON_PENDING        (-5)
+ //#define PSCI_RET_INTERNAL_FAILURE  (-6)
+ //#define PSCI_RET_NOT_PRESENT       (-7)
+ //#define PSCI_RET_DISABLED          (-8)
  
  /** Invoke PSCI via HVC (hypervisor call) */
  static inline int64_t arm64_psci_hvc(uint64_t fn,
