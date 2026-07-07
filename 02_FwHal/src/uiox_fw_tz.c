@@ -1,276 +1,294 @@
 /**
  * @file  uiox_fw_tz.c
- * @brief UIOX Firmware — ARM TrustZone setup implementation.
- * @date  2026-07-06
+ * @brief UIOX Firmware — TrustZone / EL3 secure world setup.
+ *        Zero libc dependency — no string.h or stdio.h.
+ * @date  2026-07-07
  */
-#include "uiox_fw.h"
-#include "uiox_fw_tz.h"
-#include <string.h>
 
-/* ── TZPC / TZASC base addresses (QEMU virt defaults) ──────── */
-#define TZPC_BASE        0x08400000ULL  /* ARM TZPC BP141           */
-#define TZASC_BASE       0x08800000ULL  /* ARM TZASC-400            */
-#define TZASC_REGION_MAX 8u
-
-/* ── GIC-400 base ───────────────────────────────────────────── */
-#define GICD_BASE        0x08000000ULL
-#define GICD_IGROUPR0    (GICD_BASE + 0x080u)
-
-/* ── SCR_EL3 register access ────────────────────────────────── */
-#if defined(__aarch64__)
-uint64_t uiox_fw_read_scr_el3(void)
+ #include "../include/uiox_fw_tz.h"
+ #include "../include/uiox_fw_hw.h"
+ 
+ /* =========================================================================
+  * Bare-metal helpers
+  * ====================================================================== */
+ 
+ static void fw_memset_tz(void *dst, int val, size_t n)
+ { uint8_t *d = (uint8_t *)dst; while (n--) *d++ = (uint8_t)val; }
+ 
+ static void fw_strncpy_tz(char *dst, const char *src, size_t n)
+ { size_t i=0u; while(i<n-1u && src[i]){dst[i]=src[i];i++;} dst[i]='\0'; }
+ 
+ static void fw_puts_tz(const char *s)
 {
-    uint64_t v;
-    __asm__ volatile("mrs %0, SCR_EL3" : "=r"(v));
-    return v;
-}
-
-void uiox_fw_write_scr_el3(uint64_t val)
-{
-    __asm__ volatile("msr SCR_EL3, %0\nisb" :: "r"(val) : "memory");
-}
-
-uint32_t uiox_fw_current_el(void)
-{
-    uint64_t v;
-    __asm__ volatile("mrs %0, CurrentEL" : "=r"(v));
-    return (uint32_t)((v >> 2u) & 3u);
-}
-#else
-uint64_t uiox_fw_read_scr_el3(void)  { return 0u; }
-void     uiox_fw_write_scr_el3(uint64_t v) { (void)v; }
-uint32_t uiox_fw_current_el(void)
-{
-#if defined(__arm__)
-    uint32_t cpsr;
-    __asm__ volatile("mrs %0, cpsr" : "=r"(cpsr));
-    return (cpsr & 0x1Fu) == 0x16u ? 3u : 1u; /* Monitor=EL3 equiv */
-#else
-    return 0u; /* x86 — no EL concept */
-#endif
-}
-#endif
-
-/* =========================================================================
- * Probe
- * ====================================================================== */
-uiox_fw_err_t uiox_fw_tz_probe(uiox_fw_tz_ctx_t *ctx)
-{
-    if (!ctx) return UIOX_FW_ERR_INVAL;
-    memset(ctx, 0, sizeof(*ctx));
-
-    uint32_t el = uiox_fw_current_el();
-
-#if defined(__aarch64__)
-    ctx->el3_present = (el == 3u);
-    if (ctx->el3_present) {
-        ctx->scr_el3_val = (uint32_t)uiox_fw_read_scr_el3();
-        /* Check NS bit: 0 = Secure, 1 = Non-Secure */
-        bool ns = !!(ctx->scr_el3_val & UIOX_SCR_EL3_NS);
-        strncpy(ctx->world, ns ? "NONSECURE" : "SECURE",
-                sizeof(ctx->world) - 1u);
-        ctx->tz_enabled = true;
-    } else {
-        strncpy(ctx->world, "NONSECURE", sizeof(ctx->world) - 1u);
-        ctx->tz_enabled = false;
-    }
-#elif defined(__arm__)
-    /* ARM32: TZ available if in Monitor mode (CPSR.M = 0x16) */
-    ctx->el3_present = (el == 3u);
-    ctx->tz_enabled  = ctx->el3_present;
-    strncpy(ctx->world,
-            ctx->el3_present ? "SECURE" : "NONSECURE",
-            sizeof(ctx->world) - 1u);
-#else
-    ctx->el3_present = false;
-    ctx->tz_enabled  = false;
-    strncpy(ctx->world, "N/A (x86)", sizeof(ctx->world) - 1u);
-#endif
-
-    (void)el;
-    return UIOX_FW_OK;
-}
-
-/* =========================================================================
- * Add memory region
- * ====================================================================== */
-uiox_fw_err_t uiox_fw_tz_add_region(uiox_fw_tz_ctx_t  *ctx,
-                                       uint64_t            base,
-                                       uint64_t            size,
-                                       uiox_tz_mem_attr_t  attr,
-                                       const char         *name)
-{
-    if (!ctx) return UIOX_FW_ERR_INVAL;
-    if (ctx->num_regions >= UIOX_TZ_MAX_REGIONS) return UIOX_FW_ERR_FULL;
-    uiox_fw_tz_region_t *r = &ctx->regions[ctx->num_regions++];
-    r->base = base;
-    r->size = size;
-    r->attr = attr;
-    if (name) strncpy(r->name, name, sizeof(r->name) - 1u);
-    return UIOX_FW_OK;
-}
-
-/* =========================================================================
- * Assign IRQ group
- * ====================================================================== */
-uiox_fw_err_t uiox_fw_tz_assign_irq(uiox_fw_tz_ctx_t *ctx,
-                                       uint32_t          irq,
-                                       uiox_tz_irq_sec_t sec)
-{
-    if (!ctx || ctx->num_irqs >= UIOX_TZ_MAX_IRQS) return UIOX_FW_ERR_INVAL;
-    ctx->irq_group[ctx->num_irqs++] = (irq & 0xFFFFu)
-                                     | ((uint32_t)sec << 16u);
-    return UIOX_FW_OK;
-}
-
-/* =========================================================================
- * Full TrustZone setup
- * ====================================================================== */
-uiox_fw_err_t uiox_fw_tz_setup(uiox_fw_tz_ctx_t *ctx)
-{
-    if (!ctx) return UIOX_FW_ERR_INVAL;
-
-    if (!ctx->el3_present) {
-        uiox_fw_printf("  TZ: not at EL3 — skipping TrustZone setup\n");
-        return UIOX_FW_OK;
-    }
-
-#if defined(__aarch64__)
-    /* ── Step 1: Configure SCR_EL3 ─────────────────────────── */
-    uint64_t scr = 0u;
-    scr |= UIOX_SCR_EL3_RW;    /* EL1/EL2 are AArch64              */
-    scr |= UIOX_SCR_EL3_HCE;   /* allow HVC instructions            */
-    scr |= UIOX_SCR_EL3_ST;    /* secure timer access at EL1        */
-    /* NS=0 for now — we are still in Secure World */
-    uiox_fw_write_scr_el3(scr);
-    ctx->scr_el3_val = (uint32_t)scr;
-    uiox_fw_printf("  TZ: SCR_EL3 = 0x%08x\n", (uint32_t)scr);
-
-    /* ── Step 2: Configure CPTR_EL3 (enable FP/SVE/SME) ────── */
-    __asm__ volatile(
-        "msr CPTR_EL3, xzr\n\t"
-        "isb\n\t" ::: "memory");
-
-    /* ── Step 3: Configure ACTLR_EL3 ──────────────────────── */
-    __asm__ volatile("msr ACTLR_EL3, xzr\n\tisb\n\t" ::: "memory");
-
-    /* ── Step 4: Apply TZASC memory regions ────────────────── */
-    for (uint8_t i = 0; i < ctx->num_regions; i++) {
-        const uiox_fw_tz_region_t *r = &ctx->regions[i];
-        /* TZASC-400 region register layout (simplified):
-           offset 0x100 + n*0x10: base low
-           offset 0x104 + n*0x10: base high
-           offset 0x108 + n*0x10: size + attr */
-        volatile uint32_t *reg_base =
-            (volatile uint32_t *)(TZASC_BASE + 0x100u + i * 0x10u);
-        reg_base[0] = (uint32_t)(r->base & 0xFFFFFFFFu);
-        reg_base[1] = (uint32_t)(r->base >> 32u);
-        /* encode size as log2 - 1 */
-        uint32_t sz_enc = 0u;
-        for (uint32_t s = 1u; s < 32u; s++) {
-            if ((r->size & ((uint64_t)1u << s)) && sz_enc == 0u)
-                sz_enc = s - 1u;
-        }
-        reg_base[2] = (sz_enc << 1u) | (r->attr == UIOX_TZ_MEM_NONSECURE ? 0u : 1u) | 1u;
-    }
-
-    /* ── Step 5: GIC interrupt group assignment ─────────────── */
-    for (uint8_t i = 0; i < ctx->num_irqs; i++) {
-        uint32_t irq = ctx->irq_group[i] & 0xFFFFu;
-        uint32_t grp = (ctx->irq_group[i] >> 16u) & 1u;
-        uint32_t reg_off = GICD_IGROUPR0 + (irq / 32u) * 4u;
-        volatile uint32_t *reg = (volatile uint32_t *)reg_off;
-        if (grp == UIOX_TZ_IRQ_NONSECURE)
-            *reg |=  (1u << (irq % 32u));
-        else
-            *reg &= ~(1u << (irq % 32u));
-    }
-
-    /* ── Step 6: Enable SMMU bypass in non-secure mode ──────── */
-    /* Real: configure SMMU_STRTAB_BASE, SMMU_CR0 etc.
-       Stub: just log intent. */
-    uiox_fw_printf("  TZ: TZASC configured (%u regions)\n",
-                   ctx->num_regions);
-
-#elif defined(__arm__)
-    /* ARM32 TrustZone (NSACR / SCR) */
-    uint32_t scr;
-    __asm__ volatile("mrc p15,0,%0,c1,c1,0" : "=r"(scr));
-    scr |= (1u << 8);   /* SCD — disable SMC in NS world (optional) */
-    scr &= ~(1u << 0);  /* keep NS=0 (Secure World) for now         */
-    __asm__ volatile("mcr p15,0,%0,c1,c1,0" :: "r"(scr) : "memory");
-    uiox_fw_printf("  TZ: SCR = 0x%08X (ARM32)\n", scr);
-#else
-    uiox_fw_printf("  TZ: x86 — no TrustZone hardware\n");
-#endif
-
-    uiox_fw_printf("  TZ: setup complete (world=%s)\n", ctx->world);
-    return UIOX_FW_OK;
-}
-
-/* =========================================================================
- * Drop to EL1 (Non-Secure)
- * ====================================================================== */
-#if defined(__aarch64__)
-void __attribute__((noreturn))
-uiox_fw_tz_drop_to_el1(uiox_fw_tz_ctx_t *ctx,
-                          uint64_t          entry_pa,
-                          uint64_t          arg0)
-{
-    (void)ctx;
-
-    /* Set NS bit in SCR_EL3 — transition to Non-Secure EL1 */
-    uint64_t scr = uiox_fw_read_scr_el3();
-    scr |= UIOX_SCR_EL3_NS;   /* set NS=1 */
-    scr |= UIOX_SCR_EL3_RW;   /* EL1 is AArch64 */
-    uiox_fw_write_scr_el3(scr);
-
-    /* Configure SPSR_EL3 for EL1h with DAIF masked */
-    __asm__ volatile(
-        "mov x0, %0\n\t"         /* arg0 = DTB phys addr       */
-        "msr ELR_EL3, %1\n\t"   /* entry point                */
-        "mov x2, #0x3C5\n\t"    /* SPSR: EL1h + DAIF masked   */
-        "msr SPSR_EL3, x2\n\t"
-        "isb\n\t"
-        "eret\n\t"               /* jump to EL1                */
-        :
-        : "r"(arg0), "r"(entry_pa)
-        : "x0", "x2", "memory"
-    );
-    __builtin_unreachable();
-}
-#else
-void __attribute__((noreturn))
-uiox_fw_tz_drop_to_el1(uiox_fw_tz_ctx_t *ctx,
-                          uint64_t          entry_pa,
-                          uint64_t          arg0)
-{
-    (void)ctx;
-    /* ARM32 / x86: direct call — no EL switching needed */
-    typedef void __attribute__((noreturn)) (*entry_fn_t)(uint64_t);
-    ((entry_fn_t)(uintptr_t)entry_pa)(arg0);
-    __builtin_unreachable();
-}
-#endif
-
-void uiox_fw_tz_print(const uiox_fw_tz_ctx_t *ctx)
-{
-    if (!ctx) return;
-    uiox_fw_printf("  TrustZone:\n");
-    uiox_fw_printf("    EL3 present : %s\n",
-                   ctx->el3_present ? "YES" : "NO");
-    uiox_fw_printf("    TZ enabled  : %s\n",
-                   ctx->tz_enabled  ? "YES" : "NO");
-    uiox_fw_printf("    Current world: %s\n", ctx->world);
-    uiox_fw_printf("    Regions     : %u\n", ctx->num_regions);
-    for (uint8_t i = 0; i < ctx->num_regions; i++) {
-        const uiox_fw_tz_region_t *r = &ctx->regions[i];
-        uiox_fw_printf("    [%u] %-16s base=0x%llx size=0x%llx attr=%s\n",
-                       i, r->name,
-                       (unsigned long long)r->base,
-                       (unsigned long long)r->size,
-                       r->attr == UIOX_TZ_MEM_SECURE   ? "SECURE"
-                     : r->attr == UIOX_TZ_MEM_NONSECURE? "NONSECURE"
-                     : "INVALID");
+    /* uiox_fw_hw_ops() is declared in uiox_fw_hw.h (already included) */
+    const uiox_fw_hw_ops_t *ops = uiox_fw_hw_ops();
+    if (!ops || !ops->uart_putc) return;
+    while (*s) {
+        if (*s == '\n') ops->uart_putc('\r');
+        ops->uart_putc(*s++);
     }
 }
+
+
+ static char *fw_u64_hex_tz(uint64_t v, char *buf)
+ {
+     static const char h[] = "0123456789abcdef";
+     for (int i = 15; i >= 0; i--) { buf[i] = h[v & 0xFu]; v >>= 4; }
+     buf[16] = '\0'; return buf;
+ }
+ 
+ static char *fw_u32_dec_tz(uint32_t v, char *buf)
+ {
+     char tmp[12]; int n=0;
+     if (v==0u){buf[0]='0';buf[1]='\0';return buf;}
+     while(v&&n<11){tmp[n++]=(char)('0'+v%10u);v/=10u;}
+     int j=0; for(int i=n-1;i>=0;i--) buf[j++]=tmp[i]; buf[j]='\0';
+     return buf;
+ }
+ 
+ /* =========================================================================
+  * EL query
+  * ====================================================================== */
+ 
+ uint32_t uiox_fw_tz_current_el(void)
+ {
+ #if defined(__aarch64__)
+     uint64_t el;
+     __asm__ volatile("mrs %0, CurrentEL" : "=r"(el));
+     return (uint32_t)((el >> 2u) & 0x3u);
+ #elif defined(__arm__)
+     uint32_t cpsr;
+     __asm__ volatile("mrs %0, cpsr" : "=r"(cpsr));
+     return ((cpsr & 0x1Fu) == 0x16u) ? 3u : 1u;
+ #else
+     return 0u;
+ #endif
+ }
+ 
+ /* =========================================================================
+  * GIC secure group config
+  * ====================================================================== */
+ 
+ uiox_tz_result_t uiox_fw_tz_gic_secure(uintptr_t gicd_base,
+                                           uint32_t num_irqs,
+                                           uint32_t secure_irq_mask)
+ {
+     if (gicd_base == 0u) return UIOX_TZ_OK;
+     volatile uint32_t *gicd = (volatile uint32_t *)gicd_base;
+     gicd[0x000u / 4u] = 0u;  /* disable distributor */
+     uint32_t num_regs = (num_irqs + 31u) / 32u;
+     for (uint32_t i = 0u; i < num_regs; i++) {
+         uint32_t ns_bits = 0xFFFFFFFFu;
+         if (i == 0u) ns_bits &= ~secure_irq_mask;
+         gicd[(0x080u + i * 4u) / 4u] = ns_bits;
+     }
+     gicd[0x000u / 4u] = 0x3u;  /* re-enable */
+     return UIOX_TZ_OK;
+ }
+ 
+ /* =========================================================================
+  * TZC-400 region
+  * ====================================================================== */
+ 
+ #define TZC_REGION_BASE_LO(n) (0x100u + (n)*0x20u + 0x00u)
+ #define TZC_REGION_BASE_HI(n) (0x100u + (n)*0x20u + 0x04u)
+ #define TZC_REGION_TOP_LO(n)  (0x100u + (n)*0x20u + 0x08u)
+ #define TZC_REGION_TOP_HI(n)  (0x100u + (n)*0x20u + 0x0Cu)
+ #define TZC_REGION_ATTR(n)    (0x100u + (n)*0x20u + 0x10u)
+ #define TZC_ATTR_S_RD         (1u << 30)
+ #define TZC_ATTR_S_WR         (1u << 31)
+ #define TZC_REGION_EN         (1u << 0)
+ 
+ uiox_tz_result_t uiox_fw_tzc_set_region(uintptr_t tzc_base,
+                                           uint32_t region_id,
+                                           const uiox_tzc_region_t *r)
+ {
+     if (tzc_base == 0u || !r || region_id > 8u) return UIOX_TZ_OK;
+     volatile uint32_t *tzc = (volatile uint32_t *)tzc_base;
+     tzc[TZC_REGION_BASE_LO(region_id)/4u] = (uint32_t)( r->base & 0xFFFFFFFFu);
+     tzc[TZC_REGION_BASE_HI(region_id)/4u] = (uint32_t)((r->base>>32u) & 0xFFFFFFFFu);
+     tzc[TZC_REGION_TOP_LO(region_id) /4u] = (uint32_t)( r->top  & 0xFFFFFFFFu);
+     tzc[TZC_REGION_TOP_HI(region_id) /4u] = (uint32_t)((r->top >>32u) & 0xFFFFFFFFu);
+     uint32_t attr = TZC_REGION_EN | TZC_ATTR_S_RD | TZC_ATTR_S_WR;
+     if (!r->secure_only)
+         attr |= ((uint32_t)r->nsaid_rd_en<<8u) | ((uint32_t)r->nsaid_wr_en<<24u);
+     tzc[TZC_REGION_ATTR(region_id)/4u] = attr;
+     return UIOX_TZ_OK;
+ }
+ 
+ /* =========================================================================
+  * EL3 vector table
+  * ====================================================================== */
+ 
+ uiox_tz_result_t uiox_fw_tz_set_vbar(uintptr_t vbar_pa)
+ {
+     if (vbar_pa == 0u || (vbar_pa & 0x7FFu)) return UIOX_TZ_ERR_VECTORS;
+ #if defined(__aarch64__)
+     __asm__ volatile("msr vbar_el3, %0; isb" :: "r"(vbar_pa) : "memory");
+ #elif defined(__arm__)
+     __asm__ volatile("mcr p15,0,%0,c12,c0,1; isb"
+                      :: "r"((uint32_t)vbar_pa));
+ #endif
+     return UIOX_TZ_OK;
+ }
+ 
+ /* =========================================================================
+  * ERET to non-secure world
+  * ====================================================================== */
+ 
+ void __attribute__((noreturn))
+ uiox_fw_tz_eret_to_ns(uintptr_t entry, uint64_t spsr, uint64_t x0_arg)
+ {
+ #if defined(__aarch64__)
+     __asm__ volatile(
+         "msr elr_el3,  %0\n"
+         "msr spsr_el3, %1\n"
+         "mov x0, %2\n"
+         "mov x1, xzr\n"
+         "mov x2, xzr\n"
+         "mov x3, xzr\n"
+         "eret\n"
+         :: "r"((uint64_t)entry), "r"(spsr), "r"(x0_arg)
+         : "x0","x1","x2","x3","memory");
+ #elif defined(__arm__)
+     __asm__ volatile(
+         "msr lr_abt, %0\n"
+         "msr spsr_mon, %1\n"
+         "movs pc, lr\n"
+         :: "r"((uint32_t)entry), "r"((uint32_t)spsr) : "memory");
+ #endif
+     for (;;) ;
+ }
+ 
+ /* =========================================================================
+  * uiox_fw_tz_init
+  * ====================================================================== */
+ 
+ uiox_tz_result_t uiox_fw_tz_init(const uiox_tz_cfg_t *cfg,
+                                     uiox_tz_report_t *report)
+ {
+     uiox_tz_report_t local;
+     uiox_tz_report_t *r = report ? report : &local;
+     fw_memset_tz(r, 0, sizeof(*r));
+     r->current_el = uiox_fw_tz_current_el();
+ 
+ #if defined(__aarch64__)
+     if (r->current_el != 3u) {
+         /* Not at EL3 — non-fatal on QEMU where firmware runs at EL1 */
+         r->result = UIOX_TZ_ERR_EL;
+         fw_strncpy_tz(r->fail_msg, "Not at EL3 (QEMU simulation)",
+                       sizeof(r->fail_msg));
+         return r->result;
+     }
+ 
+     /* SCR_EL3 */
+     uint64_t scr = SCR_EL3_NS | SCR_EL3_RW | SCR_EL3_HCE;
+     if (cfg && cfg->enable_fiq_routing) scr |= SCR_EL3_FIQ;
+     __asm__ volatile("msr scr_el3, %0; isb" :: "r"(scr) : "memory");
+     r->scr_el3_value = scr;
+     r->smc_enabled   = !(scr & SCR_EL3_SMD);
+ 
+     /* CPTR_EL3 */
+     uint64_t cptr = CPTR_EL3_FW_VALUE;
+     __asm__ volatile("msr cptr_el3, %0; isb" :: "r"(cptr) : "memory");
+     r->cptr_el3_value = cptr;
+     r->fpu_enabled    = !(cptr & CPTR_EL3_TFP);
+ 
+     /* EL3 vector table */
+     if (cfg && cfg->el3_vbar) {
+         uiox_tz_result_t vr = uiox_fw_tz_set_vbar(cfg->el3_vbar);
+         if (vr != UIOX_TZ_OK) {
+             r->result = vr;
+             fw_strncpy_tz(r->fail_msg, "VBAR_EL3 install failed",
+                           sizeof(r->fail_msg));
+             return r->result;
+         }
+     }
+ 
+     /* GIC secure groups */
+     if (cfg && cfg->enable_gic_secure && cfg->gic_dist_base) {
+         uiox_fw_tz_gic_secure(cfg->gic_dist_base, 256u, 0x0000FFFFu);
+         r->gic_groups_set = 1u;
+     }
+ 
+     /* TZC-400 */
+     if (cfg && cfg->enable_tzc && cfg->tzc_base) {
+         for (uint32_t i = 0u; i < cfg->tzc_region_count; i++) {
+             uiox_fw_tzc_set_region(cfg->tzc_base, i + 1u,
+                                     &cfg->tzc_regions[i]);
+             r->tzc_regions_set++;
+         }
+     }
+ 
+     /* Secure DRAM lock */
+     if (cfg && cfg->secure_dram_size > 0u && cfg->tzc_base) {
+         uiox_tzc_region_t sec = {
+             .base        = cfg->secure_dram_base,
+             .top         = cfg->secure_dram_base + cfg->secure_dram_size - 1u,
+             .nsaid_rd_en = 0u,
+             .nsaid_wr_en = 0u,
+             .secure_only = true,
+         };
+         uiox_fw_tzc_set_region(cfg->tzc_base, 0u, &sec);
+         r->tzc_regions_set++;
+     }
+ 
+ #elif defined(__arm__)
+     uint32_t scr;
+     __asm__ volatile("mrc p15,0,%0,c1,c1,0" : "=r"(scr));
+     scr |= (1u<<0) | (1u<<8);   /* NS=1, HCE=1 */
+     __asm__ volatile("mcr p15,0,%0,c1,c1,0; isb" :: "r"(scr));
+     r->scr_el3_value = scr;
+     /* Allow VFP/NEON in NS world */
+     uint32_t nsacr;
+     __asm__ volatile("mrc p15,0,%0,c1,c1,2" : "=r"(nsacr));
+     nsacr |= (3u << 10u);
+     __asm__ volatile("mcr p15,0,%0,c1,c1,2" :: "r"(nsacr));
+     r->fpu_enabled = true;
+     r->current_el  = 3u;
+ #else
+     /* x86: stub */
+     r->fpu_enabled = true;
+     r->smc_enabled = false;
+ #endif
+ 
+     r->result = UIOX_TZ_OK;
+     return UIOX_TZ_OK;
+ }
+ 
+ /* =========================================================================
+  * uiox_fw_tz_print — no printf
+  * ====================================================================== */
+ 
+ void uiox_fw_tz_print(const uiox_tz_report_t *r)
+ {
+     if (!r) return;
+     char buf[20];
+ 
+     fw_puts_tz("[TZ] Result       : ");
+     fw_puts_tz(r->result == UIOX_TZ_OK ? "OK\n" : "FAIL\n");
+ 
+     fw_puts_tz("[TZ] Current EL   : ");
+     fw_u32_dec_tz(r->current_el, buf); fw_puts_tz(buf); fw_puts_tz("\n");
+ 
+     fw_puts_tz("[TZ] SCR_EL3      : 0x");
+     fw_u64_hex_tz(r->scr_el3_value, buf); fw_puts_tz(buf); fw_puts_tz("\n");
+ 
+     fw_puts_tz("[TZ] CPTR_EL3     : 0x");
+     fw_u64_hex_tz(r->cptr_el3_value, buf); fw_puts_tz(buf); fw_puts_tz("\n");
+ 
+     fw_puts_tz("[TZ] FPU enabled  : "); fw_puts_tz(r->fpu_enabled ? "YES\n":"NO\n");
+     fw_puts_tz("[TZ] SMC enabled  : "); fw_puts_tz(r->smc_enabled ? "YES\n":"NO\n");
+ 
+     fw_puts_tz("[TZ] GIC groups   : ");
+     fw_u32_dec_tz(r->gic_groups_set, buf); fw_puts_tz(buf); fw_puts_tz("\n");
+ 
+     fw_puts_tz("[TZ] TZC regions  : ");
+     fw_u32_dec_tz(r->tzc_regions_set, buf); fw_puts_tz(buf); fw_puts_tz("\n");
+ 
+     if (r->result != UIOX_TZ_OK) {
+         fw_puts_tz("[TZ] Fail reason  : ");
+         fw_puts_tz(r->fail_msg); fw_puts_tz("\n");
+     }
+ }
+ 
