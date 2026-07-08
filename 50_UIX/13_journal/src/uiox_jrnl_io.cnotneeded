@@ -1,0 +1,145 @@
+/**
+ * @file  uiox_jrnl_io.c
+ * @brief UIOX Filesystem Journaling — block I/O platform stubs + helpers.
+ * @date  2026-07-08
+ */
+#include "../include/uiox_jrnl_io.h"
+
+extern void uiox_fw_printf(const char *fmt, ...);
+
+/* ── No-libc helpers ──────────────────────────────────────────────────── */
+static void io_memset(void *d, int v, size_t n)
+{ uint8_t *p = (uint8_t *)d; while (n--) *p++ = (uint8_t)v; }
+
+static void io_memcpy(void *d, const void *s, size_t n)
+{ uint8_t *dp = (uint8_t *)d; const uint8_t *sp = (const uint8_t *)s;
+  while (n--) *dp++ = *sp++; }
+
+/* =========================================================================
+ * Weak platform defaults — replace in 31_BufferCache or BSP
+ * ====================================================================== */
+
+/* In-memory journal store for unit tests / simulation builds */
+#define IO_SIM_BLOCKS  (UIOX_JNL_MAX_BLOCKS < 4096u \
+                        ? UIOX_JNL_MAX_BLOCKS : 4096u)
+static uint8_t  io_sim_store[IO_SIM_BLOCKS][UIOX_JNL_BLOCK_SIZE];
+static uint32_t io_sim_alloc_top = 0u;
+
+__attribute__((weak))
+uiox_jnl_err_t uiox_jnl_plat_read_block(uint32_t blocknr, uint8_t *buf)
+{
+    if (!buf || blocknr >= IO_SIM_BLOCKS) return UIOX_JNL_ERR_IO;
+    io_memcpy(buf, io_sim_store[blocknr], UIOX_JNL_BLOCK_SIZE);
+    return UIOX_JNL_OK;
+}
+
+__attribute__((weak))
+uiox_jnl_err_t uiox_jnl_plat_write_block(uint32_t blocknr,
+                                           const uint8_t *buf)
+{
+    if (!buf || blocknr >= IO_SIM_BLOCKS) return UIOX_JNL_ERR_IO;
+    io_memcpy(io_sim_store[blocknr], buf, UIOX_JNL_BLOCK_SIZE);
+    return UIOX_JNL_OK;
+}
+
+__attribute__((weak))
+uiox_jnl_err_t uiox_jnl_plat_barrier(void)
+{
+    /* Stub: on real hardware issue blkdev_issue_flush() */
+    return UIOX_JNL_OK;
+}
+
+__attribute__((weak))
+uint8_t *uiox_jnl_plat_alloc_block(void)
+{
+    if (io_sim_alloc_top >= IO_SIM_BLOCKS) return NULL;
+    uint8_t *p = io_sim_store[io_sim_alloc_top++];
+    io_memset(p, 0, UIOX_JNL_BLOCK_SIZE);
+    return p;
+}
+
+__attribute__((weak))
+void uiox_jnl_plat_free_block(uint8_t *buf) { (void)buf; /* stub */ }
+
+__attribute__((weak))
+uint64_t uiox_jnl_plat_time(void) { return 0u; }
+
+__attribute__((weak))
+uint32_t uiox_jnl_plat_crc32(const uint8_t *data, size_t len)
+{
+    /* CRC-32/ISO-HDLC polynomial 0xEDB88320 */
+    uint32_t crc = 0xFFFFFFFFu;
+    for (size_t i = 0; i < len; i++) {
+        crc ^= data[i];
+        for (int b = 0; b < 8; b++)
+            crc = (crc >> 1) ^ (0xEDB88320u & -(crc & 1u));
+    }
+    return crc ^ 0xFFFFFFFFu;
+}
+
+__attribute__((weak))
+void uiox_jnl_plat_sha256(const uint8_t *data, size_t len,
+                            uint8_t digest[UIOX_JNL_HASH_LEN])
+{
+    /* Minimal FNV-derived stub — replace with uiox_ks_sha256() */
+    uint32_t h = 0x811c9dc5u;
+    for (size_t i = 0; i < len; i++) {
+        h ^= data[i];
+        h *= 0x01000193u;
+    }
+    io_memset(digest, 0, UIOX_JNL_HASH_LEN);
+    digest[0] = (uint8_t)(h >> 24);
+    digest[1] = (uint8_t)(h >> 16);
+    digest[2] = (uint8_t)(h >>  8);
+    digest[3] = (uint8_t)(h);
+}
+
+/* =========================================================================
+ * Write + verify (debug builds only — skipped if NDEBUG)
+ * ====================================================================== */
+uiox_jnl_err_t uiox_jnl_io_write_verify(uint32_t blocknr,
+                                          const uint8_t *buf)
+{
+    uiox_jnl_err_t rc = uiox_jnl_plat_write_block(blocknr, buf);
+    if (rc != UIOX_JNL_OK) return rc;
+
+#ifndef NDEBUG
+    uint8_t *rbuf = uiox_jnl_plat_alloc_block();
+    if (rbuf) {
+        rc = uiox_jnl_plat_read_block(blocknr, rbuf);
+        if (rc == UIOX_JNL_OK) {
+            uint8_t diff = 0;
+            for (size_t i = 0; i < UIOX_JNL_BLOCK_SIZE; i++)
+                diff |= (buf[i] ^ rbuf[i]);
+            if (diff != 0) {
+                uiox_fw_printf("[jrnl-io] verify FAILED block %u\n", blocknr);
+                rc = UIOX_JNL_ERR_IO;
+            }
+        }
+        uiox_jnl_plat_free_block(rbuf);
+    }
+#endif
+    return rc;
+}
+
+/* =========================================================================
+ * Write contiguous sequence of journal blocks
+ * ====================================================================== */
+uiox_jnl_err_t uiox_jnl_io_write_seq(uint32_t       start_blocknr,
+                                       const uint8_t *bufs,
+                                       uint32_t       count)
+{
+    if (!bufs || count == 0u) return UIOX_JNL_ERR_INVAL;
+
+    for (uint32_t i = 0; i < count; i++) {
+        uiox_jnl_err_t rc = uiox_jnl_plat_write_block(
+            start_blocknr + i,
+            bufs + (size_t)i * UIOX_JNL_BLOCK_SIZE);
+        if (rc != UIOX_JNL_OK) {
+            uiox_fw_printf("[jrnl-io] write_seq failed at block %u\n",
+                           start_blocknr + i);
+            return rc;
+        }
+    }
+    return UIOX_JNL_OK;
+}

@@ -25,3 +25,19 @@ Syscall interface — sys_kernel_verify() / sys_ksign_status()
     ├── uiox_ksign_measure.c
     ├── uiox_ksign_runtime.c
     └── uiox_ksign_demo.c
+====================
+Stage 0d (02_FwHal)
+    └─▶ uiox_ks_boot_entry()
+            ├─ boot_init()      ← keystore seeded from OTP
+            ├─ boot_verify()    ← full sig + cert chain + anti-rollback
+            ├─ boot_measure()   ← PCR[1/2/5] extended
+            ├─ boot_arm_runtime() ← .text/.rodata hashes registered
+            └─ boot_handoff()   ← PCRs locked → jump to kernel entry
+
+Scheduler tick (33_ProcessControlSubsystem)
+    └─▶ uiox_ks_scheduler_tick() → uiox_ks_rt_tick() → re-hash regions
+
+Syscall table (40_SystemCallInterface)
+    ├─ SYS_KERNEL_VERIFY (220)
+    ├─ SYS_KSIGN_STATUS  (221)
+    └─ SYS_KSIGN_QUOTE   (222)
