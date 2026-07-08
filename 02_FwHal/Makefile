@@ -78,7 +78,12 @@ COMMON_SRCS := \
     $(SRCDIR)/uiox_fw_post.c    \
     $(SRCDIR)/uiox_fw_secboot.c \
     $(SRCDIR)/uiox_fw_tz.c      \
-    $(SRCDIR)/uiox_fw_psci.c
+    $(SRCDIR)/uiox_fw_psci.c    \
+	$(SRCDIR)/uiox_fw_i2c.c    \
+    $(SRCDIR)/uiox_fw_spi.c    \
+    $(SRCDIR)/uiox_fw_wdt.c    \
+    $(SRCDIR)/uiox_fw_dma.c    \
+    $(SRCDIR)/uiox_fw_pcie.c
 
 # ── Common CFLAGS ─────────────────────────────────────────────────────────────
 CFLAGS_COMMON := \
