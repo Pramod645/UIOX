@@ -1,0 +1,340 @@
+/dts-v1/;
+
+/*
+ * UIOX Board — RISC-V 64-bit Device Tree Source
+ * Target CPU  : RISC-V RV64GC (SV39/SV48 MMU, M/S/U privilege modes)
+ * SoC         : UIOX-R1 (custom; RISC-V variant)
+ * Interrupt   : PLIC + CLINT (uiox_cpu_hw.h: clint_base, plic_base)
+ *
+ * Cross-referenced from:
+ *   50_UIX/20_uios/uiox-cpu/include/uiox_cpu_hw.h
+ *   50_UIX/20_uios/usb_/usb.md
+ *   50_UIX/12_ksign/include/uiox_ksign_image.h
+ *   50_UIX/20_uios/uiox-cpu/include/uiox_cpu_pm.h
+ *
+ * Compile:
+ *   dtc -I dts -O dtb -o uiox-riscv64.dtb uiox-riscv64.dts
+ */
+
+/ {
+    #address-cells = <2>;
+    #size-cells    = <2>;
+    compatible     = "uiox,uiox-r1", "uiox,uiox-soc-riscv64";
+    model          = "UIOX Board RISC-V 64-bit (RV64GC)";
+
+    chosen {
+        stdout-path     = "serial0:115200n8";
+        bootargs        = "console=ttyUIX0,115200n8 root=/dev/mmcblk0p2 rw";
+        riscv,isa       = "rv64imafdc";
+        /* SV39/SV48 MMU — uiox_cpu_hw.h */
+        uiox,mmu-type   = "sv39";
+        uiox,kernel-load-addr  = <0x0 0x40080000>;
+        uiox,kernel-entry-addr = <0x0 0x40080040>;
+        uiox,ksign-enabled     = <1>;
+    };
+
+    memory@40000000 {
+        device_type = "memory";
+        reg = <0x0 0x40000000  0x1 0x00000000>;  /* 4 GiB */
+    };
+
+    reserved-memory {
+        #address-cells = <2>;
+        #size-cells    = <2>;
+        ranges;
+
+        mmode_reserved: mmode@40000000 {
+            reg = <0x0 0x40000000  0x0 0x00080000>;
+            no-map;
+        };
+        kernel_reserved: kernel@40080000 {
+            reg = <0x0 0x40080000  0x0 0x00780000>;
+            no-map;
+        };
+        dma_pool: dma_pool@4F000000 {
+            compatible = "shared-dma-pool";
+            reg = <0x0 0x4F000000  0x0 0x01000000>;
+            reusable;
+            linux,cma-default;
+        };
+    };
+
+    /* -----------------------------------------------------------------
+     * CPUs — 4× RV64GC harts
+     *   uiox_cpu_hw.h: uiox_cpu_csr_read(mhartid), uiox_cpu_this_id()
+     *   M/S/U privilege modes, RVV cap (UIOX_CPU_CAP_RVV)
+     * -------------------------------------------------------------- */
+    cpus {
+        #address-cells = <1>;
+        #size-cells    = <0>;
+        timebase-frequency = <1000000>;  /* 1 MHz mtime reference */
+
+        cpu0: cpu@0 {
+            device_type    = "cpu";
+            compatible     = "uiox,rv64gc", "riscv";
+            reg            = <0>;
+            riscv,isa      = "rv64imafdc";
+            mmu-type       = "riscv,sv39";
+            status         = "okay";
+            operating-points-v2 = <&rv_opp>;
+            cpu0_intc: interrupt-controller {
+                #interrupt-cells = <1>;
+                compatible       = "riscv,cpu-intc";
+                interrupt-controller;
+            };
+        };
+        cpu1: cpu@1 {
+            device_type = "cpu"; compatible = "uiox,rv64gc", "riscv";
+            reg = <1>; riscv,isa = "rv64imafdc"; mmu-type = "riscv,sv39";
+            status = "okay"; operating-points-v2 = <&rv_opp>;
+            cpu1_intc: interrupt-controller {
+                #interrupt-cells = <1>; compatible = "riscv,cpu-intc";
+                interrupt-controller;
+            };
+        };
+        cpu2: cpu@2 {
+            device_type = "cpu"; compatible = "uiox,rv64gc", "riscv";
+            reg = <2>; riscv,isa = "rv64imafdc"; mmu-type = "riscv,sv39";
+            status = "okay"; operating-points-v2 = <&rv_opp>;
+            cpu2_intc: interrupt-controller {
+                #interrupt-cells = <1>; compatible = "riscv,cpu-intc";
+                interrupt-controller;
+            };
+        };
+        cpu3: cpu@3 {
+            device_type = "cpu"; compatible = "uiox,rv64gc", "riscv";
+            reg = <3>; riscv,isa = "rv64imafdc"; mmu-type = "riscv,sv39";
+            status = "okay"; operating-points-v2 = <&rv_opp>;
+            cpu3_intc: interrupt-controller {
+                #interrupt-cells = <1>; compatible = "riscv,cpu-intc";
+                interrupt-controller;
+            };
+        };
+    };
+
+    rv_opp: opp-table {
+        compatible = "operating-points-v2";
+        opp-shared;
+        opp-500000000  { opp-hz = /bits/ 64 <500000000>;  opp-microvolt = <900000>; };
+        opp-1000000000 { opp-hz = /bits/ 64 <1000000000>; opp-microvolt = <1000000>; };
+        opp-1500000000 { opp-hz = /bits/ 64 <1500000000>; opp-microvolt = <1050000>; };
+        opp-2000000000 { opp-hz = /bits/ 64 <2000000000>; opp-microvolt = <1100000>; };
+    };
+
+    soc {
+        compatible     = "simple-bus";
+        #address-cells = <2>;
+        #size-cells    = <2>;
+        ranges;
+
+        /* ---- CLINT — Core-Local Interruptor
+         *   uiox_cpu_hw.h: clint_base field
+         *   Provides mtime / mtimecmp for each hart
+         * ---------------------------------------------------------- */
+        clint: clint@2000000 {
+            compatible    = "sifive,clint0", "riscv,clint0";
+            reg           = <0x0 0x02000000  0x0 0x00010000>;
+            interrupts-extended =
+                <&cpu0_intc 3>, <&cpu0_intc 7>,
+                <&cpu1_intc 3>, <&cpu1_intc 7>,
+                <&cpu2_intc 3>, <&cpu2_intc 7>,
+                <&cpu3_intc 3>, <&cpu3_intc 7>;
+        };
+
+        /* ---- PLIC — Platform-Level Interrupt Controller
+         *   uiox_cpu_hw.h: gic_base used for PLIC on RV64
+         *   64 interrupt sources, 4 harts × 2 contexts (M+S)
+         * ---------------------------------------------------------- */
+        plic: interrupt-controller@c000000 {
+            compatible       = "sifive,plic-1.0.0", "riscv,plic0";
+            reg              = <0x0 0x0C000000  0x0 0x04000000>;
+            #interrupt-cells = <1>;
+            interrupt-controller;
+            riscv,ndev       = <64>;
+            interrupts-extended =
+                <&cpu0_intc 11>, <&cpu0_intc 9>,
+                <&cpu1_intc 11>, <&cpu1_intc 9>,
+                <&cpu2_intc 11>, <&cpu2_intc 9>,
+                <&cpu3_intc 11>, <&cpu3_intc 9>;
+        };
+
+        /* ---- UART0 (SiFive UART / 16550 compatible) -------------- */
+        uart0: serial@10010000 {
+            compatible    = "uiox,uiox-uart", "sifive,uart0";
+            reg           = <0x0 0x10010000  0x0 0x1000>;
+            interrupt-parent = <&plic>;
+            interrupts    = <4>;
+            clocks        = <&periph_clk>;
+            current-speed = <115200>;
+            status        = "okay";
+        };
+
+        uart1: serial@10011000 {
+            compatible = "uiox,uiox-uart", "sifive,uart0";
+            reg        = <0x0 0x10011000  0x0 0x1000>;
+            interrupt-parent = <&plic>;
+            interrupts = <5>;
+            clocks     = <&periph_clk>;
+            status     = "disabled";
+        };
+
+        /* ---- Clocks ---------------------------------------------- */
+        periph_clk: periph-clock {
+            compatible    = "fixed-clock";
+            #clock-cells  = <0>;
+            clock-frequency = <125000000>;   /* 125 MHz */
+        };
+
+        bus_clk: bus-clock {
+            compatible    = "fixed-clock";
+            #clock-cells  = <0>;
+            clock-frequency = <500000000>;   /* 500 MHz */
+        };
+
+        /* ---- SPI (Wi-Fi SPI / QSPI NOR Flash) -------------------- */
+        spi0: spi@10040000 {
+            compatible     = "uiox,uiox-spi", "sifive,spi0";
+            reg            = <0x0 0x10040000  0x0 0x1000>;
+            interrupt-parent = <&plic>;
+            interrupts     = <51>;
+            clocks         = <&periph_clk>;
+            #address-cells = <1>;
+            #size-cells    = <0>;
+            num-cs         = <4>;
+            status         = "okay";
+
+            /* SPI NOR Flash (KRL + measurement log) */
+            nor_flash: flash@0 {
+                compatible     = "jedec,spi-nor";
+                reg            = <0>;
+                spi-max-frequency = <50000000>;
+                spi-rx-bus-width  = <4>;
+                #address-cells = <1>;
+                #size-cells    = <1>;
+
+                partitions {
+                    compatible = "fixed-partitions";
+                    #address-cells = <1>;
+                    #size-cells    = <1>;
+                    fw@0     { label="uiox-fw";   reg=<0x000000 0x080000>; read-only; };
+                    krl@80000 { label="ksign-krl"; reg=<0x080000 0x010000>; };
+                    mlog@90000 { label="ksign-log"; reg=<0x090000 0x010000>; };
+                };
+            };
+        };
+
+        /* ---- SDMMC (eMMC / SD storage + CYW43xx Wi-Fi SDIO) ----- */
+        sdmmc0: mmc@10050000 {
+            compatible   = "uiox,uiox-sdmmc", "sifive,fu540-c000-pdma";
+            reg          = <0x0 0x10050000  0x0 0x10000>;
+            interrupt-parent = <&plic>;
+            interrupts   = <52>;
+            clocks       = <&bus_clk>;
+            bus-width    = <4>;
+            cap-sd-highspeed;
+            cap-sdio-irq;
+            status       = "okay";
+        };
+
+        /* ---- I2C (Thermal sensor) --------------------------------- */
+        i2c0: i2c@10060000 {
+            compatible     = "uiox,uiox-i2c", "sifive,i2c0";
+            reg            = <0x0 0x10060000  0x0 0x1000>;
+            interrupt-parent = <&plic>;
+            interrupts     = <53>;
+            clocks         = <&periph_clk>;
+            clock-frequency = <400000>;
+            #address-cells = <1>;
+            #size-cells    = <0>;
+            status         = "okay";
+
+            thermal_sensor: temp@48 {
+                compatible = "uiox,uiox-thermal-sensor";
+                reg        = <0x48>;
+                #thermal-sensor-cells = <0>;
+            };
+        };
+
+        /* ---- GPIO ------------------------------------------------- */
+        gpio0: gpio@10070000 {
+            compatible       = "uiox,uiox-gpio", "sifive,gpio0";
+            reg              = <0x0 0x10070000  0x0 0x1000>;
+            interrupt-parent = <&plic>;
+            interrupts       = <7>, <8>, <9>, <10>, <11>, <12>, <13>, <14>,
+                               <15>, <16>, <17>, <18>, <19>, <20>, <21>, <22>;
+            gpio-controller;
+            #gpio-cells      = <2>;
+            interrupt-controller;
+            #interrupt-cells = <2>;
+            ngpios           = <16>;
+            status           = "okay";
+        };
+
+        /* ---- USB 3.0 xHCI (usb_/ subsystem — FS/HS/SS, OTG) ----- */
+        usb3: usb@10100000 {
+            compatible   = "uiox,uiox-usb3", "generic-xhci";
+            reg          = <0x0 0x10100000  0x0 0x10000>;
+            interrupt-parent = <&plic>;
+            interrupts   = <54>;
+            dr_mode      = "otg";
+            maximum-speed = "super-speed";
+            status       = "okay";
+        };
+
+        /* ---- PCIe (Intel AX200 Wi-Fi + Thunderbolt 4) ------------ */
+        pcie0: pcie@30000000 {
+            compatible      = "uiox,uiox-pcie", "sifive,fu740-pcie";
+            reg             = <0x0 0x30000000  0x0 0x10000000>;
+            #address-cells  = <3>;
+            #size-cells     = <2>;
+            ranges =
+                <0x81000000 0x0 0x60000000  0x0 0x60000000  0x0 0x01000000>,
+                <0x82000000 0x0 0x61000000  0x0 0x61000000  0x0 0x1F000000>;
+            bus-range       = <0x0 0xFF>;
+            num-lanes       = <4>;
+            max-link-speed  = <3>;
+            interrupt-parent = <&plic>;
+            interrupts      = <56>, <57>;
+            interrupt-names = "msi", "inta";
+            status          = "okay";
+
+            wifi_ax200: wifi@0,0 {
+                compatible = "uiox,uiox-wifi-pcie", "intel,iwlwifi";
+                reg        = <0 0 0 0 0>;
+            };
+            tb4: thunderbolt@1,0 {
+                compatible = "uiox,uiox-tb4";
+                reg        = <0x800 0 0 0 0>;
+            };
+        };
+
+        /* ---- UIOX Crypto / ksign hardware accelerator ------------ */
+        crypto: crypto@10200000 {
+            compatible   = "uiox,uiox-crypto";
+            reg          = <0x0 0x10200000  0x0 0x10000>;
+            interrupt-parent = <&plic>;
+            interrupts   = <60>;
+            uiox,ksign-hw-accel;
+            status       = "okay";
+        };
+
+        /* ---- Watchdog --------------------------------------------- */
+        watchdog: watchdog@10080000 {
+            compatible  = "uiox,uiox-wdt", "sifive,wdog0";
+            reg         = <0x0 0x10080000  0x0 0x1000>;
+            interrupt-parent = <&plic>;
+            interrupts  = <61>;
+            timeout-sec = <30>;
+            status      = "okay";
+        };
+
+        /* ---- RTC -------------------------------------------------- */
+        rtc: rtc@10090000 {
+            compatible = "uiox,uiox-rtc";
+            reg        = <0x0 0x10090000  0x0 0x1000>;
+            interrupt-parent = <&plic>;
+            interrupts = <62>;
+            status     = "okay";
+        };
+    };
+};

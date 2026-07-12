@@ -293,6 +293,198 @@
 #define SYS_UNAME           347
 #define SYS_MAXSYSCALL      348
 
+/* ── Additional syscall numbers needed by uix_posix_*.c ──────── */
+#ifndef SYS_VFORK
+#define SYS_VFORK           66
+#endif
+#ifndef SYS_DUP3
+#define SYS_DUP3            292
+#endif
+#ifndef SYS_PIPE2
+#define SYS_PIPE2           293
+#endif
+#ifndef SYS_READV
+#define SYS_READV           19
+#endif
+#ifndef SYS_WRITEV
+#define SYS_WRITEV          20
+#endif
+#ifndef SYS_PREAD
+#define SYS_PREAD           180
+#endif
+#ifndef SYS_PWRITE
+#define SYS_PWRITE          181
+#endif
+#ifndef SYS_TRUNCATE
+#define SYS_TRUNCATE        92
+#endif
+#ifndef SYS_FTRUNCATE
+#define SYS_FTRUNCATE       93
+#endif
+#ifndef SYS_FDATASYNC
+#define SYS_FDATASYNC       148
+#endif
+#ifndef SYS_SYNC
+#define SYS_SYNC            36
+#endif
+#ifndef SYS_IOCTL
+#define SYS_IOCTL           54
+#endif
+#ifndef SYS_FSTAT
+#define SYS_FSTAT           108
+#endif
+#ifndef SYS_LSTAT
+#define SYS_LSTAT           107
+#endif
+#ifndef SYS_FSTATAT
+#define SYS_FSTATAT         300
+#endif
+#ifndef SYS_MKDIRAT
+#define SYS_MKDIRAT         296
+#endif
+#ifndef SYS_RENAMEAT
+#define SYS_RENAMEAT        302
+#endif
+#ifndef SYS_LINKAT
+#define SYS_LINKAT          303
+#endif
+#ifndef SYS_UNLINKAT
+#define SYS_UNLINKAT        301
+#endif
+#ifndef SYS_SYMLINKAT
+#define SYS_SYMLINKAT       304
+#endif
+#ifndef SYS_READLINKAT
+#define SYS_READLINKAT      305
+#endif
+#ifndef SYS_FCHMODAT
+#define SYS_FCHMODAT        307
+#endif
+#ifndef SYS_FCHOWNAT
+#define SYS_FCHOWNAT        298
+#endif
+#ifndef SYS_FACCESSAT
+#define SYS_FACCESSAT       307
+#endif
+#ifndef SYS_MKNODAT
+#define SYS_MKNODAT         297
+#endif
+#ifndef SYS_GETDENTS
+#define SYS_GETDENTS        78
+#endif
+#ifndef SYS_GETPPID
+#define SYS_GETPPID         64
+#endif
+#ifndef SYS_GETUID
+#define SYS_GETUID          24
+#endif
+#ifndef SYS_GETEUID
+#define SYS_GETEUID         49
+#endif
+#ifndef SYS_GETGID
+#define SYS_GETGID          47
+#endif
+#ifndef SYS_GETEGID
+#define SYS_GETEGID         50
+#endif
+#ifndef SYS_SETUID
+#define SYS_SETUID          23
+#endif
+#ifndef SYS_SETGID
+#define SYS_SETGID          46
+#endif
+#ifndef SYS_SETEUID
+#define SYS_SETEUID         183
+#endif
+#ifndef SYS_SETEGID
+#define SYS_SETEGID         184
+#endif
+#ifndef SYS_SETPGID
+#define SYS_SETPGID         57
+#endif
+#ifndef SYS_GETPGID
+#define SYS_GETPGID         132
+#endif
+#ifndef SYS_SETSID
+#define SYS_SETSID          66
+#endif
+#ifndef SYS_GETSID
+#define SYS_GETSID          147
+#endif
+#ifndef SYS_SIGACTION
+#define SYS_SIGACTION       67
+#endif
+#ifndef SYS_SIGPROCMASK
+#define SYS_SIGPROCMASK     126
+#endif
+#ifndef SYS_ALARM
+#define SYS_ALARM           27
+#endif
+#ifndef SYS_PAUSE
+#define SYS_PAUSE           29
+#endif
+#ifndef SYS_GETRLIMIT
+#define SYS_GETRLIMIT       97
+#endif
+#ifndef SYS_SETRLIMIT
+#define SYS_SETRLIMIT       75
+#endif
+#ifndef SYS_FCHDIR
+#define SYS_FCHDIR          133
+#endif
+#ifndef SYS_CHROOT
+#define SYS_CHROOT          61
+#endif
+#ifndef SYS_GETCWD
+#define SYS_GETCWD          183
+#endif
+#ifndef SYS_UMASK
+#define SYS_UMASK           60
+#endif
+#ifndef SYS_NICE
+#define SYS_NICE            34
+#endif
+#ifndef SYS_MLOCK
+#define SYS_MLOCK           150
+#endif
+#ifndef SYS_MUNLOCK
+#define SYS_MUNLOCK         151
+#endif
+#ifndef SYS_MSYNC
+#define SYS_MSYNC           144
+#endif
+#ifndef SYS_MREMAP
+#define SYS_MREMAP          163
+#endif
+#ifndef SYS_BRK
+#define SYS_BRK             45
+#endif
+#ifndef SYS_CLOCK_GETTIME
+#define SYS_CLOCK_GETTIME   228
+#endif
+#ifndef SYS_CLOCK_SETTIME
+#define SYS_CLOCK_SETTIME   227
+#endif
+#ifndef SYS_CLOCK_GETRES
+#define SYS_CLOCK_GETRES    229
+#endif
+#ifndef SYS_NANOSLEEP
+#define SYS_NANOSLEEP       162
+#endif
+#ifndef SYS_GETTIMEOFDAY
+#define SYS_GETTIMEOFDAY    78
+#endif
+#ifndef SYS_SETTIMEOFDAY
+#define SYS_SETTIMEOFDAY    79
+#endif
+#ifndef SYS_ACCEPT4
+#define SYS_ACCEPT4         288
+#endif
+#ifndef SYS_SHUTDOWN
+#define SYS_SHUTDOWN        293
+#endif
+
+
 /* ── All sys_* stubs are static inline so that every .c that
  * includes this header gets its own private copy.  Without
  * static the linker sees N definitions of the same symbol
