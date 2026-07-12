@@ -5,7 +5,13 @@
 #   brew install aarch64-elf-gcc       # ARM64 cross-compiler
 #   brew install x86_64-elf-gcc        # x86-64 cross-compiler
 #   brew install arm-linux-gnueabihf   # ARM32 cross-compiler (optional tap)
+#   brew install riscv64-elf-gcc       # RISC-V cross-compiler  <<< NEW
 #   brew install qemu                  # QEMU for 'make run'
+#   Ubuntu/Debian:
+#     sudo apt install gcc-aarch64-linux-gnu gcc-arm-linux-gnueabihf \
+#                      gcc gcc-riscv64-linux-gnu binutils \           <<< NEW
+#                      qemu-system-arm qemu-system-x86 \
+#                      qemu-system-misc   
 #
 # Usage:
 #   make all                — build all three architectures
@@ -53,6 +59,8 @@ ifeq ($(UNAME_S),Darwin)
   ARM32_OBJCOPY := arm-none-eabi-objcopy
   X86_CC        := x86_64-elf-gcc
   X86_OBJCOPY   := x86_64-elf-objcopy
+  RISCV_CC      := riscv64-elf-gcc
+  RISCV_OBJCOPY := riscv64-elf-objcopy
 else
   # Linux: standard GNU cross-compilers
   ARM64_CC      := aarch64-linux-gnu-gcc
@@ -61,6 +69,8 @@ else
   ARM32_OBJCOPY := arm-linux-gnueabihf-objcopy
   X86_CC        := x86_64-linux-gnu-gcc
   X86_OBJCOPY   := x86_64-linux-gnu-objcopy
+  RISCV_CC      := riscv64-linux-gnu-gcc
+  RISCV_OBJCOPY := riscv64-linux-gnu-objcopy
 endif
 
 # ── Common source files (arch-independent) ────────────────────────────────────
@@ -105,6 +115,32 @@ X86_BIN   := $(BUILDDIR)/x86_64/uiox_boot_x86_64.bin
 X86_MAP   := $(BUILDDIR)/x86_64/uiox_boot_x86_64.map
 X86_QEMU  := qemu-system-x86_64 -M q35 -nographic -kernel $(X86_BIN)
 
+
+# ── RISC-V RV64GC ─────────────────────────────────────────────────────────────
+# <<< NEW — mirrors the ARM64/ARM32/x86 blocks exactly >>>
+#
+# Compiler flags:
+#   -march=rv64gc       RV64 base + G (IMAFD) + C (compressed) extensions
+#   -mabi=lp64d         64-bit int/ptr, double-precision FP regs
+#   -mcmodel=medany     +/-2 GB PC-relative addressing (needed for > 2 GB PA)
+#   -mno-relax          disable linker relaxation (safer at boot stage)
+#
+# QEMU flags:
+#   -machine virt       Standard RISC-V virtual machine
+#   -bios default       Load OpenSBI (M-mode FW) automatically
+#   -kernel             Our ELF is the S-mode payload
+RISCV_ARCH  := -march=rv64gc -mabi=lp64d -mcmodel=medany -mno-relax
+RISCV_ASRCS := $(SRCDIR)/arch/riscv64/uiox_boot_entry_riscv64.S
+RISCV_CSRCS := $(SRCDIR)/arch/riscv64/uiox_boot_hw_riscv64.c
+RISCV_LD    := $(LDDIR)/uiox_boot_riscv64.ld
+RISCV_ELF   := $(BUILDDIR)/riscv64/uiox_boot_riscv64.elf
+RISCV_BIN   := $(BUILDDIR)/riscv64/uiox_boot_riscv64.bin
+RISCV_MAP   := $(BUILDDIR)/riscv64/uiox_boot_riscv64.map
+RISCV_QEMU  := qemu-system-riscv64 \
+               -machine virt \
+               -bios default \
+               -nographic \
+               -kernel $(RISCV_BIN)
 # ── Common compiler flags ─────────────────────────────────────────────────────
 CFLAGS_COMMON := \
     -std=c11 -Wall -Wextra -Wpedantic \
@@ -138,21 +174,24 @@ LINKER_FLAGS  := -Wl,--gc-sections               # Raw ld flags — via -Wl,
 DEPFLAGS = -MT $@ -MMD -MP -MF $(@:.o=.d)
 
 # ── Default target ────────────────────────────────────────────────────────────
-.PHONY: all clean arm64 arm32 x86_64 run help
+.PHONY: all clean arm64 arm32 x86_64 riscv64 run help
 
 ifndef ARCH
-all: arm64 arm32 x86_64
+all: arm64 arm32 x86_64 riscv64
 	$(Q)echo ""
 	$(Q)echo "  ✓  All bootloaders built"
 	$(Q)echo "     ARM64 : $(ARM64_BIN)"
 	$(Q)echo "     ARM32 : $(ARM32_BIN)"
 	$(Q)echo "     x86_64: $(X86_BIN)"
+	$(Q)echo "     riscv64: $(RISCV_BIN)"
 else ifeq ($(ARCH),arm64)
 all: arm64
 else ifeq ($(ARCH),arm32)
 all: arm32
 else ifeq ($(ARCH),x86_64)
 all: x86_64
+else ifeq ($(ARCH),riscv64)
+all: riscv64
 endif
 
 # ── ARM64 build ───────────────────────────────────────────────────────────────
@@ -278,6 +317,48 @@ $(BUILDDIR)/x86_64/%.o: $(SRCDIR)/%.c | $(BUILDDIR)/x86_64/arch/x86_64
 	$(LOGCC)
 	$(Q)$(X86_CC) $(X86_CFLAGS) $(DEPFLAGS) -c $< -o $@
 
+# =============================================================================
+# ── RISC-V RV64GC build ───────────────────────────────────────────────────────
+# <<< NEW — mirrors the ARM64/ARM32/x86 blocks exactly >>>
+# =============================================================================
+RISCV_CFLAGS := $(CFLAGS_COMMON) $(RISCV_ARCH) -D__riscv -D__riscv_xlen=64
+
+RISCV_ARCH_OBJS := \
+    $(BUILDDIR)/riscv64/arch/riscv64/uiox_boot_entry_riscv64.o \
+    $(BUILDDIR)/riscv64/arch/riscv64/uiox_boot_hw_riscv64.o
+RISCV_COMMON_OBJS := \
+    $(patsubst $(SRCDIR)/%.c,$(BUILDDIR)/riscv64/%.o,$(COMMON_SRCS))
+RISCV_OBJS := $(RISCV_ARCH_OBJS) $(RISCV_COMMON_OBJS)
+
+riscv64: $(RISCV_BIN)
+	$(Q)echo "  ✓  RISC-V RV64GC: $(RISCV_BIN)"
+
+$(RISCV_BIN): $(RISCV_ELF)
+	$(Q)$(RISCV_OBJCOPY) -O binary $< $@
+
+$(RISCV_ELF): $(RISCV_OBJS) $(RISCV_LD) | $(BUILDDIR)/riscv64/arch/riscv64
+	$(LOGLD)
+	$(Q)$(RISCV_CC) $(RISCV_CFLAGS) \
+	    -T$(RISCV_LD) \
+	    $(GCC_LD_FLAGS) \
+	    $(LINKER_FLAGS) \
+	    -Wl,-Map=$(RISCV_MAP) \
+	    $(RISCV_OBJS) -o $@
+
+$(BUILDDIR)/riscv64/arch/riscv64/%.o: $(SRCDIR)/arch/riscv64/%.S \
+        | $(BUILDDIR)/riscv64/arch/riscv64
+	$(LOGAS)
+	$(Q)$(RISCV_CC) $(RISCV_CFLAGS) $(DEPFLAGS) -c $< -o $@
+
+$(BUILDDIR)/riscv64/arch/riscv64/%.o: $(SRCDIR)/arch/riscv64/%.c \
+        | $(BUILDDIR)/riscv64/arch/riscv64
+	$(LOGCC)
+	$(Q)$(RISCV_CC) $(RISCV_CFLAGS) $(DEPFLAGS) -c $< -o $@
+
+$(BUILDDIR)/riscv64/%.o: $(SRCDIR)/%.c | $(BUILDDIR)/riscv64/arch/riscv64
+	$(LOGCC)
+	$(Q)$(RISCV_CC) $(RISCV_CFLAGS) $(DEPFLAGS) -c $< -o $@
+
 # ── Directory creation (order-only prerequisites) ─────────────────────────────
 $(BUILDDIR)/arm64/arch/arm64:
 	$(Q)mkdir -p $@
@@ -288,10 +369,13 @@ $(BUILDDIR)/arm32/arch/arm32:
 $(BUILDDIR)/x86_64/arch/x86_64:
 	$(Q)mkdir -p $@
 
+$(BUILDDIR)/riscv64/arch/riscv64:           # <<< NEW
+	$(Q)mkdir -p $@
 # ── Dependency auto-include ───────────────────────────────────────────────────
 -include $(ARM64_OBJS:.o=.d)
 -include $(ARM32_OBJS:.o=.d)
 -include $(X86_OBJS:.o=.d)
+-include $(RISCV_OBJS:.o=.d)               # <<< NEW
 
 # ── QEMU run ──────────────────────────────────────────────────────────────────
 run:
@@ -301,8 +385,10 @@ else ifeq ($(ARCH),arm32)
 	$(ARM32_QEMU)
 else ifeq ($(ARCH),x86_64)
 	$(X86_QEMU)
+else ifeq ($(ARCH),riscv64)
+	$(RISCV_QEMU)
 else
-	@echo "Usage: make run ARCH=arm64|arm32|x86_64"
+	@echo "Usage: make run ARCH=arm64|arm32|x86_64|riscv64"
 	@exit 1
 endif
 
@@ -315,7 +401,8 @@ help:
 	@echo "  make ARCH=arm64          Build ARM64 only"
 	@echo "  make ARCH=arm32          Build ARM32 only"
 	@echo "  make ARCH=x86_64         Build x86-64 only"
-	@echo "  make run ARCH=arm64      Build + QEMU run (arm64/arm32/x86_64)"
+	@echo "  make ARCH=riscv64        Build riscv64 only"
+	@echo "  make run ARCH=arm64      Build + QEMU run (arm64/arm32/x86_64/riscv64)"
 	@echo "  make clean               Remove build directory"
 	@echo "  make V=1 ARCH=arm64      Verbose build"
 	@echo ""

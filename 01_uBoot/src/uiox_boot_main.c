@@ -108,9 +108,12 @@
  #elif defined(__arm__)
    extern void uiox_boot_hw_arm32_register(void);
    #define UIOX_HW_REGISTER()  uiox_boot_hw_arm32_register()
- #else
+   #elif defined(__x86_64__)
    extern void uiox_boot_hw_x86_register(void);
    #define UIOX_HW_REGISTER()  uiox_boot_hw_x86_register()
+#else //riscv64
+   extern void uiox_boot_hw_riscv64_register(void);
+   #define UIOX_HW_REGISTER()  uiox_boot_hw_riscv64_register()
  #endif
  
  /* =========================================================================

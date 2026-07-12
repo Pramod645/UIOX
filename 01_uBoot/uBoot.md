@@ -202,5 +202,98 @@ entry_x86.S	                      x86 Entry	          Multiboot2 header, 32→64
 uiox_boot_main.c	                7-Stage Pipeline	  Orchestrates all stages; simulation-mode fallback when no storage
 linker/*.ld	                      Linker Scripts	    ARM64@0x40000000, ARM32@0x00000000/0x00100000, x86@0x00100000
 Makefile	                        Build	              make all / make ARCH=arm64 / make run ARCH=arm64
--------------
-x
+==============================================================
+Added RISCV in version 2:
+
+├── src/arch/riscv64/
+│   ├── uioxbootentryriscv64.S     ← NEW  (4.5 KB)
+│   └── uioxboothwriscv64.c        ← NEW  (9.3 KB)
+├── linker/
+│   └── uioxbootriscv64.ld          ← NEW  (2.7 KB)
+├── include/
+│   ├── uioxboottypes.h             ← MERGED (v1.1.0)
+│   └── uioxboothw.h                ← MERGED (v1.1.0)
+├── Makefile                           ← MERGED (all 4 archs)
+
+`
+
+New files — what each does
+uioxbootentryriscv64.S
+Mirrors uioxbootentryarm64.S step-for-step:
+
+| Step | RISC-V | ARM64 equivalent |
+|---|---|---|
+| 1 | csrr t0, mhartid → park hart ≠ 0 | Check CurrentEL, drop EL2→EL1 |
+| 2 | csrci mstatus, MIE + csrwi mie, 0 | Disable caches via SCTLREL1 |
+| 3 | la sp, bootstacktop | adrp x10, bootstacktop |
+| 4 | BSS zero with sd zero 8-byte loop | BSS zero with str xzr 8-byte loop |
+| 5 | call uioxboothwriscv64register | GIC init + uioxboothwregister |
+| 6 | mv a0, s0; call uioxbootmain | mov x0, x20; bl uioxbootmain |
+| 7 | wfi; j .Lhang | wfe; b .Lhang |
+
+Stack: 8 KiB in .bss.stack, 16-byte aligned (RV64 ABI requirement).
+
+uioxboothwriscv64.c
+Implements all 8 uioxboothwopst fields, matching the pattern of uioxboothwarm64.c and uioxboothwx86.c:
+
+| Op | Implementation | Source cross-ref |
+|---|---|---|
+| init | NS16550A @ 0x10000000, 115200 8N1, divisor=2 | DTB uart0, mirrors com1init() |
+| uartputc | Poll LSRTHRE, write THR | Mirrors com1putc() |
+| getticks | (volatile uint64t)0x0200BFF8 — CLINT mtime | uioxcpuhw.h clintbase |
+| udelay | CLINT tick-based, 10 MHz rate | Mirrors arm32udelay() |
+| dcacheflush | fence rw, rw | RISC-V base ISA (no explicit cache MMIO) |
+| icacheinv | fence.i | Required after ksign image load |
+| barrier | fence rw, rw | Mirrors arm64barrier() DSB |
+| reset | Write 0x7777 to test finisher 0x100000 | QEMU virt; mirrors arm32reset() |
+
+plicinit() zeros all 64 source priorities and sets S-mode threshold to 0 before registration.
+
+linker/uioxbootriscv64.ld
+Mirrors uioxbootarm64.ld section layout exactly:
+
+| Symbol | Address | Notes |
+|---|---|---|
+| bootloadbase | 0x80200000 | OpenSBI FWJUMP S-mode target |
+| kernloadbase | 0x80280000 | 512 KiB gap (same as ARM64) |
+| argsbase | 0x80270000 | uioxbootargst |
+| DRAM region | 64 MiB from 0x80200000 | OUTPUTARCH(riscv) |
+
+Includes RISC-V-specific .sdata / .sbss (GP-relative small data) sections.
+
+Merged files — exactly what changed
+include/uioxboottypes.h (v1.0.0 → v1.1.0)
+• UIOXARCHRV64 = 3 added to uioxarcht enum
+• UIOXRVUARTBASE, UIOXRVCLINTBASE/MTIME/MTIMECMP0, UIOXRVPLICBASE, UIOXRVTESTBASE constants added alongside existing ARM/x86 defines
+
+include/uioxboothw.h (v1.0.0 → v1.1.0)
+• NS16550 register offset defines added (parallel to existing COM1 and PL011*)
+• void uioxboothwriscv64register(void) prototype added alongside existing arm64register, arm32register, x86register
+
+Makefile (328 → ~420 lines)
+Every existing section extended with a parallel RISC-V block:
+• Toolchain: RISCVCC := riscv64-elf-gcc, RISCVOBJCOPY/OBJDUMP
+• Flags: -march=rv64gc -mabi=lp64d -mcmodel=medany -mno-relax -Driscv -Driscvxlen=64
+• Build rules: .S + .c compile, link, objcopy → .bin
+• $(BUILDDIR)/riscv64/arch/riscv64 mkdir rule
+• -include $(RISCVOBJS:.o=.d) dependency tracking
+• run ARCH=riscv64 → qemu-system-riscv64 -machine virt -bios default -kernel $(RISCV_ELF)
+• all target now builds all four; help updated
+
+Build & run
+
+`bash
+Install toolchain
+brew install riscv64-elf-gcc qemu          # macOS
+sudo apt install gcc-riscv64-linux-gnu \
+                 qemu-system-misc          # Ubuntu/Debian
+
+RISC-V only
+make riscv64
+
+All four architectures
+make all
+
+Run in QEMU (OpenSBI auto-loaded via -bios default)
+make run ARCH=riscv64
+``

@@ -47,7 +47,7 @@
  
          /* Copy segment to physical address */
          uiox_boot_memcpy((void *)(uintptr_t)ph->p_paddr,
-                           p + ph->p_offset,
+                         (const uint8_t *)elf_buf + ph->p_offset,
                            (size_t)ph->p_filesz);
  
          /* Zero BSS tail (p_memsz > p_filesz) */
@@ -73,7 +73,7 @@
                                        uintptr_t dest_pa)
  {
      if (!src || size == 0u) return UIOX_BOOT_ERR_INVAL;
-     uiox_boot_memcpy((void *)dest_pa, src, size);
+     uiox_boot_memcpy((void *)(uintptr_t)dest_pa, src, size);
      uiox_boot_hw_dcache_flush(dest_pa, size);
      uiox_boot_hw_icache_inv();
      uiox_boot_printf("  Flat binary load: %lu bytes → %p\n",
@@ -134,8 +134,10 @@
                 UIOX_ARCH_ARM64
  #elif defined(__arm__)
                 UIOX_ARCH_ARM32
- #else
+#elif defined(__x86_64__)
                 UIOX_ARCH_X86_64
+#else
+                UIOX_ARCH_RV64
  #endif
                );
  
@@ -209,7 +211,7 @@
      for (;;) __asm__ volatile("wfi");
  }
  
- #else  /* x86_64 */
+ #elif defined(__x86_64__) /* x86_64 */
  
  void __attribute__((noreturn))
  uiox_boot_arch_jump(uint64_t entry, uint64_t dtb_pa, uint64_t args_pa)
@@ -229,5 +231,26 @@
      for (;;) __asm__ volatile("hlt");
  }
  
+ #else  /* riscv64 */
+
+ void __attribute__((noreturn))
+ uiox_boot_arch_jump(uint64_t entry, uint64_t dtb_pa, uint64_t args_pa)
+ {
+     /*
+      * x86_64 SysV ABI: args in rdi, rsi, rdx.
+      * Kernel receives: rdi=args_pa, rsi=dtb_pa (0 on x86)
+      */
+     __asm__ volatile(
+        "mv   a0, %1\n\t"      /* a0 = dtb_pa   */
+        "mv   a1, %2\n\t"      /* a1 = args_pa  */
+        "jr   %0\n\t"          /* jump to entry (t0 used as base) */
+        :
+        : "r"((uintptr_t)entry),
+          "r"((uintptr_t)dtb_pa),
+          "r"((uintptr_t)args_pa)
+        : "a0", "a1", "memory");
+     for (;;);
+ }
+
  #endif
  

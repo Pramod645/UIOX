@@ -5,7 +5,7 @@
  * Each architecture implements uiox_boot_hw_ops_t and calls
  * uiox_boot_hw_register() from its entry point before any C code runs.
  *
- * @version 1.0.0
+ * @version 1.1.0  (1.0.0 + RISC-V RV64GC additions — 2026-07-12)
  * @date    2026-06-12
  */
 
@@ -21,18 +21,40 @@
  /* =========================================================================
   * MMIO accessors (volatile, no caching)
   * ====================================================================== */
+ /* =========================================================================
+ * MMIO accessors
+ *
+ * addr is declared as uintptr_t — the same integer width as a pointer on
+ * every supported target (arm32=32-bit, arm64/x86-64/rv64=64-bit).
+ * Casting (uintptr_t)addr → (volatile T *) is therefore always a
+ * same-width integer-to-pointer cast, which is well-defined and
+ * warning-free under -Wint-to-pointer-cast.
+ *
+ * DO NOT change the parameter type to uint32_t or uint64_t — that would
+ * reintroduce the size-mismatch warning on 64-bit targets or 32-bit targets
+ * respectively.
+ * ====================================================================== */
+
+ static inline void mmio_write32(__UINTPTR_TYPE__ addr, uint32_t val)
+ { *((volatile uint32_t *)(__UINTPTR_TYPE__) addr) = val; }
  
- static inline void mmio_write32(uintptr_t addr, uint32_t val)
- { *((volatile uint32_t *)addr) = val; }
- 
- static inline uint32_t mmio_read32(uintptr_t addr)
+ static inline uint32_t mmio_read32(__UINTPTR_TYPE__ addr)
  { return *((volatile uint32_t *)addr); }
  
- static inline void mmio_write8(uintptr_t addr, uint8_t val)
- { *((volatile uint8_t *)addr) = val; }
+ static inline void mmio_write8(__UINTPTR_TYPE__ addr, uint8_t val)
+ { *((volatile uint8_t *)(__UINTPTR_TYPE__) addr) = val; }
  
- static inline uint8_t mmio_read8(uintptr_t addr)
- { return *((volatile uint8_t *)addr); }
+ static inline uint8_t mmio_read8(__UINTPTR_TYPE__ addr)
+ { return *((volatile uint8_t *)(__UINTPTR_TYPE__) addr); }
+
+static inline void mmio_write64(__UINTPTR_TYPE__ addr, uint64_t val)
+{
+    *((volatile uint64_t *)(__UINTPTR_TYPE__)addr) = val;
+}
+static inline uint64_t mmio_read64(__UINTPTR_TYPE__ addr)
+{
+    return *((volatile uint64_t *)(__UINTPTR_TYPE__)addr);
+}
  
  /* =========================================================================
   * Platform UART base addresses (same as arch_defs.h in UIOX kernel)
@@ -67,6 +89,19 @@
  #define COM1_FCR                2u
  #define COM1_MCR                4u
  
+ /* RISC-V — NS16550A UART @ 0x10000000                     <<< NEW >>> */
+#define NS16550_RBR             0x00u   /**< Receive Buffer  (read)    */
+#define NS16550_THR             0x00u   /**< Transmit Holding (write)  */
+#define NS16550_IER             0x01u   /**< Interrupt Enable          */
+#define NS16550_FCR             0x02u   /**< FIFO Control (write)      */
+#define NS16550_LCR             0x03u   /**< Line Control              */
+#define NS16550_MCR             0x04u   /**< Modem Control             */
+#define NS16550_LSR             0x05u   /**< Line Status               */
+#define NS16550_DLL             0x00u   /**< Divisor Latch Low  DLAB=1 */
+#define NS16550_DLM             0x01u   /**< Divisor Latch High DLAB=1 */
+#define NS16550_LSR_THRE        (1u << 5) /**< TX Holding Reg Empty   */
+#define NS16550_LSR_DR          (1u << 0) /**< Data Ready (RX)        */
+
  /* =========================================================================
   * GIC-400 base (ARM64 QEMU virt)
   * ====================================================================== */
@@ -127,6 +162,15 @@
  void     uiox_boot_hw_reset       (void) __attribute__((noreturn));
  void     uiox_boot_hw_barrier     (void);
  
+ /* =========================================================================
+ * Arch registration prototypes
+ * Each arch entry .S calls exactly one of these before uiox_boot_main().
+ * ====================================================================== */
+//void uiox_boot_hw_arm64_register  (void);   /**< ARM64 Cortex-A76        */
+//void uiox_boot_hw_arm32_register  (void);   /**< ARM32 Cortex-A9         */
+//void uiox_boot_hw_x86_register    (void);   /**< x86-64                  */
+//void uiox_boot_hw_riscv64_register(void);   /**< RISC-V RV64GC  <<< NEW */
+
  #ifdef __cplusplus
  }
  #endif
