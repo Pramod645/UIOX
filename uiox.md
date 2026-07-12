@@ -501,3 +501,124 @@ Summary
 The sequence is: Bootloader → Firmware → Kernel — with the firmware layer being the critical bridge that turns raw silicon into a hardware-abstracted platform the kernel can trust.
 ===========================================================
 =================================================================
+
+Where SoC / Platform Files Belong in UIOX
+
+The UIOX numbering scheme encodes the layer a file lives at. SoC/platform code sits at the boundary between the CPU architecture (10Arch) and the firmware HAL (02FwHal), so it needs two homes depending on what the file does:
+
+The Two Placement Rules
+Rule 1 — SoC hardware description → 02FwHal/
+
+02FwHal is the firmware hardware abstraction layer — it already owns uioxfwsecboot.c/h (SHA-256, image headers, verified boot). SoC files that describe what hardware exists on a board belong here because they are consumed before the kernel starts.
+
+``
+02FwHal/
+├── include/
+│   ├── uioxfwsecboot.h          ← already exists
+│   ├── uioxsoc.h                 ← NEW: master SoC umbrella include
+│   ├── uioxsoctypes.h           ← NEW: SoC ID enum, capability flags
+│   ├── uioxsocmap.h             ← NEW: MMIO base addresses, IRQ numbers
+│   ├── uioxsocclk.h             ← NEW: clock tree, PLL definitions
+│   └── uioxsocpm.h              ← NEW: power domains, reset controller
+└── src/
+    ├── uioxsocarm64.c           ← NEW: ARM64 SoC init
+    ├── uioxsocx86.c             ← NEW: x86-64 SoC init
+    ├── uioxsocriscv64.c         ← NEW: RISC-V SoC init
+    └── uioxfwsecboot.c          ← already exists
+`
+
+Why 02FwHal?
+• It is loaded at Stage 0 (before main.c's 8-stage sequence).
+• The bootloader (01uBoot) already calls into 02FwHal for secure boot verification — SoC init naturally belongs in the same layer.
+• uiox.md explicitly says: "Add a Hardware Abstraction Layer (HAL) so the same kernel works on different boards" → 20DriverInterfaces (partially done) and 02FwHal for the firmware-facing side.
+• Number 02 means it runs before everything else — exactly right for SoC bringup.
+
+Rule 2 — SoC board port → 10Arch/<arch>/
+
+10Arch already has arm64/, arm32/, x8664/ subdirectories each with include/ and src/. Board-specific SoC files that are architecture-specific (GIC layout, PLIC offsets, CPU topology) go here, mirroring how archdefs.h and archinit.c are already structured.
+
+`
+10Arch/
+├── arm64/
+│   ├── include/
+│   │   ├── archdefs.h            ← already exists (GIC, PL011, DAIF macros)
+│   │   └── uioxsocarm64.h      ← NEW: Cortex-A76 SoC specific defines
+│   └── src/
+│       ├── archinit.c            ← already exists
+│       └── uioxsocarm64init.c ← NEW: GIC-600, CLINT, cache topology init
+├── arm32/
+│   ├── include/
+│   │   ├── archdefs.h            ← already exists
+│   │   └── uioxsocarm32.h      ← NEW
+│   └── src/
+│       ├── archinit.c            ← already exists
+│       └── uioxsocarm32init.c ← NEW
+├── x8664/
+│   ├── include/
+│   │   ├── archdefs.h            ← already exists
+│   │   └── uioxsocx86.h        ← NEW: APIC, IOAPIC, HPET defines
+│   └── src/
+│       ├── archinit.c            ← already exists
+│       └── uioxsocx86init.c   ← NEW
+└── riscv64/                       ← NEW (parallel to arm64/arm32/x8664)
+    ├── include/
+    │   ├── archdefs.h            ← NEW
+    │   └── uioxsocriscv64.h    ← NEW: CLINT, PLIC, SiFive defines
+    └── src/
+        ├── archinit.c            ← NEW
+        └── uioxsocriscv64init.c ← NEW
+`
+
+Why 10Arch?
+• uiox.md confirms 10Arch is used for "hardware capability detection (already started)" and the per-arch archdefs.h already holds MMIO addresses and IRQ numbers for each architecture.
+• Board-level SoC registers (GIC base, PLIC base, CLINT base) are already referenced in archdefs.h — the SoC init code that uses them belongs in the same directory.
+
+Complete Layer Decision Tree
+
+`
+Does the file describe WHAT hardware exists (MMIO map, clocks, power)?
+│
+├── YES → Is it needed before the kernel starts (firmware / bootloader)?
+│         ├── YES → 02FwHal/include/ and 02FwHal/src/
+│         └── NO  → 10Arch/<arch>/include/ and 10Arch/<arch>/src/
+│
+└── NO  → Does it provide a driver interface (vtable, ops struct)?
+          ├── YES → 20DriverInterfaces/
+          └── NO  → Is it a concrete device driver?
+                    ├── YES → 30DeviceDrivers/
+                    └── NO  → It's a subsystem → 50UIX/20uios/<subsystem>/
+`
+
+Mapping the UIOX Peripheral Subsystems to This Scheme
+
+From the uioxcpuhw.h / uioxcpupm.h / usb.md / wifi.md files already in the repo:
+
+| SoC block | Header lives in | Init code lives in |
+|---|---|---|
+| GIC-600 / PLIC / xAPIC base address | 02FwHal/include/uioxsocmap.h | 02FwHal/src/uioxsocarm64.c |
+| CPU clock / PLL / DVFS OPP table | 02FwHal/include/uioxsocclk.h | 02FwHal/src/uioxsocclk.c |
+| Power domain / reset controller | 02FwHal/include/uioxsocpm.h | 02FwHal/src/uioxsocpm.c |
+| Cortex-A76 topology / cache sizes | 10Arch/arm64/include/uioxsocarm64.h | 10Arch/arm64/src/uioxsocarm64init.c |
+| RISC-V CLINT / PLIC config | 10Arch/riscv64/include/archdefs.h | 10Arch/riscv64/src/archinit.c |
+| USB controller (xHCI ops vtable) | 20DriverInterfaces/include/ | 20DriverInterfaces/src/ |
+| USB concrete driver | 30DeviceDrivers/ | 30DeviceDrivers/src/ |
+| Wi-Fi / TB4 / Thermal subsystem | 50UIX/20uios/<subsystem>/ | Already structured there |
+| OTP / eFuse (ksign Root CA) | 02FwHal/include/uioxsocmap.h | 50UIX/12ksign/ |
+| SPI NOR / KRL / PCR log storage | 02FwHal/include/uioxsocmap.h | 50UIX/12ksign/ |
+
+Why NOT in 71linker/ or 00Docs/
+
+71linker/ holds only linker scripts (.ld) — address constants that belong in uioxsocmap.h are better in 02FwHal where the C code can #include them, with the linker script referencing those same symbols via PROVIDE() rather than duplicating them.
+
+Summary — One sentence per rule
+SoC hardware description (MMIO map, clocks, power domains, reset) → 02FwHal/include/ and 02FwHal/src/ — firmware layer, runs before the kernel.
+
+Architecture-specific SoC init (GIC topology, cache config, CPU bringup) → 10Arch/<arch>/include/ and 10Arch/<arch>/src/ — sits alongside the already-existing archdefs.h and archinit.c per arch.
+
+SoC peripheral driver interface (vtable / ops struct) → 20DriverInterfaces/.
+
+Concrete SoC peripheral driver → 30DeviceDrivers/.
+
+SoC subsystem (Wi-Fi, USB, Thunderbolt, Thermal) → 50UIX/20uios/<subsystem>/` — already correctly placed.
+========================================================
+
