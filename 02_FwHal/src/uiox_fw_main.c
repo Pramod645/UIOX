@@ -68,6 +68,141 @@ static uiox_psci_ctx_t       s_psci_ctx;
 static uiox_post_report_t    s_post_report;
 static uiox_secboot_ctx_t    s_secboot_ctx;
 static uiox_secboot_report_t s_secboot_report;
+
+/* =========================================================================
+ * Global state — new devices (add alongside existing s_fw_soc etc.)
+ * ====================================================================== */
+
+ static uiox_i2c_dev_t   s_i2c0;
+ static uiox_spi_dev_t   s_spi0;
+ static uiox_wdt_dev_t   s_wdt;
+ static uiox_dma_ctrl_t  s_dma;
+ static uiox_pcie_ctrl_t s_pcie;
+ 
+ /* =========================================================================
+  * Stage 0e: I2C master init
+  * ====================================================================== */
+ 
+ static void fw_stage_i2c(void)
+ {
+ #if defined(__aarch64__)
+     uiox_fw_i2c_init_dw(&s_i2c0,
+                           UIOX_I2C_ARM64_BASE,
+                           100000000u,   /* 100 MHz APB clock             */
+                           39u,          /* IRQ 39 on QEMU virt           */
+                           UIOX_I2C_SPEED_FAST);
+ #elif defined(__arm__)
+     uiox_fw_i2c_init_dw(&s_i2c0,
+                           UIOX_I2C_ARM32_BASE,
+                           24000000u,
+                           24u,
+                           UIOX_I2C_SPEED_STANDARD);
+ #else
+     /* x86: SMBus — stub init */
+     fw_memset_fw(&s_i2c0, 0, sizeof(s_i2c0));
+ #endif
+     //fw_puts_main("[FW] I2C     : OK\n");
+     uiox_fw_printf("[FW] I2C     : OK\n");
+ }
+ 
+ /* =========================================================================
+  * Stage 0f: SPI master init
+  * ====================================================================== */
+ 
+ static void fw_stage_spi(void)
+ {
+ #if defined(__aarch64__)
+     uiox_fw_spi_init_pl022(&s_spi0,
+                              UIOX_SPI_ARM64_BASE,
+                              UIOX_SPI_ARM64_CLK,
+                              40u);  /* IRQ 40 on QEMU virt */
+ #elif defined(__arm__)
+     uiox_fw_spi_init_pl022(&s_spi0,
+                              UIOX_SPI_ARM32_BASE,
+                              UIOX_SPI_ARM32_CLK,
+                              11u);
+ #else
+     fw_memset_fw(&s_spi0, 0, sizeof(s_spi0));
+ #endif
+     //fw_puts_main("[FW] SPI     : OK\n");
+     uiox_fw_printf("[FW] SPI     : OK\n");
+ }
+ 
+ /* =========================================================================
+  * Stage 0g: Watchdog timer init (10 second timeout)
+  * ====================================================================== */
+ 
+ static void fw_stage_wdt(void)
+ {
+ #if defined(__aarch64__)
+     uiox_fw_wdt_init_sp805(&s_wdt,
+                              UIOX_WDT_ARM64_BASE,
+                              UIOX_WDT_CLOCK_HZ,
+                              10000u);  /* 10 s timeout */
+ #elif defined(__arm__)
+     uiox_fw_wdt_init_sp805(&s_wdt,
+                              UIOX_WDT_ARM32_BASE,
+                              UIOX_WDT_CLOCK_HZ,
+                              10000u);
+ #else
+     fw_memset_fw(&s_wdt, 0, sizeof(s_wdt));
+ #endif
+     //fw_puts_main("[FW] WDT     : OK (10 s)\n");
+     uiox_fw_printf("[FW] WDT     : OK (10 s)\n");
+ }
+ 
+ /* =========================================================================
+  * Stage 0h: DMA controller init
+  * ====================================================================== */
+ 
+ static void fw_stage_dma(void)
+ {
+     /* Pass NULL ops → uses SW fallback DMA (always works on QEMU) */
+     uiox_fw_dma_init(&s_dma, NULL);
+     //fw_puts_main("[FW] DMA     : OK (SW fallback)\n");
+     uiox_fw_printf("[FW] DMA     : OK (SW fallback)\n");
+ }
+ 
+ /* =========================================================================
+  * Stage 0i: PCIe ECAM scan
+  * ====================================================================== */
+ 
+ static void fw_stage_pcie(void)
+ {
+ #if defined(__aarch64__)
+     uiox_fw_pcie_init(&s_pcie, UIOX_PCIE_ECAM_ARM64);
+ #elif defined(__x86_64__)
+     uiox_fw_pcie_init(&s_pcie, UIOX_PCIE_ECAM_X86_Q35);
+ #else
+     fw_memset_fw(&s_pcie, 0, sizeof(s_pcie));
+     //fw_puts_main("[FW] PCIe    : no ECAM on ARM32\n");
+     uiox_fw_printf("[FW] PCIe    : no ECAM on ARM32\n");
+     return;
+ #endif
+     uiox_fw_pcie_scan(&s_pcie);
+ 
+     /* Assign BARs and enable all found devices */
+     for (uint32_t i = 0u; i < s_pcie.num_devices; i++) {
+         uiox_fw_pcie_assign_bars(&s_pcie, &s_pcie.devices[i]);
+         uiox_fw_pcie_enable_dev (&s_pcie, &s_pcie.devices[i]);
+     }
+ 
+     char buf[8];
+     //fw_puts_main("[FW] PCIe    : ");
+     uiox_fw_printf("[FW] PCIe    : ");
+     /* print device count */
+     uint32_t n = s_pcie.num_devices;
+     char tmp[12]; int j = 0;
+     if (n == 0u) { tmp[j++] = '0'; }
+     else { while (n) { tmp[j++] = (char)('0' + n % 10u); n /= 10u; } }
+     for (int k = j-1; k >= 0; k--) buf[j-1-k] = tmp[k];
+     buf[j] = '\0';
+     //fw_puts_main(buf);
+     uiox_fw_printf(buf);
+     //fw_puts_main(" device(s) found\n");
+     uiox_fw_printf(" device(s) found\n");
+ }
+ 
 /* Simulated Root of Trust public-key hash (OTP / ROM constant on real HW) */
 static const uint8_t s_rot_hash[32] = {
     0xDEu,0xADu,0xBEu,0xEFu, 0xCAu,0xFEu,0xBAu,0xBEu,
@@ -508,6 +643,24 @@ uiox_fw_main(uint64_t dtb_pa)
     } else {
         fw_puts_main("[SECBOOT] Simulation — verification skipped\r\n");
     }
+    /* ================================================================ */
+    /* Stage 0e–0i: New peripheral HAL init                             */
+    /* (run after UART is live, after POST + secure boot)               */
+    /* ================================================================ */
+
+    fw_stage_i2c();
+    fw_stage_spi();
+    fw_stage_wdt();
+    fw_stage_dma();
+    fw_stage_pcie();
+
+    /* WDT kick — firmware init takes a few seconds, prevent false reset */
+    uiox_fw_wdt_kick(&s_wdt);
+
+    /* ================================================================ */
+    /* Stages 2–8: existing firmware pipeline (unchanged)               */
+    /* ================================================================ */
+
     /* ================================================================ */
     /* Stages 2–8: existing firmware pipeline (unchanged below here)    */
     /* ================================================================ */

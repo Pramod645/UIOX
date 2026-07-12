@@ -78,7 +78,37 @@ COMMON_SRCS := \
     $(SRCDIR)/uiox_fw_post.c    \
     $(SRCDIR)/uiox_fw_secboot.c \
     $(SRCDIR)/uiox_fw_tz.c      \
-    $(SRCDIR)/uiox_fw_psci.c
+    $(SRCDIR)/uiox_fw_psci.c    \
+	$(SRCDIR)/uiox_fw_i2c.c    \
+    $(SRCDIR)/uiox_fw_spi.c    \
+    $(SRCDIR)/uiox_fw_wdt.c    \
+    $(SRCDIR)/uiox_fw_dma.c    \
+    $(SRCDIR)/uiox_fw_pcie.c   \
+    $(SRCDIR)/uiox_fw_als.c        \
+    $(SRCDIR)/uiox_fw_bms.c        \
+    $(SRCDIR)/uiox_fw_bt.c         \
+    $(SRCDIR)/uiox_fw_camera.c     \
+    $(SRCDIR)/uiox_fw_charger.c    \
+    $(SRCDIR)/uiox_fw_emmc.c       \
+    $(SRCDIR)/uiox_fw_eth.c        \
+    $(SRCDIR)/uiox_fw_fan.c        \
+    $(SRCDIR)/uiox_fw_gpu.c        \
+    $(SRCDIR)/uiox_fw_hdmi.c       \
+    $(SRCDIR)/uiox_fw_keyboard.c   \
+    $(SRCDIR)/uiox_fw_mic.c        \
+    $(SRCDIR)/uiox_fw_monitor.c    \
+    $(SRCDIR)/uiox_fw_mouse.c      \
+    $(SRCDIR)/uiox_fw_nvme.c       \
+    $(SRCDIR)/uiox_fw_pmic.c       \
+    $(SRCDIR)/uiox_fw_ramrtc.c     \
+    $(SRCDIR)/uiox_fw_sata.c       \
+    $(SRCDIR)/uiox_fw_sd.c         \
+    $(SRCDIR)/uiox_fw_speaker.c    \
+    $(SRCDIR)/uiox_fw_tb4.c        \
+    $(SRCDIR)/uiox_fw_thermal.c    \
+    $(SRCDIR)/uiox_fw_touchpwd.c   \
+    $(SRCDIR)/uiox_fw_usb.c        \
+    $(SRCDIR)/uiox_fw_wifi.c
 
 # ── Common CFLAGS ─────────────────────────────────────────────────────────────
 CFLAGS_COMMON := \
