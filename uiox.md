@@ -622,3 +622,94 @@ Concrete SoC peripheral driver → 30DeviceDrivers/.
 SoC subsystem (Wi-Fi, USB, Thunderbolt, Thermal) → 50UIX/20uios/<subsystem>/` — already correctly placed.
 ========================================================
 
+02_FwHal/include/uiox_soc_types.h 
+02_FwHal/include/uiox_soc_map.h
+02_FwHal/include/uiox_soc_clk.h
+02_FwHal/include/uiox_soc_pm.h
+02_FwHal/include/uiox_soc.h
+02_FwHal/src/uiox_soc_arm64.c
+02_FwHal/src/uiox_soc_x86.c
+02_FwHal/src/uiox_soc_riscv64.c
+10_Arch/arm64/include/uiox_soc_arm64.h
+10_Arch/arm64/src/uiox_soc_arm64_init.c
+10_Arch/arm32/include/uiox_soc_arm32.h
+10_Arch/arm32/src/uiox_soc_arm32_init.c
+10_Arch/x86_64/include/uiox_soc_x86.h
+10_Arch/x86_64/src/uiox_soc_x86_init.c
+10_Arch/riscv64/include/arch_defs.h
+10_Arch/riscv64/include/uiox_soc_riscv64.h
+10_Arch/riscv64/src/arch_init.c
+10_Arch/riscv64/src/uiox_soc_riscv64_init.c
+///////////
+# ── New SoC abstraction layer sources ──────────────────────────
+FWHAL_SOC_SRCS := \
+    $(UIOX_ROOT)/02_FwHal/src/uiox_soc_arm64.c \
+    $(UIOX_ROOT)/02_FwHal/src/uiox_soc_x86.c \
+    $(UIOX_ROOT)/02_FwHal/src/uiox_soc_riscv64.c
+
+ARM64_SRCS  += $(UIOX_ROOT)/02_FwHal/src/uiox_soc_arm64.c \
+               $(UIOX_ROOT)/10_Arch/arm64/src/uiox_soc_arm64_init.c
+
+ARM32_SRCS  += $(UIOX_ROOT)/02_FwHal/src/uiox_soc_arm64.c \
+               $(UIOX_ROOT)/10_Arch/arm32/src/uiox_soc_arm32_init.c
+
+X86_64_SRCS += $(UIOX_ROOT)/02_FwHal/src/uiox_soc_x86.c \
+               $(UIOX_ROOT)/10_Arch/x86_64/src/uiox_soc_x86_init.c
+
+# ── RISC-V 64 (new target alongside arm64/arm32/x86_64) ────────
+RISCV64_SRCS := \
+    $(UIOX_ROOT)/main.c \
+    $(UIOX_ROOT)/02_FwHal/src/uiox_soc_riscv64.c \
+    $(UIOX_ROOT)/10_Arch/riscv64/src/arch_init.c \
+    $(UIOX_ROOT)/10_Arch/riscv64/src/uiox_soc_riscv64_init.c
+
+RISCV64_CFLAGS := -march=rv64imafdc -mabi=lp64d \
+                   -DARCH_RISCV64 \
+                   -I$(UIOX_ROOT)/10_Arch/riscv64/include
+
+riscv64: $(RISCV64_SRCS)
+	$(CC) $(CFLAGS) $(RISCV64_CFLAGS) $^ -o $(BIN_DIR)/uiox_riscv64.elf
+==================================================================================
+02_FwHal/
+├── include/
+│   ├── uiox_fw_secboot.h          ← already exists
+│   ├── uiox_soc.h                 ← NEW: master umbrella include
+│   ├── uiox_soc_types.h           ← NEW: SoC ID enum, capability flags
+│   ├── uiox_soc_map.h             ← NEW: MMIO bases, IRQ numbers (all 4 archs)
+│   ├── uiox_soc_clk.h             ← NEW: clock tree, PLL, baud helpers
+│   └── uiox_soc_pm.h              ← NEW: power domains, PSCI/SBI/ACPI reset
+└── src/
+    ├── uiox_soc_arm64.c           ← NEW: ARM64 SoC detect + GIC-400 + UART
+    ├── uiox_soc_x86.c             ← NEW: x86-64 CPUID + LAPIC + COM1
+    ├── uiox_soc_riscv64.c         ← NEW: RISC-V CLINT + PLIC + NS16550A
+    └── uiox_fw_secboot.c          ← already exists
+
+10_Arch/
+├── arm64/
+│   ├── include/
+│   │   ├── arch_defs.h            ← already exists
+│   │   └── uiox_soc_arm64.h      ← NEW: GIC-600, Cortex-A76, DSU defines
+│   └── src/
+│       ├── arch_init.c            ← already exists
+│       └── uiox_soc_arm64_init.c  ← NEW: redistributor wake, cache topology, SMP
+├── arm32/
+│   ├── include/
+│   │   ├── arch_defs.h            ← already exists
+│   │   └── uiox_soc_arm32.h      ← NEW: SCU, private timer, L2C-310, CP15
+│   └── src/
+│       ├── arch_init.c            ← already exists
+│       └── uiox_soc_arm32_init.c  ← NEW: SCU enable, L2C-310, ptimer, SMP
+├── x86_64/
+│   ├── include/
+│   │   ├── arch_defs.h            ← already exists
+│   │   └── uiox_soc_x86.h        ← NEW: APIC, IOAPIC, HPET, MSR accessors
+│   └── src/
+│       ├── arch_init.c            ← already exists
+│       └── uiox_soc_x86_init.c    ← NEW: PIC mask, IOAPIC routing, LAPIC timer
+└── riscv64/                        ← NEW (entire directory)
+    ├── include/
+    │   ├── arch_defs.h            ← NEW: CLINT, PLIC, UART, barrier macros, CSR macros
+    │   └── uiox_soc_riscv64.h    ← NEW: PLIC context helpers, SBI wrappers, SiFive L2
+    └── src/
+        ├── arch_init.c            ← NEW: PLIC+UART+timer+VirtIO IRQ setup
+        └── uiox_soc_riscv64_init.c ← NEW: medeleg/mideleg, SiFive L2, CLINT multi-hart
