@@ -51,7 +51,7 @@
   *   → "[BOOT] Stage 4: Loaded 12345 bytes\n"
   * ====================================================================== */
  
- #define BOOT_LOG(stage, fmt, ...)                                         \
+ #define BOOT_LOG(stage, fmt, ...)                                           \
      uiox_boot_printf("[BOOT] Stage %u: " fmt "\n",                        \
                       (unsigned)(stage), ##__VA_ARGS__)
  
@@ -98,7 +98,7 @@
   * function" warnings in callers.
   * ====================================================================== */
  
- #define BOOT_FATAL(fmt, ...)                                              \
+ #define BOOT_FATAL(fmt, ...)                                                \
      do {                                                                  \
          uiox_boot_printf("[BOOT] FATAL: " fmt "\n", ##__VA_ARGS__);      \
          uiox_boot_puts("[BOOT] System halted.\n");                        \

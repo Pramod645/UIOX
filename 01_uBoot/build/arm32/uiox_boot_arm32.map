@@ -1,0 +1,447 @@
+
+Merging object attributes
+
+
+Discarded input sections
+
+ .text          0x00000000        0x0 build/arm32/arch/arm32/uiox_boot_entry_arm32.o
+ .data          0x00000000        0x0 build/arm32/arch/arm32/uiox_boot_entry_arm32.o
+ .bss           0x00000000        0x0 build/arm32/arch/arm32/uiox_boot_entry_arm32.o
+ .bss.stack     0x00000000     0x2000 build/arm32/arch/arm32/uiox_boot_entry_arm32.o
+ .text          0x00000000        0x0 build/arm32/arch/arm32/uiox_boot_hw_arm32.o
+ .data          0x00000000        0x0 build/arm32/arch/arm32/uiox_boot_hw_arm32.o
+ .bss           0x00000000        0x0 build/arm32/arch/arm32/uiox_boot_hw_arm32.o
+ .comment       0x00000000       0x13 build/arm32/arch/arm32/uiox_boot_hw_arm32.o
+ .text          0x00000000        0x0 build/arm32/uiox_boot_hw.o
+ .data          0x00000000        0x0 build/arm32/uiox_boot_hw.o
+ .bss           0x00000000        0x0 build/arm32/uiox_boot_hw.o
+ .text.uiox_boot_hw_ops
+                0x00000000        0xc build/arm32/uiox_boot_hw.o
+ .text.uiox_boot_hw_init
+                0x00000000        0x2 build/arm32/uiox_boot_hw.o
+ .text.uiox_boot_hw_get_ticks
+                0x00000000       0x18 build/arm32/uiox_boot_hw.o
+ .text.uiox_boot_hw_udelay
+                0x00000000       0x14 build/arm32/uiox_boot_hw.o
+ .text.uiox_boot_hw_reset
+                0x00000000       0x14 build/arm32/uiox_boot_hw.o
+ .comment       0x00000000       0x13 build/arm32/uiox_boot_hw.o
+ .text          0x00000000        0x0 build/arm32/uiox_boot_console.o
+ .data          0x00000000        0x0 build/arm32/uiox_boot_console.o
+ .bss           0x00000000        0x0 build/arm32/uiox_boot_console.o
+ .rodata.uiox_boot_banner.str1.1
+                0x00000000       0x9a build/arm32/uiox_boot_console.o
+ .text.uiox_boot_banner
+                0x00000000       0x40 build/arm32/uiox_boot_console.o
+ .comment       0x00000000       0x13 build/arm32/uiox_boot_console.o
+ .text          0x00000000        0x0 build/arm32/uiox_boot_mem.o
+ .data          0x00000000        0x0 build/arm32/uiox_boot_mem.o
+ .bss           0x00000000        0x0 build/arm32/uiox_boot_mem.o
+ .comment       0x00000000       0x13 build/arm32/uiox_boot_mem.o
+ .text          0x00000000        0x0 build/arm32/uiox_boot_fs.o
+ .data          0x00000000        0x0 build/arm32/uiox_boot_fs.o
+ .bss           0x00000000        0x0 build/arm32/uiox_boot_fs.o
+ .comment       0x00000000       0x13 build/arm32/uiox_boot_fs.o
+ .text          0x00000000        0x0 build/arm32/uiox_boot_verify.o
+ .data          0x00000000        0x0 build/arm32/uiox_boot_verify.o
+ .bss           0x00000000        0x0 build/arm32/uiox_boot_verify.o
+ .comment       0x00000000       0x13 build/arm32/uiox_boot_verify.o
+ .text          0x00000000        0x0 build/arm32/uiox_boot_handoff.o
+ .data          0x00000000        0x0 build/arm32/uiox_boot_handoff.o
+ .bss           0x00000000        0x0 build/arm32/uiox_boot_handoff.o
+ .comment       0x00000000       0x13 build/arm32/uiox_boot_handoff.o
+ .text          0x00000000        0x0 build/arm32/uiox_boot_main.o
+ .data          0x00000000        0x0 build/arm32/uiox_boot_main.o
+ .bss           0x00000000        0x0 build/arm32/uiox_boot_main.o
+ .comment       0x00000000       0x13 build/arm32/uiox_boot_main.o
+
+Memory Configuration
+
+Name             Origin             Length             Attributes
+ROM              0x00000000         0x00100000         xr
+RAM              0x00100000         0x00f00000         xrw
+*default*        0x00000000         0xffffffff
+
+Linker script and memory map
+
+LOAD build/arm32/arch/arm32/uiox_boot_entry_arm32.o
+LOAD build/arm32/arch/arm32/uiox_boot_hw_arm32.o
+LOAD build/arm32/uiox_boot_hw.o
+LOAD build/arm32/uiox_boot_console.o
+LOAD build/arm32/uiox_boot_mem.o
+LOAD build/arm32/uiox_boot_fs.o
+LOAD build/arm32/uiox_boot_verify.o
+LOAD build/arm32/uiox_boot_handoff.o
+LOAD build/arm32/uiox_boot_main.o
+                0x00000000                        . = 0x0
+
+.boot           0x00000000       0x64
+                0x00000000                        _boot_start = .
+ *(.boot)
+ .boot          0x00000000       0x64 build/arm32/arch/arm32/uiox_boot_entry_arm32.o
+                0x00000000                _start
+ *(.boot.text)
+                0x00000064                        _boot_end = .
+
+.text           0x00001000     0x1218
+ *(.text*)
+ .text.pl011_arm32_init
+                0x00001000       0x20 build/arm32/arch/arm32/uiox_boot_hw_arm32.o
+ .text.pl011_arm32_putc
+                0x00001020       0x10 build/arm32/arch/arm32/uiox_boot_hw_arm32.o
+ .text.arm32_dcache_flush
+                0x00001030       0x18 build/arm32/arch/arm32/uiox_boot_hw_arm32.o
+ .text.arm32_icache_inv
+                0x00001048       0x10 build/arm32/arch/arm32/uiox_boot_hw_arm32.o
+ .text.arm32_get_ticks
+                0x00001058        0xc build/arm32/arch/arm32/uiox_boot_hw_arm32.o
+ .text.arm32_udelay
+                0x00001064       0x1c build/arm32/arch/arm32/uiox_boot_hw_arm32.o
+ .text.arm32_barrier
+                0x00001080        0xa build/arm32/arch/arm32/uiox_boot_hw_arm32.o
+ .text.arm32_reset
+                0x0000108a       0x10 build/arm32/arch/arm32/uiox_boot_hw_arm32.o
+ *fill*         0x0000109a        0x2 
+ .text.uiox_boot_hw_arm32_register
+                0x0000109c        0xc build/arm32/arch/arm32/uiox_boot_hw_arm32.o
+                0x0000109c                uiox_boot_hw_arm32_register
+ .text.uiox_boot_hw_register
+                0x000010a8       0x14 build/arm32/uiox_boot_hw.o
+                0x000010a8                uiox_boot_hw_register
+ .text.uiox_boot_hw_uart_putc
+                0x000010bc       0x14 build/arm32/uiox_boot_hw.o
+                0x000010bc                uiox_boot_hw_uart_putc
+ .text.uiox_boot_hw_dcache_flush
+                0x000010d0       0x14 build/arm32/uiox_boot_hw.o
+                0x000010d0                uiox_boot_hw_dcache_flush
+ .text.uiox_boot_hw_icache_inv
+                0x000010e4       0x14 build/arm32/uiox_boot_hw.o
+                0x000010e4                uiox_boot_hw_icache_inv
+ .text.uiox_boot_hw_barrier
+                0x000010f8       0x14 build/arm32/uiox_boot_hw.o
+                0x000010f8                uiox_boot_hw_barrier
+ .text.udiv32.part.0
+                0x0000110c       0x36 build/arm32/uiox_boot_console.o
+ *fill*         0x00001142        0x2 
+ .text.div64_u32.constprop.0
+                0x00001144       0x48 build/arm32/uiox_boot_console.o
+ .text.uiox_boot_console_init
+                0x0000118c        0x2 build/arm32/uiox_boot_console.o
+                0x0000118c                uiox_boot_console_init
+ .text.uiox_boot_putc
+                0x0000118e       0x18 build/arm32/uiox_boot_console.o
+                0x0000118e                uiox_boot_putc
+ *fill*         0x000011a6        0x2 
+ .text.fmt_hex  0x000011a8       0x5c build/arm32/uiox_boot_console.o
+ .text.uiox_boot_puts.part.0
+                0x00001204       0x12 build/arm32/uiox_boot_console.o
+ .text.uiox_boot_puts
+                0x00001216        0x8 build/arm32/uiox_boot_console.o
+                0x00001216                uiox_boot_puts
+ *fill*         0x0000121e        0x2 
+ .text.uiox_boot_printf
+                0x00001220      0x294 build/arm32/uiox_boot_console.o
+                0x00001220                uiox_boot_printf
+ .text.fdt_be32
+                0x000014b4        0x6 build/arm32/uiox_boot_mem.o
+ .text.uiox_boot_memset
+                0x000014ba       0x10 build/arm32/uiox_boot_mem.o
+                0x000014ba                uiox_boot_memset
+ .text.uiox_boot_memcpy
+                0x000014ca       0x16 build/arm32/uiox_boot_mem.o
+                0x000014ca                uiox_boot_memcpy
+ .text.uiox_boot_memcmp
+                0x000014e0       0x20 build/arm32/uiox_boot_mem.o
+                0x000014e0                uiox_boot_memcmp
+ .text.uiox_boot_strlen
+                0x00001500        0xe build/arm32/uiox_boot_mem.o
+                0x00001500                uiox_boot_strlen
+ *fill*         0x0000150e        0x2 
+ .text.uiox_boot_mem_probe
+                0x00001510      0x184 build/arm32/uiox_boot_mem.o
+                0x00001510                uiox_boot_mem_probe
+ .text.uiox_boot_mem_print
+                0x00001694       0x7c build/arm32/uiox_boot_mem.o
+                0x00001694                uiox_boot_mem_print
+ .text.uiox_boot_mem_alloc_init
+                0x00001710       0x54 build/arm32/uiox_boot_mem.o
+                0x00001710                uiox_boot_mem_alloc_init
+ .text.uiox_boot_mem_alloc
+                0x00001764       0x28 build/arm32/uiox_boot_mem.o
+                0x00001764                uiox_boot_mem_alloc
+ .text.fat32_read_fat
+                0x0000178c       0x4c build/arm32/uiox_boot_fs.o
+ .text.uiox_boot_fs_init
+                0x000017d8       0x84 build/arm32/uiox_boot_fs.o
+                0x000017d8                uiox_boot_fs_init
+ .text.uiox_boot_fs_load
+                0x0000185c      0x1cc build/arm32/uiox_boot_fs.o
+                0x0000185c                uiox_boot_fs_load
+ .text.sha256_transform
+                0x00001a28      0x150 build/arm32/uiox_boot_verify.o
+ .text.uiox_sha256_init
+                0x00001b78       0x58 build/arm32/uiox_boot_verify.o
+                0x00001b78                uiox_sha256_init
+ .text.uiox_sha256_update
+                0x00001bd0       0x3c build/arm32/uiox_boot_verify.o
+                0x00001bd0                uiox_sha256_update
+ .text.uiox_sha256_final
+                0x00001c0c       0x94 build/arm32/uiox_boot_verify.o
+                0x00001c0c                uiox_sha256_final
+ .text.uiox_sha256
+                0x00001ca0       0x22 build/arm32/uiox_boot_verify.o
+                0x00001ca0                uiox_sha256
+ *fill*         0x00001cc2        0x2 
+ .text.uiox_boot_verify_image
+                0x00001cc4       0xa0 build/arm32/uiox_boot_verify.o
+                0x00001cc4                uiox_boot_verify_image
+ .text.uiox_boot_elf64_load
+                0x00001d64       0xec build/arm32/uiox_boot_handoff.o
+                0x00001d64                uiox_boot_elf64_load
+ .text.uiox_boot_flat_load
+                0x00001e50       0x3c build/arm32/uiox_boot_handoff.o
+                0x00001e50                uiox_boot_flat_load
+ .text.uiox_boot_arch_jump
+                0x00001e8c       0x22 build/arm32/uiox_boot_handoff.o
+                0x00001e8c                uiox_boot_arch_jump
+ *fill*         0x00001eae        0x2 
+ .text.uiox_boot_handoff
+                0x00001eb0       0xac build/arm32/uiox_boot_handoff.o
+                0x00001eb0                uiox_boot_handoff
+ .text.sim_blk_read
+                0x00001f5c        0x6 build/arm32/uiox_boot_main.o
+ *fill*         0x00001f62        0x2 
+ .text.uiox_boot_main
+                0x00001f64      0x2b4 build/arm32/uiox_boot_main.o
+                0x00001f64                uiox_boot_main
+ *(.gnu.linkonce.t*)
+
+.glue_7         0x00002218        0x0
+ .glue_7        0x00002218        0x0 linker stubs
+
+.glue_7t        0x00002218        0x0
+ .glue_7t       0x00002218        0x0 linker stubs
+
+.vfp11_veneer   0x00002218        0x0
+ .vfp11_veneer  0x00002218        0x0 linker stubs
+
+.v4_bx          0x00002218        0x0
+ .v4_bx         0x00002218        0x0 linker stubs
+
+.iplt           0x00002218        0x0
+ .iplt          0x00002218        0x0 build/arm32/arch/arm32/uiox_boot_entry_arm32.o
+
+.rodata         0x00003000      0x704
+ *(.rodata*)
+ .rodata.arm32_ops
+                0x00003000       0x20 build/arm32/arch/arm32/uiox_boot_hw_arm32.o
+ .rodata.uiox_boot_printf.str1.1
+                0x00003020      0x5a7 build/arm32/uiox_boot_console.o
+                                  0xa (size before relaxing)
+ .rodata.s_hex_up
+                0x000035c7       0x11 build/arm32/uiox_boot_console.o
+ .rodata.s_hex_lo
+                0x000035d8       0x11 build/arm32/uiox_boot_console.o
+ .rodata.uiox_boot_mem_print.str1.1
+                0x000035e9        0x0 build/arm32/uiox_boot_mem.o
+                                 0x4d (size before relaxing)
+ .rodata.str1.1
+                0x000035e9        0x0 build/arm32/uiox_boot_mem.o
+                                 0x27 (size before relaxing)
+ *fill*         0x000035e9        0x3 
+ .rodata.type_names.0
+                0x000035ec       0x18 build/arm32/uiox_boot_mem.o
+ .rodata.uiox_boot_verify_image.str1.1
+                0x00003604        0x0 build/arm32/uiox_boot_verify.o
+                                 0xf3 (size before relaxing)
+ .rodata.K      0x00003604      0x100 build/arm32/uiox_boot_verify.o
+ .rodata.uiox_boot_elf64_load.str1.1
+                0x00003704        0x0 build/arm32/uiox_boot_handoff.o
+                                 0x5a (size before relaxing)
+ .rodata.uiox_boot_flat_load.str1.1
+                0x00003704        0x0 build/arm32/uiox_boot_handoff.o
+                                 0x26 (size before relaxing)
+ .rodata.uiox_boot_handoff.str1.1
+                0x00003704        0x0 build/arm32/uiox_boot_handoff.o
+                                 0x4d (size before relaxing)
+ .rodata.uiox_boot_main.str1.1
+                0x00003704        0x0 build/arm32/uiox_boot_main.o
+                                0x369 (size before relaxing)
+ *(.gnu.linkonce.r*)
+
+.rel.dyn        0x00003704        0x0
+ .rel.iplt      0x00003704        0x0 build/arm32/arch/arm32/uiox_boot_entry_arm32.o
+
+.data
+ *(.data*)
+ *(.gnu.linkonce.d*)
+                0x00003704                        __bss_start = ALIGN (0x4)
+
+.igot.plt       0x00100000        0x0
+ .igot.plt      0x00100000        0x0 build/arm32/arch/arm32/uiox_boot_entry_arm32.o
+
+.bss            0x00100000        0x4
+ *(.bss*)
+ .bss.s_ops     0x00100000        0x4 build/arm32/uiox_boot_hw.o
+ *(COMMON)
+
+.bss.stack
+ *(.bss.stack)
+                0x00100004                        __bss_end = ALIGN (0x4)
+                0x00fff000                        _boot_stack_top = ((ORIGIN (RAM) + LENGTH (RAM)) - 0x1000)
+                0x00100004                        _boot_image_end = .
+
+/DISCARD/
+ *(.comment)
+ *(.note*)
+ *(.eh_frame*)
+ *(.ARM.exidx*)
+OUTPUT(build/arm32/uiox_boot_arm32.elf elf32-littlearm)
+LOAD linker stubs
+
+.ARM.attributes
+                0x00000000       0x2f
+ .ARM.attributes
+                0x00000000       0x1f build/arm32/arch/arm32/uiox_boot_entry_arm32.o
+ .ARM.attributes
+                0x0000001f       0x33 build/arm32/arch/arm32/uiox_boot_hw_arm32.o
+ .ARM.attributes
+                0x00000052       0x33 build/arm32/uiox_boot_hw.o
+ .ARM.attributes
+                0x00000085       0x33 build/arm32/uiox_boot_console.o
+ .ARM.attributes
+                0x000000b8       0x33 build/arm32/uiox_boot_mem.o
+ .ARM.attributes
+                0x000000eb       0x33 build/arm32/uiox_boot_fs.o
+ .ARM.attributes
+                0x0000011e       0x33 build/arm32/uiox_boot_verify.o
+ .ARM.attributes
+                0x00000151       0x33 build/arm32/uiox_boot_handoff.o
+ .ARM.attributes
+                0x00000184       0x33 build/arm32/uiox_boot_main.o
+
+.debug_line     0x00000000     0x23ab
+ .debug_line    0x00000000       0x68 build/arm32/arch/arm32/uiox_boot_entry_arm32.o
+ .debug_line    0x00000068      0x2bc build/arm32/arch/arm32/uiox_boot_hw_arm32.o
+ .debug_line    0x00000324      0x231 build/arm32/uiox_boot_hw.o
+ .debug_line    0x00000555      0x812 build/arm32/uiox_boot_console.o
+ .debug_line    0x00000d67      0x587 build/arm32/uiox_boot_mem.o
+ .debug_line    0x000012ee      0x455 build/arm32/uiox_boot_fs.o
+ .debug_line    0x00001743      0x5d1 build/arm32/uiox_boot_verify.o
+ .debug_line    0x00001d14      0x2e2 build/arm32/uiox_boot_handoff.o
+ .debug_line    0x00001ff6      0x3b5 build/arm32/uiox_boot_main.o
+
+.debug_line_str
+                0x00000000       0x50
+ .debug_line_str
+                0x00000000       0x50 build/arm32/arch/arm32/uiox_boot_entry_arm32.o
+
+.debug_info     0x00000000     0x4b00
+ .debug_info    0x00000000       0x31 build/arm32/arch/arm32/uiox_boot_entry_arm32.o
+ .debug_info    0x00000031      0x58f build/arm32/arch/arm32/uiox_boot_hw_arm32.o
+ .debug_info    0x000005c0      0x2e3 build/arm32/uiox_boot_hw.o
+ .debug_info    0x000008a3      0xe42 build/arm32/uiox_boot_console.o
+ .debug_info    0x000016e5      0xaa0 build/arm32/uiox_boot_mem.o
+ .debug_info    0x00002185      0x9c9 build/arm32/uiox_boot_fs.o
+ .debug_info    0x00002b4e      0x75b build/arm32/uiox_boot_verify.o
+ .debug_info    0x000032a9      0x9af build/arm32/uiox_boot_handoff.o
+ .debug_info    0x00003c58      0xea8 build/arm32/uiox_boot_main.o
+
+.debug_abbrev   0x00000000     0x1577
+ .debug_abbrev  0x00000000       0x28 build/arm32/arch/arm32/uiox_boot_entry_arm32.o
+ .debug_abbrev  0x00000028      0x2e4 build/arm32/arch/arm32/uiox_boot_hw_arm32.o
+ .debug_abbrev  0x0000030c      0x195 build/arm32/uiox_boot_hw.o
+ .debug_abbrev  0x000004a1      0x3ea build/arm32/uiox_boot_console.o
+ .debug_abbrev  0x0000088b      0x337 build/arm32/uiox_boot_mem.o
+ .debug_abbrev  0x00000bc2      0x297 build/arm32/uiox_boot_fs.o
+ .debug_abbrev  0x00000e59      0x231 build/arm32/uiox_boot_verify.o
+ .debug_abbrev  0x0000108a      0x26a build/arm32/uiox_boot_handoff.o
+ .debug_abbrev  0x000012f4      0x283 build/arm32/uiox_boot_main.o
+
+.debug_aranges  0x00000000      0x280
+ .debug_aranges
+                0x00000000       0x20 build/arm32/arch/arm32/uiox_boot_entry_arm32.o
+ .debug_aranges
+                0x00000020       0x60 build/arm32/arch/arm32/uiox_boot_hw_arm32.o
+ .debug_aranges
+                0x00000080       0x68 build/arm32/uiox_boot_hw.o
+ .debug_aranges
+                0x000000e8       0x60 build/arm32/uiox_boot_console.o
+ .debug_aranges
+                0x00000148       0x60 build/arm32/uiox_boot_mem.o
+ .debug_aranges
+                0x000001a8       0x30 build/arm32/uiox_boot_fs.o
+ .debug_aranges
+                0x000001d8       0x48 build/arm32/uiox_boot_verify.o
+ .debug_aranges
+                0x00000220       0x38 build/arm32/uiox_boot_handoff.o
+ .debug_aranges
+                0x00000258       0x28 build/arm32/uiox_boot_main.o
+
+.debug_str      0x00000000      0xdfa
+ .debug_str     0x00000000      0xdfa build/arm32/arch/arm32/uiox_boot_entry_arm32.o
+                                 0x65 (size before relaxing)
+ .debug_str     0x00000dfa        0x0 build/arm32/arch/arm32/uiox_boot_hw_arm32.o
+                                0x2da (size before relaxing)
+ .debug_str     0x00000dfa        0x0 build/arm32/uiox_boot_hw.o
+                                0x2bb (size before relaxing)
+ .debug_str     0x00000dfa        0x0 build/arm32/uiox_boot_console.o
+                                0x299 (size before relaxing)
+ .debug_str     0x00000dfa        0x0 build/arm32/uiox_boot_mem.o
+                                0x535 (size before relaxing)
+ .debug_str     0x00000dfa        0x0 build/arm32/uiox_boot_fs.o
+                                0x508 (size before relaxing)
+ .debug_str     0x00000dfa        0x0 build/arm32/uiox_boot_verify.o
+                                0x3ec (size before relaxing)
+ .debug_str     0x00000dfa        0x0 build/arm32/uiox_boot_handoff.o
+                                0x5f3 (size before relaxing)
+ .debug_str     0x00000dfa        0x0 build/arm32/uiox_boot_main.o
+                                0x7a7 (size before relaxing)
+
+.debug_loclists
+                0x00000000     0x213f
+ .debug_loclists
+                0x00000000      0x18a build/arm32/arch/arm32/uiox_boot_hw_arm32.o
+ .debug_loclists
+                0x0000018a       0xc0 build/arm32/uiox_boot_hw.o
+ .debug_loclists
+                0x0000024a      0x8e6 build/arm32/uiox_boot_console.o
+ .debug_loclists
+                0x00000b30      0x56e build/arm32/uiox_boot_mem.o
+ .debug_loclists
+                0x0000109e      0x4d3 build/arm32/uiox_boot_fs.o
+ .debug_loclists
+                0x00001571      0x618 build/arm32/uiox_boot_verify.o
+ .debug_loclists
+                0x00001b89      0x2c9 build/arm32/uiox_boot_handoff.o
+ .debug_loclists
+                0x00001e52      0x2ed build/arm32/uiox_boot_main.o
+
+.debug_rnglists
+                0x00000000      0x451
+ .debug_rnglists
+                0x00000000       0x67 build/arm32/arch/arm32/uiox_boot_hw_arm32.o
+ .debug_rnglists
+                0x00000067       0x49 build/arm32/uiox_boot_hw.o
+ .debug_rnglists
+                0x000000b0      0x14a build/arm32/uiox_boot_console.o
+ .debug_rnglists
+                0x000001fa       0xa8 build/arm32/uiox_boot_mem.o
+ .debug_rnglists
+                0x000002a2       0xa4 build/arm32/uiox_boot_fs.o
+ .debug_rnglists
+                0x00000346       0x73 build/arm32/uiox_boot_verify.o
+ .debug_rnglists
+                0x000003b9       0x5c build/arm32/uiox_boot_handoff.o
+ .debug_rnglists
+                0x00000415       0x3c build/arm32/uiox_boot_main.o
+
+.debug_frame    0x00000000      0x5c4
+ .debug_frame   0x00000000       0xa8 build/arm32/arch/arm32/uiox_boot_hw_arm32.o
+ .debug_frame   0x000000a8       0xb8 build/arm32/uiox_boot_hw.o
+ .debug_frame   0x00000160      0x138 build/arm32/uiox_boot_console.o
+ .debug_frame   0x00000298      0x108 build/arm32/uiox_boot_mem.o
+ .debug_frame   0x000003a0       0x8c build/arm32/uiox_boot_fs.o
+ .debug_frame   0x0000042c       0xd4 build/arm32/uiox_boot_verify.o
+ .debug_frame   0x00000500       0x84 build/arm32/uiox_boot_handoff.o
+ .debug_frame   0x00000584       0x40 build/arm32/uiox_boot_main.o

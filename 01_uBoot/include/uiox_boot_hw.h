@@ -61,33 +61,33 @@ static inline uint64_t mmio_read64(__UINTPTR_TYPE__ addr)
   * ====================================================================== */
  
  /* ARM64 / ARM32 — PL011 on QEMU virt / versatilepb */
- #define UIOX_PL011_BASE_ARM64   0x09000000u  /**< QEMU virt               */
- #define UIOX_PL011_BASE_ARM32   0x101F1000u  /**< QEMU versatilepb        */
+ //#define UIOX_PL011_BASE_ARM64   0x09000000u  /**< QEMU virt               */
+ //#define UIOX_PL011_BASE_ARM32   0x101F1000u  /**< QEMU versatilepb        */
  /* PL011 register offsets */
- #define PL011_DR                0x000u
- #define PL011_FR                0x018u
- #define PL011_FR_TXFF           (1u << 5)
- #define PL011_IBRD              0x024u
- #define PL011_FBRD              0x028u
- #define PL011_LCR_H             0x02Cu
- #define PL011_CR                0x030u
- #define PL011_CR_UARTEN         (1u << 0)
- #define PL011_CR_TXE            (1u << 8)
- #define PL011_CR_RXE            (1u << 9)
- #define PL011_LCR_WLEN8         (0x3u << 5)
- #define PL011_LCR_FEN           (1u << 4)
+ //#define PL011_DR                0x000u
+ //#define PL011_FR                0x018u
+ //#define PL011_FR_TXFF           (1u << 5)
+ //#define PL011_IBRD              0x024u
+ //#define PL011_FBRD              0x028u
+ //#define PL011_LCR_H             0x02Cu
+ //#define PL011_CR                0x030u
+ //#define PL011_CR_UARTEN         (1u << 0)
+ //#define PL011_CR_TXE            (1u << 8)
+ //#define PL011_CR_RXE            (1u << 9)
+ //#define PL011_LCR_WLEN8         (0x3u << 5)
+ //#define PL011_LCR_FEN           (1u << 4)
  
  /* x86_64 — 16550 COM1 */
- #define UIOX_COM1_PORT          0x3F8u       /**< COM1 I/O port base      */
- #define COM1_THR                0u
- #define COM1_LSR                5u
- #define COM1_LSR_THRE           (1u << 5)
- #define COM1_LCR                3u
- #define COM1_DLL                0u
- #define COM1_DLM                1u
- #define COM1_IER                1u
- #define COM1_FCR                2u
- #define COM1_MCR                4u
+ //#define UIOX_COM1_PORT          0x3F8u       /**< COM1 I/O port base      */
+ //#define COM1_THR                0u
+ //#define COM1_LSR                5u
+ //#define COM1_LSR_THRE           (1u << 5)
+ //#define COM1_LCR                3u
+ //#define COM1_DLL                0u
+ //#define COM1_DLM                1u
+ //#define COM1_IER                1u
+ //#define COM1_FCR                2u
+ //#define COM1_MCR                4u
  
  /* RISC-V — NS16550A UART @ 0x10000000                     <<< NEW >>> */
 #define NS16550_RBR             0x00u   /**< Receive Buffer  (read)    */

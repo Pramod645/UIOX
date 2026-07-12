@@ -184,7 +184,7 @@
      uiox_boot_memset(map, 0, sizeof(*map));
      if (dtb_pa != 0u) {
          uiox_boot_err_t rc =
-             fdt_parse_memory((const uint8_t *)(uintptr_t)dtb_pa, map);
+             fdt_parse_memory((const uint8_t *)(__UINTPTR_TYPE__)dtb_pa, map);
          if (rc == UIOX_BOOT_OK) return rc;
      }
      return probe_fallback(map);
@@ -239,7 +239,7 @@
      uintptr_t ptr = UIOX_ALIGN_UP(a->top, align);
      if (ptr + size > a->limit) return NULL;
      a->top = ptr + size;
-     uiox_boot_memset((void *)ptr, 0, size);
-     return (void *)ptr;
+     uiox_boot_memset((void *)(__UINTPTR_TYPE__)ptr, 0, size);
+     return (void *)(__UINTPTR_TYPE__)ptr;
  }
  

@@ -297,7 +297,7 @@
          }
  
          case 'p': {
-             uintptr_t pval = (uintptr_t)va_arg(ap, void *);
+            __UINTPTR_TYPE__ pval = (__UINTPTR_TYPE__)va_arg(ap, void *);
              uiox_boot_puts("0x");
              fmt_hex((uint64_t)pval,
                      (int)(sizeof(uintptr_t) * 2u), 0);

@@ -46,14 +46,14 @@
          }
  
          /* Copy segment to physical address */
-         uiox_boot_memcpy((void *)(uintptr_t)ph->p_paddr,
+         uiox_boot_memcpy((void *)(__UINTPTR_TYPE__)ph->p_paddr,
                          (const uint8_t *)elf_buf + ph->p_offset,
                            (size_t)ph->p_filesz);
  
          /* Zero BSS tail (p_memsz > p_filesz) */
          if (ph->p_memsz > ph->p_filesz) {
              uiox_boot_memset(
-                 (void *)(uintptr_t)(ph->p_paddr + ph->p_filesz),
+                 (void *)(__UINTPTR_TYPE__)(ph->p_paddr + ph->p_filesz),
                  0,
                  (size_t)(ph->p_memsz - ph->p_filesz));
          }
@@ -73,11 +73,11 @@
                                        uintptr_t dest_pa)
  {
      if (!src || size == 0u) return UIOX_BOOT_ERR_INVAL;
-     uiox_boot_memcpy((void *)(uintptr_t)dest_pa, src, size);
+     uiox_boot_memcpy((void *)(__UINTPTR_TYPE__)dest_pa, src, size);
      uiox_boot_hw_dcache_flush(dest_pa, size);
      uiox_boot_hw_icache_inv();
      uiox_boot_printf("  Flat binary load: %lu bytes → %p\n",
-                       (unsigned long)size, (void *)dest_pa);
+                       (unsigned long)size, (void *)(__UINTPTR_TYPE__)dest_pa);
      return UIOX_BOOT_OK;
  }
  
@@ -127,7 +127,7 @@
                     const uiox_mem_map_t *mem_map,
                     const char *cmdline)
  {
-     uiox_boot_args_t *args = (uiox_boot_args_t *)(uintptr_t)args_pa;
+     uiox_boot_args_t *args = (uiox_boot_args_t *)(__UINTPTR_TYPE__)args_pa;
      build_args(args, kernel_entry, dtb_pa, args_pa,
                 mem_map, cmdline,
  #if   defined(__aarch64__)

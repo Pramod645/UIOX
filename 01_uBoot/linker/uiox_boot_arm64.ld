@@ -17,6 +17,13 @@ _boot_load_base = 0x40000000;
 _kern_load_base = 0x40080000;
 _args_base      = 0x40070000;
 
+/* Explicit program headers — eliminates the RWX merged-segment warning */
+PHDRS
+{
+    text_seg PT_LOAD FLAGS(5);   /* PF_R | PF_X = 0x4 | 0x1 */
+    data_seg PT_LOAD FLAGS(6);   /* PF_R | PF_W = 0x4 | 0x2 */
+}
+
 MEMORY
 {
     DRAM (rwx) : ORIGIN = 0x40000000, LENGTH = 64M
@@ -33,7 +40,7 @@ SECTIONS
         KEEP(*(.boot))
         KEEP(*(.boot.text))
         _boot_end = .;
-    } > DRAM
+    } > DRAM :text_seg
 
     /* ── Read-only: text + rodata ─────────────────────────────────── */
     .text ALIGN(4K) :
@@ -41,20 +48,20 @@ SECTIONS
         *(.text.unlikely)
         *(.text*)
         *(.gnu.linkonce.t*)
-    } > DRAM
+    } > DRAM :text_seg
 
     .rodata ALIGN(4K) :
     {
         *(.rodata*)
         *(.gnu.linkonce.r*)
-    } > DRAM
+    } > DRAM :text_seg
 
     /* ── Read-write: data ─────────────────────────────────────────── */
     .data ALIGN(4K) :
     {
         *(.data*)
         *(.gnu.linkonce.d*)
-    } > DRAM
+    } > DRAM :data_seg
 
     /* ── BSS (zeroed by entry stub) ──────────────────────────────── */
     . = ALIGN(8);
@@ -64,7 +71,7 @@ SECTIONS
         *(.bss*)
         *(.gnu.linkonce.b*)
         *(COMMON)
-    } > DRAM
+    } > DRAM :data_seg
     .bss.pagetables (NOLOAD) : { *(.bss.pagetables) } > DRAM
     .bss.stack      (NOLOAD) : { *(.bss.stack)      } > DRAM
     __bss_end = ALIGN(8);
