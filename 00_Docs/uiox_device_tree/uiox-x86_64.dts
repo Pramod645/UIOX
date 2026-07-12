@@ -1,0 +1,240 @@
+/dts-v1/;
+
+/*
+ * UIOX Board — x86-64 Device Tree Source
+ * Target CPU  : x86-64 (AMD64 / Intel 64, SSE4.2 / AVX2 / AVX-512)
+ * Platform    : UIOX-X1 custom x86 board
+ *               (uiox-cpu.md: PLATFORM=X86_64)
+ *
+ * Cross-referenced from:
+ *   50_UIX/20_uios/uiox-cpu/include/uiox_cpu_hw.h  (APIC, TSC, RDMSR)
+ *   50_UIX/20_uios/usb_/usb.md
+ *   50_UIX/20_uios/wifi_/wifi.md                   (PCIe Intel AX200)
+ *   50_UIX/12_ksign/include/uiox_ksign_image.h     (kernel load addr)
+ *   50_UIX/20_uios/uiox-cpu/include/uiox_cpu_pm.h  (DVFS / C-states)
+ *
+ * Note: x86 production systems use ACPI. This DTS is consumed by
+ *       UIOX's own firmware (13_fboot) on bare-metal x86 targets.
+ *
+ * Compile:
+ *   dtc -I dts -O dtb -o uiox-x86_64.dtb uiox-x86_64.dts
+ */
+
+/ {
+    #address-cells = <2>;
+    #size-cells    = <2>;
+    compatible     = "uiox,uiox-x1", "uiox,uiox-soc-x86_64";
+    model          = "UIOX Board x86-64";
+    interrupt-parent = <&apic>;
+
+    chosen {
+        stdout-path         = "serial0:115200n8";
+        bootargs            = "console=ttyS0,115200n8 root=/dev/nvme0n1p2 rw";
+        /* ksign kernel addresses — same as ARM64 (arch-independent) */
+        uiox,kernel-load-addr  = <0x0 0x40080000>;
+        uiox,kernel-entry-addr = <0x0 0x40080040>;
+        uiox,ksign-enabled     = <1>;
+        /* x86 hyperthreading: UIOX_CPU_CAP_HYPERTHREAD */
+        uiox,hyperthreading    = <1>;
+        /* CET: UIOX_CPU_CAP_CET */
+        uiox,cet-enabled       = <1>;
+    };
+
+    /* -----------------------------------------------------------------
+     * Memory — 16 GiB DDR5
+     * Low 1 MiB: x86 legacy (BIOS, IVT, etc.) — reserved
+     * -------------------------------------------------------------- */
+    memory@100000 {
+        device_type = "memory";
+        reg = <0x0 0x00100000  0x3 0xFF000000>;  /* 16 GiB − 1 MiB */
+    };
+
+    reserved-memory {
+        #address-cells = <2>;
+        #size-cells    = <2>;
+        ranges;
+
+        bios_reserved: bios@0 {
+            reg = <0x0 0x00000000  0x0 0x00100000>;
+            no-map;
+        };
+        kernel_reserved: kernel@40080000 {
+            reg = <0x0 0x40080000  0x0 0x00780000>;
+            no-map;
+        };
+        dma_pool: dma_pool@4F000000 {
+            compatible = "shared-dma-pool";
+            reg = <0x0 0x4F000000  0x0 0x02000000>;
+            reusable;
+            linux,cma-default;
+        };
+    };
+
+    /* -----------------------------------------------------------------
+     * CPUs — 8-core x86-64 with Hyperthreading (16 logical CPUs)
+     *   uiox_cpu_hw.h: UIOX_CPU_CAP_HYPERTHREAD, rdtsc, mfence, pause
+     *   uiox_cpu_subsys.h: topology, threads_per_core, cores_per_socket
+     * -------------------------------------------------------------- */
+    cpus {
+        #address-cells = <1>;
+        #size-cells    = <0>;
+
+        cpu-map {
+            socket0 {
+                cluster0 {
+                    core0 { cpu = <&cpu0>; };
+                    core1 { cpu = <&cpu1>; };
+                    core2 { cpu = <&cpu2>; };
+                    core3 { cpu = <&cpu3>; };
+                    core4 { cpu = <&cpu4>; };
+                    core5 { cpu = <&cpu5>; };
+                    core6 { cpu = <&cpu6>; };
+                    core7 { cpu = <&cpu7>; };
+                };
+            };
+        };
+
+        /* Physical cores 0-7; HT siblings mapped via ACPI in production */
+        cpu0: cpu@0  { device_type="cpu"; compatible="uiox,x86-64"; reg=<0>;  enable-method="x86-sipi"; operating-points-v2=<&x86_opp>; };
+        cpu1: cpu@1  { device_type="cpu"; compatible="uiox,x86-64"; reg=<1>;  enable-method="x86-sipi"; operating-points-v2=<&x86_opp>; };
+        cpu2: cpu@2  { device_type="cpu"; compatible="uiox,x86-64"; reg=<2>;  enable-method="x86-sipi"; operating-points-v2=<&x86_opp>; };
+        cpu3: cpu@3  { device_type="cpu"; compatible="uiox,x86-64"; reg=<3>;  enable-method="x86-sipi"; operating-points-v2=<&x86_opp>; };
+        cpu4: cpu@4  { device_type="cpu"; compatible="uiox,x86-64"; reg=<4>;  enable-method="x86-sipi"; operating-points-v2=<&x86_opp>; };
+        cpu5: cpu@5  { device_type="cpu"; compatible="uiox,x86-64"; reg=<5>;  enable-method="x86-sipi"; operating-points-v2=<&x86_opp>; };
+        cpu6: cpu@6  { device_type="cpu"; compatible="uiox,x86-64"; reg=<6>;  enable-method="x86-sipi"; operating-points-v2=<&x86_opp>; };
+        cpu7: cpu@7  { device_type="cpu"; compatible="uiox,x86-64"; reg=<7>;  enable-method="x86-sipi"; operating-points-v2=<&x86_opp>; };
+    };
+
+    /* DVFS OPP — uiox_cpu_pm.h P-states */
+    x86_opp: opp-table {
+        compatible = "operating-points-v2";
+        opp-shared;
+        opp-800000000  { opp-hz = /bits/ 64 <800000000>;  opp-microvolt = <800000>; };
+        opp-1600000000 { opp-hz = /bits/ 64 <1600000000>; opp-microvolt = <900000>; };
+        opp-2400000000 { opp-hz = /bits/ 64 <2400000000>; opp-microvolt = <1000000>; };
+        opp-3200000000 { opp-hz = /bits/ 64 <3200000000>; opp-microvolt = <1050000>; };
+        opp-4000000000 { opp-hz = /bits/ 64 <4000000000>; opp-microvolt = <1100000>; };
+        opp-4800000000 { opp-hz = /bits/ 64 <4800000000>; opp-microvolt = <1200000>; };
+    };
+
+    soc {
+        compatible     = "simple-bus";
+        #address-cells = <2>;
+        #size-cells    = <2>;
+        ranges;
+
+        /* ---- xAPIC / x2APIC
+         *   uiox_cpu_hw.h: APIC (MMIO 0xFEE00000), RDMSR/WRMSR, IPI
+         * ---------------------------------------------------------- */
+        apic: interrupt-controller@fee00000 {
+            compatible       = "uiox,x86-apic", "intel,ce4100-lapic";
+            #interrupt-cells = <1>;
+            interrupt-controller;
+            reg              = <0x0 0xFEE00000  0x0 0x1000>;
+        };
+
+        ioapic: ioapic@fec00000 {
+            compatible       = "uiox,x86-ioapic", "intel,ce4100-ioapic";
+            #interrupt-cells = <1>;
+            interrupt-controller;
+            reg              = <0x0 0xFEC00000  0x0 0x1000>;
+        };
+
+        /* ---- x86 HPET (replaces timer_base for x86)
+         *   uiox_cpu_hw.h: timer_base, uiox_cpu_rdtsc()
+         * ---------------------------------------------------------- */
+        hpet: hpet@fed00000 {
+            compatible  = "uiox,x86-hpet", "intel,ce4100-hpet";
+            reg         = <0x0 0xFED00000  0x0 0x1000>;
+            interrupt-parent = <&ioapic>;
+            interrupts  = <0>;
+            timer-width = <64>;
+        };
+
+        /* ---- UART / 16550A serial (COM1) --------- */
+        uart0: serial@3f8 {
+            compatible  = "uiox,uiox-uart", "ns16550a";
+            reg         = <0x0 0x3F8  0x0 0x8>;
+            interrupts  = <4>;
+            clock-frequency = <1843200>;
+            current-speed   = <115200>;
+            status      = "okay";
+        };
+
+        uart1: serial@2f8 {
+            compatible  = "uiox,uiox-uart", "ns16550a";
+            reg         = <0x0 0x2F8  0x0 0x8>;
+            interrupts  = <3>;
+            clock-frequency = <1843200>;
+            status      = "disabled";
+        };
+
+        /* ---- PCIe root complex (NVMe + TB4 + Intel AX200 Wi-Fi)
+         *   wifi.md: PCIe (Intel AX200) vtable
+         *   tb4_/: Thunderbolt 4 controller on PCIe
+         * ---------------------------------------------------------- */
+        pcie0: pcie@e0000000 {
+            compatible      = "uiox,uiox-pcie-x86", "pci-host-ecam-generic";
+            device_type     = "pci";
+            reg             = <0x0 0xE0000000  0x0 0x10000000>;  /* ECAM 256 MiB */
+            #address-cells  = <3>;
+            #size-cells     = <2>;
+            ranges =
+                <0x01000000 0x0 0x00000000  0x0 0xD0000000  0x0 0x01000000>,
+                <0x02000000 0x0 0xA0000000  0x0 0xA0000000  0x0 0x30000000>;
+            bus-range       = <0x0 0xFF>;
+            num-lanes       = <16>;
+            max-link-speed  = <4>;
+            interrupt-parent = <&ioapic>;
+            interrupts      = <16>;
+
+            /* Intel AX200 Wi-Fi (PCIe — wifi.md) */
+            wifi_ax200: wifi@1,0 {
+                compatible = "uiox,uiox-wifi-pcie", "intel,iwlwifi";
+                reg        = <0x800 0 0 0 0>;
+            };
+
+            /* Thunderbolt 4 (tb4_/) */
+            tb4: thunderbolt@2,0 {
+                compatible = "uiox,uiox-tb4";
+                reg        = <0x1000 0 0 0 0>;
+            };
+        };
+
+        /* ---- USB xHCI (usb_/ subsystem — FS/HS/SS/SS+, OTG) ----- */
+        usb3: usb@e8000000 {
+            compatible   = "uiox,uiox-usb3", "generic-xhci";
+            reg          = <0x0 0xE8000000  0x0 0x10000>;
+            interrupts   = <20>;
+            interrupt-parent = <&ioapic>;
+            dr_mode      = "otg";
+            maximum-speed = "super-speed-plus";
+            status       = "okay";
+        };
+
+        /* ---- UIOX Crypto / ksign hardware accelerator ------------ */
+        crypto: crypto@e9000000 {
+            compatible   = "uiox,uiox-crypto";
+            reg          = <0x0 0xE9000000  0x0 0x10000>;
+            interrupts   = <22>;
+            interrupt-parent = <&ioapic>;
+            uiox,ksign-hw-accel;
+            status       = "okay";
+        };
+
+        /* ---- TPM 2.0 (ksign attestation / PCR quote) ------------- */
+        tpm: tpm@fed40000 {
+            compatible  = "uiox,uiox-tpm", "tcg,tpm-tis-mmio";
+            reg         = <0x0 0xFED40000  0x0 0x5000>;
+            interrupts  = <6>;
+            interrupt-parent = <&ioapic>;
+            status      = "okay";
+        };
+
+        /* ---- Thermal (uiox_cpu_pm.h / thermal_/ subsystem) ------- */
+        thermal_sensor: temp-sensor@40b {
+            compatible = "uiox,uiox-thermal-sensor", "intel,core-thermal";
+            reg        = <0x0 0x40B  0x0 0x1>;
+        };
+    };
+};

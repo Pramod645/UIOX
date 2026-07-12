@@ -1,0 +1,649 @@
+/dts-v1/;
+
+/*
+ * UIOX Board — ARM64 Device Tree Source
+ * Target CPU  : ARM Cortex-A76 (AArch64, ARMv8.2-A)
+ * SoC         : UIOX-A1  (custom UIOX SoC — ARM64 variant)
+ * Kernel load : 0x40080000  (from uiox_ksign_image.h)
+ * Kernel entry: 0x40080040
+ *
+ * Cross-referenced from:
+ *   50_UIX/20_uios/uiox-cpu/include/uiox_cpu_hw.h
+ *   50_UIX/20_uios/usb_/usb.md
+ *   50_UIX/20_uios/wifi_/wifi.md
+ *   50_UIX/12_ksign/include/uiox_ksign_image.h
+ *   50_UIX/20_uios/uiox-cpu/include/uiox_cpu_pm.h
+ *
+ * Compile:
+ *   dtc -I dts -O dtb -o uiox-arm64.dtb uiox-arm64.dts
+ */
+
+/ {
+    #address-cells = <2>;
+    #size-cells    = <2>;
+    compatible     = "uiox,uiox-a1", "uiox,uiox-soc-arm64";
+    model          = "UIOX Board ARM64 (Cortex-A76)";
+    interrupt-parent = <&gic>;
+
+    /* -----------------------------------------------------------------
+     * Chosen — boot parameters, stdout, kernel addresses
+     * -------------------------------------------------------------- */
+    chosen {
+        stdout-path         = "serial0:115200n8";
+        bootargs            = "console=ttyUIX0,115200n8 root=/dev/mmcblk0p2 rw";
+        linux,initrd-start  = <0x0 0x48000000>;
+        linux,initrd-end    = <0x0 0x48800000>;
+        /* UIOX ksign — kernel load/entry from uiox_ksign_image.h */
+        uiox,kernel-load-addr  = <0x0 0x40080000>;
+        uiox,kernel-entry-addr = <0x0 0x40080040>;
+        /* ksign PCR attestation flag */
+        uiox,ksign-enabled = <1>;
+    };
+
+    /* -----------------------------------------------------------------
+     * Memory — 4 GiB LPDDR4X starting at 0x40000000
+     *   Low  512 MiB: firmware / ksign-verified region
+     *   High 3.5 GiB: OS usable
+     * -------------------------------------------------------------- */
+    memory@40000000 {
+        device_type = "memory";
+        reg = <0x0 0x40000000  0x1 0x00000000>;  /* 4 GiB */
+    };
+
+    /* -----------------------------------------------------------------
+     * Reserved memory
+     *   0x40000000-0x4007FFFF  — TF-A / BL31 secure world  (512 KiB)
+     *   0x40080000-0x407FFFFF  — UIOX kernel image          (7.5 MiB)
+     *   0x48000000-0x487FFFFF  — initrd                     (8 MiB)
+     *   0x4F000000-0x4FFFFFFF  — DMA coherent pool          (16 MiB)
+     * -------------------------------------------------------------- */
+    reserved-memory {
+        #address-cells = <2>;
+        #size-cells    = <2>;
+        ranges;
+
+        tfa_reserved: tfa@40000000 {
+            reg = <0x0 0x40000000  0x0 0x00080000>;
+            no-map;
+        };
+
+        kernel_reserved: kernel@40080000 {
+            reg = <0x0 0x40080000  0x0 0x00780000>;
+            no-map;
+        };
+
+        initrd_reserved: initrd@48000000 {
+            reg = <0x0 0x48000000  0x0 0x00800000>;
+            no-map;
+        };
+
+        dma_pool: dma_pool@4F000000 {
+            compatible = "shared-dma-pool";
+            reg = <0x0 0x4F000000  0x0 0x01000000>;
+            reusable;
+            linux,cma-default;
+        };
+    };
+
+    /* -----------------------------------------------------------------
+     * CPU cluster — 4× Cortex-A76 (ARMv8.2-A)
+     *   uiox_cpu_hw.h: UIOX_CPU_ARCH_ARM64, Cortex-A76
+     *   SMP: spin-table at smp_mbox_base
+     * -------------------------------------------------------------- */
+    cpus {
+        #address-cells = <1>;
+        #size-cells    = <0>;
+
+        cpu-map {
+            cluster0 {
+                core0 { cpu = <&cpu0>; };
+                core1 { cpu = <&cpu1>; };
+                core2 { cpu = <&cpu2>; };
+                core3 { cpu = <&cpu3>; };
+            };
+        };
+
+        cpu0: cpu@0 {
+            device_type    = "cpu";
+            compatible     = "arm,cortex-a76", "arm,armv8";
+            reg            = <0x0>;
+            enable-method  = "spin-table";
+            cpu-release-addr = <0x0 0x40010000>;  /* smp_mbox_base[0] */
+            next-level-cache = <&l2_cache>;
+            /* ARMv8.2 extensions confirmed in uiox_cpu_hw.h */
+            /* BTI: UIOX_CPU_CAP_BTI, MTE: UIOX_CPU_CAP_MTE */
+            operating-points-v2 = <&cpu_opp_table>;
+            cpu-idle-states = <&cpu_sleep &cluster_sleep>;
+            clocks = <&cpu_clk>;
+        };
+
+        cpu1: cpu@1 {
+            device_type    = "cpu";
+            compatible     = "arm,cortex-a76", "arm,armv8";
+            reg            = <0x1>;
+            enable-method  = "spin-table";
+            cpu-release-addr = <0x0 0x40010008>;
+            next-level-cache = <&l2_cache>;
+            operating-points-v2 = <&cpu_opp_table>;
+            cpu-idle-states = <&cpu_sleep &cluster_sleep>;
+            clocks = <&cpu_clk>;
+        };
+
+        cpu2: cpu@2 {
+            device_type    = "cpu";
+            compatible     = "arm,cortex-a76", "arm,armv8";
+            reg            = <0x2>;
+            enable-method  = "spin-table";
+            cpu-release-addr = <0x0 0x40010010>;
+            next-level-cache = <&l2_cache>;
+            operating-points-v2 = <&cpu_opp_table>;
+            cpu-idle-states = <&cpu_sleep &cluster_sleep>;
+            clocks = <&cpu_clk>;
+        };
+
+        cpu3: cpu@3 {
+            device_type    = "cpu";
+            compatible     = "arm,cortex-a76", "arm,armv8";
+            reg            = <0x3>;
+            enable-method  = "spin-table";
+            cpu-release-addr = <0x0 0x40010018>;
+            next-level-cache = <&l2_cache>;
+            operating-points-v2 = <&cpu_opp_table>;
+            cpu-idle-states = <&cpu_sleep &cluster_sleep>;
+            clocks = <&cpu_clk>;
+        };
+
+        idle-states {
+            entry-method = "arm,psci";
+            cpu_sleep: cpu-sleep-0 {
+                compatible         = "arm,idle-state";
+                arm,psci-suspend-param = <0x00010000>;
+                entry-latency-us   = <40>;
+                exit-latency-us    = <80>;
+                min-residency-us   = <200>;
+            };
+            cluster_sleep: cluster-sleep-0 {
+                compatible         = "arm,idle-state";
+                arm,psci-suspend-param = <0x01010000>;
+                entry-latency-us   = <500>;
+                exit-latency-us    = <1000>;
+                min-residency-us   = <2000>;
+                local-timer-stop;
+            };
+        };
+    };
+
+    /* DVFS OPP table — uiox_cpu_pm.h DVFS governor */
+    cpu_opp_table: opp-table {
+        compatible = "operating-points-v2";
+        opp-shared;
+
+        opp-800000000  { opp-hz = /bits/ 64 <800000000>;  opp-microvolt = <850000>;  };
+        opp-1200000000 { opp-hz = /bits/ 64 <1200000000>; opp-microvolt = <900000>;  };
+        opp-1600000000 { opp-hz = /bits/ 64 <1600000000>; opp-microvolt = <950000>;  };
+        opp-2000000000 { opp-hz = /bits/ 64 <2000000000>; opp-microvolt = <1000000>; };
+        opp-2400000000 { opp-hz = /bits/ 64 <2400000000>; opp-microvolt = <1050000>; };
+        opp-2800000000 { opp-hz = /bits/ 64 <2800000000>; opp-microvolt = <1100000>; };
+    };
+
+    /* -----------------------------------------------------------------
+     * Cache topology
+     *   uiox_cpu_hw.h: l1i, l1d, l2, l3 cache fields
+     * -------------------------------------------------------------- */
+    l2_cache: l2-cache {
+        compatible = "cache";
+        cache-level = <2>;
+        cache-size  = <0x200000>;    /* 2 MiB L2 per cluster */
+        cache-sets  = <2048>;
+        cache-line-size = <64>;
+        cache-unified;
+        next-level-cache = <&l3_cache>;
+    };
+
+    l3_cache: l3-cache {
+        compatible = "cache";
+        cache-level = <3>;
+        cache-size  = <0x800000>;    /* 8 MiB shared L3 */
+        cache-sets  = <8192>;
+        cache-line-size = <64>;
+        cache-unified;
+    };
+
+    /* -----------------------------------------------------------------
+     * PSCI — power state coordination
+     * -------------------------------------------------------------- */
+    psci {
+        compatible = "arm,psci-1.0";
+        method     = "smc";
+        cpu_on     = <0xC4000003>;
+        cpu_off    = <0x84000002>;
+        cpu_suspend = <0xC4000001>;
+        system_off = <0x84000008>;
+        system_reset = <0x84000009>;
+    };
+
+    /* -----------------------------------------------------------------
+     * Clocks
+     * -------------------------------------------------------------- */
+    osc24m: oscillator-24m {
+        compatible    = "#fixed-clock";
+        #clock-cells  = <0>;
+        clock-frequency = <24000000>;
+        clock-output-names = "osc24m";
+    };
+
+    cpu_clk: cpu-clock {
+        compatible    = "fixed-clock";
+        #clock-cells  = <0>;
+        clock-frequency = <2400000000>;
+        clock-output-names = "cpu_clk";
+    };
+
+    apb_clk: apb-clock {
+        compatible    = "fixed-clock";
+        #clock-cells  = <0>;
+        clock-frequency = <100000000>;   /* 100 MHz APB */
+        clock-output-names = "apb_clk";
+    };
+
+    ahb_clk: ahb-clock {
+        compatible    = "fixed-clock";
+        #clock-cells  = <0>;
+        clock-frequency = <200000000>;   /* 200 MHz AHB */
+        clock-output-names = "ahb_clk";
+    };
+
+    /* -----------------------------------------------------------------
+     * SoC bus — all MMIO peripherals
+     *   Base addresses from uiox_cpu_hw.h gic_base / timer_base layout
+     * -------------------------------------------------------------- */
+    soc {
+        compatible     = "simple-bus";
+        #address-cells = <2>;
+        #size-cells    = <2>;
+        ranges;
+
+        /* ---- GIC-600 (ARM Generic Interrupt Controller) ------------
+         *   uiox_cpu_hw.h: gic_base field; GIC-600 layout
+         *   GICD: 0xFE000000  (64 KiB distributor)
+         *   GICR: 0xFE020000  (4× 128 KiB redistributor per core)
+         * ---------------------------------------------------------- */
+        gic: interrupt-controller@fe000000 {
+            compatible      = "arm,gic-600", "arm,gic-v3";
+            #interrupt-cells = <3>;
+            interrupt-controller;
+            reg = <0x0 0xFE000000  0x0 0x00010000>,  /* GICD */
+                  <0x0 0xFE020000  0x0 0x00080000>;  /* GICR × 4 */
+            interrupts = <1 9 4>;   /* GIC maintenance IRQ */
+        };
+
+        /* ---- ARM Generic Timer (CNTPCT_EL0)
+         *   uiox_cpu_hw.h: timer_freq_hz, uiox_cpu_read_sysreg(cntpct_el0)
+         * ---------------------------------------------------------- */
+        timer {
+            compatible = "arm,armv8-timer";
+            interrupts =
+                <1 13 0xf08>,   /* Secure Physical Timer     PPI 13 */
+                <1 14 0xf08>,   /* Non-secure Physical Timer PPI 14 */
+                <1 11 0xf08>,   /* Virtual Timer             PPI 11 */
+                <1 10 0xf08>;   /* Hypervisor Timer          PPI 10 */
+            clock-frequency = <24000000>;
+            always-on;
+        };
+
+        /* ---- SP804 / UIOX SoC system timer (MMIO fallback)
+         *   uiox_cpu_hw.h: timer_base = 0xFC010000
+         * ---------------------------------------------------------- */
+        sp804_timer: timer@fc010000 {
+            compatible  = "uiox,uiox-timer", "arm,sp804";
+            reg         = <0x0 0xFC010000  0x0 0x1000>;
+            interrupts  = <0 36 4>;
+            clocks      = <&apb_clk>, <&apb_clk>;
+            clock-names = "timclk1", "timclk2";
+        };
+
+        /* ---- PMU (Performance Monitor Unit)
+         *   uiox_cpu_hw.h: UIOX_PMU_MAX_COUNTERS = 8
+         * ---------------------------------------------------------- */
+        pmu {
+            compatible = "arm,cortex-a76-pmu";
+            interrupts = <1 7 4>;   /* PPI 7 */
+        };
+
+        /* ---- UART0 / Serial console (PL011)
+         *   chosen: stdout-path = "serial0:115200n8"
+         * ---------------------------------------------------------- */
+        uart0: serial@fc020000 {
+            compatible  = "uiox,uiox-uart", "arm,pl011", "arm,primecell";
+            reg         = <0x0 0xFC020000  0x0 0x1000>;
+            interrupts  = <0 37 4>;
+            clocks      = <&apb_clk>, <&apb_clk>;
+            clock-names = "uartclk", "apb_pclk";
+            current-speed = <115200>;
+            status      = "okay";
+        };
+
+        uart1: serial@fc021000 {
+            compatible  = "uiox,uiox-uart", "arm,pl011", "arm,primecell";
+            reg         = <0x0 0xFC021000  0x0 0x1000>;
+            interrupts  = <0 38 4>;
+            clocks      = <&apb_clk>, <&apb_clk>;
+            clock-names = "uartclk", "apb_pclk";
+            status      = "disabled";
+        };
+
+        /* ---- I2C buses -------------------------------------------- */
+        i2c0: i2c@fc030000 {
+            compatible     = "uiox,uiox-i2c";
+            reg            = <0x0 0xFC030000  0x0 0x1000>;
+            interrupts     = <0 40 4>;
+            clocks         = <&apb_clk>;
+            clock-frequency = <400000>;   /* 400 kHz Fast Mode */
+            #address-cells = <1>;
+            #size-cells    = <0>;
+            status         = "okay";
+
+            /* Thermal sensor on I2C0
+             *   uiox_cpu_pm.h: thermal throttling
+             *   50_UIX/20_uios/thermal_/ subsystem
+             */
+            thermal_sensor: temp-sensor@48 {
+                compatible     = "uiox,uiox-thermal-sensor";
+                reg            = <0x48>;
+                #thermal-sensor-cells = <0>;
+            };
+        };
+
+        i2c1: i2c@fc031000 {
+            compatible     = "uiox,uiox-i2c";
+            reg            = <0x0 0xFC031000  0x0 0x1000>;
+            interrupts     = <0 41 4>;
+            clocks         = <&apb_clk>;
+            clock-frequency = <400000>;
+            #address-cells = <1>;
+            #size-cells    = <0>;
+            status         = "okay";
+        };
+
+        /* ---- SPI buses (Wi-Fi SPI bus — uiox_wifi_hw.h vtable)
+         *   wifi.md: SPI (ESP8266) bus ops vtable
+         * ---------------------------------------------------------- */
+        spi0: spi@fc040000 {
+            compatible      = "uiox,uiox-spi";
+            reg             = <0x0 0xFC040000  0x0 0x1000>;
+            interrupts      = <0 42 4>;
+            clocks          = <&apb_clk>;
+            #address-cells  = <1>;
+            #size-cells     = <0>;
+            num-cs          = <4>;
+            status          = "okay";
+
+            /* ESP8266 Wi-Fi on SPI0 CS0 */
+            wifi_spi: wifi@0 {
+                compatible     = "uiox,uiox-wifi-spi", "espressif,esp8266";
+                reg            = <0>;
+                spi-max-frequency = <40000000>;
+                /* uiox_wifi_hw.h: IRQ, RF PLL, SDIO/SPI/PCIe vtable */
+                interrupts     = <0 55 4>;
+                interrupt-names = "wifi-irq";
+            };
+        };
+
+        /* ---- SDIO / SDMMC (CYW43xx Wi-Fi — uiox_wifi_hw.h)
+         *   wifi.md: Real SDIO (CYW43xx) driver vtable
+         * ---------------------------------------------------------- */
+        sdmmc0: mmc@fc050000 {
+            compatible   = "uiox,uiox-sdmmc";
+            reg          = <0x0 0xFC050000  0x0 0x10000>;
+            interrupts   = <0 43 4>;
+            clocks       = <&ahb_clk>;
+            clock-names  = "core";
+            bus-width    = <4>;
+            cap-sd-highspeed;
+            cap-sdio-irq;
+            keep-power-in-suspend;
+            status       = "okay";
+
+            /* CYW43xx Broadcom Wi-Fi SDIO */
+            wifi_sdio: wifi-sdio@1 {
+                compatible = "uiox,uiox-wifi-sdio", "brcm,bcm4329-fmac";
+                reg        = <1>;
+                /* uiox_wifi_hw.h: RSSI, WMM AC queues, ARF rate control */
+                interrupt-parent = <&gic>;
+                interrupts = <0 56 4>;
+            };
+        };
+
+        /* ---- eMMC / storage --------------------------------------- */
+        sdmmc1: mmc@fc060000 {
+            compatible   = "uiox,uiox-sdmmc";
+            reg          = <0x0 0xFC060000  0x0 0x10000>;
+            interrupts   = <0 44 4>;
+            clocks       = <&ahb_clk>;
+            clock-names  = "core";
+            bus-width    = <8>;
+            cap-mmc-highspeed;
+            mmc-hs200-1_8v;
+            non-removable;
+            status       = "okay";
+        };
+
+        /* ---- GPIO controller -------------------------------------- */
+        gpio0: gpio@fc070000 {
+            compatible      = "uiox,uiox-gpio";
+            reg             = <0x0 0xFC070000  0x0 0x1000>;
+            interrupts      = <0 50 4>;
+            gpio-controller;
+            #gpio-cells     = <2>;
+            interrupt-controller;
+            #interrupt-cells = <2>;
+            gpio-ranges     = <&gpio0 0 0 32>;
+            ngpios          = <32>;
+            status          = "okay";
+        };
+
+        gpio1: gpio@fc071000 {
+            compatible      = "uiox,uiox-gpio";
+            reg             = <0x0 0xFC071000  0x0 0x1000>;
+            interrupts      = <0 51 4>;
+            gpio-controller;
+            #gpio-cells     = <2>;
+            interrupt-controller;
+            #interrupt-cells = <2>;
+            gpio-ranges     = <&gpio1 0 32 32>;
+            ngpios          = <32>;
+            status          = "okay";
+        };
+
+        /* ---- Watchdog --------------------------------------------- */
+        watchdog: watchdog@fc080000 {
+            compatible   = "uiox,uiox-wdt", "arm,sp805";
+            reg          = <0x0 0xFC080000  0x0 0x1000>;
+            interrupts   = <0 53 4>;
+            clocks       = <&apb_clk>;
+            timeout-sec  = <30>;
+            status       = "okay";
+        };
+
+        /* ---- RTC -------------------------------------------------- */
+        rtc: rtc@fc090000 {
+            compatible = "uiox,uiox-rtc";
+            reg        = <0x0 0xFC090000  0x0 0x1000>;
+            interrupts = <0 54 4>;
+            clocks     = <&osc24m>;
+            status     = "okay";
+        };
+
+        /* ---- USB 3.2 Gen2×2 Host/OTG controller ------------------
+         *   usb.md: FS/HS/SS/SS+, OTG, DMA TX/RX rings, EP table
+         *   uiox_usb_hw.h: MMIO regs, VBUS/OTG, IRQ top-half vtable
+         * ---------------------------------------------------------- */
+        usb3: usb@fc100000 {
+            compatible   = "uiox,uiox-usb3", "generic-xhci";
+            reg          = <0x0 0xFC100000  0x0 0x10000>;
+            interrupts   = <0 60 4>;
+            clocks       = <&ahb_clk>;
+            clock-names  = "core";
+            /* OTG — uiox_usb_hw.h: VBUS/OTG */
+            dr_mode      = "otg";
+            /* USB speeds: FS/HS/SS/SS+ — uiox_usb_hw.h */
+            maximum-speed = "super-speed-plus";
+            snps,dis_u3_susphy_quirk;
+            status       = "okay";
+        };
+
+        usb2: usb@fc110000 {
+            compatible   = "uiox,uiox-usb2", "generic-ehci";
+            reg          = <0x0 0xFC110000  0x0 0x10000>;
+            interrupts   = <0 61 4>;
+            clocks       = <&ahb_clk>;
+            dr_mode      = "host";
+            status       = "okay";
+        };
+
+        /* ---- PCIe host (Thunderbolt 4 / Intel AX200 Wi-Fi)
+         *   tb4_/ subsystem + wifi.md: PCIe (Intel AX200) driver
+         *   uiox_cpu_hw.h: PCIe cap for TB4 / AX200 Wi-Fi
+         * ---------------------------------------------------------- */
+        pcie0: pcie@fd000000 {
+            compatible     = "uiox,uiox-pcie", "snps,dw-pcie";
+            reg            = <0x0 0xFD000000  0x0 0x00400000>,  /* DBI  */
+                             <0x0 0xFD400000  0x0 0x00400000>;  /* ATU  */
+            reg-names      = "dbi", "atu";
+            #address-cells = <3>;
+            #size-cells    = <2>;
+            ranges =
+                /* I/O  */ <0x81000000 0x0 0x00000000  0x0 0xFD800000  0x0 0x00100000>,
+                /* MEM  */ <0x82000000 0x0 0xC0000000  0x0 0xC0000000  0x0 0x20000000>;
+            bus-range      = <0x0 0xFF>;
+            num-lanes      = <4>;
+            max-link-speed = <4>;   /* Gen4 — TB4 requirement */
+            interrupts     = <0 64 4>,
+                             <0 65 4>;
+            interrupt-names = "msi", "inta";
+            status         = "okay";
+
+            /* Thunderbolt 4 — 50_UIX/20_uios/tb4_/ subsystem */
+            tb4_controller: thunderbolt@0,0 {
+                compatible = "uiox,uiox-tb4";
+                reg        = <0 0 0 0 0>;
+            };
+
+            /* Intel AX200 Wi-Fi (PCIe) — wifi.md vtable */
+            wifi_pcie: wifi@1,0 {
+                compatible = "uiox,uiox-wifi-pcie", "intel,iwlwifi";
+                reg        = <0x800 0 0 0 0>;
+                /* uiox_wifi_hw.h: WMM AC queues, MIMO, RF/PLL, A-MPDU */
+            };
+        };
+
+        /* ---- UIOX Crypto engine / ksign hardware accelerator
+         *   50_UIX/12_ksign: SHA-256/SHA-384/RSA/ECDSA engine
+         * ---------------------------------------------------------- */
+        crypto: crypto@fc200000 {
+            compatible   = "uiox,uiox-crypto";
+            reg          = <0x0 0xFC200000  0x0 0x10000>;
+            interrupts   = <0 70 4>;
+            clocks       = <&ahb_clk>;
+            clock-names  = "core";
+            /* ksign: SHA-256/SHA-384, RSA-2048/4096, ECDSA-P256, Ed25519 */
+            uiox,ksign-hw-accel;
+            status       = "okay";
+        };
+
+        /* ---- Thermal zone (uiox_cpu_pm.h DVFS thermal throttling)
+         *   50_UIX/20_uios/thermal_/ subsystem
+         * ---------------------------------------------------------- */
+        thermal-zones {
+            cpu_thermal: cpu-thermal {
+                polling-delay-passive = <250>;
+                polling-delay          = <1000>;
+                thermal-sensors        = <&thermal_sensor 0>;
+
+                trips {
+                    cpu_warm: cpu-warm {
+                        temperature  = <80000>;
+                        hysteresis   = <2000>;
+                        type         = "passive";
+                    };
+                    cpu_hot: cpu-hot {
+                        temperature  = <95000>;
+                        hysteresis   = <2000>;
+                        type         = "passive";
+                    };
+                    cpu_crit: cpu-crit {
+                        temperature  = <110000>;
+                        hysteresis   = <5000>;
+                        type         = "critical";
+                    };
+                };
+
+                cooling-maps {
+                    map0 {
+                        trip          = <&cpu_warm>;
+                        cooling-device = <&cpu0 1 3>;
+                    };
+                    map1 {
+                        trip          = <&cpu_hot>;
+                        cooling-device = <&cpu0 3 5>;
+                    };
+                };
+            };
+        };
+
+        /* ---- OTP / eFuse (root key storage for ksign)
+         *   uiox_ksign_key.h: Root CA burned into OTP / ROM
+         * ---------------------------------------------------------- */
+        otp: otp@fc300000 {
+            compatible    = "uiox,uiox-otp";
+            reg           = <0x0 0xFC300000  0x0 0x1000>;
+            #address-cells = <1>;
+            #size-cells    = <1>;
+            status        = "okay";
+
+            /* ksign root CA public key at OTP offset 0x100, 256 bytes */
+            ksign_root_key: ksign-root-key@100 {
+                reg = <0x100 0x100>;
+            };
+        };
+
+        /* ---- NVRAM / SPI NOR Flash (KRL + measurement log storage)
+         *   uiox_ksign_key.h: KRL stored in NVRAM
+         *   uiox_ksign_measure.c: log_serialise for NVRAM
+         * ---------------------------------------------------------- */
+        spi_nor: flash@fc310000 {
+            compatible      = "uiox,uiox-spi-nor";
+            reg             = <0x0 0xFC310000  0x0 0x1000>;
+            interrupts      = <0 45 4>;
+            spi-max-frequency = <50000000>;
+            #address-cells  = <1>;
+            #size-cells     = <1>;
+            status          = "okay";
+
+            /* Partition layout */
+            partitions {
+                compatible = "fixed-partitions";
+                #address-cells = <1>;
+                #size-cells    = <1>;
+
+                tfa_partition: tfa@0 {
+                    label = "tfa-bl31";
+                    reg   = <0x000000 0x080000>;  /* 512 KiB */
+                    read-only;
+                };
+                ksign_krl: krl@80000 {
+                    label = "ksign-krl";
+                    reg   = <0x080000 0x010000>;  /* 64 KiB  */
+                };
+                ksign_log: measurement-log@90000 {
+                    label = "ksign-measurement-log";
+                    reg   = <0x090000 0x010000>;  /* 64 KiB  */
+                };
+                uboot_env: uboot-env@a0000 {
+                    label = "uboot-env";
+                    reg   = <0x0A0000 0x020000>;  /* 128 KiB */
+                };
+            };
+        };
+    }; /* /soc */
+};
