@@ -8,7 +8,7 @@
  * Stage 4: Load kernel     (read from FAT32 or QEMU simulation path)
  * Stage 5: Verify          (SHA-256 + UIOX image header check)
  * Stage 6: ELF load        (ELF64 segment copy or flat binary)
- * Stage 7: Handoff         (build boot-args → arch jump to kernel)
+ * Stage 7: Handoff         (build boot-args → arch jump to kernel/FwHal)
  *
  * Expected console output:
  *   UIOX Bootloader v1.0 (ARM64) [github.com/Pramod645/UIOX]
