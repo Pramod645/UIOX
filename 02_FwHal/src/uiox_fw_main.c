@@ -658,10 +658,6 @@ uiox_fw_main(uint64_t dtb_pa)
     uiox_fw_wdt_kick(&s_wdt);
 
     /* ================================================================ */
-    /* Stages 2–8: existing firmware pipeline (unchanged)               */
-    /* ================================================================ */
-
-    /* ================================================================ */
     /* Stages 2–8: existing firmware pipeline (unchanged below here)    */
     /* ================================================================ */
     /* ... rest of original uiox_fw_main() stages 2–8 ... */

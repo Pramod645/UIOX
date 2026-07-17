@@ -132,7 +132,7 @@
      UIOX_UNUSED(x2);
  
      /* ================================================================== */
-     /* Stage 1: Hardware init                                              */
+     /* Stage 1: Hardware init , basically uiox_boot_hw_register call      */
      /* ================================================================== */
  
      UIOX_HW_REGISTER();        /* registers vtable + calls ops->init()   */
