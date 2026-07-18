@@ -1,21 +1,25 @@
 # =============================================================================
-# UIOX Firmware — Makefile
-# macOS (Homebrew) + Linux compatible.
-# Mirrors uiox-bootloader Makefile pattern exactly.
+#  UIOX Firmware — Makefile
+#  Builds a static library per ISA from src/*.c + include/*.h only.
+#  No linker scripts. No assembly files. No arch/ subdirectory.
 #
-# macOS setup:
-#   brew install aarch64-elf-gcc x86_64-elf-gcc qemu
+#  Each target produces:
+#    build/arm64/libuiox_fw_arm64.a
+#    build/arm32/libuiox_fw_arm32.a
+#    build/x86_64/libuiox_fw_x86_64.a
+#    build/riscv64/libuiox_fw_riscv64.a
 #
-# Usage:
-#   make all              — build all three architectures
-#   make ARCH=arm64       — ARM64 only
-#   make ARCH=arm32       — ARM32 only
-#   make ARCH=x86_64      — x86-64 only
-#   make run ARCH=arm64   — build + QEMU run
-#   make clean
-# =============================================================================
-# =============================================================================
-# UIOX Firmware — Makefile  (fixed: entry stubs, linker scripts, run target)
+#  Usage:
+#    make                  — build all four architectures
+#    make arm64            — ARM64 only
+#    make arm32            — ARM32 only
+#    make x86_64           — x86-64 only
+#    make riscv64          — RISC-V 64 only
+#    make V=1              — verbose output
+#    make clean
+#
+#  macOS setup:
+#    brew install aarch64-elf-gcc x86_64-elf-gcc riscv64-elf-gcc qemu
 # =============================================================================
 
 VERSION_MAJOR := 1
@@ -26,91 +30,40 @@ V ?= 0
 ifeq ($(V),0)
   Q        := @
   LOGCC    := @echo "  CC    $<"
-  LOGAS    := @echo "  AS    $<"
-  LOGLD    := @echo "  LD    $@"
+  LOGAR    := @echo "  AR    $@"
   LOGCLEAN := @echo "  CLEAN"
 else
-  Q :=
-  LOGCC :=
-  LOGAS :=
-  LOGLD :=
+  Q        :=
+  LOGCC    :=
+  LOGAR    :=
   LOGCLEAN :=
 endif
 
 SRCDIR   := src
 INCDIR   := include
-LDDIR    := linker
 BUILDDIR := build
 
-# ── Detect host OS ────────────────────────────────────────────────────────────
+# =============================================================================
+# Cross-toolchain  (auto-detect macOS vs Linux)
+# =============================================================================
 UNAME_S := $(shell uname -s)
 ifeq ($(UNAME_S),Darwin)
-  ARM64_CC      := aarch64-elf-gcc
-  ARM64_OBJCOPY := aarch64-elf-objcopy
-  ARM32_CC      := arm-none-eabi-gcc
-  ARM32_OBJCOPY := arm-none-eabi-objcopy
-  X86_CC        := x86_64-elf-gcc
-  X86_OBJCOPY   := x86_64-elf-objcopy
+  ARM64_CC  := aarch64-elf-gcc
+  ARM32_CC  := arm-none-eabi-gcc
+  X86_CC    := x86_64-elf-gcc
+  RV64_CC   := riscv64-elf-gcc
 else
-  ARM64_CC      := aarch64-linux-gnu-gcc
-  ARM64_OBJCOPY := aarch64-linux-gnu-objcopy
-  ARM32_CC      := arm-linux-gnueabihf-gcc
-  ARM32_OBJCOPY := arm-linux-gnueabihf-objcopy
-  X86_CC        := x86_64-linux-gnu-gcc
-  X86_OBJCOPY   := x86_64-linux-gnu-objcopy
+  ARM64_CC  := aarch64-linux-gnu-gcc
+  ARM32_CC  := arm-linux-gnueabihf-gcc
+  X86_CC    := x86_64-linux-gnu-gcc
+  RV64_CC   := riscv64-linux-gnu-gcc
 endif
 
-# ── Common C sources ──────────────────────────────────────────────────────────
-COMMON_SRCS := \
-    $(SRCDIR)/uiox_fw_hw.c      \
-    $(SRCDIR)/uiox_fw_irq.c     \
-    $(SRCDIR)/uiox_fw_uart.c    \
-    $(SRCDIR)/uiox_fw_timer.c   \
-    $(SRCDIR)/uiox_fw_gpio.c    \
-    $(SRCDIR)/uiox_fw_clock.c   \
-    $(SRCDIR)/uiox_fw_power.c   \
-    $(SRCDIR)/uiox_fw_mem.c     \
-    $(SRCDIR)/uiox_fw_storage.c \
-    $(SRCDIR)/uiox_fw_net.c     \
-    $(SRCDIR)/uiox_fw_devsw.c   \
-    $(SRCDIR)/uiox_fw_sensor.c  \
-    $(SRCDIR)/uiox_fw_main.c    \
-    $(SRCDIR)/uiox_fw_post.c    \
-    $(SRCDIR)/uiox_fw_secboot.c \
-    $(SRCDIR)/uiox_fw_tz.c      \
-    $(SRCDIR)/uiox_fw_psci.c    \
-	$(SRCDIR)/uiox_fw_i2c.c    \
-    $(SRCDIR)/uiox_fw_spi.c    \
-    $(SRCDIR)/uiox_fw_wdt.c    \
-    $(SRCDIR)/uiox_fw_dma.c    \
-    $(SRCDIR)/uiox_fw_pcie.c   \
-    $(SRCDIR)/uiox_fw_als.c        \
-    $(SRCDIR)/uiox_fw_bms.c        \
-    $(SRCDIR)/uiox_fw_bt.c         \
-    $(SRCDIR)/uiox_fw_camera.c     \
-    $(SRCDIR)/uiox_fw_charger.c    \
-    $(SRCDIR)/uiox_fw_emmc.c       \
-    $(SRCDIR)/uiox_fw_eth.c        \
-    $(SRCDIR)/uiox_fw_fan.c        \
-    $(SRCDIR)/uiox_fw_gpu.c        \
-    $(SRCDIR)/uiox_fw_hdmi.c       \
-    $(SRCDIR)/uiox_fw_keyboard.c   \
-    $(SRCDIR)/uiox_fw_mic.c        \
-    $(SRCDIR)/uiox_fw_monitor.c    \
-    $(SRCDIR)/uiox_fw_mouse.c      \
-    $(SRCDIR)/uiox_fw_nvme.c       \
-    $(SRCDIR)/uiox_fw_pmic.c       \
-    $(SRCDIR)/uiox_fw_ramrtc.c     \
-    $(SRCDIR)/uiox_fw_sata.c       \
-    $(SRCDIR)/uiox_fw_sd.c         \
-    $(SRCDIR)/uiox_fw_speaker.c    \
-    $(SRCDIR)/uiox_fw_tb4.c        \
-    $(SRCDIR)/uiox_fw_thermal.c    \
-    $(SRCDIR)/uiox_fw_touchpwd.c   \
-    $(SRCDIR)/uiox_fw_usb.c        \
-    $(SRCDIR)/uiox_fw_wifi.c
+DEPFLAGS = -MT $@ -MMD -MP -MF $(@:.o=.d)
 
-# ── Common CFLAGS ─────────────────────────────────────────────────────────────
+# =============================================================================
+# Common CFLAGS  (no linker flags needed — we are building .a, not .elf/.bin)
+# =============================================================================
 CFLAGS_COMMON := \
     -std=c11 -Wall -Wextra \
     -ffreestanding -fno-builtin \
@@ -121,270 +74,177 @@ CFLAGS_COMMON := \
     -DUIOX_VERSION_MAJOR=$(VERSION_MAJOR) \
     -DUIOX_VERSION_MINOR=$(VERSION_MINOR) \
     -DUIOX_VERSION_PATCH=$(VERSION_PATCH)
-## In 70_build_config/common.mk or your per-arch .mk file
-#CFLAGS += -DUIOX_SECBOOT_SKIP_IN_SIM   # remove for production
-	
-
-# GCC driver flags (NOT passed via -Wl)
-GCC_LD_FLAGS := -nostdlib -nostartfiles
-# Raw linker flags (passed via -Wl)
-LINKER_FLAGS := -Wl,--gc-sections
-
-DEPFLAGS = -MT $@ -MMD -MP -MF $(@:.o=.d)
 
 # =============================================================================
-# ARM64
+# HAL_SRCS — every .c file in src/  (no arch/ subdirectory, no .S files)
 # =============================================================================
-ARM64_CFLAGS  := $(CFLAGS_COMMON) -march=armv8-a -D__aarch64__
-ARM64_LD      := $(LDDIR)/uiox_fw_arm64.ld
-ARM64_ELF     := $(BUILDDIR)/arm64/uiox_fw_arm64.elf
-ARM64_BIN     := $(BUILDDIR)/arm64/uiox_fw_arm64.bin
-ARM64_MAP     := $(BUILDDIR)/arm64/uiox_fw_arm64.map
+HAL_SRCS := \
+    $(SRCDIR)/uiox_fw_als.c       \
+    $(SRCDIR)/uiox_fw_bms.c       \
+    $(SRCDIR)/uiox_fw_bt.c        \
+    $(SRCDIR)/uiox_fw_camera.c    \
+    $(SRCDIR)/uiox_fw_charger.c   \
+    $(SRCDIR)/uiox_fw_clock.c     \
+    $(SRCDIR)/uiox_fw_devsw.c     \
+    $(SRCDIR)/uiox_fw_emmc.c      \
+    $(SRCDIR)/uiox_fw_eth.c       \
+    $(SRCDIR)/uiox_fw_fan.c       \
+    $(SRCDIR)/uiox_fw_gpio.c      \
+    $(SRCDIR)/uiox_fw_gpu.c       \
+    $(SRCDIR)/uiox_fw_hdmi.c      \
+    $(SRCDIR)/uiox_fw_hw.c        \
+    $(SRCDIR)/uiox_fw_i2c.c       \
+    $(SRCDIR)/uiox_fw_keyboard.c  \
+    $(SRCDIR)/uiox_fw_main.c      \
+    $(SRCDIR)/uiox_fw_mic.c       \
+    $(SRCDIR)/uiox_fw_monitor.c   \
+    $(SRCDIR)/uiox_fw_mouse.c     \
+    $(SRCDIR)/uiox_fw_net.c       \
+    $(SRCDIR)/uiox_fw_nvme.c      \
+    $(SRCDIR)/uiox_fw_pcie.c      \
+    $(SRCDIR)/uiox_fw_pmic.c      \
+    $(SRCDIR)/uiox_fw_ramrtc.c    \
+    $(SRCDIR)/uiox_fw_sata.c      \
+    $(SRCDIR)/uiox_fw_sd.c        \
+    $(SRCDIR)/uiox_fw_sensor.c    \
+    $(SRCDIR)/uiox_fw_speaker.c   \
+    $(SRCDIR)/uiox_fw_spi.c       \
+    $(SRCDIR)/uiox_fw_storage.c   \
+    $(SRCDIR)/uiox_fw_tb4.c       \
+    $(SRCDIR)/uiox_fw_thermal.c   \
+    $(SRCDIR)/uiox_fw_timer.c     \
+    $(SRCDIR)/uiox_fw_touchpwd.c  \
+    $(SRCDIR)/uiox_fw_uart.c      \
+    $(SRCDIR)/uiox_fw_usb.c       \
+    $(SRCDIR)/uiox_fw_wdt.c       \
+    $(SRCDIR)/uiox_fw_wifi.c
 
-# Arch-specific sources: entry stub + C hw file
-ARM64_ARCH_SRCS_S := $(SRCDIR)/arch/arm64/uiox_fw_entry_arm64.S
-ARM64_ARCH_SRCS_C := $(SRCDIR)/arch/arm64/uiox_fw_arch_arm64.c
-
-ARM64_ARCH_OBJS := \
-    $(BUILDDIR)/arm64/arch/arm64/uiox_fw_entry_arm64.o \
-    $(BUILDDIR)/arm64/arch/arm64/uiox_fw_arch_arm64.o
-
-ARM64_COMMON_OBJS := \
-    $(patsubst $(SRCDIR)/%.c,$(BUILDDIR)/arm64/%.o,$(COMMON_SRCS))
-
-ARM64_OBJS := $(ARM64_ARCH_OBJS) $(ARM64_COMMON_OBJS)
-
-ARM64_QEMU := qemu-system-aarch64 \
-              -M virt -cpu cortex-a57 -nographic \
-              -kernel $(ARM64_BIN)
+# =============================================================================
+# ARM64  (AArch64 — ARMv8-A)
+# =============================================================================
+ARM64_CFLAGS := $(CFLAGS_COMMON) -march=armv8-a -mstrict-align
+ARM64_OBJS   := $(patsubst $(SRCDIR)/%.c,$(BUILDDIR)/arm64/%.o,$(HAL_SRCS))
+ARM64_LIB    := $(BUILDDIR)/arm64/libuiox_fw_arm64.a
 
 .PHONY: arm64
-arm64: $(ARM64_BIN)
-	$(Q)echo "  ✓  ARM64: $(ARM64_BIN)"
+arm64: $(ARM64_LIB)
+	$(Q)echo "  OK  arm64  => $(ARM64_LIB)"
 
-$(ARM64_BIN): $(ARM64_ELF)
-	$(Q)$(ARM64_OBJCOPY) -O binary $< $@
+$(ARM64_LIB): $(ARM64_OBJS) | $(BUILDDIR)/arm64
+	$(LOGAR)
+	$(Q)ar rcs $@ $^
 
-$(ARM64_ELF): $(ARM64_OBJS) $(ARM64_LD) | $(BUILDDIR)/arm64/arch/arm64
-	$(LOGLD)
-	$(Q)$(ARM64_CC) $(ARM64_CFLAGS) \
-	    -T$(ARM64_LD) \
-	    $(GCC_LD_FLAGS) $(LINKER_FLAGS) \
-	    -Wl,-Map=$(ARM64_MAP) \
-	    $(ARM64_OBJS) -o $@
-
-# Assembly entry
-$(BUILDDIR)/arm64/arch/arm64/uiox_fw_entry_arm64.o: \
-    $(SRCDIR)/arch/arm64/uiox_fw_entry_arm64.S \
-    | $(BUILDDIR)/arm64/arch/arm64
-	$(LOGAS)
-	$(Q)$(ARM64_CC) $(ARM64_CFLAGS) $(DEPFLAGS) -c $< -o $@
-
-# Arch C file
-$(BUILDDIR)/arm64/arch/arm64/uiox_fw_arch_arm64.o: \
-    $(SRCDIR)/arch/arm64/uiox_fw_arch_arm64.c \
-    | $(BUILDDIR)/arm64/arch/arm64
-	$(LOGCC)
-	$(Q)$(ARM64_CC) $(ARM64_CFLAGS) \
-	    -I$(SRCDIR)/arch/arm64 $(DEPFLAGS) -c $< -o $@
-
-# Common C files
-$(BUILDDIR)/arm64/%.o: $(SRCDIR)/%.c | $(BUILDDIR)/arm64/arch/arm64
+$(BUILDDIR)/arm64/%.o: $(SRCDIR)/%.c | $(BUILDDIR)/arm64
 	$(LOGCC)
 	$(Q)$(ARM64_CC) $(ARM64_CFLAGS) $(DEPFLAGS) -c $< -o $@
 
+$(BUILDDIR)/arm64:
+	$(Q)mkdir -p $@
+
 # =============================================================================
-# ARM32
+# ARM32  (ARMv7-A — Thumb-2)
 # =============================================================================
-ARM32_CFLAGS  := $(CFLAGS_COMMON) \
-                 -march=armv7-a -mthumb -mfpu=vfpv3 -mfloat-abi=hard \
-                 -D__arm__
-ARM32_LD      := $(LDDIR)/uiox_fw_arm32.ld
-ARM32_ELF     := $(BUILDDIR)/arm32/uiox_fw_arm32.elf
-ARM32_BIN     := $(BUILDDIR)/arm32/uiox_fw_arm32.bin
-ARM32_MAP     := $(BUILDDIR)/arm32/uiox_fw_arm32.map
-
-ARM32_ARCH_OBJS := \
-    $(BUILDDIR)/arm32/arch/arm32/uiox_fw_entry_arm32.o \
-    $(BUILDDIR)/arm32/arch/arm32/uiox_fw_arch_arm32.o
-
-ARM32_COMMON_OBJS := \
-    $(patsubst $(SRCDIR)/%.c,$(BUILDDIR)/arm32/%.o,$(COMMON_SRCS))
-
-ARM32_OBJS := $(ARM32_ARCH_OBJS) $(ARM32_COMMON_OBJS)
-
-ARM32_QEMU := qemu-system-arm \
-              -M versatilepb -cpu cortex-a9 -nographic \
-              -kernel $(ARM32_BIN)
+ARM32_CFLAGS := $(CFLAGS_COMMON) -march=armv7-a -mthumb -mfloat-abi=soft
+ARM32_OBJS   := $(patsubst $(SRCDIR)/%.c,$(BUILDDIR)/arm32/%.o,$(HAL_SRCS))
+ARM32_LIB    := $(BUILDDIR)/arm32/libuiox_fw_arm32.a
 
 .PHONY: arm32
-arm32: $(ARM32_BIN)
-	$(Q)echo "  ✓  ARM32: $(ARM32_BIN)"
+arm32: $(ARM32_LIB)
+	$(Q)echo "  OK  arm32  => $(ARM32_LIB)"
 
-$(ARM32_BIN): $(ARM32_ELF)
-	$(Q)$(ARM32_OBJCOPY) -O binary $< $@
+$(ARM32_LIB): $(ARM32_OBJS) | $(BUILDDIR)/arm32
+	$(LOGAR)
+	$(Q)ar rcs $@ $^
 
-$(ARM32_ELF): $(ARM32_OBJS) $(ARM32_LD) | $(BUILDDIR)/arm32/arch/arm32
-	$(LOGLD)
-	$(Q)$(ARM32_CC) $(ARM32_CFLAGS) \
-	    -T$(ARM32_LD) \
-	    $(GCC_LD_FLAGS) $(LINKER_FLAGS) \
-	    -Wl,-Map=$(ARM32_MAP) \
-	    $(ARM32_OBJS) -o $@
-
-$(BUILDDIR)/arm32/arch/arm32/uiox_fw_entry_arm32.o: \
-    $(SRCDIR)/arch/arm32/uiox_fw_entry_arm32.S \
-    | $(BUILDDIR)/arm32/arch/arm32
-	$(LOGAS)
-	$(Q)$(ARM32_CC) $(ARM32_CFLAGS) $(DEPFLAGS) -c $< -o $@
-
-$(BUILDDIR)/arm32/arch/arm32/uiox_fw_arch_arm32.o: \
-    $(SRCDIR)/arch/arm32/uiox_fw_arch_arm32.c \
-    | $(BUILDDIR)/arm32/arch/arm32
-	$(LOGCC)
-	$(Q)$(ARM32_CC) $(ARM32_CFLAGS) \
-	    -I$(SRCDIR)/arch/arm32 $(DEPFLAGS) -c $< -o $@
-
-$(BUILDDIR)/arm32/%.o: $(SRCDIR)/%.c | $(BUILDDIR)/arm32/arch/arm32
+$(BUILDDIR)/arm32/%.o: $(SRCDIR)/%.c | $(BUILDDIR)/arm32
 	$(LOGCC)
 	$(Q)$(ARM32_CC) $(ARM32_CFLAGS) $(DEPFLAGS) -c $< -o $@
+
+$(BUILDDIR)/arm32:
+	$(Q)mkdir -p $@
 
 # =============================================================================
 # x86_64
 # =============================================================================
-X86_CFLAGS  := $(CFLAGS_COMMON) \
-               -m64 -march=x86-64 -mno-red-zone -mcmodel=kernel \
-               -D__x86_64__
-X86_LD      := $(LDDIR)/uiox_fw_x86_64.ld
-X86_ELF     := $(BUILDDIR)/x86_64/uiox_fw_x86_64.elf
-X86_BIN     := $(BUILDDIR)/x86_64/uiox_fw_x86_64.bin
-X86_MAP     := $(BUILDDIR)/x86_64/uiox_fw_x86_64.map
-
-X86_ARCH_OBJS := \
-    $(BUILDDIR)/x86_64/arch/x86_64/uiox_fw_entry_x86.o \
-    $(BUILDDIR)/x86_64/arch/x86_64/uiox_fw_arch_x86.o
-
-X86_COMMON_OBJS := \
-    $(patsubst $(SRCDIR)/%.c,$(BUILDDIR)/x86_64/%.o,$(COMMON_SRCS))
-
-X86_OBJS := $(X86_ARCH_OBJS) $(X86_COMMON_OBJS)
-
-X86_QEMU := qemu-system-x86_64 -M q35 -nographic -kernel $(X86_BIN)
+X86_CFLAGS := $(CFLAGS_COMMON) -m64 -mno-red-zone -mno-mmx -mno-sse -mno-sse2
+X86_OBJS   := $(patsubst $(SRCDIR)/%.c,$(BUILDDIR)/x86_64/%.o,$(HAL_SRCS))
+X86_LIB    := $(BUILDDIR)/x86_64/libuiox_fw_x86_64.a
 
 .PHONY: x86_64
-x86_64: $(X86_BIN)
-	$(Q)echo "  ✓  x86_64: $(X86_BIN)"
+x86_64: $(X86_LIB)
+	$(Q)echo "  OK  x86_64 => $(X86_LIB)"
 
-$(X86_BIN): $(X86_ELF)
-	$(Q)$(X86_OBJCOPY) -O binary $< $@
+$(X86_LIB): $(X86_OBJS) | $(BUILDDIR)/x86_64
+	$(LOGAR)
+	$(Q)ar rcs $@ $^
 
-$(X86_ELF): $(X86_OBJS) $(X86_LD) | $(BUILDDIR)/x86_64/arch/x86_64
-	$(LOGLD)
-	$(Q)$(X86_CC) $(X86_CFLAGS) \
-	    -T$(X86_LD) \
-	    $(GCC_LD_FLAGS) $(LINKER_FLAGS) \
-	    -Wl,-Map=$(X86_MAP) \
-	    $(X86_OBJS) -o $@
-
-$(BUILDDIR)/x86_64/arch/x86_64/uiox_fw_entry_x86.o: \
-    $(SRCDIR)/arch/x86_64/uiox_fw_entry_x86.S \
-    | $(BUILDDIR)/x86_64/arch/x86_64
-	$(LOGAS)
-	$(Q)$(X86_CC) $(X86_CFLAGS) $(DEPFLAGS) -c $< -o $@
-
-$(BUILDDIR)/x86_64/arch/x86_64/uiox_fw_arch_x86.o: \
-    $(SRCDIR)/arch/x86_64/uiox_fw_arch_x86.c \
-    | $(BUILDDIR)/x86_64/arch/x86_64
-	$(LOGCC)
-	$(Q)$(X86_CC) $(X86_CFLAGS) \
-	    -I$(SRCDIR)/arch/x86_64 $(DEPFLAGS) -c $< -o $@
-
-$(BUILDDIR)/x86_64/%.o: $(SRCDIR)/%.c | $(BUILDDIR)/x86_64/arch/x86_64
+$(BUILDDIR)/x86_64/%.o: $(SRCDIR)/%.c | $(BUILDDIR)/x86_64
 	$(LOGCC)
 	$(Q)$(X86_CC) $(X86_CFLAGS) $(DEPFLAGS) -c $< -o $@
 
-# =============================================================================
-# Default target
-# =============================================================================
-.PHONY: all
-ifndef ARCH
-all: arm64 arm32 x86_64
-	$(Q)echo ""
-	$(Q)echo "  ✓  All firmware images built"
-	$(Q)echo "     ARM64 : $(ARM64_BIN)"
-	$(Q)echo "     ARM32 : $(ARM32_BIN)"
-	$(Q)echo "     x86_64: $(X86_BIN)"
-else ifeq ($(ARCH),arm64)
-all: arm64
-else ifeq ($(ARCH),arm32)
-all: arm32
-else ifeq ($(ARCH),x86_64)
-all: x86_64
-endif
-
-# =============================================================================
-# Directory creation
-# =============================================================================
-$(BUILDDIR)/arm64/arch/arm64:
-	$(Q)mkdir -p $@
-
-$(BUILDDIR)/arm32/arch/arm32:
-	$(Q)mkdir -p $@
-
-$(BUILDDIR)/x86_64/arch/x86_64:
+$(BUILDDIR)/x86_64:
 	$(Q)mkdir -p $@
 
 # =============================================================================
-# Dependency includes
+# RISC-V 64  (rv64imac, medany code model)
+# =============================================================================
+RV64_CFLAGS := $(CFLAGS_COMMON) -march=rv64imac -mabi=lp64 -mcmodel=medany
+RV64_OBJS   := $(patsubst $(SRCDIR)/%.c,$(BUILDDIR)/riscv64/%.o,$(HAL_SRCS))
+RV64_LIB    := $(BUILDDIR)/riscv64/libuiox_fw_riscv64.a
+
+.PHONY: riscv64
+riscv64: $(RV64_LIB)
+	$(Q)echo "  OK  riscv64 => $(RV64_LIB)"
+
+$(RV64_LIB): $(RV64_OBJS) | $(BUILDDIR)/riscv64
+	$(LOGAR)
+	$(Q)ar rcs $@ $^
+
+$(BUILDDIR)/riscv64/%.o: $(SRCDIR)/%.c | $(BUILDDIR)/riscv64
+	$(LOGCC)
+	$(Q)$(RV64_CC) $(RV64_CFLAGS) $(DEPFLAGS) -c $< -o $@
+
+$(BUILDDIR)/riscv64:
+	$(Q)mkdir -p $@
+
+# =============================================================================
+# Auto-generated dependency tracking
 # =============================================================================
 -include $(ARM64_OBJS:.o=.d)
 -include $(ARM32_OBJS:.o=.d)
 -include $(X86_OBJS:.o=.d)
+-include $(RV64_OBJS:.o=.d)
 
 # =============================================================================
-# QEMU run  (fix error 4: graceful default instead of hard exit)
+# Convenience targets
 # =============================================================================
-.PHONY: run
-run:
-ifndef ARCH
+.PHONY: all
+all: arm64 arm32 x86_64 riscv64
 	$(Q)echo ""
-	$(Q)echo "  Usage:  make run ARCH=arm64|arm32|x86_64"
-	$(Q)echo ""
-	$(Q)echo "  Example:"
-	$(Q)echo "    make run ARCH=arm64"
-	$(Q)echo ""
-else ifeq ($(ARCH),arm64)
-	$(ARM64_QEMU)
-else ifeq ($(ARCH),arm32)
-	$(ARM32_QEMU)
-else ifeq ($(ARCH),x86_64)
-	$(X86_QEMU)
-else
-	$(Q)echo "Unknown ARCH='$(ARCH)'. Use arm64, arm32, or x86_64."
-endif
+	$(Q)echo "  Built:"
+	$(Q)echo "    $(ARM64_LIB)"
+	$(Q)echo "    $(ARM32_LIB)"
+	$(Q)echo "    $(X86_LIB)"
+	$(Q)echo "    $(RV64_LIB)"
 
-# =============================================================================
-# Help
-# =============================================================================
-.PHONY: help
-help:
-	@echo "UIOX Firmware Build System"
-	@echo ""
-	@echo "  make all                Build all three architectures"
-	@echo "  make ARCH=arm64         ARM64 only"
-	@echo "  make ARCH=arm32         ARM32 only"
-	@echo "  make ARCH=x86_64        x86-64 only"
-	@echo "  make run ARCH=arm64     Build + QEMU run"
-	@echo "  make V=1 ARCH=arm64     Verbose build"
-	@echo "  make clean"
-	@echo ""
-	@echo "macOS setup:"
-	@echo "  brew install aarch64-elf-gcc x86_64-elf-gcc qemu"
-
-# =============================================================================
-# Clean
-# =============================================================================
 .PHONY: clean
 clean:
 	$(LOGCLEAN)
 	$(Q)rm -rf $(BUILDDIR)
+
+.PHONY: help
+help:
+	@echo ""
+	@echo "  UIOX Firmware HAL — build targets"
+	@echo ""
+	@echo "    make              build all four ISA targets"
+	@echo "    make arm64        build/arm64/libuiox_fw_arm64.a"
+	@echo "    make arm32        build/arm32/libuiox_fw_arm32.a"
+	@echo "    make x86_64       build/x86_64/libuiox_fw_x86_64.a"
+	@echo "    make riscv64      build/riscv64/libuiox_fw_riscv64.a"
+	@echo "    make clean        remove build/"
+	@echo "    make V=1          verbose compiler output"
+	@echo ""
+	@echo "  macOS setup:"
+	@echo "    brew install aarch64-elf-gcc x86_64-elf-gcc riscv64-elf-gcc"
+	@echo ""

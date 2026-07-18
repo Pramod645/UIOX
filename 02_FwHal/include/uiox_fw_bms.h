@@ -55,6 +55,7 @@
      uiox_bms_chip_t chip;
      uiox_bms_data_t last;
      bool            initialized;
+     void           *priv;
  } uiox_bms_dev_t;
  
  typedef struct {

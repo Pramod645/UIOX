@@ -39,6 +39,7 @@ typedef struct {
     int8_t          rssi_dbm;
     uiox_wifi_rx_cb_t rx_cb;
     void           *rx_priv;
+    uint64_t        tx_bytes, rx_bytes;
     uiox_wifi_ap_t  scan_results[UIOX_WIFI_MAX_SCAN];
     uint8_t         num_scan;
     bool            fw_loaded;

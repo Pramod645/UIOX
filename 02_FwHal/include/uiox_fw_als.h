@@ -66,6 +66,7 @@
      uiox_als_itime_t itime;
      uint32_t         lux_milli;     /**< Last reading ×1000            */
      bool             initialized;
+     void           *priv;
  } uiox_als_dev_t;
  
  /* ── Ops vtable ──────────────────────────────────────────────── */

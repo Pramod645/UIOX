@@ -17,7 +17,6 @@
 
  #include "uiox_fw.h"
  #include <stdarg.h>
- #include "../src/arch/x86_64/uiox_fw_arch_x86.h"
  /**
  * Integration patch for 02_FwHal/src/uiox_fw_main.c
  * Add these includes and the Stage 0 block.
@@ -26,10 +25,7 @@
 
 
 #include "../include/uiox_fw_hw.h"       /* uiox_fw_hw_ops() accessor  */
-#include "../include/uiox_fw_tz.h"
-#include "../include/uiox_fw_psci.h"
-#include "../include/uiox_fw_post.h"
-#include "../include/uiox_fw_secboot.h"
+
 
 /* =========================================================================
  * Forward declaration of linker symbol (defined in entry .S stub)
@@ -60,14 +56,6 @@ static void fw_memset_fw(void *dst, int val, size_t n)
   #define UIOX_FW_HW_REGISTER()  uiox_fw_hw_x86_register()
   #define UIOX_FW_ARCH_STR       "x86_64"
 #endif
-/* =========================================================================
- * Global state (add alongside existing s_fw_soc etc.)
- * ====================================================================== */
-static uiox_tz_report_t      s_tz_report;
-static uiox_psci_ctx_t       s_psci_ctx;
-static uiox_post_report_t    s_post_report;
-static uiox_secboot_ctx_t    s_secboot_ctx;
-static uiox_secboot_report_t s_secboot_report;
 
 /* =========================================================================
  * Global state — new devices (add alongside existing s_fw_soc etc.)
@@ -76,7 +64,6 @@ static uiox_secboot_report_t s_secboot_report;
  static uiox_i2c_dev_t   s_i2c0;
  static uiox_spi_dev_t   s_spi0;
  static uiox_wdt_dev_t   s_wdt;
- static uiox_dma_ctrl_t  s_dma;
  static uiox_pcie_ctrl_t s_pcie;
  
  /* =========================================================================
@@ -155,13 +142,13 @@ static uiox_secboot_report_t s_secboot_report;
   * Stage 0h: DMA controller init
   * ====================================================================== */
  
- static void fw_stage_dma(void)
- {
-     /* Pass NULL ops → uses SW fallback DMA (always works on QEMU) */
-     uiox_fw_dma_init(&s_dma, NULL);
-     //fw_puts_main("[FW] DMA     : OK (SW fallback)\n");
-     uiox_fw_printf("[FW] DMA     : OK (SW fallback)\n");
- }
+ //static void fw_stage_dma(void)
+ //{
+//     /* Pass NULL ops → uses SW fallback DMA (always works on QEMU) */
+//     uiox_fw_dma_init(&s_dma, NULL);
+//     //fw_puts_main("[FW] DMA     : OK (SW fallback)\n");
+//     uiox_fw_printf("[FW] DMA     : OK (SW fallback)\n");
+ //}
  
  /* =========================================================================
   * Stage 0i: PCIe ECAM scan
@@ -222,10 +209,10 @@ static void __attribute__((noreturn)) platform_reset_cb(void)
 {
     uiox_fw_hw_reset();
 }
-static void __attribute__((noreturn)) platform_off_cb(void)
-{
-    uiox_fw_power_shutdown();
-}
+//static void __attribute__((noreturn)) platform_off_cb(void)
+//{
+//    uiox_fw_power_shutdown();
+//}
 /* =========================================================================
  * Firmware printf shim — uses registered HAL UART (no libc)
  * ====================================================================== */
@@ -262,11 +249,11 @@ static void fw_puts_main(const char *s)
   * Firmware-global state
   * ====================================================================== */
  
- static uiox_fw_mem_map_t    s_mem_map;
+ //static uiox_fw_mem_map_t    s_mem_map;
  static uiox_fw_timer_t      s_timer;
  static uiox_fw_uart_t       s_console;
  static uiox_fw_gpio_t       s_gpio;
- static uiox_fw_power_ctx_t  s_power;
+ //static uiox_fw_power_ctx_t  s_power;
  static uiox_fw_devsw_t      s_devsw;
  
  /* =========================================================================
@@ -386,7 +373,7 @@ static uint64_t div64_by_u32(uint64_t n, uint32_t d, uint32_t *rem_out)
  
  void uiox_fw_puts(const char *s)
  { if (s) while (*s) uiox_fw_putc(*s++); }
- 
+ #if 0
  void uiox_fw_printf(const char *fmt, ...)
  {
      va_list ap;
@@ -437,7 +424,7 @@ static uint64_t div64_by_u32(uint64_t n, uint32_t d, uint32_t *rem_out)
      }
      va_end(ap);
  }
- 
+ #endif
  /* =========================================================================
   * Stub char-device ops
   * ====================================================================== */
@@ -541,6 +528,7 @@ static uint64_t div64_by_u32(uint64_t n, uint32_t d, uint32_t *rem_out)
 void __attribute__((noreturn))
 uiox_fw_main(uint64_t dtb_pa)
 {
+    #if 0 // as moded to soc instead of firmware
     /* ================================================================ */
     /* Stage 0a: TrustZone / EL3 setup                                  */
     /* ================================================================ */
@@ -643,11 +631,12 @@ uiox_fw_main(uint64_t dtb_pa)
     } else {
         fw_puts_main("[SECBOOT] Simulation — verification skipped\r\n");
     }
+        #endif  /* 0: as moded to soc instead of firmware */
     /* ================================================================ */
     /* Stage 0e–0i: New peripheral HAL init                             */
     /* (run after UART is live, after POST + secure boot)               */
     /* ================================================================ */
-
+#if 0
     fw_stage_i2c();
     fw_stage_spi();
     fw_stage_wdt();
@@ -901,5 +890,6 @@ uiox_fw_main(uint64_t dtb_pa)
      //uiox_kernel_main(dtb_pa);
  
      for (;;) uiox_fw_power_idle();
+     #endif
  }
  

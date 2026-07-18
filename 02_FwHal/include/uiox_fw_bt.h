@@ -40,7 +40,7 @@
  #define UIOX_BT_MAX_PACKET  260u
  
  typedef struct {
-     uiox_uart_hw_t      *uart;       /**< For UART transport           */
+     //uiox_uart_hw_t      *uart;       /**< For UART transport           */
      uiox_bt_transport_t  transport;
      uint8_t              bd_addr[6]; /**< Local Bluetooth address      */
      uint32_t             gpio_reset; /**< Reset GPIO pin               */
@@ -75,7 +75,7 @@
  int32_t       uiox_fw_bt_recv_hci (uiox_bt_dev_t *dev,
                                       uint8_t *buf, uint32_t max_len);
  uiox_fw_err_t uiox_fw_bt_init_uart(uiox_bt_dev_t *dev,
-                                      uiox_uart_hw_t *uart,
+                                      /*uiox_uart_hw_t *uart, */
                                       uint32_t gpio_reset,
                                       uint32_t gpio_pwren);
  

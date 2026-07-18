@@ -1,11 +1,13 @@
 /* ── uiox_fw_wifi.c ─────────────────────────────────────────── */
-#include "../include/uiox_fw_wifi.h"
+#include "uiox_fw_wifi.h"
+#include "uiox_fw_eth.h"
+
 #define OPS_WIFI(d) ((const uiox_wifi_ops_t*)(d)->priv)
 
 static uiox_fw_err_t wifi_sdio_init(uiox_wifi_dev_t *d)
 {
     d->mac[0]=0x02u;d->mac[1]=0x00u;d->mac[2]=0x00u;
-    d->mac[3]=0xWI;d->mac[4]=0xFI;d->mac[5]=0x00u;
+    //d->mac[3]=0xWI;d->mac[4]=0xFI;d->mac[5]=0x00u;
     /* fixup non-ASCII */
     d->mac[3]=0x11u;d->mac[4]=0x22u;
     d->standard=UIOX_WIFI_802_11AX;

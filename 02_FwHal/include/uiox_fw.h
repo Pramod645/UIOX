@@ -9,6 +9,24 @@
 #include "uiox_fw_hw.h"
 #include "uiox_fw_devsw.h"
 
+ /* ── Existing modules (unchanged) ────────────────────────────── */
+ #include "uiox_fw_types.h"
+ #include "uiox_fw_hw.h"
+ #include "uiox_fw_uart.h"
+ #include "uiox_fw_timer.h"
+ #include "uiox_fw_gpio.h"
+ #include "uiox_fw_storage.h"
+ #include "uiox_fw_net.h"
+ #include "uiox_fw_devsw.h"
+ #include "uiox_fw_sensor.h"
+ 
+ /* ── New HAL modules ─────────────────────────────────────────── */
+ #include "uiox_fw_i2c.h"     /**< I2C master — DW APB / PL031        */
+ #include "uiox_fw_spi.h"     /**< SPI master — PL022 SSP             */
+ #include "uiox_fw_wdt.h"     /**< Watchdog — SP805 / iTCO            */
+ #include "uiox_fw_pcie.h"    /**< PCIe ECAM — NVMe/SATA/NIC early init*/
+ 
+
 #ifdef __cplusplus
 extern "C" {
 #endif

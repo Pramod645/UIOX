@@ -16,7 +16,7 @@
  */
 //uioxfwgpio.c | PL061 GPIO init (direction register, AFSEL, interrupt sense/edge/level config via IS/IBE/IEV), masked-write data access, pin read, IRQ dispatch with per-pin callbacks, stub path for x86 (base == 0) |
  #include "uiox_fw.h"
-
+#include "uiox_fw_gpio.h"
  /* =========================================================================
   * PL061 register offsets (also defined in uiox_fw_gpio.h for reference)
   * ====================================================================== */

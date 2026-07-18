@@ -23,22 +23,22 @@ static uiox_fw_err_t bt_uart_reset(uiox_bt_dev_t *dev)
 static uiox_fw_err_t bt_uart_send(uiox_bt_dev_t *dev,
                                     const uint8_t *pkt, uint32_t len)
 {
-    if (!dev->uart) return UIOX_FW_ERR_NODEV;
-    uiox_uart_hw_t *hw = dev->uart;
-    for (uint32_t i = 0u; i < len; i++)
-        uiox_uart_hw_putc(hw, (char)pkt[i]);
+    //if (!dev->uart) return UIOX_FW_ERR_NODEV;
+    //uiox_uart_hw_t *hw = dev->uart;
+    //for (uint32_t i = 0u; i < len; i++)
+    //    uiox_uart_hw_putc(hw, (char)pkt[i]);
     return UIOX_FW_OK;
 }
 
 static int32_t bt_uart_recv(uiox_bt_dev_t *dev, uint8_t *buf, uint32_t max)
 {
-    if (!dev->uart) return -1;
+    //if (!dev->uart) return -1;
     uint32_t n = 0u;
-    while (n < max && uiox_uart_hw_rx_ready(dev->uart)) {
-        int c = uiox_uart_hw_getc(dev->uart);
-        if (c < 0) break;
-        buf[n++] = (uint8_t)c;
-    }
+    //while (n < max && uiox_uart_hw_rx_ready(dev->uart)) {
+    //    int c = uiox_uart_hw_getc(dev->uart);
+    //    if (c < 0) break;
+    //    buf[n++] = (uint8_t)c;
+    //}
     return (int32_t)n;
 }
 
@@ -89,14 +89,14 @@ int32_t uiox_fw_bt_recv_hci(uiox_bt_dev_t *dev,
   return OPS_BT(dev)->recv_hci(dev, buf, max_len); }
 
 uiox_fw_err_t uiox_fw_bt_init_uart(uiox_bt_dev_t *dev,
-                                     uiox_uart_hw_t *uart,
+                                    /* uiox_uart_hw_t *uart,*/
                                      uint32_t gpio_reset,
                                      uint32_t gpio_pwren)
 {
-    if (!dev || !uart) return UIOX_FW_ERR_INVAL;
+    if (!dev /*|| !uart*/) return UIOX_FW_ERR_INVAL;
     uint8_t *p = (uint8_t *)dev;
     for (size_t i=0u;i<sizeof(*dev);i++) p[i]=0u;
-    dev->uart       = uart;
+    //dev->uart       = uart;
     dev->transport  = UIOX_BT_TRANSPORT_UART;
     dev->gpio_reset = gpio_reset;
     dev->gpio_pwren = gpio_pwren;

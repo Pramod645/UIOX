@@ -44,7 +44,7 @@
      uint32_t         magic;
      uint32_t         version;
      uint32_t         caps;
-     uiox_fw_arch_t   arch;
+     //uiox_fw_arch_t   arch;
      char             name[UIOX_FW_PLATFORM_NAME_LEN];
      uintptr_t        uart_base;       /**< Debug UART MMIO base            */
      uintptr_t        gic_dist_base;   /**< GIC Distributor / IOAPIC base   */

@@ -29,6 +29,14 @@ typedef _Bool bool;
 # define NULL ((void *)0)
 #endif
 
+ /* =========================================================================
+  * Magic numbers
+  * ====================================================================== */
+ #define UIOX_FW_MAGIC           0x55494F58u  /**< "UIOX"                  */
+ #define UIOX_FW_DEVSW_MAGIC     0x44455357u  /**< "DESW"                  */
+ #define UIOX_FW_VERSION         0x00010000u  /**< v1.0.0                  */
+ 
+
 /* Error type */
 typedef int32_t uiox_fw_err_t;
 #define UIOX_FW_OK                ((uiox_fw_err_t)  0)
@@ -48,6 +56,8 @@ typedef int32_t uiox_fw_err_t;
 #define UIOX_FW_ERR_NACK          ((uiox_fw_err_t)-13)
 #define UIOX_FW_ERR_ARB_LOST      ((uiox_fw_err_t)-14)
 #define UIOX_FW_ERR_CRC           ((uiox_fw_err_t)-15)
+#define UIOX_FW_ERR_BADMAGIC      ((uiox_fw_err_t)-16)
+
 
 /* Compiler attributes */
 #if defined(__GNUC__) || defined(__clang__)
@@ -93,6 +103,27 @@ static inline uint32_t uiox_rd32(uintptr_t a){return *(volatile uint32_t*)a;}
 static inline void     uiox_wr32(uintptr_t a,uint32_t v){*(volatile uint32_t*)a=v;}
 static inline uint64_t uiox_rd64(uintptr_t a){return *(volatile uint64_t*)a;}
 static inline void     uiox_wr64(uintptr_t a,uint64_t v){*(volatile uint64_t*)a=v;}
+
+ /* =========================================================================
+  * MMIO helpers
+  * ====================================================================== */
+ static inline void fw_mmio_write32(uintptr_t addr, uint32_t val)
+ { *((volatile uint32_t *)addr) = val; }
+ 
+ static inline uint32_t fw_mmio_read32(uintptr_t addr)
+ { return *((volatile uint32_t *)addr); }
+ 
+ static inline void fw_mmio_write8(uintptr_t addr, uint8_t val)
+ { *((volatile uint8_t *)addr) = val; }
+ 
+ static inline uint8_t fw_mmio_read8(uintptr_t addr)
+ { return *((volatile uint8_t *)addr); }
+ 
+ static inline void fw_mmio_write64(uintptr_t addr, uint64_t val)
+ { *((volatile uint64_t *)addr) = val; }
+ 
+ static inline uint64_t fw_mmio_read64(uintptr_t addr)
+ { return *((volatile uint64_t *)addr); }
 
 /* Memory barriers */
 #if defined(__aarch64__)
