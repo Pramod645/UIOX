@@ -1,0 +1,351 @@
+/**
+ * @file    uiox_soc_devsw.h
+ * @brief   UIOX SoC — Device switch table, UART, timer, GPIO,
+ *          watchdog, storage, and peripheral device types.
+ *
+ * This header declares every type and function that uiox_soc_main.c
+ * references but that had no definition in any existing header,
+ * causing all the "unknown type name" and "implicit declaration"
+ * errors in the build.
+ *
+ * Covers:
+ *   uiox_soc_uart_t        — console UART descriptor
+ *   uiox_soc_timer_t       — system tick timer descriptor
+ *   uiox_soc_gpio_t        — GPIO bank descriptor
+ *   uiox_soc_stor_dev_t    — storage device (ramdisk / eMMC / NVMe)
+ *   uiox_soc_devsw_t       — device switch table (cdev + bdev)
+ *   uiox_soc_cdevsw_t      — character device switch entry
+ *   uiox_soc_bdevsw_t      — block device switch entry
+ *   UIOX_SOC_TIMER_*       — timer type constants
+ *   UIOX_SOC_STOR_*        — storage type constants
+ *   UIOX_SOC_DEV_MAJOR_*   — device major numbers
+ *   UIOX_SOC_I2C_SPEED_*   — I2C speed constants
+ *
+ * @version 1.0.0
+ * @date    2026-07-18
+ */
+
+ #ifndef UIOX_SOC_DEVSW_H
+ #define UIOX_SOC_DEVSW_H
+ 
+ #include "uiox_soc_types.h"
+ #include "uiox_soc_map.h"   /* SOC_GIC_DIST_BASE, SOC_UART0_BASE, etc. */
+ 
+ #ifdef __cplusplus
+ extern "C" {
+ #endif
+ 
+ /* =========================================================================
+  * Device major numbers
+  *
+  * Fixes:
+  *   'UIOX_SOC_DEV_MAJOR_CONSOLE' undeclared
+  *   'UIOX_SOC_DEV_MAJOR_NULL' undeclared
+  *   'UIOX_SOC_DEV_MAJOR_ZERO' undeclared
+  *   'UIOX_SOC_DEV_MAJOR_RAM' undeclared
+  * ====================================================================== */
+ #define UIOX_SOC_DEV_MAJOR_CONSOLE   0u
+ #define UIOX_SOC_DEV_MAJOR_NULL      1u
+ #define UIOX_SOC_DEV_MAJOR_ZERO      2u
+ #define UIOX_SOC_DEV_MAJOR_RAM       3u
+ #define UIOX_SOC_DEV_MAJOR_MAX       16u
+ 
+ /* =========================================================================
+  * UART descriptor
+  *
+  * Fixes:
+  *   unknown type name 'uiox_soc_uart_t'
+  *   implicit declaration of 'uiox_soc_uart_irq'
+  *   implicit declaration of 'uiox_soc_uart_getc'
+  *   implicit declaration of 'uiox_soc_uart_putc'
+  * ====================================================================== */
+ typedef struct {
+     uiox_uintptr_t  base;       /**< UART MMIO base address               */
+     uiox_uint32_t   irq;        /**< UART RX interrupt number             */
+     uiox_uint32_t   baud;       /**< Configured baud rate                 */
+     uiox_bool_t     initialized;
+ } uiox_soc_uart_t;
+ 
+ /** Initialise UART descriptor (does not touch hardware — HW init is in
+  *  the arch backend). */
+ void           uiox_soc_uart_init (uiox_soc_uart_t *u,
+                                     uiox_uintptr_t   base,
+                                     uiox_uint32_t    irq,
+                                     uiox_uint32_t    baud);
+ 
+ /** Transmit one character via the registered HW UART. */
+ void           uiox_soc_uart_putc (uiox_soc_uart_t *u, char c);
+ 
+ /** Receive one character (-1 if none available). */
+ int            uiox_soc_uart_getc (uiox_soc_uart_t *u);
+ 
+ /** Called from the arch ISR stub when the UART RX interrupt fires. */
+ void           uiox_soc_uart_irq  (uiox_soc_uart_t *u);
+ 
+ /* =========================================================================
+  * Timer descriptor and type constants
+  *
+  * Fixes:
+  *   unknown type name 'uiox_soc_timer_t'
+  *   'UIOX_SOC_TIMER_ARM_GT' undeclared
+  *   'UIOX_SOC_TIMER_SP804' undeclared
+  *   'UIOX_SOC_TIMER_PIT' undeclared
+  *   implicit declaration of 'uiox_soc_timer_init'
+  *   implicit declaration of 'uiox_soc_timer_set_cb'
+  *   implicit declaration of 'uiox_soc_timer_irq'
+  * ====================================================================== */
+ typedef enum {
+     UIOX_SOC_TIMER_ARM_GT  = 0,   /**< ARM generic timer (CNTPCT_EL0)    */
+     UIOX_SOC_TIMER_SP804   = 1,   /**< ARM SP804 dual timer               */
+     UIOX_SOC_TIMER_PIT     = 2,   /**< x86 PIT 8253/8254                  */
+     UIOX_SOC_TIMER_CLINT   = 3,   /**< RISC-V CLINT MTIMECMP              */
+ } uiox_soc_timer_type_t;
+ 
+ typedef void (*uiox_soc_timer_cb_t)(void *priv);
+ 
+ typedef struct {
+     uiox_soc_timer_type_t type;
+     uiox_uintptr_t        base;   /**< MMIO base (0 for system-register   */
+                                   /**  timers like ARM GT)                 */
+     uiox_uint32_t         irq;    /**< Timer interrupt number             */
+     uiox_uint32_t         hz;     /**< Tick frequency in Hz               */
+     uiox_soc_timer_cb_t   cb;     /**< Tick callback                      */
+     void                 *cb_priv;/**< Caller private pointer             */
+     uiox_bool_t           initialized;
+ } uiox_soc_timer_t;
+ 
+ /** Initialise and start the system tick timer at @hz ticks per second. */
+ uiox_soc_err_t uiox_soc_timer_init  (uiox_soc_timer_t     *t,
+                                       uiox_soc_timer_type_t type,
+                                       uiox_uintptr_t        base,
+                                       uiox_uint32_t         irq,
+                                       uiox_uint32_t         hz);
+ 
+ /** Register the tick callback (called once per tick from IRQ context). */
+ void           uiox_soc_timer_set_cb(uiox_soc_timer_t    *t,
+                                       uiox_soc_timer_cb_t  cb,
+                                       void                *priv);
+ 
+ /** Called from the arch ISR stub when the timer interrupt fires. */
+ void           uiox_soc_timer_irq   (uiox_soc_timer_t *t);
+ 
+ /* =========================================================================
+  * GPIO descriptor
+  *
+  * Fixes:
+  *   unknown type name 'uiox_soc_gpio_t'
+  *   implicit declaration of 'uiox_soc_gpio_init'
+  * ====================================================================== */
+ typedef struct {
+     uiox_uintptr_t  base;
+     uiox_uint32_t   irq;
+     uiox_uint32_t   num_pins;
+     uiox_bool_t     initialized;
+ } uiox_soc_gpio_t;
+ 
+ uiox_soc_err_t uiox_soc_gpio_init(uiox_soc_gpio_t *g,
+                                     uiox_uintptr_t   base,
+                                     uiox_uint32_t    irq,
+                                     uiox_uint32_t    num_pins);
+ 
+ /* =========================================================================
+  * Watchdog timer API
+  *
+  * Fixes:
+  *   implicit declaration of 'uiox_soc_wdt_init'
+  *   implicit declaration of 'uiox_soc_wdt_kick'
+  * ====================================================================== */
+ 
+ /** Initialise watchdog with @timeout_ms millisecond timeout. */
+ uiox_soc_err_t uiox_soc_wdt_init(uiox_uintptr_t base,
+                                    uiox_uint32_t  ref_hz,
+                                    uiox_uint32_t  timeout_ms);
+ 
+ /** Kick (pet) the watchdog — call regularly to prevent reset. */
+ void           uiox_soc_wdt_kick(void);
+ 
+ /* =========================================================================
+  * I2C speed constants
+  *
+  * Fix: 'UIOX_SOC_I2C_SPEED_FAST' undeclared
+  * ====================================================================== */
+ typedef enum {
+     UIOX_SOC_I2C_SPEED_STANDARD = 100000u,    /**< 100 kHz Standard mode */
+     UIOX_SOC_I2C_SPEED_FAST     = 400000u,    /**< 400 kHz Fast mode     */
+     UIOX_SOC_I2C_SPEED_FAST_PLUS = 1000000u,  /**< 1 MHz Fast-mode Plus  */
+ } uiox_soc_i2c_speed_t;
+ 
+ /** Initialise DesignWare I2C controller. */
+ uiox_soc_err_t uiox_soc_i2c_init_dw(uiox_uintptr_t     base,
+                                       uiox_uint32_t      ref_hz,
+                                       uiox_uint32_t      irq,
+                                       uiox_soc_i2c_speed_t speed);
+ 
+ /** Initialise PL022 SPI controller. */
+ uiox_soc_err_t uiox_soc_spi_init_pl022(uiox_uintptr_t base,
+                                          uiox_uint32_t  ref_hz,
+                                          uiox_uint32_t  irq);
+ 
+ /* =========================================================================
+  * Storage device
+  *
+  * Fixes:
+  *   unknown type name 'uiox_soc_stor_dev_t'
+  *   'UIOX_SOC_STOR_RAMDISK' undeclared
+  *   implicit declaration of 'uiox_soc_stor_init'
+  *   implicit declaration of 'uiox_soc_stor_register'
+  *   implicit declaration of 'uiox_soc_stor_print'
+  * ====================================================================== */
+ typedef enum {
+     UIOX_SOC_STOR_RAMDISK = 0,
+     UIOX_SOC_STOR_EMMC    = 1,
+     UIOX_SOC_STOR_NVME    = 2,
+     UIOX_SOC_STOR_SATA    = 3,
+ } uiox_soc_stor_type_t;
+ 
+ #define UIOX_SOC_STOR_NAME_LEN  16u
+ #define UIOX_SOC_STOR_MAX_DEVS   8u
+ 
+ typedef uiox_soc_err_t (*uiox_soc_stor_read_fn)(void         *priv,
+                                                    uiox_uint64_t lba,
+                                                    uiox_uint8_t *buf,
+                                                    uiox_uint32_t count);
+ 
+ typedef uiox_soc_err_t (*uiox_soc_stor_write_fn)(void               *priv,
+                                                     uiox_uint64_t       lba,
+                                                     const uiox_uint8_t *buf,
+                                                     uiox_uint32_t       count);
+ 
+ typedef uiox_soc_err_t (*uiox_soc_stor_flush_fn)(void *priv);
+ 
+ typedef struct {
+     uiox_soc_stor_type_t  type;
+     char                  name[UIOX_SOC_STOR_NAME_LEN];
+     uiox_uint64_t         num_sectors;
+     uiox_uint32_t         sector_size;
+     uiox_bool_t           present;
+     uiox_bool_t           read_only;
+     void                 *priv;
+     uiox_soc_stor_read_fn  read;
+     uiox_soc_stor_write_fn write;
+     uiox_soc_stor_flush_fn flush;
+ } uiox_soc_stor_dev_t;
+ 
+ void           uiox_soc_stor_init     (void);
+ uiox_soc_err_t uiox_soc_stor_register (uiox_soc_stor_dev_t *dev);
+ void           uiox_soc_stor_print    (void);
+ 
+ /* =========================================================================
+  * Character device switch entry
+  *
+  * Fixes:
+  *   unknown type name 'uiox_soc_cdevsw_t'
+  *   'UIOX_SOC_DEV_MAJOR_CONSOLE/NULL/ZERO' undeclared
+  * ====================================================================== */
+ #define UIOX_SOC_CDEV_NAME_LEN  16u
+ 
+ typedef uiox_soc_err_t (*uiox_soc_copen_fn) (uiox_uint32_t minor, int flags);
+ typedef void           (*uiox_soc_cclose_fn)(uiox_uint32_t minor);
+ typedef int            (*uiox_soc_cread_fn) (uiox_uint32_t minor);
+ typedef uiox_soc_err_t (*uiox_soc_cwrite_fn)(uiox_uint32_t minor, char c);
+ typedef uiox_soc_err_t (*uiox_soc_cioctl_fn)(uiox_uint32_t minor,
+                                                uiox_uint32_t cmd,
+                                                uiox_uintptr_t arg);
+ 
+ typedef struct {
+     char                  name[UIOX_SOC_CDEV_NAME_LEN];
+     uiox_uint32_t         major;
+     uiox_soc_copen_fn     copen;
+     uiox_soc_cclose_fn    cclose;
+     uiox_soc_cread_fn     cread;
+     uiox_soc_cwrite_fn    cwrite;
+     uiox_soc_cioctl_fn    cioctl;
+     uiox_bool_t           ready;
+ } uiox_soc_cdevsw_t;
+ 
+ /* =========================================================================
+  * Block device switch entry
+  *
+  * Fix: unknown type name 'uiox_soc_bdevsw_t'
+  * ====================================================================== */
+ #define UIOX_SOC_BDEV_NAME_LEN  16u
+ 
+ typedef uiox_soc_err_t (*uiox_soc_bopen_fn)    (uiox_uint32_t minor);
+ typedef void           (*uiox_soc_bclose_fn)   (uiox_uint32_t minor);
+ typedef uiox_soc_err_t (*uiox_soc_strategy_fn) (uiox_uint32_t minor,
+                                                   uiox_uint64_t lba,
+                                                   void         *buf,
+                                                   uiox_uint32_t count,
+                                                   int           write);
+ typedef uiox_soc_err_t (*uiox_soc_bioctl_fn)   (uiox_uint32_t minor,
+                                                   uiox_uint32_t cmd,
+                                                   uiox_uintptr_t arg);
+ 
+ typedef struct {
+     char                  name[UIOX_SOC_BDEV_NAME_LEN];
+     uiox_uint32_t         major;
+     uiox_soc_bopen_fn     bopen;
+     uiox_soc_bclose_fn    bclose;
+     uiox_soc_strategy_fn  strategy;
+     uiox_soc_bioctl_fn    bioctl;
+     uiox_uint64_t         num_blocks;
+     uiox_uint32_t         block_size;
+     uiox_bool_t           ready;
+ } uiox_soc_bdevsw_t;
+ 
+ /* =========================================================================
+  * Device switch table
+  *
+  * Fixes:
+  *   unknown type name 'uiox_soc_devsw_t'
+  *   implicit declaration of 'uiox_soc_devsw_init'
+  *   implicit declaration of 'uiox_soc_cdev_register'
+  *   implicit declaration of 'uiox_soc_bdev_register'
+  *   implicit declaration of 'uiox_soc_devsw_print'
+  * ====================================================================== */
+ #define UIOX_SOC_DEVSW_CDEV_MAX   8u
+ #define UIOX_SOC_DEVSW_BDEV_MAX   8u
+ 
+ typedef struct {
+     uiox_soc_cdevsw_t  cdev[UIOX_SOC_DEVSW_CDEV_MAX];
+     uiox_uint32_t      num_cdev;
+     uiox_soc_bdevsw_t  bdev[UIOX_SOC_DEVSW_BDEV_MAX];
+     uiox_uint32_t      num_bdev;
+     uiox_uint32_t      magic;          /**< UIOX_SOC_DEVSW_MAGIC          */
+ } uiox_soc_devsw_t;
+ 
+ void           uiox_soc_devsw_init    (uiox_soc_devsw_t       *sw);
+ uiox_soc_err_t uiox_soc_cdev_register (uiox_soc_devsw_t       *sw,
+                                         const uiox_soc_cdevsw_t *cdev);
+ uiox_soc_err_t uiox_soc_bdev_register (uiox_soc_devsw_t       *sw,
+                                         const uiox_soc_bdevsw_t *bdev);
+ void           uiox_soc_devsw_print   (const uiox_soc_devsw_t *sw);
+ 
+ /* =========================================================================
+  * SoC-specific backend init declarations
+  *
+  * Fixes:
+  *   implicit declaration of 'uiox_soc_init_rk3588'
+  *   implicit declaration of 'uiox_soc_init_imx8mp'
+  * ====================================================================== */
+ int uiox_soc_init_arm64   (uiox_soc_desc_t *desc);
+ int uiox_soc_init_arm32   (uiox_soc_desc_t *desc);
+ int uiox_soc_init_x86     (uiox_soc_desc_t *desc);
+ int uiox_soc_init_riscv64 (uiox_soc_desc_t *desc);
+ int uiox_soc_init_imx8mp  (uiox_soc_desc_t *desc);
+ int uiox_soc_init_rk3588  (uiox_soc_desc_t *desc);
+ int uiox_soc_init_omap4430(uiox_soc_desc_t *desc);
+ int uiox_soc_init_th1520  (uiox_soc_desc_t *desc);
+ 
+ /* =========================================================================
+  * uiox_soc_main prototype
+  *
+  * Fix: no previous prototype for 'uiox_soc_main'
+  * ====================================================================== */
+ void __attribute__((noreturn)) uiox_soc_main(uiox_uint64_t dtb_pa);
+ 
+ #ifdef __cplusplus
+ }
+ #endif
+ #endif /* UIOX_SOC_DEVSW_H */
+ 

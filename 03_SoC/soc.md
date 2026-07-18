@@ -317,3 +317,20 @@ Summary in One Table
 | What IRQ number is the UART? | Architecture defines IRQ model; actual number is SoC | 33 (QEMU virt), 153 (BCM2711) |
 | How many privilege levels? | 4 (EL0–EL3 for ARM64) — architecture defines this | N/A |
 | Can two chips share arch init code? | Yes — all ARMv8-A chips use the same archinit.c | No — BCM2711 and RK3588 need different uioxsoc*.c` |
+=========================================
+SoC	File	Status
+QEMU_VIRT_A64	uiox_soc_arm64.c	✅ existing
+BCM2711	uiox_soc_arm64.c	✅ existing
+BCM2712	uiox_soc_arm64.c	✅ existing
+IMX8MP	uiox_soc_imx8mp.c	✅ new
+RK3588	uiox_soc_rk3588.c	✅ new
+QEMU_VIRT_A32	uiox_soc_arm32.c	✅ existing
+BCM2836	uiox_soc_arm32.c	✅ existing
+IMX6Q	uiox_soc_arm32.c	✅ existing
+OMAP4430	uiox_soc_omap4430.c	✅ new
+X86_QEMU_Q35	uiox_soc_x86.c	✅ existing
+X86_QEMU_I440	uiox_soc_x86.c	✅ covered (same code path)
+X86_GENERIC	uiox_soc_x86.c	✅ covered (default path)
+QEMU_VIRT_RV64	uiox_soc_riscv64.c	✅ existing
+SIFIVE_U74	uiox_soc_riscv64.c	✅ existing
+TH1520	uiox_soc_th1520.c	✅ new

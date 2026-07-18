@@ -1,0 +1,137 @@
+/*
+ * 02_FwHal/src/uiox_soc_omap4430.c
+ * UIOX SoC abstraction — Texas Instruments OMAP4430 (ARM32) backend.
+ *
+ * The OMAP4430 is a dual-core Cortex-A9 SoC:
+ *   - GIC-400 at 0x48241000 (distributor) / 0x48240100 (CPU iface)
+ *   - UART3 (TI 16C752-compatible) at 0x48020000
+ *   - PRCM (Power, Reset, Clock Manager) at 0x4A004000
+ *   - CM1 (Clock Manager 1) at 0x4A004100
+ *
+ * Ref: TI OMAP4430 Technical Reference Manual (OMAP44XX, Rev Z)
+ */
+
+#include "../include/uiox_soc.h"
+#include "../../10_Arch/arm32/include/arch_defs.h"
+#include "../../20_DriverInterfaces/include/hw_types.h"
+#include "../../20_DriverInterfaces/include/mmio.h"
+#include "../../20_DriverInterfaces/include/irq.h"
+#include <stdio.h>
+#include <string.h>
+
+/* =========================================================================
+ * OMAP4430 MMIO addresses
+ * ====================================================================== */
+
+/* GIC-400 */
+#define OMAP4_GIC_DIST_BASE     0x48241000UL
+#define OMAP4_GIC_CPU_BASE      0x48240100UL
+
+/* UART3 (16C752 compatible, 48 MHz functional clock) */
+#define OMAP4_UART3_BASE        0x48020000UL
+#define OMAP4_UART3_IRQ         74u   /* GIC SPI 74 */
+
+/* PRCM / CM1 */
+#define OMAP4_CM1_BASE          0x4A004100UL
+#define OMAP4_CM_L4PER_UART3   (OMAP4_CM1_BASE + 0x0140u)
+#define OMAP4_CM_L4PER_UART3_CLKCTRL_HW_AUTO (0x00000001u)
+
+/* =========================================================================
+ * PRCM — enable UART3 functional clock
+ * ====================================================================== */
+static void omap4_prcm_init(void)
+{
+    /* CM_L4PER_UART3_CLKCTRL: MODULEMODE = HW_AUTO (1) */
+    mmio_write32(OMAP4_CM_L4PER_UART3,
+                 OMAP4_CM_L4PER_UART3_CLKCTRL_HW_AUTO);
+    /* Poll IDLEST (bits 17:16) == 0x0 (fully functional) */
+    uint32_t retries = 10000u;
+    while (retries-- &&
+           (mmio_read32(OMAP4_CM_L4PER_UART3) & 0x00030000u))
+        ;
+    printf("[soc/omap4] PRCM UART3 clock enabled\n");
+}
+
+/* =========================================================================
+ * GIC-400 init
+ * ====================================================================== */
+static void omap4_gic_init(void)
+{
+    mmio_write32(OMAP4_GIC_DIST_BASE + 0x000u, 0x0u);    /* disable GICD */
+    mmio_write32(OMAP4_GIC_DIST_BASE + 0x100u, 0xFFFFFFFFu);
+    mmio_write32(OMAP4_GIC_DIST_BASE + 0x104u, 0xFFFFFFFFu);
+    mmio_write32(OMAP4_GIC_CPU_BASE  + 0x004u, 0xFFu);
+    mmio_write32(OMAP4_GIC_CPU_BASE  + 0x000u, 0x1u);
+    mmio_write32(OMAP4_GIC_DIST_BASE + 0x000u, 0x1u);    /* enable GICD  */
+
+    printf("[soc/omap4] GIC-400 init (DIST=0x%08lx CPU=0x%08lx)\n",
+           (unsigned long)OMAP4_GIC_DIST_BASE,
+           (unsigned long)OMAP4_GIC_CPU_BASE);
+}
+
+/* =========================================================================
+ * UART3 init — 115200 8N1
+ * 48 MHz functional clock → divisor = 48000000 / (16 × 115200) = 26
+ * ====================================================================== */
+static void omap4_uart_init(void)
+{
+    mmio_write32(OMAP4_UART3_BASE + 0x04u, 0x00u);  /* IER: off          */
+    mmio_write32(OMAP4_UART3_BASE + 0x0Cu, 0x80u);  /* LCR: DLAB on      */
+    mmio_write32(OMAP4_UART3_BASE + 0x00u, 0x1Au);  /* DLL: 26           */
+    mmio_write32(OMAP4_UART3_BASE + 0x04u, 0x00u);  /* DLH: 0            */
+    mmio_write32(OMAP4_UART3_BASE + 0x0Cu, 0x03u);  /* LCR: 8N1, DLAB off*/
+    mmio_write32(OMAP4_UART3_BASE + 0x08u, 0xC7u);  /* FCR: FIFO enable  */
+    mmio_write32(OMAP4_UART3_BASE + 0x04u, 0x01u);  /* IER: RX int       */
+
+    printf("[soc/omap4] UART3 @ 0x%08lx  115200 8N1\n",
+           (unsigned long)OMAP4_UART3_BASE);
+}
+
+/* =========================================================================
+ * uiox_soc_init_omap4430
+ * ====================================================================== */
+int uiox_soc_init_omap4430(uiox_soc_desc_t *desc)
+{
+    if (!desc) return UIOX_SOC_ERR_INVAL;
+
+    printf("[soc/omap4] Initialising TI OMAP4430 SoC layer...\n");
+
+    strncpy(desc->name, "TI OMAP4430 (Cortex-A9 dual)",
+            UIOX_SOC_NAME_LEN - 1);
+    desc->soc_id       = UIOX_SOC_OMAP4430;
+    desc->num_cpus     = 2u;
+    desc->num_clusters = 1u;
+    desc->cpu_freq_khz = 1000000u;   /* 1.0 GHz typical */
+    desc->l1_icache_kb = 32u;
+    desc->l1_dcache_kb = 32u;
+    desc->l2_cache_kb  = 1024u;      /* PL310 L2 */
+    desc->l3_cache_kb  = 0u;
+    desc->dram_base    = 0x80000000UL;
+    desc->dram_size    = 0x40000000UL;   /* 1 GB LPDDR2 */
+    desc->capabilities = UIOX_SOC_CAP_MMU      | UIOX_SOC_CAP_CACHE_L1
+                       | UIOX_SOC_CAP_CACHE_L2 | UIOX_SOC_CAP_SMP
+                       | UIOX_SOC_CAP_GIC_V2   | UIOX_SOC_CAP_TRNG
+                       | UIOX_SOC_CAP_TRUSTZONE
+                       | UIOX_SOC_CAP_USB       | UIOX_SOC_CAP_EMMC
+                       | UIOX_SOC_CAP_ETH       | UIOX_SOC_CAP_UART
+                       | UIOX_SOC_CAP_DTB;
+
+    printf("[soc/omap4] SoC: %s  CPUs=%u  DRAM=%llu MB\n",
+           desc->name, desc->num_cpus,
+           (unsigned long long)(desc->dram_size >> 20));
+
+    omap4_prcm_init();
+
+    uiox_clk_ctx_t *clk = uiox_soc_get_clk();
+    uiox_soc_clk_init(clk, desc);
+
+    omap4_gic_init();
+    omap4_uart_init();
+
+    uiox_pm_ctx_t *pm = uiox_soc_get_pm();
+    uiox_soc_pm_init(pm, desc);
+
+    desc->initialized = true;
+    printf("[soc/omap4] TI OMAP4430 SoC layer ready.\n");
+    return UIOX_SOC_OK;
+}
