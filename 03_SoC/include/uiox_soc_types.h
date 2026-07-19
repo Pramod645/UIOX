@@ -213,6 +213,43 @@ static inline uiox_uint64_t
 soc_mmio_read64(uiox_uintptr_t addr)
 { return *((volatile uiox_uint64_t *)addr); }
 
+
+//added form arch
+/* 03_SoC/include/uiox_soc_types.h — add to the existing limits section */
+
+/* =========================================================================
+ * Cross-layer OS / driver policy constants
+ *
+ * These live in the SoC layer because they are tuned to the available
+ * hardware resources (DRAM size, DMA controller, IRQ count) that vary
+ * per SoC — not per ISA.
+ * ====================================================================== */
+
+/* ── Block device geometry ────────────────────────────────────────── */
+#define UIOX_BLOCK_SIZE         512u    /**< Bytes per logical block        */
+#define UIOX_MAX_BLOCKS         1024u   /**< Maximum blocks per device      */
+#define UIOX_MAX_INODES         128u    /**< Maximum inodes in inode table  */
+
+/* ── Device switch table limits ──────────────────────────────────── */
+#define UIOX_MAJOR_BLK_MAX      8u      /**< Max block device major numbers */
+#define UIOX_MAJOR_CHR_MAX      8u      /**< Max char  device major numbers */
+
+/* ── Buffer cache ────────────────────────────────────────────────── */
+#define UIOX_CBLOCK_POOL        256u    /**< Number of buffer-cache blocks  */
+
+/* ── Interrupt subsystem ─────────────────────────────────────────── */
+#define UIOX_IRQ_MAX            64u     /**< Maximum IRQ lines supported    */
+
+/* ── DMA subsystem ───────────────────────────────────────────────── */
+#define UIOX_DMA_MAX_DESC       16u     /**< Maximum DMA descriptors        */
+
+/* ── MMIO region table ───────────────────────────────────────────── */
+#define UIOX_MMIO_REGIONS       8u      /**< Max tracked MMIO regions       */
+
+
+
+
+
 #ifdef __cplusplus
 }
 #endif

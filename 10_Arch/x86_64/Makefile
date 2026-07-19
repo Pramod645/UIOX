@@ -1,110 +1,66 @@
-#10_Arch/x86_64/
-#├── include/
-#│   ├── arch.h
-#│   ├── cpu.h
-#│   ├── mmu.h
-#│   ├── idt.h
-#│   ├── gdt.h
-#│   └── io.h
-#├── src/
-#│   ├── boot.S
-#│   ├── boot.c
-#│   ├── cpu.c
-#│   ├── mmu.c
-#│   ├── gdt.c
-#│   ├── idt.c
-#│   └── io.c
-#├── Makefile
-#└── x86_64.md
-
-# ============================================================
+# =============================================================
 #  10_Arch/x86_64/Makefile
-#
-#  Builds:
-#    obj/  — object files
-#    lib/  — libarch_x86_64.a  (static)
-#
-#  Mirrors: 10_Arch/arm32/Makefile
-# ============================================================
-
+#  AMD64 / Intel 64-bit architecture layer
+# =============================================================
 ARCH      := x86_64
-ARCHDIR   := $(shell pwd)
 
-# ── Toolchain ────────────────────────────────────────────── #
-CC        := gcc
-AS        := gcc          # use gcc to assemble (handles .S → .o)
-AR        := ar
-ARFLAGS   := rcs
-OBJCOPY   := objcopy
+UNAME_S   := $(shell uname -s)
+ifeq ($(UNAME_S),Darwin)
+  CC := x86_64-elf-gcc
+  AR := x86_64-elf-ar
+else
+  CC := x86_64-linux-gnu-gcc
+  AR := x86_64-linux-gnu-ar
+endif
 
-# ── Flags ────────────────────────────────────────────────── #
-CFLAGS    := \
-    -std=c11              \
-    -Wall                 \
-    -Wextra               \
-    -Wpedantic            \
-    -Wmissing-prototypes  \
-    -Wstrict-prototypes   \
-    -ffreestanding        \
-    -fno-stack-protector  \
-    -fno-builtin          \
-    -mno-red-zone         \
-    -O2                   \
-    -g                    \
-    -Iinclude
-#    -mcmodel=kernel       #\
+CFLAGS := \
+  -std=c11 -Wall -Wextra -Wpedantic \
+  -ffreestanding -fno-builtin \
+  -fno-stack-protector \
+  -ffunction-sections -fdata-sections \
+  -Os -g \
+  -m64 \
+  -mno-red-zone \
+  -mno-mmx -mno-sse -mno-sse2 \
+  -DARCH_X86_64 \
+  -Iinclude \
+  -I../../03_SoC/include
 
-ASFLAGS   := \
-    -Wall                 \
-    -ffreestanding        \
-    -O2                   \
-    -Iinclude
+ASFLAGS := \
+  -Wall \
+  -ffreestanding \
+  -Iinclude
 
-# ── Directories ──────────────────────────────────────────── #
-SRCDIR    := src
-INCDIR    := include
-OBJDIR    := obj
-LIBDIR    := lib
+ARFLAGS  := rcs
+SRCDIR   := src
+OBJDIR   := obj
+LIBDIR   := lib
+STATIC   := $(LIBDIR)/libarch_$(ARCH).a
 
-# ── Sources ──────────────────────────────────────────────── #
-C_SRCS    := $(wildcard $(SRCDIR)/*.c)
-ASM_SRCS  := $(wildcard $(SRCDIR)/*.S)
+C_SRCS   := $(wildcard $(SRCDIR)/*.c)
+ASM_SRCS := $(wildcard $(SRCDIR)/*.S)
+C_OBJS   := $(patsubst $(SRCDIR)/%.c,  $(OBJDIR)/%.o, $(C_SRCS))
+ASM_OBJS := $(patsubst $(SRCDIR)/%.S,  $(OBJDIR)/%.o, $(ASM_SRCS))
+OBJS     := $(C_OBJS) $(ASM_OBJS)
 
-C_OBJS    := $(patsubst $(SRCDIR)/%.c,  $(OBJDIR)/%.o, $(C_SRCS))
-ASM_OBJS  := $(patsubst $(SRCDIR)/%.S,  $(OBJDIR)/%.o, $(ASM_SRCS))
-
-OBJS      := $(C_OBJS) $(ASM_OBJS)
-STATIC    := $(LIBDIR)/libarch_$(ARCH).a
-
-# ── Targets ──────────────────────────────────────────────── #
 .PHONY: all clean dirs
-
 all: dirs $(STATIC)
 
 $(STATIC): $(OBJS) | $(LIBDIR)
 	$(AR) $(ARFLAGS) $@ $^
 	@echo "  [AR]  $@"
 
-# ── Compile C ────────────────────────────────────────────── #
 $(OBJDIR)/%.o: $(SRCDIR)/%.c | $(OBJDIR)
 	$(CC) $(CFLAGS) -c $< -o $@
 	@echo "  [CC]  $<"
 
-# ── Assemble ─────────────────────────────────────────────── #
 $(OBJDIR)/%.o: $(SRCDIR)/%.S | $(OBJDIR)
-	$(AS) $(ASFLAGS) -c $< -o $@
+	$(CC) $(ASFLAGS) -c $< -o $@
 	@echo "  [AS]  $<"
 
-# ── Directories ──────────────────────────────────────────── #
 dirs: $(OBJDIR) $(LIBDIR)
+$(OBJDIR): ; mkdir -p $@
+$(LIBDIR): ; mkdir -p $@
 
-$(OBJDIR):
-	mkdir -p $(OBJDIR)
-
-$(LIBDIR):
-	mkdir -p $(LIBDIR)
-
-# ── Clean ────────────────────────────────────────────────── #
 clean:
 	rm -rf $(OBJDIR) $(LIBDIR)
-	@echo "  [CLEAN] $(ARCH) arch"

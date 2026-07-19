@@ -1,16 +1,16 @@
 # =============================================================
-#  10_Arch/arm32/Makefile
-#  ARMv7-A 32-bit architecture layer
+#  10_Arch/riscv64/Makefile
+#  RISC-V 64-bit architecture layer (RV64IMAC + Zicsr)
 # =============================================================
-ARCH      := arm32
+ARCH      := riscv64
 
 UNAME_S   := $(shell uname -s)
 ifeq ($(UNAME_S),Darwin)
-  CC := arm-none-eabi-gcc
-  AR := arm-none-eabi-ar
+  CC := riscv64-elf-gcc
+  AR := riscv64-elf-ar
 else
-  CC := arm-linux-gnueabihf-gcc
-  AR := arm-linux-gnueabihf-ar
+  CC := riscv64-linux-gnu-gcc
+  AR := riscv64-linux-gnu-ar
 endif
 
 CFLAGS := \
@@ -19,10 +19,10 @@ CFLAGS := \
   -fno-stack-protector \
   -ffunction-sections -fdata-sections \
   -Os -g \
-  -march=armv7-a+sec \
-  -mthumb \
-  -mfloat-abi=soft \
-  -DARCH_ARM32 \
+  -march=rv64imac_zicsr \
+  -mabi=lp64 \
+  -mcmodel=medany \
+  -DARCH_RISCV64 \
   -Iinclude \
   -I../../03_SoC/include
 

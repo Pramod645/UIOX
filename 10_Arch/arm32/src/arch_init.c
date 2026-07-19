@@ -1,6 +1,5 @@
 /*
- * arch/arm32/src/arch_init.c
- *
+ * 10_Arch/arm32/src/arch_init.c
  * ARMv7-A 32-bit platform initialisation.
  */
 
@@ -9,97 +8,88 @@
  #include "../../../20_DriverInterfaces/include/mmio.h"
  #include "../../../20_DriverInterfaces/include/irq.h"
  #include "../../../20_DriverInterfaces/include/cpu.h"
- #include <stdio.h>
- #include <string.h>
+ #include "../../../03_SoC/include/uiox_soc_stdio.h"
+ #include "../../../03_SoC/include/uiox_soc_string.h"
  
+ /* ── Cache enable via CP15 ───────────────────────────────── */
+ static void arm32_cache_enable(void)
+ {
+     unsigned int sctlr;
+     __asm__ volatile("mrc p15,0,%0,c1,c0,0" : "=r"(sctlr));
+     sctlr |= SCTLR_I | SCTLR_C;
+     __asm__ volatile("mcr p15,0,%0,c1,c0,0" :: "r"(sctlr) : "memory");
+     arch_isb();
+     printf("[arm32] I/D caches enabled\n");
+ }
+ 
+ /* ── GIC-400 ─────────────────────────────────────────────── */
+ static void arm32_gic_init(void)
+ {
+     mmio_write32(GIC_DIST_CTLR, 0x0u);
+     mmio_write32(GIC_DIST_ISENABLER0, 0xFFFFFFFFu);
+     for (unsigned int i = 0u; i < 64u; i++)
+         mmio_write32(GIC_DIST_IPRIORITYR0 + i * 4u, 0xA0A0A0A0u);
+     mmio_write32(GIC_CPU_PMR,  0xFFu);
+     mmio_write32(GIC_CPU_CTLR, 0x1u);
+     mmio_write32(GIC_DIST_CTLR, 0x1u);
+     printf("[arm32] GIC-400 init (DIST=0x%08lx CPU=0x%08lx)\n",
+            (unsigned long)GIC_DIST_BASE,
+            (unsigned long)GIC_CPU_BASE);
+ }
+ 
+ /* ── PL011 UART ──────────────────────────────────────────── */
  static void arm32_uart_handler(int irq, hw_context_t *ctx, void *id)
  {
      (void)ctx; (void)id;
-     uint32_t rx = mmio_read32(UART0_DR);
-     printf("  [arm32/uart_irq] IRQ%d rx=0x%02x '%c'\n",
-            irq, rx & 0xFF,
-            (rx >= 0x20 && rx < 0x7F) ? (char)rx : '.');
-     mmio_write32(UART0_ICR, 0x7FFu);
+     unsigned int rx = mmio_read32(UART0_BASE + 0x000u);
+     printf("  [arm32/uart_irq] IRQ%d rx=0x%02x\n", irq, rx & 0xFFu);
+     mmio_write32(UART0_BASE + 0x044u, 0x7FFu);
  }
  
+ static void arm32_uart_init(void)
+ {
+     mmio_write32(UART0_BASE + 0x030u, 0x0u);
+     mmio_write32(UART0_BASE + 0x024u, 13u);
+     mmio_write32(UART0_BASE + 0x028u, 1u);
+     mmio_write32(UART0_BASE + 0x02Cu, 0x70u);
+     mmio_write32(UART0_BASE + 0x038u, (1u << 4));
+     mmio_write32(UART0_BASE + 0x030u, 0x301u);
+     printf("[arm32] PL011 UART @ 0x%08lx 115200 8N1\n",
+            (unsigned long)UART0_BASE);
+ }
+ 
+ /* ── SP804 Timer (1 ms tick) ─────────────────────────────── */
  static void arm32_timer_handler(int irq, hw_context_t *ctx, void *id)
  {
      (void)ctx; (void)id;
-     mmio_write32(TIMER0_INTCLR, 1u);
+     mmio_write32(TIMER0_BASE + 0x00Cu, 0x1u); /* IntClr */
      printf("  [arm32/timer_irq] IRQ%d tick\n", irq);
  }
  
- static void arm32_disk_handler(int irq, hw_context_t *ctx, void *id)
+ static void arm32_timer_init(void)
  {
-     (void)ctx; (void)id;
-     printf("  [arm32/disk_irq] IRQ%d IDE complete\n", irq);
+     mmio_write32(TIMER0_BASE + 0x008u, 0x00u);   /* disable     */
+     mmio_write32(TIMER0_BASE + 0x000u, 1000u);   /* load 1 ms   */
+     mmio_write32(TIMER0_BASE + 0x018u, 1000u);   /* bgload      */
+     mmio_write32(TIMER0_BASE + 0x008u, 0xE2u);   /* enable, IRQ */
+     printf("[arm32] SP804 timer @ 0x%08lx 1 ms tick\n",
+            (unsigned long)TIMER0_BASE);
  }
  
- static void gic_init_arm32(void)
- {
-     mmio_write32(GIC_DIST_CTLR,         0x1u);
-     mmio_write32(GIC_DIST_ISENABLER0 + 4u,
-                  (1u << (UART0_IRQ  - 32)) |
-                  (1u << (TIMER0_IRQ - 32)));
-     mmio_write32(GIC_CPU_BASE + 0x004,  0xFFu);
-     mmio_write32(GIC_CPU_CTLR,          0x1u);
-     printf("[arm32] GIC enabled\n");
- }
- 
- static void uart_init_arm32(void)
- {
-     mmio_write32(UART0_CR,    0u);
-     mmio_write32(UART0_IBRD,  13u);
-     mmio_write32(UART0_FBRD,  1u);
-     mmio_write32(UART0_LCR_H, 0x70u);
-     mmio_write32(UART0_IMSC,  0x10u);
-     mmio_write32(UART0_CR,    0x301u);
-     printf("[arm32] UART0 init: 115200 8N1\n");
- }
- 
- static void sp804_init_arm32(uint32_t hz)
- {
-     uint32_t load = 1000000u / hz;
-     mmio_write32(TIMER0_LOAD, load);
-     mmio_write32(TIMER0_CTRL, 0xE2u);
-     printf("[arm32] SP804 timer: %u Hz\n", hz);
- }
- 
+ /* ── arch_init ───────────────────────────────────────────── */
  void arch_init(void)
  {
-     printf("\n[arch_init] *** ARM32 (ARMv7-A) platform ***\n");
+     printf("[arm32] arch_init start\n");
  
-     cpu_info_t info;
-     cpu_identify(&info);
-     cpu_print_info(&info);
+     arm32_cache_enable();
+     arm32_gic_init();
+     arm32_uart_init();
+     arm32_timer_init();
  
-     mmio_init();
-     irq_init();
+     irq_register(ARCH_TIMER_IRQ_PHYS, arm32_timer_handler, NULL);
+     irq_register(UART0_IRQ,           arm32_uart_handler,  NULL);
+     irq_global_enable();
  
-     gic_init_arm32();
-     uart_init_arm32();
-     sp804_init_arm32(100);
- 
-     printf("[arm32] VBAR installed (simulated via irq_dispatch)\n");
- 
-     irq_request(UART0_IRQ,  arm32_uart_handler,  NULL, "uart0");
-     irq_request(TIMER0_IRQ, arm32_timer_handler, NULL, "timer0");
-     irq_request(IDE_IRQ,    arm32_disk_handler,  NULL, "ide");
- 
-     irq_enable(UART0_IRQ);
-     irq_enable(TIMER0_IRQ);
-     irq_enable(IDE_IRQ);
- 
-     cpu_irq_enable();
-     printf("[arch_init] ARM32 platform ready\n");
- }
- 
- void arch_fini(void)
- {
-     cpu_irq_disable();
-     irq_free(UART0_IRQ);
-     irq_free(TIMER0_IRQ);
-     irq_free(IDE_IRQ);
-     printf("[arch_fini] ARM32 platform torn down\n");
+     printf("[arm32] arch_init done\n");
  }
  

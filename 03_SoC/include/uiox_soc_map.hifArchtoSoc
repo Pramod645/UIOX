@@ -1,0 +1,236 @@
+/*
+ * 03_SoC/include/uiox_soc_map.h
+ *
+ * Bridges the 10_Arch/*/include/arch_defs.h definitions into the
+ * SOC_* namespace used by all SoC backend files.
+ *
+ * Architecture: 10_Arch defines the ISA-level constants and the
+ *               QEMU-default memory map (PHYS_DRAM_BASE, GIC_DIST_BASE…)
+ * SoC:          03_SoC exposes them as SOC_* names that can be
+ *               overridden per chip without touching the arch layer.
+ */
+#ifndef UIOX_SOC_MAP_H
+#define UIOX_SOC_MAP_H
+
+#include "uiox_soc_types.h"
+
+/* ── Pull in the architecture-specific definitions ───────────────────
+ * This is the correct include path for each cross-compiler target.
+ * The Makefile -I$(INCDIR) already covers 03_SoC/include/.
+ * We need the arch include path too — add it via -I in the Makefile
+ * or use a relative path as below.
+ * ────────────────────────────────────────────────────────────────── */
+#if defined(__aarch64__) || defined(ARCH_ARM64)
+#  include "../../10_Arch/arm64/include/arch_defs.h"
+
+#elif defined(__arm__) || defined(ARCH_ARM32)
+#  include "../../10_Arch/arm32/include/arch_defs.h"
+
+#elif defined(__x86_64__) || defined(ARCH_X86_64)
+#  include "../../10_Arch/x86_64/include/arch_defs.h"
+
+#elif defined(__riscv) || defined(ARCH_RISCV64)
+#  include "../../10_Arch/riscv64/include/arch_defs.h"
+
+#else
+#  error "uiox_soc_map.h: unsupported architecture"
+#endif
+
+#ifdef __cplusplus
+extern "C" {
+#endif
+
+/* =========================================================================
+ * SOC_* aliases — map arch_defs.h names into the SOC namespace.
+ *
+ * Rule: if the arch header already defines the value, alias it.
+ *       Chip-specific backends (uiox_soc_bcm2711.c etc.) may override
+ *       by defining the SOC_* name before including this header.
+ * ====================================================================== */
+
+/* ── DRAM ──────────────────────────────────────────────────────────── */
+#ifndef SOC_DRAM_BASE
+#  define SOC_DRAM_BASE    PHYS_DRAM_BASE
+#endif
+#ifndef SOC_DRAM_SIZE
+#  define SOC_DRAM_SIZE    PHYS_DRAM_SIZE
+#endif
+#ifndef SOC_MMIO_BASE
+#  define SOC_MMIO_BASE    PHYS_MMIO_BASE
+#endif
+
+/* ── Interrupt controller ──────────────────────────────────────────── */
+#if defined(__aarch64__) || defined(ARCH_ARM64) || \
+    defined(__arm__)     || defined(ARCH_ARM32)
+#  ifndef SOC_GIC_DIST_BASE
+#    define SOC_GIC_DIST_BASE   GIC_DIST_BASE
+#  endif
+#  ifndef SOC_GIC_CPU_BASE
+#    define SOC_GIC_CPU_BASE    GIC_CPU_BASE
+#  endif
+#endif
+
+#if defined(__x86_64__) || defined(ARCH_X86_64)
+#  ifndef SOC_LAPIC_BASE
+#    define SOC_LAPIC_BASE      LAPIC_BASE
+#  endif
+#  ifndef SOC_IOAPIC_BASE
+#    define SOC_IOAPIC_BASE     IOAPIC_BASE
+#  endif
+#endif
+
+#if defined(__riscv) || defined(ARCH_RISCV64)
+#  ifndef SOC_CLINT_BASE
+#    define SOC_CLINT_BASE            CLINT_BASE
+#  endif
+#  ifndef SOC_CLINT_MSIP
+#    define SOC_CLINT_MSIP(h)         CLINT_MSIP(h)
+#  endif
+#  ifndef SOC_CLINT_MTIMECMP
+#    define SOC_CLINT_MTIMECMP(h)     CLINT_MTIMECMP(h)
+#  endif
+#endif
+
+/* ── UART ──────────────────────────────────────────────────────────── */
+#if defined(__aarch64__) || defined(ARCH_ARM64)
+#  ifndef SOC_UART0_BASE
+#    define SOC_UART0_BASE   0x09000000UL   /* PL011 — QEMU virt */
+#  endif
+#  ifndef SOC_UART_IRQ
+#    define SOC_UART_IRQ     33u
+#  endif
+#endif
+
+#if defined(__arm__) || defined(ARCH_ARM32)
+#  ifndef SOC_UART0_BASE
+#    define SOC_UART0_BASE   0x10009000UL   /* PL011 — QEMU virt */
+#  endif
+#  ifndef SOC_UART_IRQ
+#    define SOC_UART_IRQ     44u
+#  endif
+#  ifndef SOC_TIMER0_BASE
+#    define SOC_TIMER0_BASE  0x10011000UL
+#  endif
+#  ifndef SOC_TIMER0_IRQ
+#    define SOC_TIMER0_IRQ   36u
+#  endif
+#endif
+
+#if defined(__x86_64__) || defined(ARCH_X86_64)
+#  ifndef SOC_UART0_PORT
+#    define SOC_UART0_PORT   0x3F8u         /* COM1 */
+#  endif
+#  ifndef SOC_UART_IRQ
+#    define SOC_UART_IRQ     4u
+#  endif
+#  ifndef SOC_HPET_BASE
+#    define SOC_HPET_BASE    0xFED00000UL
+#  endif
+#  ifndef SOC_PIT_PORT
+#    define SOC_PIT_PORT     0x40u
+#  endif
+#  ifndef SOC_PIT_IRQ
+#    define SOC_PIT_IRQ      0u
+#  endif
+#endif
+
+#if defined(__riscv) || defined(ARCH_RISCV64)
+#  ifndef SOC_UART0_BASE
+#    define SOC_UART0_BASE   0x10000000UL   /* NS16550A — QEMU virt */
+#  endif
+#  ifndef SOC_UART_IRQ
+#    define SOC_UART_IRQ     10u
+#  endif
+/* PLIC */
+#  ifndef SOC_PLIC_BASE
+#    define SOC_PLIC_BASE         0x0C000000UL
+#  endif
+#  ifndef SOC_PLIC_PRIORITY
+#    define SOC_PLIC_PRIORITY(n)  (SOC_PLIC_BASE + 4u*(n))
+#  endif
+#  ifndef SOC_PLIC_ENABLE
+#    define SOC_PLIC_ENABLE(ctx)  (SOC_PLIC_BASE + 0x2000u + (ctx)*0x80u)
+#  endif
+#  ifndef SOC_PLIC_THRESHOLD
+#    define SOC_PLIC_THRESHOLD(c) (SOC_PLIC_BASE + 0x200000u + (c)*0x1000u)
+#  endif
+#  ifndef SOC_PLIC_CLAIM
+#    define SOC_PLIC_CLAIM(ctx)   (SOC_PLIC_BASE + 0x200004u + (ctx)*0x1000u)
+#  endif
+#endif
+
+/* ── PCIe ECAM ─────────────────────────────────────────────────────── */
+#if defined(__aarch64__) || defined(ARCH_ARM64)
+#  define UIOX_SOC_PCIE_ECAM_ARM64   0x3F000000u
+#endif
+#if defined(__x86_64__) || defined(ARCH_X86_64)
+#  define UIOX_SOC_PCIE_ECAM_X86_Q35 0xB0000000u
+#endif
+
+/* ── Architecture-independent IRQ helpers ─────────────────────────── */
+#define SOC_IRQ_INVALID        0xFFFFu
+#define SOC_IRQ_IS_VALID(n)    ((uiox_uint32_t)(n) != SOC_IRQ_INVALID)
+
+#ifdef __cplusplus
+}
+#endif
+#endif /* UIOX_SOC_MAP_H */
+---------------
+Makefile adaption for above chnages:
+# =============================================================================
+# ARM64
+# =============================================================================
+ARM64_CFLAGS := $(CFLAGS_COMMON)              \
+  -march=armv8-a                              \
+  -mstrict-align                              \
+  -DARCH_ARM64                                \
+  -I../../10_Arch/arm64/include               # ← ADD arch include path
+
+# =============================================================================
+# ARM32
+# =============================================================================
+ARM32_CFLAGS := $(CFLAGS_COMMON)              \
+  -march=armv7-a+sec                          \
+  -mthumb                                     \
+  -mfloat-abi=soft                            \
+  -DARCH_ARM32                                \
+  -I../../10_Arch/arm32/include               # ← ADD arch include path
+
+# =============================================================================
+# x86_64
+# =============================================================================
+X86_CFLAGS := $(CFLAGS_COMMON)               \
+  -m64                                        \
+  -mno-red-zone                              \
+  -mno-mmx -mno-sse -mno-sse2                \
+  -DARCH_X86_64                               \
+  -I../../10_Arch/x86_64/include             # ← ADD arch include path
+
+# =============================================================================
+# RISC-V 64
+# =============================================================================
+RV64_CFLAGS := $(CFLAGS_COMMON)              \
+  -march=rv64imac_zicsr                       \
+  -mabi=lp64                                  \
+  -mcmodel=medany                             \
+  -DARCH_RISCV64                              \
+  -I../../10_Arch/riscv64/include            # ← ADD arch include path
+---------------------
+10_Arch/arm64/include/arch_defs.h
+    defines: GIC_DIST_BASE = 0x08000000
+             PHYS_DRAM_BASE = 0x40000000
+             UIOX_ARCH_NAME = "arm64"
+             UIOX_PAGE_SIZE = 4096
+                    │
+                    │  included by uiox_soc_map.h
+                    ▼
+03_SoC/include/uiox_soc_map.h
+    aliases: SOC_GIC_DIST_BASE = GIC_DIST_BASE   (from arch)
+             SOC_DRAM_BASE     = PHYS_DRAM_BASE  (from arch)
+             SOC_UART0_BASE    = 0x09000000       (SoC-specific)
+             SOC_UART_IRQ      = 33               (SoC-specific)
+                    │
+                    │  included by uiox_soc_arm64.c, uiox_soc_main.c etc.
+                    ▼
+    uiox_soc_arm64.c sees both arch constants and SOC_* names
+    without any duplication or conflict
