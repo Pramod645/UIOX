@@ -101,7 +101,6 @@ HAL_SRCS := \
     $(SRCDIR)/uiox_fw_mouse.c     \
     $(SRCDIR)/uiox_fw_net.c       \
     $(SRCDIR)/uiox_fw_nvme.c      \
-    $(SRCDIR)/uiox_fw_pcie.c      \
     $(SRCDIR)/uiox_fw_pmic.c      \
     $(SRCDIR)/uiox_fw_ramrtc.c    \
     $(SRCDIR)/uiox_fw_sata.c      \
