@@ -1,4 +1,4 @@
-Now I have the full picture of the existing filesystem code style. The existing files use descriptive comment-heavy headers — but the 12_ksign and 13_fboot modules established the proper production C style for new modules. I'll follow that same pattern: uiox_ prefix, typedef enum/typedef struct, no-libc helpers, __attribute__((weak)) platform hooks, and extern void uiox_fw_printf().
+
 
 The journaling module slots into 32_FileSystem/ as a new 13_journal/ subdirectory.
 ==========
