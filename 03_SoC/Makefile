@@ -154,7 +154,8 @@ ARM64_CFLAGS := $(CFLAGS_COMMON) \
 
 ARM64_SRCS := \
   $(SOC_COMMON_SRCS)             \
-  $(SRCDIR)/uiox_soc_arm64.c
+  $(SRCDIR)/uiox_soc_arm64.c     \
+  $(SRCDIR)/uiox_soc_arm64_init.c
 
 ARM64_OBJS := $(patsubst $(SRCDIR)/%.c,$(BUILDDIR)/arm64/%.o,$(ARM64_SRCS))
 ARM64_LIB  := $(BUILDDIR)/arm64/libuiox_soc_arm64.a
@@ -186,8 +187,8 @@ ARM32_CFLAGS := $(CFLAGS_COMMON) \
 
 ARM32_SRCS := \
   $(SOC_COMMON_SRCS)             \
-  $(SRCDIR)/uiox_soc_arm32.c    \
-  $(SRCDIR)/uiox_soc_omap4430.c
+  $(SRCDIR)/uiox_soc_arm32.c     \
+  $(SRCDIR)/uiox_soc_arm32_init.c
 
 ARM32_OBJS := $(patsubst $(SRCDIR)/%.c,$(BUILDDIR)/arm32/%.o,$(ARM32_SRCS))
 ARM32_LIB  := $(BUILDDIR)/arm32/libuiox_soc_arm32.a
@@ -221,7 +222,8 @@ X86_CFLAGS := $(CFLAGS_COMMON) \
 
 X86_SRCS := \
   $(SOC_COMMON_SRCS)           \
-  $(SRCDIR)/uiox_soc_x86.c
+  $(SRCDIR)/uiox_soc_x86.c     \
+  $(SRCDIR)/uiox_soc_x86_init.c
 
 X86_OBJS := $(patsubst $(SRCDIR)/%.c,$(BUILDDIR)/x86_64/%.o,$(X86_SRCS))
 X86_LIB  := $(BUILDDIR)/x86_64/libuiox_soc_x86_64.a
@@ -253,7 +255,8 @@ RV64_CFLAGS := $(CFLAGS_COMMON) \
 
 RV64_SRCS := \
   $(SOC_COMMON_SRCS)            \
-  $(SRCDIR)/uiox_soc_riscv64.c
+  $(SRCDIR)/uiox_soc_riscv64.c  \
+  $(SRCDIR)/uiox_soc_riscv64_init.c
 
 RV64_OBJS := $(patsubst $(SRCDIR)/%.c,$(BUILDDIR)/riscv64/%.o,$(RV64_SRCS))
 RV64_LIB  := $(BUILDDIR)/riscv64/libuiox_soc_riscv64.a

@@ -1,6 +1,23 @@
 /*
  * 10_Arch/x86_64/src/arch_init.c
- * AMD64 / Intel 64-bit platform initialisation.
+ * AMD64 / Intel 64-bit architecture initialisation.
+ *
+ * Scope — architecture layer only:
+ *   1. GDT reload (64-bit segment descriptors — ISA concept)
+ *   2. IDT install (interrupt descriptor table — ISA concept)
+ *   3. 8259A PIC remap + mask (required before LAPIC takes over)
+ *   4. Local APIC enable via IA32_APIC_BASE MSR (ISA register)
+ *   5. IRQ handler registration via 20_DriverInterfaces
+ *   6. CR0 / CR4 feature enable (ISA control registers)
+ *
+ * NOT in this file (all in 03_SoC):
+ *   - HPET base address configuration  → 03_SoC/uiox_soc_x86.c
+ *   - COM1 baud rate divisor            → 03_SoC/uiox_soc_x86.c
+ *   - PCI bus enumeration              → 03_SoC/uiox_soc_pcie.c
+ *   - ACPI table parsing               → 03_SoC/uiox_soc_pm.c
+ *
+ * Called by:
+ *   uiox_kernel_main() → arch_init() → uiox_soc_init()
  */
 
  #include "arch_defs.h"
@@ -11,92 +28,163 @@
  #include "../../../03_SoC/include/uiox_soc_stdio.h"
  #include "../../../03_SoC/include/uiox_soc_string.h"
  
- /* ── 8259A PIC remap ─────────────────────────────────────── */
+ /* ── Forward declarations for IRQ handlers ─────────────────────────── */
+ extern void uart_irq_handler (int irq, hw_context_t *ctx, void *id);
+ extern void timer_irq_handler(int irq, hw_context_t *ctx, void *id);
+ 
+ /* =========================================================================
+  * 1. CR0 / CR4 ISA feature setup
+  *    Write-protect (WP), NX (via EFER), OSFXSR (SSE) —
+  *    all ISA-defined control registers.
+  * ====================================================================== */
+ static void x86_cr_setup(void)
+ {
+     /* Enable Write-Protect in CR0 so kernel cannot write read-only pages */
+     unsigned long cr0;
+     __asm__ volatile("mov %%cr0, %0" : "=r"(cr0));
+     cr0 |= CR0_WP;
+     __asm__ volatile("mov %0, %%cr0" :: "r"(cr0) : "memory");
+ 
+     /* Enable global pages and SSE in CR4 */
+     unsigned long cr4;
+     __asm__ volatile("mov %%cr4, %0" : "=r"(cr4));
+     cr4 |= CR4_PGE | CR4_OSFXSR;
+     __asm__ volatile("mov %0, %%cr4" :: "r"(cr4) : "memory");
+ 
+     /* Enable NX (No-Execute) via EFER MSR */
+     unsigned int lo, hi;
+     __asm__ volatile("rdmsr" : "=a"(lo), "=d"(hi) : "c"(MSR_EFER));
+     lo |= MSR_EFER_NXE;
+     __asm__ volatile("wrmsr" :: "c"(MSR_EFER), "a"(lo), "d"(hi));
+ 
+     printf("[x86] CR0=0x%lx  CR4=0x%lx  EFER.NXE set\n", cr0, cr4);
+ }
+ 
+ /* =========================================================================
+  * 2. 8259A PIC remap
+  *    ISA-level operation: relocate legacy PIC vectors away from CPU
+  *    exception range (0x00-0x1F) before enabling the APIC.
+  *    Master → 0x20, Slave → 0x28.  Then mask all lines so LAPIC wins.
+  * ====================================================================== */
  static void x86_pic_remap(void)
  {
-     /* Remap master: IRQ 0-7 → vectors 0x20-0x27
-      * Remap slave:  IRQ 8-15 → vectors 0x28-0x2F */
-     arch_outb(0x20, 0x11);  /* ICW1: init + ICW4 needed */
-     arch_outb(0xA0, 0x11);
-     arch_outb(0x21, 0x20);  /* ICW2: master base 0x20   */
-     arch_outb(0xA1, 0x28);  /* ICW2: slave  base 0x28   */
-     arch_outb(0x21, 0x04);  /* ICW3: slave on IRQ2       */
-     arch_outb(0xA1, 0x02);
-     arch_outb(0x21, 0x01);  /* ICW4: 8086 mode           */
-     arch_outb(0xA1, 0x01);
-     arch_outb(0x21, 0xFF);  /* mask all (LAPIC takes over)*/
-     arch_outb(0xA1, 0xFF);
-     printf("[x86] 8259A PIC remapped and masked\n");
+     /* ICW1: cascade mode, ICW4 needed */
+     arch_outb(0x20u, 0x11u);
+     arch_outb(0xA0u, 0x11u);
+ 
+     /* ICW2: base vectors */
+     arch_outb(0x21u, 0x20u);   /* master → 0x20 */
+     arch_outb(0xA1u, 0x28u);   /* slave  → 0x28 */
+ 
+     /* ICW3: slave on master IRQ2 */
+     arch_outb(0x21u, 0x04u);
+     arch_outb(0xA1u, 0x02u);
+ 
+     /* ICW4: 8086 mode */
+     arch_outb(0x21u, 0x01u);
+     arch_outb(0xA1u, 0x01u);
+ 
+     /* OCW1: mask all — LAPIC takes all hardware IRQs */
+     arch_outb(0x21u, 0xFFu);
+     arch_outb(0xA1u, 0xFFu);
+ 
+     printf("[x86] 8259A PIC remapped (master=0x20 slave=0x28) and masked\n");
  }
  
- /* ── Local APIC enable ───────────────────────────────────── */
+ /* =========================================================================
+  * 3. Local APIC enable
+  *    MSR_IA32_APIC_BASE is an ISA-defined MSR (same on every x86_64 CPU).
+  *    LAPIC_BASE is the default MMIO address from arch_defs.h.
+  * ====================================================================== */
  static void x86_lapic_init(void)
  {
+     /* Enable LAPIC globally via IA32_APIC_BASE MSR */
      unsigned int lo, hi;
-     __asm__ volatile("rdmsr" : "=a"(lo), "=d"(hi) : "c"(MSR_IA32_APIC_BASE));
+     __asm__ volatile("rdmsr" : "=a"(lo), "=d"(hi)
+                      : "c"(MSR_IA32_APIC_BASE));
      lo |= MSR_IA32_APIC_BASE_EN;
-     __asm__ volatile("wrmsr" :: "c"(MSR_IA32_APIC_BASE), "a"(lo), "d"(hi));
+     __asm__ volatile("wrmsr" :: "c"(MSR_IA32_APIC_BASE),
+                                 "a"(lo), "d"(hi));
+ 
+     /* Set spurious interrupt vector and enable LAPIC via SVR */
      mmio_write32(LAPIC_SPURIOUS, LAPIC_SPURIOUS_ENABLE);
-     printf("[x86] LAPIC enabled at 0x%08lx\n", (unsigned long)LAPIC_BASE);
+ 
+     printf("[x86] LAPIC enabled at 0x%08lx (SVR=0x%08x)\n",
+            (unsigned long)LAPIC_BASE, LAPIC_SPURIOUS_ENABLE);
  }
  
- /* ── COM1 UART ───────────────────────────────────────────── */
- static void x86_uart_handler(int irq, hw_context_t *ctx, void *id)
+ /* =========================================================================
+  * 4. CPU identification via CPUID  (ISA instruction — same on all x86_64)
+  * ====================================================================== */
+ static void x86_cpu_identify(void)
  {
-     (void)ctx; (void)id;
-     unsigned char rx = arch_inb(0x3F8u);
-     printf("  [x86/uart_irq] IRQ%d rx=0x%02x '%c'\n",
-            irq, rx & 0xFFu,
-            (rx >= 0x20u && rx < 0x7Fu) ? (char)rx : '.');
+     unsigned int eax = 0u, ebx = 0u, ecx = 0u, edx = 0u;
+     char vendor[13] = {0};
+ 
+     /* CPUID leaf 0: vendor string */
+     __asm__ volatile("cpuid"
+                      : "=a"(eax), "=b"(ebx), "=c"(ecx), "=d"(edx)
+                      : "a"(0u), "c"(0u));
+ 
+     /* vendor is EBX:EDX:ECX */
+     unsigned int *vp = (unsigned int *)vendor;
+     vp[0] = ebx; vp[1] = edx; vp[2] = ecx;
+ 
+     /* CPUID leaf 1: feature flags */
+     __asm__ volatile("cpuid"
+                      : "=a"(eax), "=b"(ebx), "=c"(ecx), "=d"(edx)
+                      : "a"(1u), "c"(0u));
+ 
+     unsigned int family  = ((eax >> 8u)  & 0xFu) + ((eax >> 20u) & 0xFFu);
+     unsigned int model   = ((eax >> 4u)  & 0xFu) | ((eax >> 12u) & 0xF0u);
+     unsigned int logical = (ebx >> 16u)  & 0xFFu;
+ 
+     printf("[x86] CPU vendor='%s'  family=%u  model=%u  logical=%u\n",
+            vendor, family, model, logical);
  }
  
- static void x86_uart_init(void)
- {
-     arch_outb(0x3F9u, 0x00u); /* IER: all off             */
-     arch_outb(0x3FBu, 0x80u); /* LCR: DLAB on             */
-     arch_outb(0x3F8u, 0x01u); /* DLL: 115200 baud         */
-     arch_outb(0x3F9u, 0x00u); /* DLH                      */
-     arch_outb(0x3FBu, 0x03u); /* LCR: 8N1, DLAB off       */
-     arch_outb(0x3FAu, 0xC7u); /* FCR: FIFO enable         */
-     arch_outb(0x3FCu, 0x0Bu); /* MCR: RTS+DTR+OUT2        */
-     arch_outb(0x3F9u, 0x01u); /* IER: RX interrupt        */
-     printf("[x86] COM1 UART @ 0x3F8 115200 8N1\n");
- }
- 
- /* ── HPET ────────────────────────────────────────────────── */
- static void x86_hpet_init(void)
- {
-     unsigned int caps = mmio_read32(LAPIC_BASE - 0x00100000u); /* placeholder */
-     (void)caps;
-     /* Set ENABLE_CNF in HPET GCFG */
-     unsigned int cfg = mmio_read32(0xFED00010u);
-     mmio_write32(0xFED00010u, cfg | 0x1u);
-     printf("[x86] HPET enabled at 0xFED00000\n");
- }
- 
- /* ── PIT timer IRQ handler ───────────────────────────────── */
- static void x86_pit_handler(int irq, hw_context_t *ctx, void *id)
- {
-     (void)ctx; (void)id;
-     /* Send EOI to LAPIC */
-     mmio_write32(LAPIC_EOI, 0u);
-     printf("  [x86/pit_irq] IRQ%d tick\n", irq);
- }
- 
- /* ── arch_init ───────────────────────────────────────────── */
+ /* =========================================================================
+  * arch_init — called by uiox_kernel_main() before uiox_soc_init()
+  * ====================================================================== */
  void arch_init(void)
  {
-     printf("[x86] arch_init start\n");
+     printf("\n[arch_init] *** x86_64 (AMD64) ***\n");
  
+     /* 1. Identify CPU (ISA: CPUID instruction) */
+     x86_cpu_identify();
+ 
+     /* 2. Set ISA control register features (CR0.WP, CR4.PGE, EFER.NXE) */
+     x86_cr_setup();
+ 
+     /* 3. Remap and mask legacy 8259A PIC (ISA-level prerequisite) */
      x86_pic_remap();
+ 
+     /* 4. Enable Local APIC (ISA MSR) */
      x86_lapic_init();
-     x86_uart_init();
-     x86_hpet_init();
  
-     irq_register(0,  x86_pit_handler,  NULL);  /* IRQ0 = PIT timer */
-     irq_register(4,  x86_uart_handler, NULL);  /* IRQ4 = COM1      */
-     irq_global_enable();
+     /* 5. Initialise driver-interface layer */
+     mmio_init();
+     irq_init();
  
-     printf("[x86] arch_init done\n");
+     /* 6. Register IRQ handlers
+      *    IRQ 0 = timer (PIT/HPET — vector 0x20 after PIC remap)
+      *    IRQ 4 = COM1 UART (vector 0x24 after PIC remap)
+      *    Actual handler implementations are in 20_DriverInterfaces.    */
+     irq_register(0, timer_irq_handler, NULL);
+     irq_register(4, uart_irq_handler,  NULL);
+ 
+     /* 7. Unmask global interrupts (ISA: STI instruction) */
+     __asm__ volatile("sti" ::: "memory");
+ 
+     printf("[arch_init] x86_64 architecture layer ready\n");
+     /* uiox_soc_init() follows immediately in uiox_kernel_main() */
+ }
+ 
+ void arch_fini(void)
+ {
+     __asm__ volatile("cli" ::: "memory");
+     irq_free(0);
+     irq_free(4);
+     printf("[arch_fini] x86_64 architecture layer torn down\n");
  }
  

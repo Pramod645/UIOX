@@ -1,10 +1,15 @@
 # =============================================================
 #  10_Arch/arm32/Makefile
-#  ARMv7-A 32-bit architecture layer
+#  ARMv7-A 32-bit architecture layer — boot path only
+#
+#  NOTE: arm_decode.c / arm_execute.c / arm_memory.c are
+#        ISA simulator files.  They are built into a separate
+#        libarm32_sim.a if needed for testing, NOT into the
+#        main boot library.
 # =============================================================
-ARCH      := arm32
+ARCH := arm32
 
-UNAME_S   := $(shell uname -s)
+UNAME_S := $(shell uname -s)
 ifeq ($(UNAME_S),Darwin)
   CC := arm-none-eabi-gcc
   AR := arm-none-eabi-ar
@@ -32,13 +37,31 @@ OBJDIR   := obj
 LIBDIR   := lib
 STATIC   := $(LIBDIR)/libarch_$(ARCH).a
 
-SRCS     := $(wildcard $(SRCDIR)/*.c)
-OBJS     := $(patsubst $(SRCDIR)/%.c,$(OBJDIR)/%.o,$(SRCS))
+# Boot-path sources only — simulator files excluded
+BOOT_SRCS := \
+  $(SRCDIR)/arch_init.c      \
+  $(SRCDIR)/arm_exceptions.c
 
-.PHONY: all clean dirs
+BOOT_OBJS := $(patsubst $(SRCDIR)/%.c,$(OBJDIR)/%.o,$(BOOT_SRCS))
+
+# Simulator sources (separate target, optional)
+SIM_SRCS := \
+  $(SRCDIR)/arm_decode.c     \
+  $(SRCDIR)/arm_execute.c    \
+  $(SRCDIR)/arm_memory.c
+SIM_OBJS  := $(patsubst $(SRCDIR)/%.c,$(OBJDIR)/%.o,$(SIM_SRCS))
+SIM_LIB   := $(LIBDIR)/libarm32_sim.a
+
+.PHONY: all sim clean dirs
 all: dirs $(STATIC)
 
-$(STATIC): $(OBJS) | $(LIBDIR)
+$(STATIC): $(BOOT_OBJS) | $(LIBDIR)
+	$(AR) $(ARFLAGS) $@ $^
+	@echo "  [AR]  $@"
+
+sim: dirs $(SIM_LIB)
+
+$(SIM_LIB): $(SIM_OBJS) | $(LIBDIR)
 	$(AR) $(ARFLAGS) $@ $^
 	@echo "  [AR]  $@"
 
