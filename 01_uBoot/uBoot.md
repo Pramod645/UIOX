@@ -1433,3 +1433,59 @@ Summary in One Table
 | What IRQ number is the UART? | Architecture defines IRQ model; actual number is SoC | 33 (QEMU virt), 153 (BCM2711) |
 | How many privilege levels? | 4 (EL0–EL3 for ARM64) — architecture defines this | N/A |
 | Can two chips share arch init code? | Yes — all ARMv8-A chips use the same archinit.c | No — BCM2711 and RK3588 need different uioxsoc*.c` |
+===================================================
+A primary bootloader and a secondary bootloader are two distinct stages in the boot sequence, each with a different job:
+
+Primary Bootloader (Stage 1)
+
+What it is: The very first code that runs after power-on reset.
+
+Where it lives: ROM, flash at a fixed address, or a dedicated boot ROM baked into the SoC.
+
+What it does:
+• Runs with almost no hardware initialised (no DRAM, no clocks configured)
+• Fits in a very small space (often 4–32 KB)
+• Initialises just enough to load the next stage: minimal clock setup, DRAM controller bring-up
+• Loads the secondary bootloader from storage (eMMC, SD, SPI flash, UART) into SRAM or the now-working DRAM
+• Transfers control to the secondary bootloader
+
+Examples: ARM BootROM, x86 BIOS/UEFI Phase 0, U-Boot SPL (Secondary Program Loader), coreboot romstage
+
+Secondary Bootloader (Stage 2)
+
+What it is: The full-featured bootloader that runs after the primary has set up basic hardware.
+
+Where it lives: DRAM (copied there by the primary bootloader)
+
+What it does:
+• Runs with DRAM available — can be much larger (hundreds of KB to MB)
+• Initialises the full SoC: clocks, peripherals, storage drivers, networking
+• Finds the kernel image (from filesystem, network, USB)
+• Verifies it (signature check, hash)
+• Loads it into DRAM at the correct address
+• Passes boot arguments (device tree, command line)
+• Jumps to the kernel entry point
+
+Examples: U-Boot proper, GRUB, UEFI DXE phase, Barebox
+
+Side-by-side comparison
+
+	            Primary Bootloader	            Secondary Bootloader
+Runs from	      ROM / SoC boot ROM	            DRAM
+DRAM available	No (must initialise it)	            Yes
+Size limit	      Very small (4–32 KB)	            Large (no practical limit)
+Job	            Minimal HW init, load stage 2	      Full init, load kernel
+Error recovery	Very limited	                  Can show menus, retry, network boot
+Examples	      ARM BootROM, SPL, romstage	      U-Boot, GRUB, UEFI
+
+In the UIOX context
+
+Mapping to your project layers:
+
+``
+SoC BootROM (primary)
+    └── 03SoC/uioxsocmain.c  ← secondary bootloader role
+            └── kernelmain()   ← OS kernel
+`
+
+The uioxsocmain.c 9-stage pipeline you built is essentially a secondary bootloader — it runs after the SoC's built-in primary bootloader has set up basic clocks and DRAM, performs the full hardware initialisation (GIC, UART, timer, PCIe, POST, secure boot), and then calls uioxkernelmain()`.
