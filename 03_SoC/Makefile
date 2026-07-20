@@ -135,6 +135,7 @@ SOC_COMMON_SRCS := \
   $(SRCDIR)/uiox_soc_mem.c      \
   $(SRCDIR)/uiox_soc_power.c    \
   $(SRCDIR)/uiox_soc_post.c     \
+   $(SRCDIR)/uiox_soc_pcie.c    \
   $(SRCDIR)/uiox_soc_psci.c     \
   $(SRCDIR)/uiox_soc_secboot.c  \
   $(SRCDIR)/uiox_soc_tz.c       \
