@@ -2,34 +2,24 @@
 #define UIOX_ARCH_MAIN_H
 
 /*
- * 10_Arch/uiox_arch_main.h
+ * 10_BSP/uiox_arch_main.h
  *
- * Single header the kernel includes to call the unified arch entry point.
+ * Single header the kernel (or entry stub) includes.
  *
- * File location:
- *   10_Arch/uiox_arch_main.h    ← this file
- *   10_Arch/uiox_arch_main.c    ← implementation
- *   10_Arch/Makefile             ← builds it into every arch library
+ * Build modes (selected by Makefile flag):
  *
- * Kernel usage:
+ *   Static  (default, DYNAMIC_KERNEL not set):
+ *     BSP + kernel compiled into one image.
+ *     Stage 8 calls extern uiox_kernel_main() directly.
+ *     Zero loader code compiled in.
  *
- *   #include "../../10_Arch/uiox_arch_main.h"
+ *   Dynamic (DYNAMIC_KERNEL=1 → -DUIOX_DYNAMIC_KERNEL_LOAD):
+ *     BSP is a standalone ELF.
+ *     Stage 8 calls uiox_kernel_load() → verify() → jump().
+ *     Full loader compiled in.
  *
- *   void uiox_kernel_main(unsigned long dtb_pa)
- *   {
- *       if (uiox_arch_main(dtb_pa) != 0)
- *           for (;;) ;           // fatal
- *       uiox_ks_boot_entry();    // 12_ksign
- *       uiox_proc_init();        // 33_PCS
- *       uiox_shell_start();      // 50_UIX/01_shell
- *   }
- *
- * Kernel call chain wired inside uiox_arch_main():
- *   uiox_arch_main(dtb_pa)
- *       ├── arch_init()       ← 10_Arch/<arch>/src/arch_init.c
- *       │       (GIC/APIC/PLIC, cache, VBAR/stvec/IDT, generic timer)
- *       └── uiox_soc_init()   ← 03_SoC/src/uiox_soc_<arch>.c
- *               (UART baud, clocks, power, PCIe, POST, secboot)
+ * The switch lives in uiox_soc_main.c Stage 8.
+ * This header and uiox_arch_main.c are identical in both modes.
  */
 
 #ifdef __cplusplus
@@ -37,29 +27,23 @@ extern "C" {
 #endif
 
 /**
- * @brief  Unified arch + SoC entry point for the kernel.
+ * Unified entry point called by uiox_kernel_main() or the
+ * BSP entry stub.
+ *   1. arch_init()       — ISA-level setup
+ *   2. uiox_soc_init()   — SoC pipeline (Stage 0–8)
+ *      Stage 8 is either a direct kernel call (static)
+ *      or a load+jump sequence (dynamic).
  *
- *         Calls arch_init() then uiox_soc_init() in the correct order.
- *         Must be the first call in uiox_kernel_main() after early
- *         stack / BSS setup.
- *
- * @param  dtb_pa  Physical address of the Device Tree Blob.
- *                 Pass 0 if no DTB is available.
- * @return 0 on success, negative value on fatal failure.
+ * @param dtb_pa  Physical address of Device Tree Blob (0 if none).
+ * @return        0 on success (static mode only — dynamic never returns).
  */
 int uiox_arch_main(unsigned long dtb_pa);
 
-/**
- * @brief  Return the DTB physical address stored during uiox_arch_main().
- *         Safe to call from any kernel layer after uiox_arch_main() returns.
- */
-unsigned long uiox_arch_dtb_get(void);
-
-/**
- * Weak global — readable directly by any translation unit that includes
- * this header.  The kernel may override it with a strong definition.
- */
+/** DTB PA stored by uiox_arch_main for higher kernel layers. */
 extern unsigned long uiox_arch_dtb_pa;
+
+/** Accessor for uiox_arch_dtb_pa. */
+unsigned long uiox_arch_dtb_get(void);
 
 #ifdef __cplusplus
 }

@@ -1,104 +1,88 @@
 /*
- * 10_Arch/uiox_arch_main.c
+ * 10_BSP/uiox_arch_main.c
  *
- * Unified architecture + SoC entry point.
- *
- * This file lives at the top of 10_Arch/ (parallel to the Makefile)
- * and is compiled into every architecture library:
- *
- *   libarch_arm64.a   — compiled with -DARCH_ARM64
- *   libarch_arm32.a   — compiled with -DARCH_ARM32
- *   libarch_x86_64.a  — compiled with -DARCH_X86_64
- *   libarch_riscv64.a — compiled with -DARCH_RISCV64
- *
- * The kernel calls uiox_arch_main(dtb_pa) exactly once.
- * This function calls:
- *   1. arch_init()      — ISA-level setup (supplied by arch_init.c)
- *   2. uiox_soc_init()  — SoC-level setup (supplied by 03_SoC)
- *
- * After uiox_arch_main() returns successfully the kernel may proceed
- * with process init, filesystem mount, and shell startup.
+ * Single entry point — identical in both static and dynamic builds.
+ * The static/dynamic switch is entirely inside uiox_soc_main.c Stage 8.
  */
 
  #include "uiox_arch_main.h"
- #include "../03_SoC/include/uiox_soc_stdio.h"  /* uiox_soc_puts() */
+ #include "./soc/include/uiox_soc_stdio.h"
  
- /* ── arch_init() — provided by this arch's arch_init.c ─────────────── */
+ /* ── Provided by this arch's arch_init.c ─────────────────────────── */
  extern int arch_init(void);
  
- /* ── uiox_soc_init() — provided by 03_SoC ──────────────────────────── */
+ /* ── Provided by 10_BSP/soc/src/uiox_soc_main.c ─────────────────── */
  extern int uiox_soc_init(void);
  
- /* ── DTB physical address — weak so the kernel can override ─────────── */
+ /* ── DTB physical address ────────────────────────────────────────── */
  unsigned long uiox_arch_dtb_pa __attribute__((weak)) = 0UL;
  
- /* =========================================================================
-  * uiox_arch_main
-  * ====================================================================== */
+ /* ================================================================== */
  int uiox_arch_main(unsigned long dtb_pa)
  {
      int rc;
  
-     /* ── Stage 1: Architecture ISA initialisation ──────────────────────
-      *
-      * arch_init() is resolved at link time to the correct implementation:
-      *   -DARCH_ARM64   → arm64/src/arch_init.c
-      *   -DARCH_ARM32   → arm32/src/arch_init.c
-      *   -DARCH_X86_64  → x86_64/src/arch_init.c
-      *   -DARCH_RISCV64 → riscv64/src/arch_init.c
-      *
-      * What it does (ISA-level only):
-      *   • CPU identification (MIDR / CPUID / misa)
-      *   • I/D cache enable
-      *   • GIC-400 / APIC / PLIC distributor + CPU interface
-      *   • Exception vector table install (VBAR_EL1 / IDT / stvec)
-      *   • Generic timer / CLINT / HPET start at 100 Hz
-      *   • IRQ handler registration
-      *   • Global interrupt unmask
-      * ────────────────────────────────────────────────────────────────── */
+     /* Stage 1 — ISA init (cache, GIC/APIC/PLIC, VBAR/stvec/IDT) */
      rc = arch_init();
      if (rc != 0) {
-         uiox_soc_puts("[arch_main] FATAL: arch_init() failed\n");
+         uiox_soc_puts("[arch_main] FATAL: arch_init failed\n");
          return rc;
      }
  
-     /* ── Stage 2: SoC initialisation ────────────────────────────────────
+     /*
+      * Stage 2 — SoC pipeline (Stages 0a–8).
       *
-      * uiox_soc_init() lives in 03_SoC and dispatches at runtime to the
-      * correct chip backend using MIDR / mvendorid / CPUID detection:
-      *   QEMU virt A64 / BCM2711 / BCM2712 / IMX8MP / RK3588
-      *   QEMU virt A32 / BCM2836 / IMX6Q / OMAP4430
-      *   QEMU Q35 / x86 generic
-      *   QEMU virt RV64 / SiFive U74 / TH1520
+      * Stage 8 behaviour depends on the compile-time flag:
+      *   Static  → calls extern uiox_kernel_main(dtb_pa)  — returns
+      *   Dynamic → calls uiox_kernel_load/verify/jump()   — never returns
       *
-      * What it does (SoC peripherals):
-      *   • UART baud rate programming
-      *   • Clock PLL / CCM setup
-      *   • Power domain enable
-      *   • Memory map build
-      *   • POST (Power-On Self Test)
-      *   • Secure boot chain verification
-      *   • DMA controller init
-      *   • PCIe ECAM scan and BAR assignment
-      * ────────────────────────────────────────────────────────────────── */
+      * The switch is inside uiox_soc_main.c, not here.
+      * This function is identical in both builds.
+      */
      rc = uiox_soc_init();
      if (rc != 0) {
-         uiox_soc_puts("[arch_main] FATAL: uiox_soc_init() failed\n");
+         uiox_soc_puts("[arch_main] FATAL: uiox_soc_init failed\n");
          return rc;
      }
  
-     /* Store DTB PA for higher kernel layers */
      uiox_arch_dtb_pa = dtb_pa;
- 
-     uiox_soc_puts("[arch_main] arch + SoC init complete\n");
+     uiox_soc_puts("[arch_main] complete\n");
      return 0;
  }
  
- /* =========================================================================
-  * uiox_arch_dtb_get — accessor for kernel layers above this one
-  * ====================================================================== */
  unsigned long uiox_arch_dtb_get(void)
  {
      return uiox_arch_dtb_pa;
  }
+ 
+ /* ── Weak stubs — only needed in dynamic builds ──────────────────── */
+ #if defined(UIOX_DYNAMIC_KERNEL_LOAD)
+ 
+ void __attribute__((weak, noreturn))
+ uiox_kernel_main(unsigned long dtb_pa)
+ {
+     (void)dtb_pa;
+     for (;;) __asm__ volatile("" ::: "memory");
+ }
+ 
+ long __attribute__((weak))
+ syscall_dispatch(unsigned long nr,
+                   unsigned long a0, unsigned long a1,
+                   unsigned long a2, unsigned long a3,
+                   unsigned long a4, unsigned long a5)
+ {
+     (void)nr;(void)a0;(void)a1;(void)a2;(void)a3;(void)a4;(void)a5;
+     return -1L;
+ }
+ 
+ void __attribute__((weak))
+ exception_dispatch(unsigned long cause,
+                     unsigned long tval, void *frame)
+ {
+     (void)cause;(void)tval;(void)frame;
+ }
+ 
+ unsigned long __attribute__((weak)) phys_alloc_page(void) { return 0UL; }
+ 
+ #endif /* UIOX_DYNAMIC_KERNEL_LOAD */
  

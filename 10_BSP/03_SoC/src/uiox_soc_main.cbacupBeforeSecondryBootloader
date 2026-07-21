@@ -615,64 +615,26 @@
      uiox_soc_printf("  major 3 = ram0 (%u KiB ramdisk)\n",
                       (SOC_RAMDISK_SECTORS * SOC_SECTOR_SIZE) / 1024u);
  
-    /* ================================================================
-     * Stage 8: Power init + hand-off
-     * ================================================================ */
-    uiox_soc_printf("Stage 8: Handoff\n");
-
-    rc = uiox_soc_power_init(&s_power);
-    if (rc != UIOX_SOC_OK) SOC_FATAL_MSG("power_init failed");
-
-    uiox_soc_hw_dsb();
-    uiox_soc_hw_isb();
-
-    uiox_soc_printf(UIOX_SOC_VERSION_STR " init complete\n");
-
-#if defined(UIOX_DYNAMIC_KERNEL_LOAD)
-    /* ──────────────────────────────────────────────────────────────
-     * DYNAMIC mode — BSP and kernel are SEPARATE binaries.
-     *
-     * 1. Initialise the kernel descriptor with platform defaults.
-     * 2. Load the kernel image from flash/eMMC/XIP into DRAM.
-     * 3. Verify CRC32 (and optionally signature).
-     * 4. Jump — this call never returns.
-     *
-     * Compiled in only when -DUIOX_DYNAMIC_KERNEL_LOAD is passed.
-     * Zero overhead in static builds.
-     * ────────────────────────────────────────────────────────────── */
-    {
-        static uiox_kernel_desc_t s_kdesc;
-
-        rc = uiox_kernel_loader_init(&s_kdesc);
-        if (rc != UIOX_SOC_OK) SOC_FATAL_MSG("kernel loader init failed");
-
-        rc = uiox_kernel_load(&s_kdesc);
-        if (rc != UIOX_SOC_OK) SOC_FATAL_MSG("kernel load failed");
-
-        rc = uiox_kernel_verify(&s_kdesc);
-        if (rc != UIOX_SOC_OK) SOC_FATAL_MSG("kernel verify failed");
-
-        /* Never returns */
-        uiox_kernel_jump(&s_kdesc, (uiox_uint64_t)dtb_pa);
-    }
-
-#else
-    /* ──────────────────────────────────────────────────────────────
-     * STATIC mode — BSP and kernel in the same image.
-     *
-     * Direct call to the kernel entry symbol.
-     * The linker resolves uiox_kernel_main at link time.
-     * No loader code compiled in — zero overhead.
-     * ────────────────────────────────────────────────────────────── */
-    {
-        extern void __attribute__((noreturn))
-            uiox_kernel_main(uiox_uint64_t dtb_pa);
-
-        uiox_kernel_main((uiox_uint64_t)dtb_pa);
-    }
-
-#endif /* UIOX_DYNAMIC_KERNEL_LOAD */
-
-    /* Should never reach here in either mode */
-    for (;;) uiox_soc_power_idle();
-}   /* end uiox_soc_main() */
+     /* ================================================================ */
+     /* Stage 8: Power init + hand-off to kernel                          */
+     /* ================================================================ */
+     uiox_soc_printf("Stage 8: Handoff → kernel\n");
+ 
+     rc = uiox_soc_power_init(&s_power);
+     if (rc != UIOX_SOC_OK) SOC_FATAL_MSG("power_init failed");
+ 
+     /* Sync barriers before kernel entry */
+     uiox_soc_hw_dsb();
+     uiox_soc_hw_isb();
+ 
+     uiox_soc_printf(UIOX_SOC_VERSION_STR
+                      " init complete — jumping to kernel\n");
+ 
+     /* Hand off — kernel must be linked and provide this symbol */
+     extern void __attribute__((noreturn))
+         uiox_kernel_main(uiox_uint64_t dtb_pa);
+     uiox_kernel_main(dtb_pa);
+ 
+     for (;;) uiox_soc_power_idle();
+ }
+ 

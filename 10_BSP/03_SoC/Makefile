@@ -1,337 +1,346 @@
 # =============================================================================
-#  UIOX -- 03_SoC/Makefile
-#  SoC Platform Layer  (silicon bring-up, PSCI, secure-boot, POST, memory)
-#  Source : [github.com](https://github.com/Pramod645/UIOX/tree/main/03_SoC)
+#  10_BSP/Makefile  —  static or dynamic kernel, same source tree
 #
-#  Targets : arm64 | arm32 | x86_64 | riscv64 | all | clean
-#
-#  Source files in $(SRCDIR)/
-#
-#  -- Common (compiled into every arch target) --------------------------
-#   uiox_soc_clock.c          Clock / PLL registry (stateless + stateful)
-#   uiox_soc_irq.c            IRQ manager
-#   uiox_soc_mem.c            Memory map + early MMU + no-libc helpers
-#   uiox_soc_power.c          Power management (PSCI / ACPI)
-#   uiox_soc_post.c           Power-On Self Test
-#   uiox_soc_psci.c           PSCI 1.1 dispatch table
-#   uiox_soc_secboot.c        Secure boot + SHA-256 + PCR
-#   uiox_soc_tz.c             TrustZone / EL3 setup
-#   uiox_soc_dma.c            DMA controller (SW-fallback)
-#   uiox_soc_hw.c             HW HAL vtable registration + wrappers
-#   uiox_soc_main.c           9-stage SoC init pipeline
-#
-#  -- Architecture-specific (one backend per target) --------------------
-#   uiox_soc_arm64.c          ARM64 generic backend (BCM2711/BCM2712/QEMU)
-#   uiox_soc_arm32.c          ARM32 generic backend (BCM2836/IMX6Q/QEMU)
-#   uiox_soc_x86.c            x86-64 backend (Q35/i440FX/generic)
-#   uiox_soc_riscv64.c        RISC-V 64 backend (SiFive U74/QEMU virt)
-#
-#  -- SoC-specific backends (linked into the matching arch target) ------
-#   uiox_soc_imx8mp.c         NXP i.MX 8M Plus  (ARM64)
-#   uiox_soc_rk3588.c         Rockchip RK3588    (ARM64)
-#   uiox_soc_omap4430.c       TI OMAP4430        (ARM32)
-#   uiox_soc_th1520.c         T-Head TH1520      (RISC-V 64)
-#
-#  Header files in $(INCDIR)/
-#   uiox_basetypes.h           Custom bare-metal base types (no libc)
-#   uiox_soc_types.h           SoC ID enum, capability flags, descriptor
-#   uiox_soc.h                 Master umbrella include
-#   uiox_soc_hw.h              Platform HW vtable (18-op)
-#   uiox_soc_map.h             MMIO base addresses + IRQ numbers
-#   uiox_soc_clk.h             Unified clock tree + PLL + baud helpers
-#   uiox_soc_pm.h              Power domains + reset controller
-#   uiox_soc_clock.h           High-level clock enable/disable/set-Hz
-#   uiox_soc_irq.h             IRQ manager API
-#   uiox_soc_mem.h             Physical memory map + MMU early init
-#   uiox_soc_power.h           Power management API
-#   uiox_soc_post.h            POST API
-#   uiox_soc_psci.h            PSCI 1.1 API
-#   uiox_soc_secboot.h         Secure boot API + SHA-256
-#   uiox_soc_tz.h              TrustZone / EL3 API
-#   uiox_soc_dma.h             DMA controller API
-#   uiox_soc_pcie.h            PCIe ECAM API
-#
-#  Each target produces a static library:
-#    build/arm64/libuiox_soc_arm64.a
-#    build/arm32/libuiox_soc_arm32.a
-#    build/x86_64/libuiox_soc_x86_64.a
-#    build/riscv64/libuiox_soc_riscv64.a
+#  make ARCH=arm64                    → static  (BSP+kernel one image)
+#  make ARCH=arm64 DYNAMIC_KERNEL=1   → dynamic (BSP standalone ELF)
+#  make all                           → all four arches, static
+#  make all DYNAMIC_KERNEL=1          → all four arches, dynamic
 # =============================================================================
 
 VERSION_MAJOR := 1
-VERSION_MINOR := 1
+VERSION_MINOR := 0
 VERSION_PATCH := 0
 
-# -----------------------------------------------------------------------------
-# Verbosity  (make V=1 <target>  for full command echo)
-# -----------------------------------------------------------------------------
 V ?= 0
 ifeq ($(V),0)
   Q        := @
-  LOGCC    := @echo "  CC      $<"
-  LOGAR    := @echo "  AR      $@"
+  LOGCC    := @echo "  CC    $<"
+  LOGAS    := @echo "  AS    $<"
+  LOGAR    := @echo "  AR    $@"
+  LOGLD    := @echo "  LD    $@"
   LOGCLEAN := @echo "  CLEAN"
 else
-  Q        :=
-  LOGCC    :=
-  LOGAR    :=
-  LOGCLEAN :=
+  Q := LOGCC := LOGAS := LOGAR := LOGLD := LOGCLEAN :=
 endif
 
-SRCDIR   := src
-INCDIR   := include
-BUILDDIR := build
+# ── Dynamic kernel switch ─────────────────────────────────────────
+# Set DYNAMIC_KERNEL=1 on the make command line to enable.
+# Adds -DUIOX_DYNAMIC_KERNEL_LOAD and links uiox_kernel_loader.c.
+DYNAMIC_KERNEL ?= 0
+ifeq ($(DYNAMIC_KERNEL),1)
+  DYNAMIC_FLAG := -DUIOX_DYNAMIC_KERNEL_LOAD
+  DYNAMIC_SRC  := soc/src/uiox_kernel_loader.c
+  BUILD_MODE   := dynamic
+else
+  DYNAMIC_FLAG :=
+  DYNAMIC_SRC  :=
+  BUILD_MODE   := static
+endif
 
-# =============================================================================
-# Cross-toolchain selection
-# =============================================================================
+BUILDDIR   := build
+SOC_INCDIR := soc/include
+
 UNAME_S := $(shell uname -s)
 ifeq ($(UNAME_S),Darwin)
-  ARM64_CC  := aarch64-elf-gcc
-  ARM32_CC  := arm-none-eabi-gcc
-  X86_CC    := x86_64-elf-gcc
-  RV64_CC   := riscv64-elf-gcc
+  ARM64_CC := aarch64-elf-gcc  ;  ARM64_AR := aarch64-elf-ar
+  ARM32_CC := arm-none-eabi-gcc;  ARM32_AR := arm-none-eabi-ar
+  X86_CC   := x86_64-elf-gcc  ;  X86_AR   := x86_64-elf-ar
+  RV64_CC  := riscv64-elf-gcc  ;  RV64_AR  := riscv64-elf-ar
 else
-  ARM64_CC  := aarch64-linux-gnu-gcc
-  ARM32_CC  := arm-linux-gnueabihf-gcc
-  X86_CC    := x86_64-linux-gnu-gcc
-  RV64_CC   := riscv64-linux-gnu-gcc
+  ARM64_CC := aarch64-linux-gnu-gcc  ;  ARM64_AR := aarch64-linux-gnu-ar
+  ARM32_CC := arm-linux-gnueabihf-gcc;  ARM32_AR := arm-linux-gnueabihf-ar
+  X86_CC   := x86_64-linux-gnu-gcc   ;  X86_AR   := x86_64-linux-gnu-ar
+  RV64_CC  := riscv64-linux-gnu-gcc  ;  RV64_AR  := riscv64-linux-gnu-ar
 endif
 
-AR := ar
-
-# =============================================================================
-# Common compiler flags
-# =============================================================================
+ARFLAGS := rcs
 DEPFLAGS = -MMD -MP -MF $(@:.o=.d)
 
 CFLAGS_COMMON := \
-  -std=c11                       \
-  -Wall                          \
-  -Wextra                        \
-  -Wpedantic                     \
-  -Wmissing-prototypes           \
-  -Wstrict-prototypes            \
-  -ffreestanding                 \
-  -fno-builtin                   \
-  -fno-stack-protector           \
-  -ffunction-sections            \
-  -fdata-sections                \
-  -Os                            \
-  -g                             \
-  -I$(INCDIR)                    \
-  -DUIOX_VERSION_MAJOR=$(VERSION_MAJOR) \
-  -DUIOX_VERSION_MINOR=$(VERSION_MINOR) \
-  -DUIOX_VERSION_PATCH=$(VERSION_PATCH) \
-  -DUIOX_BASETYPES_COMPAT
+  -std=c11 -Wall -Wextra -Wpedantic        \
+  -Wmissing-prototypes -Wstrict-prototypes  \
+  -ffreestanding -fno-builtin               \
+  -fno-stack-protector                      \
+  -ffunction-sections -fdata-sections       \
+  -Os -g                                    \
+  -I$(SOC_INCDIR)                           \
+  $(DYNAMIC_FLAG)                           \
+  -DUIOX_VERSION_MAJOR=$(VERSION_MAJOR)     \
+  -DUIOX_VERSION_MINOR=$(VERSION_MINOR)     \
+  -DUIOX_VERSION_PATCH=$(VERSION_PATCH)
 
-# =============================================================================
-# SOC_COMMON_SRCS -- 11 files compiled into every arch target
-# =============================================================================
+# ── Common SoC sources (both modes) ──────────────────────────────
 SOC_COMMON_SRCS := \
-  $(SRCDIR)/uiox_soc_stdio.c    \
-  $(SRCDIR)/uiox_soc_clk.c      \
-  $(SRCDIR)/uiox_soc_irq.c      \
-  $(SRCDIR)/uiox_soc_mem.c      \
-  $(SRCDIR)/uiox_soc_power.c    \
-  $(SRCDIR)/uiox_soc_post.c     \
-   $(SRCDIR)/uiox_soc_pcie.c    \
-  $(SRCDIR)/uiox_soc_psci.c     \
-  $(SRCDIR)/uiox_soc_secboot.c  \
-  $(SRCDIR)/uiox_soc_tz.c       \
-  $(SRCDIR)/uiox_soc_dma.c      \
-  $(SRCDIR)/uiox_soc_hw.c       \
-  $(SRCDIR)/uiox_soc_main.c
+  soc/src/uiox_soc_main.c         \
+  soc/src/uiox_soc_clk.c          \
+  soc/src/uiox_soc_irq.c          \
+  soc/src/uiox_soc_mem.c          \
+  soc/src/uiox_soc_power.c        \
+  soc/src/uiox_soc_post.c         \
+  soc/src/uiox_soc_psci.c         \
+  soc/src/uiox_soc_secboot.c      \
+  soc/src/uiox_soc_tz.c           \
+  soc/src/uiox_soc_dma.c          \
+  soc/src/uiox_soc_pcie.c         \
+  soc/src/uiox_soc_hw.c           \
+  soc/src/uiox_soc_stdio.c        \
+  uiox_arch_main.c                \
+  $(DYNAMIC_SRC)                  # empty in static, loader in dynamic
 
 # =============================================================================
 # ARM64
-# Backends: generic arm64 + IMX8MP + RK3588
 # =============================================================================
-ARM64_CFLAGS := $(CFLAGS_COMMON) \
-  -march=armv8-a                 \
-  -mstrict-align                 \
-  -DARCH_ARM64
+ARM64_SRCDIR := arch/arm64/src
+ARM64_INCDIR := arch/arm64/include
+ARM64_OBJDIR := $(BUILDDIR)/arm64
 
-ARM64_SRCS := \
-  $(SOC_COMMON_SRCS)             \
-  $(SRCDIR)/uiox_soc_arm64.c     \
-  $(SRCDIR)/uiox_soc_arm64_init.c
+ARM64_CFLAGS := $(CFLAGS_COMMON)    \
+  -march=armv8-a -mstrict-align     \
+  -DARCH_ARM64 -I$(ARM64_INCDIR)
 
-ARM64_OBJS := $(patsubst $(SRCDIR)/%.c,$(BUILDDIR)/arm64/%.o,$(ARM64_SRCS))
-ARM64_LIB  := $(BUILDDIR)/arm64/libuiox_soc_arm64.a
+ARM64_ASFLAGS := -Wall -ffreestanding -march=armv8-a \
+  -DARCH_ARM64 -I$(ARM64_INCDIR)
+
+ARM64_ARCH_SRCS := \
+  $(ARM64_SRCDIR)/arch_init.c    \
+  $(ARM64_SRCDIR)/arch_runtime.c
+
+ARM64_ARCH_ASMS := \
+  $(ARM64_SRCDIR)/arch_context.S \
+  $(ARM64_SRCDIR)/arch_irq.S
+
+ARM64_ARCH_CSRCS := \
+  soc/src/uiox_soc_arm64.c       \
+  soc/src/uiox_soc_imx8mp.c      \
+  soc/src/uiox_soc_rk3588.c
+
+ARM64_ALL_SRCS  := $(ARM64_ARCH_SRCS) $(ARM64_ARCH_CSRCS) $(SOC_COMMON_SRCS)
+ARM64_C_OBJS    := $(patsubst %.c,$(ARM64_OBJDIR)/%.o,$(notdir $(ARM64_ALL_SRCS)))
+ARM64_S_OBJS    := $(patsubst %.S,$(ARM64_OBJDIR)/%.o,$(notdir $(ARM64_ARCH_ASMS)))
+ARM64_OBJS      := $(ARM64_C_OBJS) $(ARM64_S_OBJS)
+ARM64_LIB       := $(ARM64_OBJDIR)/libarch_arm64.a
 
 .PHONY: arm64
-arm64: $(ARM64_LIB)
-	$(Q)echo "  OK  SoC ARM64 => $(ARM64_LIB)"
+arm64: dirs $(ARM64_LIB)
+	$(Q)echo "  OK  BSP ARM64 ($(BUILD_MODE)) => $(ARM64_LIB)"
 
-$(ARM64_LIB): $(ARM64_OBJS) | $(BUILDDIR)/arm64
-	$(LOGAR)
-	$(Q)$(AR) rcs $@ $^
+$(ARM64_LIB): $(ARM64_OBJS) | $(ARM64_OBJDIR)
+	$(LOGAR) ; $(Q)$(ARM64_AR) $(ARFLAGS) $@ $^
 
-$(BUILDDIR)/arm64/%.o: $(SRCDIR)/%.c | $(BUILDDIR)/arm64
-	$(LOGCC)
-	$(Q)$(ARM64_CC) $(ARM64_CFLAGS) $(DEPFLAGS) -c $< -o $@
+$(ARM64_OBJDIR)/%.o: $(ARM64_SRCDIR)/%.c | $(ARM64_OBJDIR)
+	$(LOGCC) ; $(Q)$(ARM64_CC) $(ARM64_CFLAGS) $(DEPFLAGS) -c $< -o $@
 
-$(BUILDDIR)/arm64:
-	$(Q)mkdir -p $@
+$(ARM64_OBJDIR)/%.o: $(ARM64_SRCDIR)/%.S | $(ARM64_OBJDIR)
+	$(LOGAS) ; $(Q)$(ARM64_CC) $(ARM64_ASFLAGS) -c $< -o $@
+
+$(ARM64_OBJDIR)/%.o: soc/src/%.c | $(ARM64_OBJDIR)
+	$(LOGCC) ; $(Q)$(ARM64_CC) $(ARM64_CFLAGS) $(DEPFLAGS) -c $< -o $@
+
+$(ARM64_OBJDIR)/uiox_arch_main.o: uiox_arch_main.c | $(ARM64_OBJDIR)
+	$(LOGCC) ; $(Q)$(ARM64_CC) $(ARM64_CFLAGS) $(DEPFLAGS) -c $< -o $@
+
+$(ARM64_OBJDIR): ; $(Q)mkdir -p $@
 
 # =============================================================================
 # ARM32
-# Backends: generic arm32 + OMAP4430
 # =============================================================================
-ARM32_CFLAGS := $(CFLAGS_COMMON) \
-  -march=armv7-a             \
-  -mthumb                        \
-  -mfloat-abi=soft               \
-  -DARCH_ARM32
+ARM32_SRCDIR := arch/arm32/src
+ARM32_INCDIR := arch/arm32/include
+ARM32_OBJDIR := $(BUILDDIR)/arm32
 
-ARM32_SRCS := \
-  $(SOC_COMMON_SRCS)             \
-  $(SRCDIR)/uiox_soc_arm32.c     \
-  $(SRCDIR)/uiox_soc_arm32_init.c
+ARM32_CFLAGS := $(CFLAGS_COMMON)                          \
+  -march=armv7-a+sec -mthumb -mfloat-abi=soft             \
+  -DARCH_ARM32 -I$(ARM32_INCDIR)
 
-ARM32_OBJS := $(patsubst $(SRCDIR)/%.c,$(BUILDDIR)/arm32/%.o,$(ARM32_SRCS))
-ARM32_LIB  := $(BUILDDIR)/arm32/libuiox_soc_arm32.a
+ARM32_ASFLAGS := -Wall -ffreestanding -march=armv7-a+sec -mthumb \
+  -DARCH_ARM32 -I$(ARM32_INCDIR)
+
+ARM32_ARCH_SRCS := \
+  $(ARM32_SRCDIR)/arch_init.c    \
+  $(ARM32_SRCDIR)/arch_runtime.c
+
+ARM32_ARCH_ASMS := \
+  $(ARM32_SRCDIR)/arch_context.S \
+  $(ARM32_SRCDIR)/arch_irq.S
+
+ARM32_ARCH_CSRCS := \
+  soc/src/uiox_soc_arm32.c       \
+  soc/src/uiox_soc_omap4430.c
+
+ARM32_ALL_SRCS := $(ARM32_ARCH_SRCS) $(ARM32_ARCH_CSRCS) $(SOC_COMMON_SRCS)
+ARM32_C_OBJS   := $(patsubst %.c,$(ARM32_OBJDIR)/%.o,$(notdir $(ARM32_ALL_SRCS)))
+ARM32_S_OBJS   := $(patsubst %.S,$(ARM32_OBJDIR)/%.o,$(notdir $(ARM32_ARCH_ASMS)))
+ARM32_OBJS     := $(ARM32_C_OBJS) $(ARM32_S_OBJS)
+ARM32_LIB      := $(ARM32_OBJDIR)/libarch_arm32.a
 
 .PHONY: arm32
-arm32: $(ARM32_LIB)
-	$(Q)echo "  OK  SoC ARM32 => $(ARM32_LIB)"
+arm32: dirs $(ARM32_LIB)
+	$(Q)echo "  OK  BSP ARM32 ($(BUILD_MODE)) => $(ARM32_LIB)"
 
-$(ARM32_LIB): $(ARM32_OBJS) | $(BUILDDIR)/arm32
-	$(LOGAR)
-	$(Q)$(AR) rcs $@ $^
+$(ARM32_LIB): $(ARM32_OBJS) | $(ARM32_OBJDIR)
+	$(LOGAR) ; $(Q)$(ARM32_AR) $(ARFLAGS) $@ $^
 
-$(BUILDDIR)/arm32/%.o: $(SRCDIR)/%.c | $(BUILDDIR)/arm32
-	$(LOGCC)
-	$(Q)$(ARM32_CC) $(ARM32_CFLAGS) $(DEPFLAGS) -c $< -o $@
+$(ARM32_OBJDIR)/%.o: $(ARM32_SRCDIR)/%.c | $(ARM32_OBJDIR)
+	$(LOGCC) ; $(Q)$(ARM32_CC) $(ARM32_CFLAGS) $(DEPFLAGS) -c $< -o $@
 
-$(BUILDDIR)/arm32:
-	$(Q)mkdir -p $@
+$(ARM32_OBJDIR)/%.o: $(ARM32_SRCDIR)/%.S | $(ARM32_OBJDIR)
+	$(LOGAS) ; $(Q)$(ARM32_CC) $(ARM32_ASFLAGS) -c $< -o $@
+
+$(ARM32_OBJDIR)/%.o: soc/src/%.c | $(ARM32_OBJDIR)
+	$(LOGCC) ; $(Q)$(ARM32_CC) $(ARM32_CFLAGS) $(DEPFLAGS) -c $< -o $@
+
+$(ARM32_OBJDIR)/uiox_arch_main.o: uiox_arch_main.c | $(ARM32_OBJDIR)
+	$(LOGCC) ; $(Q)$(ARM32_CC) $(ARM32_CFLAGS) $(DEPFLAGS) -c $< -o $@
+
+$(ARM32_OBJDIR): ; $(Q)mkdir -p $@
 
 # =============================================================================
 # x86_64
-# Backend: single file handles Q35, i440FX, and generic
 # =============================================================================
-X86_CFLAGS := $(CFLAGS_COMMON) \
-  -m64                         \
-  -mno-red-zone                \
-  -mno-mmx                     \
-  -mno-sse                     \
-  -mno-sse2                    \
-  -DARCH_X86_64
+X86_SRCDIR := arch/x86_64/src
+X86_INCDIR := arch/x86_64/include
+X86_OBJDIR := $(BUILDDIR)/x86_64
 
-X86_SRCS := \
-  $(SOC_COMMON_SRCS)           \
-  $(SRCDIR)/uiox_soc_x86.c     \
-  $(SRCDIR)/uiox_soc_x86_init.c
+X86_CFLAGS := $(CFLAGS_COMMON)                               \
+  -m64 -mno-red-zone -mno-mmx -mno-sse -mno-sse2             \
+  -DARCH_X86_64 -I$(X86_INCDIR)
 
-X86_OBJS := $(patsubst $(SRCDIR)/%.c,$(BUILDDIR)/x86_64/%.o,$(X86_SRCS))
-X86_LIB  := $(BUILDDIR)/x86_64/libuiox_soc_x86_64.a
+X86_ASFLAGS := -Wall -ffreestanding -m64 -DARCH_X86_64 -I$(X86_INCDIR)
+
+X86_ARCH_SRCS := \
+  $(X86_SRCDIR)/arch_init.c    \
+  $(X86_SRCDIR)/arch_runtime.c
+
+X86_ARCH_ASMS := \
+  $(X86_SRCDIR)/arch_context.S \
+  $(X86_SRCDIR)/arch_irq.S
+
+X86_ARCH_CSRCS := soc/src/uiox_soc_x86.c
+
+X86_ALL_SRCS := $(X86_ARCH_SRCS) $(X86_ARCH_CSRCS) $(SOC_COMMON_SRCS)
+X86_C_OBJS   := $(patsubst %.c,$(X86_OBJDIR)/%.o,$(notdir $(X86_ALL_SRCS)))
+X86_S_OBJS   := $(patsubst %.S,$(X86_OBJDIR)/%.o,$(notdir $(X86_ARCH_ASMS)))
+X86_OBJS     := $(X86_C_OBJS) $(X86_S_OBJS)
+X86_LIB      := $(X86_OBJDIR)/libarch_x86_64.a
 
 .PHONY: x86_64
-x86_64: $(X86_LIB)
-	$(Q)echo "  OK  SoC x86_64 => $(X86_LIB)"
+x86_64: dirs $(X86_LIB)
+	$(Q)echo "  OK  BSP x86_64 ($(BUILD_MODE)) => $(X86_LIB)"
 
-$(X86_LIB): $(X86_OBJS) | $(BUILDDIR)/x86_64
-	$(LOGAR)
-	$(Q)$(AR) rcs $@ $^
+$(X86_LIB): $(X86_OBJS) | $(X86_OBJDIR)
+	$(LOGAR) ; $(Q)$(X86_AR) $(ARFLAGS) $@ $^
 
-$(BUILDDIR)/x86_64/%.o: $(SRCDIR)/%.c | $(BUILDDIR)/x86_64
-	$(LOGCC)
-	$(Q)$(X86_CC) $(X86_CFLAGS) $(DEPFLAGS) -c $< -o $@
+$(X86_OBJDIR)/%.o: $(X86_SRCDIR)/%.c | $(X86_OBJDIR)
+	$(LOGCC) ; $(Q)$(X86_CC) $(X86_CFLAGS) $(DEPFLAGS) -c $< -o $@
 
-$(BUILDDIR)/x86_64:
-	$(Q)mkdir -p $@
+$(X86_OBJDIR)/%.o: $(X86_SRCDIR)/%.S | $(X86_OBJDIR)
+	$(LOGAS) ; $(Q)$(X86_CC) $(X86_ASFLAGS) -c $< -o $@
+
+$(X86_OBJDIR)/%.o: soc/src/%.c | $(X86_OBJDIR)
+	$(LOGCC) ; $(Q)$(X86_CC) $(X86_CFLAGS) $(DEPFLAGS) -c $< -o $@
+
+$(X86_OBJDIR)/uiox_arch_main.o: uiox_arch_main.c | $(X86_OBJDIR)
+	$(LOGCC) ; $(Q)$(X86_CC) $(X86_CFLAGS) $(DEPFLAGS) -c $< -o $@
+
+$(X86_OBJDIR): ; $(Q)mkdir -p $@
 
 # =============================================================================
-# RISC-V 64  (rv64imac, medany model)
-# Backends: generic riscv64 + TH1520
+# RISC-V 64
 # =============================================================================
-RV64_CFLAGS := $(CFLAGS_COMMON) \
-  -march=rv64imac_zicsr               \
-  -mabi=lp64                    \
-  -mcmodel=medany               \
-  -DARCH_RISCV64
+RV64_SRCDIR := arch/riscv64/src
+RV64_INCDIR := arch/riscv64/include
+RV64_OBJDIR := $(BUILDDIR)/riscv64
 
-RV64_SRCS := \
-  $(SOC_COMMON_SRCS)            \
-  $(SRCDIR)/uiox_soc_riscv64.c  \
-  $(SRCDIR)/uiox_soc_riscv64_init.c
+RV64_CFLAGS := $(CFLAGS_COMMON)                               \
+  -march=rv64imac_zicsr -mabi=lp64 -mcmodel=medany            \
+  -DARCH_RISCV64 -I$(RV64_INCDIR)
 
-RV64_OBJS := $(patsubst $(SRCDIR)/%.c,$(BUILDDIR)/riscv64/%.o,$(RV64_SRCS))
-RV64_LIB  := $(BUILDDIR)/riscv64/libuiox_soc_riscv64.a
+RV64_ASFLAGS := -Wall -ffreestanding                          \
+  -march=rv64imac_zicsr -mabi=lp64 -mcmodel=medany            \
+  -DARCH_RISCV64 -I$(RV64_INCDIR)
+
+RV64_ARCH_SRCS := \
+  $(RV64_SRCDIR)/arch_init.c    \
+  $(RV64_SRCDIR)/arch_runtime.c
+
+RV64_ARCH_ASMS := \
+  $(RV64_SRCDIR)/arch_context.S \
+  $(RV64_SRCDIR)/arch_irq.S
+
+RV64_ARCH_CSRCS := \
+  soc/src/uiox_soc_riscv64.c   \
+  soc/src/uiox_soc_th1520.c
+
+RV64_ALL_SRCS := $(RV64_ARCH_SRCS) $(RV64_ARCH_CSRCS) $(SOC_COMMON_SRCS)
+RV64_C_OBJS   := $(patsubst %.c,$(RV64_OBJDIR)/%.o,$(notdir $(RV64_ALL_SRCS)))
+RV64_S_OBJS   := $(patsubst %.S,$(RV64_OBJDIR)/%.o,$(notdir $(RV64_ARCH_ASMS)))
+RV64_OBJS     := $(RV64_C_OBJS) $(RV64_S_OBJS)
+RV64_LIB      := $(RV64_OBJDIR)/libarch_riscv64.a
 
 .PHONY: riscv64
-riscv64: $(RV64_LIB)
-	$(Q)echo "  OK  SoC RISC-V64 => $(RV64_LIB)"
+riscv64: dirs $(RV64_LIB)
+	$(Q)echo "  OK  BSP RISC-V64 ($(BUILD_MODE)) => $(RV64_LIB)"
 
-$(RV64_LIB): $(RV64_OBJS) | $(BUILDDIR)/riscv64
-	$(LOGAR)
-	$(Q)$(AR) rcs $@ $^
+$(RV64_LIB): $(RV64_OBJS) | $(RV64_OBJDIR)
+	$(LOGAR) ; $(Q)$(RV64_AR) $(ARFLAGS) $@ $^
 
-$(BUILDDIR)/riscv64/%.o: $(SRCDIR)/%.c | $(BUILDDIR)/riscv64
-	$(LOGCC)
-	$(Q)$(RV64_CC) $(RV64_CFLAGS) $(DEPFLAGS) -c $< -o $@
+$(RV64_OBJDIR)/%.o: $(RV64_SRCDIR)/%.c | $(RV64_OBJDIR)
+	$(LOGCC) ; $(Q)$(RV64_CC) $(RV64_CFLAGS) $(DEPFLAGS) -c $< -o $@
 
-$(BUILDDIR)/riscv64:
-	$(Q)mkdir -p $@
+$(RV64_OBJDIR)/%.o: $(RV64_SRCDIR)/%.S | $(RV64_OBJDIR)
+	$(LOGAS) ; $(Q)$(RV64_CC) $(RV64_ASFLAGS) -c $< -o $@
 
-# =============================================================================
-# Auto-generated dependency includes
-# =============================================================================
--include $(ARM64_OBJS:.o=.d)
--include $(ARM32_OBJS:.o=.d)
--include $(X86_OBJS:.o=.d)
--include $(RV64_OBJS:.o=.d)
+$(RV64_OBJDIR)/%.o: soc/src/%.c | $(RV64_OBJDIR)
+	$(LOGCC) ; $(Q)$(RV64_CC) $(RV64_CFLAGS) $(DEPFLAGS) -c $< -o $@
+
+$(RV64_OBJDIR)/uiox_arch_main.o: uiox_arch_main.c | $(RV64_OBJDIR)
+	$(LOGCC) ; $(Q)$(RV64_CC) $(RV64_CFLAGS) $(DEPFLAGS) -c $< -o $@
+
+$(RV64_OBJDIR): ; $(Q)mkdir -p $@
 
 # =============================================================================
-# Top-level convenience targets
+# Dependencies
 # =============================================================================
-.PHONY: all
+-include $(ARM64_C_OBJS:.o=.d)
+-include $(ARM32_C_OBJS:.o=.d)
+-include $(X86_C_OBJS:.o=.d)
+-include $(RV64_C_OBJS:.o=.d)
+
+# =============================================================================
+# Top-level
+# =============================================================================
+.PHONY: all clean dirs help
+
+dirs:
+	$(Q)mkdir -p \
+	  $(ARM64_OBJDIR) $(ARM32_OBJDIR) $(X86_OBJDIR) $(RV64_OBJDIR)
+
 all: arm64 arm32 x86_64 riscv64
+	$(Q)echo ""
+	$(Q)echo "Build mode : $(BUILD_MODE)"
+	$(Q)echo "Libraries  :"
+	$(Q)echo "  $(ARM64_LIB)"
+	$(Q)echo "  $(ARM32_LIB)"
+	$(Q)echo "  $(X86_LIB)"
+	$(Q)echo "  $(RV64_LIB)"
 
-.PHONY: clean
 clean:
 	$(LOGCLEAN)
 	$(Q)rm -rf $(BUILDDIR)
 
-.PHONY: help
 help:
-	$(Q)echo "UIOX SoC Platform Layer -- available targets:"
-	$(Q)echo "  make arm64          build ARM64 static library"
-	$(Q)echo "                        (arm64 + imx8mp + rk3588 backends)"
-	$(Q)echo "  make arm32          build ARM32 static library"
-	$(Q)echo "                        (arm32 + omap4430 backends)"
-	$(Q)echo "  make x86_64         build x86-64 static library"
-	$(Q)echo "                        (q35 + i440fx + generic backends)"
-	$(Q)echo "  make riscv64        build RISC-V 64 static library"
-	$(Q)echo "                        (qemu-virt + sifive-u74 + th1520)"
-	$(Q)echo "  make all            build all four targets"
-	$(Q)echo "  make clean          remove build/ directory"
-	$(Q)echo "  make V=1 <target>   verbose build output"
+	$(Q)echo "Usage:"
+	$(Q)echo "  make [ARCH=<arch>] [DYNAMIC_KERNEL=1] [V=1]"
 	$(Q)echo ""
-	$(Q)echo "Output libraries:"
-	$(Q)echo "  build/arm64/libuiox_soc_arm64.a"
-	$(Q)echo "  build/arm32/libuiox_soc_arm32.a"
-	$(Q)echo "  build/x86_64/libuiox_soc_x86_64.a"
-	$(Q)echo "  build/riscv64/libuiox_soc_riscv64.a"
-
-# =============================================================================
-# Source listing (for auditing — not a build target)
-# =============================================================================
-.PHONY: list-srcs
-list-srcs:
-	$(Q)echo "--- Common sources (all targets) ---"
-	$(Q)for f in $(SOC_COMMON_SRCS); do echo "  $$f"; done
-	$(Q)echo "--- ARM64-specific ---"
-	$(Q)echo "  $(SRCDIR)/uiox_soc_arm64.c"
-	$(Q)echo "  $(SRCDIR)/uiox_soc_imx8mp.c"
-	$(Q)echo "  $(SRCDIR)/uiox_soc_rk3588.c"
-	$(Q)echo "--- ARM32-specific ---"
-	$(Q)echo "  $(SRCDIR)/uiox_soc_arm32.c"
-	$(Q)echo "  $(SRCDIR)/uiox_soc_omap4430.c"
-	$(Q)echo "--- x86_64-specific ---"
-	$(Q)echo "  $(SRCDIR)/uiox_soc_x86.c"
-	$(Q)echo "--- RISC-V64-specific ---"
-	$(Q)echo "  $(SRCDIR)/uiox_soc_riscv64.c"
-	$(Q)echo "  $(SRCDIR)/uiox_soc_th1520.c"
+	$(Q)echo "  ARCH values : arm64  arm32  x86_64  riscv64"
+	$(Q)echo ""
+	$(Q)echo "  Static  (default)   — BSP+kernel one image"
+	$(Q)echo "    make all"
+	$(Q)echo "    make arm64"
+	$(Q)echo ""
+	$(Q)echo "  Dynamic — BSP standalone ELF, loads kernel at runtime"
+	$(Q)echo "    make all DYNAMIC_KERNEL=1"
+	$(Q)echo "    make arm64 DYNAMIC_KERNEL=1"
+	$(Q)echo ""
+	$(Q)echo "  Verbose:"
+	$(Q)echo "    make arm64 V=1"
