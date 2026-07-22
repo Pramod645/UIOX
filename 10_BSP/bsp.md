@@ -294,3 +294,139 @@ Dynamic build (DYNAMIC_KERNEL=1):
   DYNAMIC_SRC: soc/src/uiox_kernel_loader.c compiled in
   Stage 8: uiox_kernel_load() → verify() → jump()
   Result: full loader present, kernel loaded from storage
+
+  ////////////////////////////
+
+  File	Purpose
+10_BSP/include/uiox_bsp.h	Public API — both build modes, all return codes, config struct
+10_BSP/src/uiox_bsp_main.c	Main BSP source — static uiox_bsp_init() + dynamic uiox_bsp_entry_c() + ELF64 loader + uiox_bsp_jump_to_kernel()
+10_BSP/src/bsp_entry.S	Assembly stub (dynamic only) — sets stack, zeros BSS, calls C, all 4 arches
+10_BSP/linker/bsp_static.ld	Linker fragment for static build (included by kernel LD script)
+10_BSP/linker/bsp_dynamic.ld	Full standalone LD script for secondary-bootloader binary
+10_BSP/Makefile	Master Makefile — all 4 arches, both modes, all-arches target
+10_BSP/BSP_integration_notes.md	Integration guide + call chains + build commands
+=========================
+Two call chains at a glance:
+
+Static build (BSP linked into kernel):
+
+uiox_boot_arch_jump()  →  uiox_kernel_main()  →  uiox_bsp_init()
+                                                       ├─ arch_init()
+                                                       └─ uiox_soc_init()
+Dynamic build (BSP is secondary bootloader):
+
+
+uiox_boot_arch_jump()  →  bsp_entry.S  →  uiox_bsp_entry_c()
+                                               ├─ arch_init()
+                                               ├─ uiox_soc_init()
+                                               ├─ load_kernel_elf()
+                                               └─ uiox_bsp_jump_to_kernel()
+                                                        └─ uiox_kernel_main()
+===============================================================================
+# UIOX BSP Integration Notes
+**Date:** 2026-07-21  
+**Version:** 1.0.0
+
+---
+
+## Static Build — kernel integration
+
+In `33_ProcessControlSubsystem/uiox_kernel_main.c`, add the BSP init call
+**before** `arch_init()` is called independently.  The BSP init internally
+calls both `arch_init()` and `uiox_soc_init()`, so the kernel should
+delegate to `uiox_bsp_init()` rather than calling `arch_init()` directly.
+
+```c
+#include "../../10_BSP/include/uiox_bsp.h"
+
+// Inside uiox_kernel_main(), replace the bare arch_init() call with:
+
+uiox_bsp_config_t bsp_cfg = {
+    .dtb_pa  = g_dtb_pa,
+    .args_pa = (uint64_t)(uintptr_t)g_boot_args,
+    .flags   = 0,
+};
+
+int rc = uiox_bsp_init(&bsp_cfg);
+if (rc != UIOX_BSP_OK) {
+    early_puts("[kernel] FATAL: uiox_bsp_init failed\r\n");
+    for (;;) __asm__ volatile("wfi");
+}
+// arch_init() and uiox_soc_init() are now done — continue with ksign, etc.
+```
+
+### Static build call chain
+
+```
+Primary BL (uiox_boot_arch_jump)
+  └─► uiox_kernel_main()          [33_ProcessControlSubsystem]
+        └─► uiox_bsp_init()       [10_BSP/src/uiox_bsp_main.c]
+              ├─► arch_init()     [10_BSP/10_Arch/<arch>/src/arch_init.c]
+              └─► uiox_soc_init() [10_BSP/03_SoC/src/uiox_soc_main.c]
+```
+
+---
+
+## Dynamic Build — secondary bootloader
+
+The BSP binary is loaded by the primary bootloader into SRAM at
+`BSP_LOAD_ADDR` (default `0x48000000` — tune in `bsp_dynamic.ld`).
+
+### Dynamic build call chain
+
+```
+Primary BL (uiox_boot_arch_jump)
+  └─► uiox_bsp_entry()           [10_BSP/src/bsp_entry.S]
+        ├── zeros BSS, sets stack
+        └─► uiox_bsp_entry_c()   [10_BSP/src/uiox_bsp_main.c]
+              ├─► arch_init()
+              ├─► uiox_soc_init()
+              ├─► load_kernel_elf()   (ELF loader built into BSP)
+              └─► uiox_bsp_jump_to_kernel()
+                    └─► uiox_kernel_main()
+```
+
+### Build commands
+
+```bash
+# Static  (default) — produces 10_BSP/build/<arch>/libbsp.a
+make -C 10_BSP ARCH=arm64
+make -C 10_BSP ARCH=arm32
+make -C 10_BSP ARCH=riscv64
+make -C 10_BSP ARCH=x86_64
+
+# Dynamic — produces uiox_bsp.elf + uiox_bsp.bin
+make -C 10_BSP ARCH=arm64   BUILD=dynamic
+make -C 10_BSP ARCH=arm32   BUILD=dynamic
+make -C 10_BSP ARCH=riscv64 BUILD=dynamic
+make -C 10_BSP ARCH=x86_64  BUILD=dynamic
+
+# All architectures in one shot
+make -C 10_BSP all-arches
+make -C 10_BSP all-arches BUILD=dynamic
+```
+
+---
+
+## File layout
+
+```
+10_BSP/
+├── include/
+│   └── uiox_bsp.h              ← public API (kernel + BSP consumers)
+├── src/
+│   ├── uiox_bsp_main.c         ← main BSP source (static + dynamic paths)
+│   └── bsp_entry.S             ← assembly stub (dynamic build only)
+├── linker/
+│   ├── bsp_static.ld           ← linker fragment (included by kernel LD script)
+│   └── bsp_dynamic.ld          ← full LD script for standalone BSP binary
+├── Makefile                    ← master Makefile, all 4 architectures
+├── 10_Arch/                    ← existing arch layer (arch_init per ISA)
+│   ├── arm32/
+│   ├── arm64/
+│   ├── riscv64/
+│   └── x86_64/
+└── 03_SoC/                     ← existing SoC layer (uiox_soc_init)
+    └── src/
+        └── uiox_soc_main.c
+```

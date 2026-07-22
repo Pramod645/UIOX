@@ -1,0 +1,24 @@
+/*
+ * 10_BSP/linker/bsp_static.ld
+ *
+ * UIOX BSP — linker fragment for the static build.
+ *
+ * Included from the architecture-level kernel linker script:
+ *   INCLUDE 10_BSP/linker/bsp_static.ld
+ *
+ * All BSP object files are already pulled in by the kernel Makefile;
+ * this fragment ensures the BSP init section is placed first so that
+ * uiox_bsp_init() is close to the kernel entry point in the .text segment.
+ *
+ * @version 1.0.0
+ * @date    2026-07-21
+ */
+
+/* Pull BSP early-init text before the rest of .text */
+.text.bsp_init 0 (NOLOAD) :
+{
+    /* intentionally empty — section ordering hint only */
+}
+
+/* No additional sections required for static build:
+ * BSS / data / rodata are covered by the kernel linker script. */
