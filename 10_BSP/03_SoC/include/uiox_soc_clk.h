@@ -119,8 +119,8 @@ typedef uiox_soc_clk_id_t uiox_clk_id_t;
 
 typedef struct {
     uiox_soc_clk_id_t id;
-    uint32_t          freq_hz;
-    bool              enabled;
+    uiox_uint32_t          freq_hz;
+    uiox_bool_t              enabled;
     char              name[16];
 } uiox_soc_clock_t;
 
@@ -128,11 +128,11 @@ typedef struct {
  * PLL configuration descriptor
  * ====================================================================== */
 typedef struct {
-    uint32_t  ref_hz;
-    uint32_t  mul;
-    uint32_t  div;
-    uint32_t  out_hz;
-    bool      locked;
+    uiox_uint32_t  ref_hz;
+    uiox_uint32_t  mul;
+    uiox_uint32_t  div;
+    uiox_uint32_t  out_hz;
+    uiox_bool_t      locked;
 } uiox_soc_pll_cfg_t;
 
 /* Backwards-compatible typedef alias */
@@ -142,11 +142,11 @@ typedef uiox_soc_pll_cfg_t uiox_pll_cfg_t;
  * Clock context — stateful, one per platform
  * ====================================================================== */
 typedef struct {
-    uint32_t           freq_hz[UIOX_SOC_CLK__COUNT];
-    bool               enabled[UIOX_SOC_CLK__COUNT];
+    uiox_uint32_t           freq_hz[UIOX_SOC_CLK__COUNT];
+    uiox_bool_t               enabled[UIOX_SOC_CLK__COUNT];
     uiox_soc_pll_cfg_t pll_sys;
     uiox_soc_pll_cfg_t pll_cpu;
-    bool               initialized;
+    uiox_bool_t               initialized;
 } uiox_clk_ctx_t;
 
 /* =========================================================================
@@ -164,10 +164,10 @@ typedef struct {
  * UART baud-rate divisor helpers
  * ====================================================================== */
 #define UIOX_SOC_UART_IBRD(ref, baud) \
-    ((uint32_t)((ref) / (16u * (baud))))
+    ((uiox_uint32_t)((ref) / (16u * (baud))))
 
 #define UIOX_SOC_UART_FBRD(ref, baud) \
-    ((uint32_t)(((((ref) % (16u * (baud))) * 64u) + \
+    ((uiox_uint32_t)(((((ref) % (16u * (baud))) * 64u) + \
                   ((baud) / 2u)) / (baud)))
 
 #define UIOX_UART_IBRD(ref, baud)  UIOX_SOC_UART_IBRD(ref, baud)
@@ -178,7 +178,7 @@ typedef struct {
  * ====================================================================== */
 uiox_soc_err_t uiox_soc_clk_init    (uiox_clk_ctx_t        *ctx,
                                       const uiox_soc_desc_t *soc);
-uint32_t       uiox_soc_clk_get_hz  (const uiox_clk_ctx_t  *ctx,
+uiox_uint32_t       uiox_soc_clk_get_hz  (const uiox_clk_ctx_t  *ctx,
                                       uiox_soc_clk_id_t      id);
 uiox_soc_err_t uiox_soc_clk_enable  (uiox_clk_ctx_t        *ctx,
                                       uiox_soc_clk_id_t      id);
@@ -189,7 +189,7 @@ void           uiox_soc_clk_print   (const uiox_clk_ctx_t  *ctx);
 /* ── Backwards-compatible inline wrappers — old uiox_clk_* names ──────── */
 static inline uiox_soc_err_t uiox_clk_init(uiox_clk_ctx_t *ctx,
     const uiox_soc_desc_t *soc) { return uiox_soc_clk_init(ctx, soc);  }
-static inline uint32_t uiox_clk_get_hz(const uiox_clk_ctx_t *ctx,
+static inline uiox_uint32_t uiox_clk_get_hz(const uiox_clk_ctx_t *ctx,
     uiox_soc_clk_id_t id)       { return uiox_soc_clk_get_hz(ctx, id); }
 static inline uiox_soc_err_t uiox_clk_enable(uiox_clk_ctx_t *ctx,
     uiox_soc_clk_id_t id)       { return uiox_soc_clk_enable(ctx, id); }
@@ -204,8 +204,8 @@ static inline void uiox_clk_print(const uiox_clk_ctx_t *ctx)
 uiox_soc_err_t uiox_soc_clock_init    (void);
 uiox_soc_err_t uiox_soc_clock_enable  (uiox_soc_clk_id_t id);
 uiox_soc_err_t uiox_soc_clock_disable (uiox_soc_clk_id_t id);
-uint32_t       uiox_soc_clock_get_hz  (uiox_soc_clk_id_t id);
-uiox_soc_err_t uiox_soc_clock_set_hz  (uiox_soc_clk_id_t id, uint32_t hz);
+uiox_uint32_t       uiox_soc_clock_get_hz  (uiox_soc_clk_id_t id);
+uiox_soc_err_t uiox_soc_clock_set_hz  (uiox_soc_clk_id_t id, uiox_uint32_t hz);
 void           uiox_soc_clock_print   (void);
 
 /*
@@ -220,8 +220,8 @@ void           uiox_soc_clock_print   (void);
 uiox_soc_err_t uiox_fw_clock_init    (void);
 uiox_soc_err_t uiox_fw_clock_enable  (uiox_soc_clk_id_t id);
 uiox_soc_err_t uiox_fw_clock_disable (uiox_soc_clk_id_t id);
-uint32_t       uiox_fw_clock_get_hz  (uiox_soc_clk_id_t id);
-uiox_soc_err_t uiox_fw_clock_set_hz  (uiox_soc_clk_id_t id, uint32_t hz);
+uiox_uint32_t       uiox_fw_clock_get_hz  (uiox_soc_clk_id_t id);
+uiox_soc_err_t uiox_fw_clock_set_hz  (uiox_soc_clk_id_t id, uiox_uint32_t hz);
 void           uiox_fw_clock_print   (void);
 
 #ifdef __cplusplus

@@ -21,10 +21,10 @@
  */
 
  #include "arch_defs.h"
- #include "../../../20_DriverInterfaces/include/hw_types.h"
- #include "../../../20_DriverInterfaces/include/mmio.h"
- #include "../../../20_DriverInterfaces/include/irq.h"
- #include "../../../20_DriverInterfaces/include/cpu.h"
+ #include "hw_types.h"   // resolved via -I<arch>/include (already in Makefile)
+ #include "mmio.h"
+ #include "irq.h"
+ #include "cpu.h"
  #include "../../../03_SoC/include/uiox_soc_stdio.h"
  #include "../../../03_SoC/include/uiox_soc_string.h"
  
@@ -170,9 +170,10 @@
       *    IRQ 0 = timer (PIT/HPET — vector 0x20 after PIC remap)
       *    IRQ 4 = COM1 UART (vector 0x24 after PIC remap)
       *    Actual handler implementations are in 20_DriverInterfaces.    */
-     irq_register(0, timer_irq_handler, NULL);
-     irq_register(4, uart_irq_handler,  NULL);
- 
+     //irq_register(0, timer_irq_handler, NULL);
+     //irq_register(4, uart_irq_handler,  NULL);
+     irq_request(TIMER0_IRQ, timer_irq_handler, NULL, "timer");
+     irq_request(UART0_IRQ,  uart_irq_handler,  NULL, "uart");
      /* 7. Unmask global interrupts (ISA: STI instruction) */
      __asm__ volatile("sti" ::: "memory");
  

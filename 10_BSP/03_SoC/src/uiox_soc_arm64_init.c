@@ -60,7 +60,7 @@ static void arm64_cache_topology(void)
     __asm__ volatile("mrs %0, clidr_el1" : "=r"(clidr));
 
     uiox_uint64_t loc   = (uiox_uint64_t)((clidr >> 24u) & 0x7u); /* LoC field       */
-    printf("[soc/arm64] Cache topology (LoC=%u):\n", loc);
+    printf("[soc/arm64] Cache topology (LoC=%lu):\n", loc);
 
     for (uiox_uint64_t level = 0u; level < loc && level < 7u; level++) {
         uiox_uint64_t ctype = (uiox_uint64_t)((clidr >> (level * 3u)) & 0x7u);
@@ -79,7 +79,7 @@ static void arm64_cache_topology(void)
         uiox_uint32_t lsize = (uiox_uint32_t)(1u << (((uiox_uint32_t)(ccsidr & 0x7u)) + 4u));
         uiox_uint32_t size_kb = (sets * ways * lsize) / 1024u;
 
-        printf("[soc/arm64]   L%u %s: %u KB (%u sets × %u ways × %u B)\n",
+        printf("[soc/arm64]   L%lu %s: %u KB (%u sets × %u ways × %u B)\n",
                level + 1u, type_str[ctype & 0x7u],
                size_kb, sets, ways, lsize);
     }

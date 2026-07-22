@@ -47,36 +47,36 @@
  
  /* ── RAM test region ────────────────────────────────────── */
  typedef struct {
-     uint64_t base;   /**< Physical base address                          */
-     uint64_t size;   /**< Size in bytes (test walks first 64 KB)         */
+     uiox_uint64_t base;   /**< Physical base address                          */
+     uiox_uint64_t size;   /**< Size in bytes (test walks first 64 KB)         */
  } uiox_soc_post_ram_region_t;
  
  #define UIOX_SOC_POST_MAX_RAM_REGIONS   8u
  
  /* ── POST configuration ─────────────────────────────────── */
  typedef struct {
-     uint32_t                   test_mask;
-     uintptr_t                  rom_base;
-     uint32_t                   rom_size;
-     uint32_t                   rom_crc32_expected;
+     uiox_uint32_t                   test_mask;
+     uiox_uintptr_t                  rom_base;
+     uiox_uint32_t                   rom_size;
+     uiox_uint32_t                   rom_crc32_expected;
      uiox_soc_post_ram_region_t ram[UIOX_SOC_POST_MAX_RAM_REGIONS];
-     uint32_t                   ram_count;
-     uintptr_t                  uart_base;
-     uintptr_t                  gic_dist_base;
-     uintptr_t                  stack_base;
-     uint32_t                   stack_sentinel;
+     uiox_uint32_t                   ram_count;
+     uiox_uintptr_t                  uart_base;
+     uiox_uintptr_t                  gic_dist_base;
+     uiox_uintptr_t                  stack_base;
+     uiox_uint32_t                   stack_sentinel;
  } uiox_soc_post_cfg_t;
  
  /* ── POST result report ─────────────────────────────────── */
  typedef struct {
      uiox_soc_post_result_t overall;
-     uint32_t               failed_tests;
-     uint32_t               passed_tests;
-     uint32_t               cpu_midr;
-     uint64_t               timer_freq_hz;
-     uint32_t               rom_crc32_actual;
-     uint64_t               ram_tested_bytes;
-     uint32_t               gic_typer;
+     uiox_uint32_t               failed_tests;
+     uiox_uint32_t               passed_tests;
+     uiox_uint32_t               cpu_midr;
+     uiox_uint32_t               timer_freq_hz;
+     uiox_uint32_t               rom_crc32_actual;
+     uiox_uint32_t               ram_tested_bytes;
+     uiox_uint32_t               gic_typer;
      char                   fail_msg[128];
  } uiox_soc_post_report_t;
  
@@ -93,11 +93,11 @@
  void                   uiox_soc_post_print (const uiox_soc_post_report_t *r);
  
  /** Write stack sentinel at startup. */
- void                   uiox_soc_post_stack_mark(uintptr_t stack_base,
-                                                   uint32_t  sentinel);
+ void                   uiox_soc_post_stack_mark(uiox_uintptr_t stack_base,
+                                                   uiox_uint32_t  sentinel);
  
  /** CRC32 (IEEE 802.3) — used for ROM integrity check. */
- uint32_t               uiox_soc_crc32     (const uint8_t *data, size_t len);
+ uiox_uint32_t               uiox_soc_crc32     (const uiox_uint8_t *data, uiox_size_t len);
  
  #ifdef __cplusplus
  }

@@ -8,13 +8,14 @@
  #include "../include/uiox_soc_stdio.h"    /* replaces <stdio.h>  */
  #include "../include/uiox_soc_string.h"   /* replaces <string.h> */
  #include "../../10_Arch/riscv64/include/arch_defs.h"
- #include "../../20_DriverInterfaces/include/hw_types.h"
- #include "../../20_DriverInterfaces/include/mmio.h"
- #include "../../20_DriverInterfaces/include/irq.h"
+ //#include "../../10_Arch/arm32/include/arch_types.h"
+ 
+ #include "../../10_Arch/arm32/include/mmio.h"
+ #include "../../10_Arch/arm32/include/irq.h"
  
  /* ── CSR helpers ─────────────────────────────────────────────────────── */
- //#define rv_csrr(reg)   ({ uiox_uint64_t _v; \
-     __asm__ volatile("csrr %0, " #reg : "=r"(_v)); _v; })
+ /* #define rv_csrr(reg)   ({ uiox_uint64_t _v; \
+     __asm__ volatile("csrr %0, " #reg : "=r"(_v)); _v; }) */
 
 /* REPLACE with per-CSR inline functions — ISO C11 compliant */
 static inline uiox_uint64_t rv_read_misa(void)
@@ -46,9 +47,9 @@ static inline void rv_write_sie(uiox_uint64_t v)
     __asm__ volatile("csrw sie, %0" :: "r"(v) : "memory");
 }
 
- //#define rv_csrw(reg,v) \
+ /* #define rv_csrw(reg,v) \
      __asm__ volatile("csrw " #reg ", %0" \
-                      :: "r"((uiox_uint64_t)(v)) : "memory")
+                      :: "r"((uiox_uint64_t)(v)) : "memory") */
  
  /* ── CLINT init ──────────────────────────────────────────────────────── */
  static void rv_clint_init(uiox_uint32_t hart_id)

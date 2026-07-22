@@ -35,7 +35,9 @@ arm32_irq_entry:
     /* Read GIC CPU IAR to get IRQ number */
     ldr     r4,  =0x0801000C        /* GIC_CPU_IAR                     */
     ldr     r0,  [r4]
-    and     r5,  r0, #0x3FF         /* save IRQ number, strip source   */
+    /*and     r5,  r0, #0x3FF */        /* save IRQ number, strip source   */
+    movw    r6,  #0x3FF             /* load 10-bit mask into r6        */
+    and     r5,  r0, r6             /* save IRQ number, strip source   */
 
     /* Call C dispatcher */
     mov     r0,  r5

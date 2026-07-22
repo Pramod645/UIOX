@@ -103,32 +103,32 @@ extern "C" {
 /* =========================================================================
  * MSR read/write helpers (Ring 0 only)
  * ====================================================================== */
-static inline uint64_t x86_rdmsr(uint32_t msr)
+static inline uiox_uint64_t x86_rdmsr(uiox_uint32_t msr)
 {
-    uint32_t lo, hi;
+    uiox_uint32_t lo, hi;
     __asm__ volatile("rdmsr" : "=a"(lo), "=d"(hi) : "c"(msr));
-    return ((uint64_t)hi << 32u) | (uint64_t)lo;
+    return ((uiox_uint64_t)hi << 32u) | (uiox_uint64_t)lo;
 }
 
-static inline void x86_wrmsr(uint32_t msr, uint64_t val)
+static inline void x86_wrmsr(uiox_uint32_t msr, uiox_uint64_t val)
 {
-    uint32_t lo = (uint32_t)(val & 0xFFFFFFFFu);
-    uint32_t hi = (uint32_t)(val >> 32u);
+    uiox_uint32_t lo = (uiox_uint32_t)(val & 0xFFFFFFFFu);
+    uiox_uint32_t hi = (uiox_uint32_t)(val >> 32u);
     __asm__ volatile("wrmsr" :: "c"(msr), "a"(lo), "d"(hi) : "memory");
 }
 
 /* =========================================================================
  * IOAPIC indirect access helpers
  * ====================================================================== */
-static inline uint32_t ioapic_read(uint8_t reg)
+static inline uiox_uint32_t ioapic_read(uiox_uint32_t reg)
 {
-    soc_mmio_write32(IOAPIC_IOREGSEL, (uint32_t)reg);
+    soc_mmio_write32(IOAPIC_IOREGSEL, (uiox_uint32_t)reg);
     return soc_mmio_read32(IOAPIC_IOWIN);
 }
 
-static inline void ioapic_write(uint8_t reg, uint32_t val)
+static inline void ioapic_write(uiox_uint8_t reg, uiox_uint32_t val)
 {
-    soc_mmio_write32(IOAPIC_IOREGSEL, (uint32_t)reg);
+    soc_mmio_write32(IOAPIC_IOREGSEL, (uiox_uint32_t)reg);
     soc_mmio_write32(IOAPIC_IOWIN, val);
 }
 

@@ -4,9 +4,14 @@
  * Cortex-A9 private timer, and SMP ACTLR.SMP setup.
  */
 #include "../include/uiox_soc_arm32.h"
-#include "../../../02_FwHal/include/uiox_soc.h"
-#include "../../../20_DriverInterfaces/include/mmio.h"
-#include "../../../20_DriverInterfaces/include/irq.h"
+#include "uiox_soc.h"
+ //#include "../../10_Arch/arm32/include/arch_types.h"
+ 
+ #include "../../10_Arch/arm32/include/mmio.h"
+ #include "../../10_Arch/arm32/include/irq.h"
+ #include "../../10_Arch/arm32/include/cpu.h"
+  #include "../../10_Arch/arm32/include/arch_defs.h"
+
 #include "../include/uiox_soc_stdio.h" 
 
 /* ── SCU enable ──────────────────────────────────────────────────────── */
@@ -16,13 +21,13 @@ static void arm32_scu_enable(void)
     mmio_write32(SCU_INVALIDATE, 0xFFFFu);
     arch_dsb();
 
-    uint32_t ctrl = mmio_read32(SCU_CTRL);
+    uiox_uint32_t ctrl = mmio_read32(SCU_CTRL);
     ctrl |= SCU_CTRL_ENABLE;
     mmio_write32(SCU_CTRL, ctrl);
     arch_dsb();
 
-    uint32_t cfg = mmio_read32(SCU_CFG);
-    uint32_t ncpus = (cfg & 0x3u) + 1u;
+    uiox_uint32_t cfg = mmio_read32(SCU_CFG);
+    uiox_uint32_t ncpus = (cfg & 0x3u) + 1u;
     printf("[soc/arm32] SCU enabled: %u CPU(s) detected\n", ncpus);
 }
 
@@ -30,7 +35,7 @@ static void arm32_scu_enable(void)
 static void arm32_l2c310_init(void)
 {
     /* Check presence: if base reads all-FF, no PL310 */
-    uint32_t id = mmio_read32(L2C310_BASE + 0x000u);
+    uiox_uint32_t id = mmio_read32(L2C310_BASE + 0x000u);
     if (id == 0u || id == 0xFFFFFFFFu) {
         printf("[soc/arm32] L2C-310 not present — skipping\n");
         return;
@@ -64,11 +69,11 @@ static void arm32_l2c310_init(void)
 }
 
 /* ── Cortex-A9 private timer init at 100 Hz ──────────────────────────── */
-static void arm32_ptimer_init(uint32_t hz)
+static void arm32_ptimer_init(uiox_uint32_t hz)
 {
     /* Private timer prescaler = 0 (no prescale), use periph clock / 1 */
-    uint32_t periph_clk = 400000000u;  /* 400 MHz typical on Cortex-A9    */
-    uint32_t load_val   = (periph_clk / hz) - 1u;
+    uiox_uint32_t periph_clk = 400000000u;  /* 400 MHz typical on Cortex-A9    */
+    uiox_uint32_t load_val   = (periph_clk / hz) - 1u;
 
     mmio_write32(PTIMER_CTRL,    0u);           /* disable first           */
     mmio_write32(PTIMER_LOAD,    load_val);
@@ -85,7 +90,7 @@ static void arm32_ptimer_init(uint32_t hz)
 /* ── SMP: set ACTLR.SMP so coherent cache maintenance works ─────────── */
 static void arm32_smp_enable(void)
 {
-    uint32_t actlr = ARM32_READ_ACTLR();
+    uiox_uint32_t actlr = ARM32_READ_ACTLR();
     if (!(actlr & ACTLR_SMP_BIT)) {
         actlr |= ACTLR_SMP_BIT;
         ARM32_WRITE_ACTLR(actlr);
@@ -98,13 +103,13 @@ static void arm32_smp_enable(void)
 /* ── MIDR / MPIDR identify ───────────────────────────────────────────── */
 static void arm32_print_cpu_info(void)
 {
-    uint32_t midr  = ARM32_READ_MIDR();
-    uint32_t mpidr = ARM32_READ_MPIDR();
-    uint32_t part  = (midr >>  4u) & 0xFFFu;
-    uint32_t rev   = (midr >>  0u) & 0xFu;
-    uint32_t var   = (midr >> 20u) & 0xFu;
-    uint32_t cpu   =  mpidr        & 0x3u;
-    uint32_t clust = (mpidr >> 8u) & 0xFu;
+    uiox_uint32_t midr  = ARM32_READ_MIDR();
+    uiox_uint32_t mpidr = ARM32_READ_MPIDR();
+    uiox_uint32_t part  = (midr >>  4u) & 0xFFFu;
+    uiox_uint32_t rev   = (midr >>  0u) & 0xFu;
+    uiox_uint32_t var   = (midr >> 20u) & 0xFu;
+    uiox_uint32_t cpu   =  mpidr        & 0x3u;
+    uiox_uint32_t clust = (mpidr >> 8u) & 0xFu;
 
     printf("[soc/arm32] CPU[%u:%u] MIDR=0x%08x (part=0x%03x r%up%u)\n",
            clust, cpu, midr, part, var, rev);

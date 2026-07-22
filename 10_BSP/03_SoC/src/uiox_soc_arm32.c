@@ -8,9 +8,12 @@
  #include "../include/uiox_soc_stdio.h"    /* replaces <stdio.h>  */
  #include "../include/uiox_soc_string.h"   /* replaces <string.h> */
  #include "../../10_Arch/arm32/include/arch_defs.h"
- #include "../../20_DriverInterfaces/include/hw_types.h"
- #include "../../20_DriverInterfaces/include/mmio.h"
- #include "../../20_DriverInterfaces/include/irq.h"
+
+ //#include "../../10_Arch/arm32/include/arch_types.h"
+ 
+ #include "../../10_Arch/arm32/include/mmio.h"
+ #include "../../10_Arch/arm32/include/irq.h"
+
  
  /* ── CP15 helpers ────────────────────────────────────────────────────── */
  

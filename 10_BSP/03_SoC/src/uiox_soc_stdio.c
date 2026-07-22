@@ -6,7 +6,7 @@
 
  #include "uiox_soc_stdio.h"
  #include "uiox_soc_hw.h"
- #include <stdarg.h>
+ #include "uiox_stdarg.h"
  
  /* =========================================================================
   * Internal helpers — soft division (no libc, no / operator issues on ARM)

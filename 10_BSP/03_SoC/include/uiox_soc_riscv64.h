@@ -30,16 +30,16 @@ extern "C" {
  * ====================================================================== */
 typedef struct { long error; long value; } sbi_ret_t;
 
-static inline sbi_ret_t sbi_call(uint64_t eid, uint64_t fid,
-                                  uint64_t a0, uint64_t a1,
-                                  uint64_t a2, uint64_t a3)
+static inline sbi_ret_t sbi_call(uiox_uint64_t eid, uiox_uint64_t fid,
+                                  uiox_uint64_t a0, uiox_uint64_t a1,
+                                  uiox_uint64_t a2, uiox_uint64_t a3)
 {
-    register uint64_t _a0 __asm__("a0") = a0;
-    register uint64_t _a1 __asm__("a1") = a1;
-    register uint64_t _a2 __asm__("a2") = a2;
-    register uint64_t _a3 __asm__("a3") = a3;
-    register uint64_t _a6 __asm__("a6") = fid;
-    register uint64_t _a7 __asm__("a7") = eid;
+    register uiox_uint64_t _a0 __asm__("a0") = a0;
+    register uiox_uint64_t _a1 __asm__("a1") = a1;
+    register uiox_uint64_t _a2 __asm__("a2") = a2;
+    register uiox_uint64_t _a3 __asm__("a3") = a3;
+    register uiox_uint64_t _a6 __asm__("a6") = fid;
+    register uiox_uint64_t _a7 __asm__("a7") = eid;
     __asm__ volatile("ecall"
         : "+r"(_a0), "+r"(_a1)
         : "r"(_a2), "r"(_a3), "r"(_a6), "r"(_a7)

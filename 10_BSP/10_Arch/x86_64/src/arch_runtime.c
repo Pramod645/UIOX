@@ -27,7 +27,7 @@
      /* Hardware IRQ: vector 32-47 = PIC-remapped IRQ 0-15 */
      irq_dispatch((unsigned int)(vector - 32u));
      /* Send EOI to LAPIC */
-     mmio_write32((unsigned long)(LAPIC_BASE + 0x0B0u), 0u);
+     soc_mmio_write32((unsigned long)(LAPIC_BASE + 0x0B0u), 0u);
  }
  
  void x86_exception_dispatch(unsigned long vector,

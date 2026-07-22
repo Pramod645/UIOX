@@ -223,11 +223,11 @@ RV64_OBJDIR := $(BUILDDIR)/riscv64
 RV64_LIB    := $(RV64_OBJDIR)/libarch_riscv64.a
 
 RV64_CFLAGS := $(CFLAGS_COMMON) \
-  -march=rv64imac_zicsr -mabi=lp64 -mcmodel=medany \
+  -march=rv64imafdc_zicsr_zifencei -mabi=lp64d -mcmodel=medany \
   -DARCH_RISCV64 -I$(RV64_INCDIR)
 
 RV64_ASFLAGS := -Wall -ffreestanding \
-  -march=rv64imac_zicsr -mabi=lp64 -mcmodel=medany \
+  -march=rv64imafdc_zicsr_zifencei -mabi=lp64d \
   -DARCH_RISCV64 -I$(RV64_INCDIR)
 
 RV64_C_SRCS := \

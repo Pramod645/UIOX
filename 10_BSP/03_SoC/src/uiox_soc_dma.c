@@ -25,7 +25,7 @@
  { ctrl->initialized = false; }
  
  static uiox_soc_err_t sw_dma_transfer(uiox_soc_dma_ctrl_t *ctrl,
-                                         uint32_t chan,
+                                         uiox_uint32_t chan,
                                          const uiox_soc_dma_xfer_t *xfer)
  {
      if (chan >= UIOX_SOC_DMA_MAX_CHANNELS) return UIOX_SOC_ERR_INVAL;
@@ -34,25 +34,25 @@
  
      /* Software copy respecting width and increment flags */
      if (xfer->width == UIOX_SOC_DMA_WIDTH_32) {
-         volatile uint32_t *s = (volatile uint32_t *)xfer->src;
-         volatile uint32_t *d = (volatile uint32_t *)xfer->dst;
-         for (uint32_t i = 0u; i < xfer->len / 4u; i++) {
+         volatile uiox_uint32_t *s = (volatile uiox_uint32_t *)xfer->src;
+         volatile uiox_uint32_t *d = (volatile uiox_uint32_t *)xfer->dst;
+         for (uiox_uint32_t i = 0u; i < xfer->len / 4u; i++) {
              *d = *s;
              if (xfer->src_inc) s++;
              if (xfer->dst_inc) d++;
          }
      } else if (xfer->width == UIOX_SOC_DMA_WIDTH_16) {
-         volatile uint16_t *s = (volatile uint16_t *)xfer->src;
-         volatile uint16_t *d = (volatile uint16_t *)xfer->dst;
-         for (uint32_t i = 0u; i < xfer->len / 2u; i++) {
+         volatile uiox_uint16_t *s = (volatile uiox_uint16_t *)xfer->src;
+         volatile uiox_uint16_t *d = (volatile uiox_uint16_t *)xfer->dst;
+         for (uiox_uint32_t i = 0u; i < xfer->len / 2u; i++) {
              *d = *s;
              if (xfer->src_inc) s++;
              if (xfer->dst_inc) d++;
          }
      } else {
-         volatile uint8_t *s = (volatile uint8_t *)xfer->src;
-         volatile uint8_t *d = (volatile uint8_t *)xfer->dst;
-         for (uint32_t i = 0u; i < xfer->len; i++) {
+         volatile uiox_uint8_t *s = (volatile uiox_uint8_t *)xfer->src;
+         volatile uiox_uint8_t *d = (volatile uiox_uint8_t *)xfer->dst;
+         for (uiox_uint32_t i = 0u; i < xfer->len; i++) {
              *d = *s;
              if (xfer->src_inc) s++;
              if (xfer->dst_inc) d++;
@@ -65,29 +65,29 @@
      return UIOX_SOC_OK;
  }
  
- static bool sw_dma_busy(uiox_soc_dma_ctrl_t *ctrl, uint32_t chan)
+ static uiox_bool_t sw_dma_busy(uiox_soc_dma_ctrl_t *ctrl, uiox_uint32_t chan)
  { return chan < UIOX_SOC_DMA_MAX_CHANNELS ? ctrl->chan_busy[chan] : false; }
  
  static uiox_soc_err_t sw_dma_wait(uiox_soc_dma_ctrl_t *ctrl,
-                                     uint32_t chan)
+                                     uiox_uint32_t chan)
  {
      /* Software DMA completes synchronously — already done */
      (void)ctrl; (void)chan;
      return UIOX_SOC_OK;
  }
  
- static void sw_dma_abort(uiox_soc_dma_ctrl_t *ctrl, uint32_t chan)
+ static void sw_dma_abort(uiox_soc_dma_ctrl_t *ctrl, uiox_uint32_t chan)
  { if (chan < UIOX_SOC_DMA_MAX_CHANNELS) ctrl->chan_busy[chan] = false; }
  
  static int sw_dma_alloc_chan(uiox_soc_dma_ctrl_t *ctrl)
  {
-     for (uint32_t i = 0u; i < UIOX_SOC_DMA_MAX_CHANNELS; i++) {
+     for (uiox_uint32_t i = 0u; i < UIOX_SOC_DMA_MAX_CHANNELS; i++) {
          if (!ctrl->chan_busy[i]) return (int)i;
      }
      return -1;
  }
  
- static void sw_dma_free_chan(uiox_soc_dma_ctrl_t *ctrl, uint32_t chan)
+ static void sw_dma_free_chan(uiox_soc_dma_ctrl_t *ctrl, uiox_uint32_t chan)
  { if (chan < UIOX_SOC_DMA_MAX_CHANNELS) ctrl->chan_busy[chan] = false; }
  
  static void sw_dma_isr(uiox_soc_dma_ctrl_t *ctrl) { (void)ctrl; }
@@ -125,25 +125,25 @@
  }
  
  uiox_soc_err_t uiox_soc_dma_transfer(uiox_soc_dma_ctrl_t *ctrl,
-                                        uint32_t chan,
+                                        uiox_uint32_t chan,
                                         const uiox_soc_dma_xfer_t *xfer)
  {
      if (!ctrl || !ctrl->priv || !xfer) return UIOX_SOC_ERR_INVAL;
      return OPS(ctrl)->transfer(ctrl, chan, xfer);
  }
  
- bool uiox_soc_dma_busy(uiox_soc_dma_ctrl_t *ctrl, uint32_t chan)
+ uiox_bool_t uiox_soc_dma_busy(uiox_soc_dma_ctrl_t *ctrl, uiox_uint32_t chan)
  {
      return ctrl && ctrl->priv ? OPS(ctrl)->busy(ctrl, chan) : false;
  }
  
- uiox_soc_err_t uiox_soc_dma_wait(uiox_soc_dma_ctrl_t *ctrl, uint32_t chan)
+ uiox_soc_err_t uiox_soc_dma_wait(uiox_soc_dma_ctrl_t *ctrl, uiox_uint32_t chan)
  {
      if (!ctrl || !ctrl->priv) return UIOX_SOC_ERR_INVAL;
      return OPS(ctrl)->wait(ctrl, chan);
  }
  
- void uiox_soc_dma_abort(uiox_soc_dma_ctrl_t *ctrl, uint32_t chan)
+ void uiox_soc_dma_abort(uiox_soc_dma_ctrl_t *ctrl, uiox_uint32_t chan)
  {
      if (ctrl && ctrl->priv) OPS(ctrl)->abort(ctrl, chan);
  }
@@ -153,15 +153,15 @@
      return ctrl && ctrl->priv ? OPS(ctrl)->alloc_chan(ctrl) : -1;
  }
  
- void uiox_soc_dma_free_chan(uiox_soc_dma_ctrl_t *ctrl, uint32_t chan)
+ void uiox_soc_dma_free_chan(uiox_soc_dma_ctrl_t *ctrl, uiox_uint32_t chan)
  {
      if (ctrl && ctrl->priv) OPS(ctrl)->free_chan(ctrl, chan);
  }
  
  uiox_soc_err_t uiox_soc_dma_memcpy(uiox_soc_dma_ctrl_t *ctrl,
-                                      uintptr_t dst,
-                                      uintptr_t src,
-                                      uint32_t  len)
+                                      uiox_uintptr_t dst,
+                                      uiox_uintptr_t src,
+                                      uiox_uint32_t  len)
  {
      int chan = uiox_soc_dma_alloc_chan(ctrl);
      if (chan < 0) return UIOX_SOC_ERR_BUSY;
@@ -177,10 +177,10 @@
          .complete_cb = NULL,
      };
  
-     uiox_soc_err_t rc = uiox_soc_dma_transfer(ctrl, (uint32_t)chan, &x);
+     uiox_soc_err_t rc = uiox_soc_dma_transfer(ctrl, (uiox_uint32_t)chan, &x);
      if (rc == UIOX_SOC_OK)
-         uiox_soc_dma_wait(ctrl, (uint32_t)chan);
-     uiox_soc_dma_free_chan(ctrl, (uint32_t)chan);
+         uiox_soc_dma_wait(ctrl, (uiox_uint32_t)chan);
+     uiox_soc_dma_free_chan(ctrl, (uiox_uint32_t)chan);
      return rc;
  }
  

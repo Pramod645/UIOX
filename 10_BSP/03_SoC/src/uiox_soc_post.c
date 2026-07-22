@@ -12,28 +12,28 @@
   * Bare-metal helpers (no libc)
   * ====================================================================== */
  
- static void soc_memset_post(void *dst, int val, size_t n)
+ static void soc_memset_post(void *dst, int val, uiox_size_t n)
  {
-     uint8_t *d = (uint8_t *)dst;
-     while (n--) *d++ = (uint8_t)val;
+     uiox_uint8_t *d = (uiox_uint8_t *)dst;
+     while (n--) *d++ = (uiox_uint8_t)val;
  }
  
- static void soc_strncpy_post(char *dst, const char *src, size_t n)
+ static void soc_strncpy_post(char *dst, const char *src, uiox_size_t n)
  {
-     size_t i = 0u;
+     uiox_size_t i = 0u;
      while (i < n - 1u && src[i]) { dst[i] = src[i]; i++; }
      dst[i] = '\0';
  }
  
  /* Minimal unsigned decimal → string (writes into buf, returns ptr) */
- static char *soc_u64_to_dec(uint64_t v, char *buf, size_t bufsz)
+ static char *soc_u64_to_dec(uiox_uint64_t v, char *buf, uiox_size_t bufsz)
  {
      if (bufsz == 0u) return buf;
      char tmp[24]; int n = 0;
      if (v == 0u) { buf[0] = '0'; buf[1] = '\0'; return buf; }
      while (v && n < 23) { tmp[n++] = (char)('0' + v % 10u); v /= 10u; }
      int j = 0;
-     for (int i = n - 1; i >= 0 && (size_t)j < bufsz - 1u; i--)
+     for (int i = n - 1; i >= 0 && (uiox_size_t)j < bufsz - 1u; i--)
          buf[j++] = tmp[i];
      buf[j] = '\0';
      return buf;
@@ -51,7 +51,7 @@
      }
  }
  
- static void soc_print_u64_post(uint64_t v)
+ static void soc_print_u64_post(uiox_uint64_t v)
  {
      char buf[24];
      soc_puts_post(soc_u64_to_dec(v, buf, sizeof(buf)));
@@ -124,24 +124,24 @@
          const uiox_soc_post_cfg_t *cfg,
          uiox_soc_post_report_t    *r)
  {
-     static const uint32_t patterns[] = {
+     static const uiox_uint32_t patterns[] = {
          0xAAAAAAAAu, 0x55555555u, 0xFFFFFFFFu, 0x00000000u,
          0xDEADBEEFu
      };
  
      r->ram_tested_bytes = 0u;
  
-     for (uint32_t ri = 0u; ri < cfg->ram_count; ri++) {
-         uint64_t base = cfg->ram[ri].base;
-         uint64_t test_sz = cfg->ram[ri].size < 0x10000ULL
+     for (uiox_uint32_t ri = 0u; ri < cfg->ram_count; ri++) {
+         uiox_uint64_t base = cfg->ram[ri].base;
+         uiox_uint64_t test_sz = cfg->ram[ri].size < 0x10000ULL
                             ? cfg->ram[ri].size : 0x10000ULL;
  
-         for (uint32_t pi = 0u;
+         for (uiox_uint32_t pi = 0u;
               pi < sizeof(patterns) / sizeof(patterns[0]); pi++) {
-             volatile uint32_t *p = (volatile uint32_t *)(uintptr_t)base;
-             for (uint64_t w = 0u; w < test_sz / 4u; w++)
+             volatile uiox_uint32_t *p = (volatile uiox_uint32_t *)(uiox_uintptr_t)base;
+             for (uiox_uint64_t w = 0u; w < test_sz / 4u; w++)
                  p[w] = patterns[pi];
-             for (uint64_t w = 0u; w < test_sz / 4u; w++) {
+             for (uiox_uint64_t w = 0u; w < test_sz / 4u; w++) {
                  if (p[w] != patterns[pi]) {
                      soc_strncpy_post(r->fail_msg,
                                       "RAM: pattern mismatch",
@@ -159,8 +159,8 @@
          const uiox_soc_post_cfg_t *cfg,
          uiox_soc_post_report_t    *r)
  {
-     uint32_t crc = uiox_soc_crc32(
-                         (const uint8_t *)(uintptr_t)cfg->rom_base,
+    uiox_uint32_t crc = uiox_soc_crc32(
+                         (const uiox_uint8_t *)(uiox_uintptr_t)cfg->rom_base,
                          cfg->rom_size);
      r->rom_crc32_actual = crc;
      if (crc != cfg->rom_crc32_expected) {
@@ -230,8 +230,8 @@
          uiox_soc_post_report_t    *r)
  {
      if (cfg->gic_dist_base == 0u) return UIOX_SOC_POST_OK;
-     uint32_t typer = soc_mmio_read32(
-                          (uintptr_t)(cfg->gic_dist_base + 0x04u));
+     uiox_uint32_t typer = soc_mmio_read32(
+                          (uiox_uintptr_t)(cfg->gic_dist_base + 0x04u));
      r->gic_typer = typer;
      if ((typer & 0x1Fu) == 0u) {
          soc_strncpy_post(r->fail_msg, "GIC: GICD_TYPER.ITLines = 0",
@@ -245,8 +245,8 @@
          const uiox_soc_post_cfg_t *cfg)
  {
      if (cfg->stack_base == 0u) return UIOX_SOC_POST_OK;
-     volatile uint32_t *sentinel =
-         (volatile uint32_t *)(uintptr_t)cfg->stack_base;
+     volatile uiox_uint32_t *sentinel =
+         (volatile uiox_uint32_t *)(uiox_uintptr_t)cfg->stack_base;
      if (*sentinel != cfg->stack_sentinel) {
          return UIOX_SOC_POST_FAIL_STACK;
      }
@@ -257,10 +257,10 @@
   * Public API
   * ====================================================================== */
  
- void uiox_soc_post_stack_mark(uintptr_t stack_base, uint32_t sentinel)
+ void uiox_soc_post_stack_mark(uiox_uintptr_t stack_base, uiox_uint32_t sentinel)
  {
      if (stack_base)
-         *((volatile uint32_t *)stack_base) = sentinel;
+         *((volatile uiox_uint32_t *)stack_base) = sentinel;
  }
  
  uiox_soc_post_result_t uiox_soc_post_run(const uiox_soc_post_cfg_t *cfg,
@@ -303,7 +303,7 @@
      soc_puts_post("\n  passed_tests : 0x");
      /* hex print for bitmask */
      char buf[12];
-     uint32_t v = r->passed_tests;
+     uiox_uint32_t v = r->passed_tests;
      int i = 7;
      buf[8] = '\n'; buf[9] = '\0';
      static const char h[] = "0123456789abcdef";
@@ -334,9 +334,9 @@
   * CRC32 (IEEE 802.3 polynomial)
   * ====================================================================== */
  
- uint32_t uiox_soc_crc32(const uint8_t *data, size_t len)
+  uiox_uint32_t uiox_soc_crc32(const uiox_uint8_t *data, uiox_size_t len)
  {
-     uint32_t crc = 0xFFFFFFFFu;
+    uiox_uint32_t crc = 0xFFFFFFFFu;
      while (len--) {
          crc ^= *data++;
          for (int b = 0; b < 8; b++) {

@@ -34,13 +34,13 @@
  void uiox_soc_hw_irq_init(void)
  { if (s_ops && s_ops->irq_init)      s_ops->irq_init(s_plat); }
  
- void uiox_soc_hw_irq_enable(uint32_t irq)
+ void uiox_soc_hw_irq_enable(uiox_uint32_t irq)
  { if (s_ops && s_ops->irq_enable)    s_ops->irq_enable(irq); }
  
- void uiox_soc_hw_irq_disable(uint32_t irq)
+ void uiox_soc_hw_irq_disable(uiox_uint32_t irq)
  { if (s_ops && s_ops->irq_disable)   s_ops->irq_disable(irq); }
  
- void uiox_soc_hw_irq_ack(uint32_t irq)
+ void uiox_soc_hw_irq_ack(uiox_uint32_t irq)
  { if (s_ops && s_ops->irq_ack)       s_ops->irq_ack(irq); }
  
  void uiox_soc_hw_irq_global_en(void)
@@ -67,7 +67,7 @@
  void uiox_soc_hw_isb(void)
  { if (s_ops && s_ops->barrier_isb)   s_ops->barrier_isb(); }
  
- uint64_t uiox_soc_hw_tick(void)
+ uiox_uint64_t uiox_soc_hw_tick(void)
  { return s_ops && s_ops->timer_tick ? s_ops->timer_tick() : 0u; }
  
  void __attribute__((noreturn)) uiox_soc_hw_reset(void)

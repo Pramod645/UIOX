@@ -10,7 +10,7 @@
 #define UIOX_SOC_ARM32_H
 
 #include "arch_defs.h"
-#include "../../../02_FwHal/include/uiox_soc.h"
+#include "uiox_soc.h"
 
 #ifdef __cplusplus
 extern "C" {
@@ -70,10 +70,10 @@ extern "C" {
 /* =========================================================================
  * CP15 register accessor macros (ARM32 coprocessor read/write)
  * ====================================================================== */
-#define CP15_READ(reg)  ({ uint32_t _v; \
+#define CP15_READ(reg)  ({ uiox_uint32_t _v; \
     __asm__ volatile("mrc " reg : "=r"(_v) :: "memory"); _v; })
 #define CP15_WRITE(reg, v) \
-    __asm__ volatile("mcr " reg :: "r"((uint32_t)(v)) : "memory")
+    __asm__ volatile("mcr " reg :: "r"((uiox_uint32_t)(v)) : "memory")
 
 /* MIDR read */
 #define ARM32_READ_MIDR()   CP15_READ("p15, 0, %0, c0, c0, 0")

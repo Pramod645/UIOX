@@ -198,7 +198,7 @@
       */
      unsigned long satp = SATP_MODE_SV39 | (pgd_phys >> 12u);
      arch_csrw_satp(satp);
-     arch_isb();
+     //arch_isb();
      arch_tlb_flush_all();
  }
  

@@ -12,15 +12,15 @@
   * Bare-metal helpers
   * ====================================================================== */
  
- static void soc_memset_tz(void *dst, int val, size_t n)
+ static void soc_memset_tz(void *dst, int val, uiox_size_t n)
  {
-     uint8_t *d = (uint8_t *)dst;
-     while (n--) *d++ = (uint8_t)val;
+     uiox_uint8_t *d = (uiox_uint8_t *)dst;
+     while (n--) *d++ = (uiox_uint8_t)val;
  }
  
- static void soc_strncpy_tz(char *dst, const char *src, size_t n)
+ static void soc_strncpy_tz(char *dst, const char *src, uiox_size_t n)
  {
-     size_t i = 0u;
+    uiox_size_t i = 0u;
      while (i < n - 1u && src[i]) { dst[i] = src[i]; i++; }
      dst[i] = '\0';
  }
@@ -35,7 +35,7 @@
      }
  }
  
- static char *soc_u64_hex_tz(uint64_t v, char *buf)
+ static char *soc_u64_hex_tz(uiox_uint64_t v, char *buf)
  {
      static const char h[] = "0123456789abcdef";
      for (int i = 15; i >= 0; i--) { buf[i] = h[v & 0xFu]; v >>= 4; }
@@ -43,7 +43,7 @@
      return buf;
  }
  
- static char *soc_u32_dec_tz(uint32_t v, char *buf)
+ static char *soc_u32_dec_tz(uiox_uint32_t v, char *buf)
  {
      char tmp[12]; int n = 0;
      if (v == 0u) { buf[0] = '0'; buf[1] = '\0'; return buf; }
@@ -58,18 +58,18 @@
   * Current Exception Level (ARM only)
   * ====================================================================== */
  
- uint32_t uiox_soc_tz_current_el(void)
+  uiox_uint32_t uiox_soc_tz_current_el(void)
  {
  #if defined(__aarch64__)
-     uint64_t el;
+     uiox_uint64_t el;
      __asm__ volatile("mrs %0, CurrentEL" : "=r"(el));
-     return (uint32_t)((el >> 2u) & 0x3u);
+     return (uiox_uint32_t)((el >> 2u) & 0x3u);
  #elif defined(__arm__)
      /* Read CPSR and extract mode bits */
-     uint32_t cpsr;
+     uiox_uint32_t cpsr;
      __asm__ volatile("mrs %0, cpsr" : "=r"(cpsr));
      /* Monitor mode (0x16) = EL3, Hyp (0x1A) = EL2, else EL1 */
-     uint32_t mode = cpsr & 0x1Fu;
+     uiox_uint32_t mode = cpsr & 0x1Fu;
      if (mode == 0x16u) return 3u;
      if (mode == 0x1Au) return 2u;
      return 1u;
@@ -83,7 +83,7 @@
   * VBAR install
   * ====================================================================== */
  
- uiox_soc_tz_result_t uiox_soc_tz_set_vbar(uintptr_t vbar_pa)
+ uiox_soc_tz_result_t uiox_soc_tz_set_vbar(uiox_uintptr_t vbar_pa)
  {
  #if defined(__aarch64__)
      __asm__ volatile("msr vbar_el3, %0; isb" :: "r"(vbar_pa) : "memory");
@@ -103,19 +103,19 @@
   * GIC secure group configuration
   * ====================================================================== */
  
- uiox_soc_tz_result_t uiox_soc_tz_gic_secure(uintptr_t gicd_base,
-                                                uint32_t  num_irqs,
-                                                uint32_t  secure_irq_mask)
+ uiox_soc_tz_result_t uiox_soc_tz_gic_secure(uiox_uintptr_t gicd_base,
+                                                uiox_uint32_t  num_irqs,
+                                                uiox_uint32_t  secure_irq_mask)
  {
      if (gicd_base == 0u) return UIOX_SOC_TZ_ERR_GIC;
  
      /* GICD_IGROUPR: 1 = NS Group 1, 0 = Secure Group 0
       * Write ~secure_irq_mask to first register to set secure IRQs */
-     uint32_t regs = (num_irqs + 31u) / 32u;
-     for (uint32_t i = 0u; i < regs; i++) {
-         uintptr_t addr = gicd_base + 0x80u + (uintptr_t)(i * 4u);
+     uiox_uint32_t regs = (num_irqs + 31u) / 32u;
+     for (uiox_uint32_t i = 0u; i < regs; i++) {
+         uiox_uintptr_t addr = gicd_base + 0x80u + (uiox_uintptr_t)(i * 4u);
          /* First register: apply secure_irq_mask; rest: all NS */
-         uint32_t val = (i == 0u) ? ~secure_irq_mask : 0xFFFFFFFFu;
+         uiox_uint32_t val = (i == 0u) ? ~secure_irq_mask : 0xFFFFFFFFu;
          soc_mmio_write32(addr, val);
      }
      return UIOX_SOC_TZ_OK;
@@ -125,8 +125,8 @@
   * TZC-400 region configuration
   * ====================================================================== */
  
- uiox_soc_tz_result_t uiox_soc_tzc_set_region(uintptr_t                   tzc_base,
-                                                uint32_t                    region_id,
+ uiox_soc_tz_result_t uiox_soc_tzc_set_region(uiox_uintptr_t                   tzc_base,
+                                                uiox_uint32_t                    region_id,
                                                 const uiox_soc_tzc_region_t *r)
  {
      if (tzc_base == 0u || !r) return UIOX_SOC_TZ_ERR_TZC;
@@ -141,21 +141,21 @@
       *   REGION_ATTRIBUTES = base + 0x110 + n*0x20
       *   REGION_ID_ACCESS  = base + 0x114 + n*0x20
       */
-     uintptr_t rbase = tzc_base + 0x100u + (uintptr_t)(region_id * 0x20u);
+     uiox_uintptr_t rbase = tzc_base + 0x100u + (uiox_uintptr_t)(region_id * 0x20u);
  
-     soc_mmio_write32(rbase + 0x00u, (uint32_t)(r->base & 0xFFFFFFFFu));
-     soc_mmio_write32(rbase + 0x04u, (uint32_t)(r->base >> 32u));
-     soc_mmio_write32(rbase + 0x08u, (uint32_t)(r->top  & 0xFFFFFFFFu));
-     soc_mmio_write32(rbase + 0x0Cu, (uint32_t)(r->top  >> 32u));
+     soc_mmio_write32(rbase + 0x00u, (uiox_uint32_t)(r->base & 0xFFFFFFFFu));
+     soc_mmio_write32(rbase + 0x04u, (uiox_uint32_t)(r->base >> 32u));
+     soc_mmio_write32(rbase + 0x08u, (uiox_uint32_t)(r->top  & 0xFFFFFFFFu));
+     soc_mmio_write32(rbase + 0x0Cu, (uiox_uint32_t)(r->top  >> 32u));
  
      /* Attributes: [1:0] = filter enable, [31] = region enable */
-     uint32_t attr = 0x3u | (1u << 31u);
+     uiox_uint32_t attr = 0x3u | (1u << 31u);
      if (r->secure_only) attr |= (1u << 2u);
      soc_mmio_write32(rbase + 0x10u, attr);
  
      /* ID access: NSAID read/write enable bitmasks */
-     uint32_t id_access = ((uint32_t)r->nsaid_rd_en << 16u) |
-                           (uint32_t)r->nsaid_wr_en;
+     uiox_uint32_t id_access = ((uiox_uint32_t)r->nsaid_rd_en << 16u) |
+                           (uiox_uint32_t)r->nsaid_wr_en;
      soc_mmio_write32(rbase + 0x14u, id_access);
  
      return UIOX_SOC_TZ_OK;
@@ -166,7 +166,7 @@
   * ====================================================================== */
  
  void __attribute__((noreturn))
- uiox_soc_tz_eret_to_ns(uintptr_t entry, uint64_t spsr, uint64_t x0_arg)
+ uiox_soc_tz_eret_to_ns(uiox_uintptr_t entry, uiox_uint64_t spsr, uiox_uint64_t x0_arg)
  {
  #if defined(__aarch64__)
      __asm__ volatile(
@@ -242,13 +242,13 @@
  
      /* Step 2: configure SCR_EL3 */
  #if defined(__aarch64__)
-     uint64_t scr = SCR_EL3_SOC_VALUE;
+     uiox_uint64_t scr = SCR_EL3_SOC_VALUE;
      if (cfg->enable_fiq_routing) scr |= SCR_EL3_FIQ;
      __asm__ volatile("msr scr_el3, %0; isb" :: "r"(scr) : "memory");
      r->scr_el3_value = scr;
  
      /* Step 3: configure CPTR_EL3 — allow FP/SVE from EL1/EL2 */
-     uint64_t cptr = CPTR_EL3_SOC_VALUE;
+     uiox_uint64_t cptr = CPTR_EL3_SOC_VALUE;
      __asm__ volatile("msr cptr_el3, %0; isb" :: "r"(cptr) : "memory");
      r->cptr_el3_value = cptr;
      r->fpu_enabled    = true;
@@ -282,7 +282,7 @@
  
      /* Step 6: configure TZC-400 regions */
      if (cfg->enable_tzc && cfg->tzc_base) {
-         for (uint32_t i = 0u; i < cfg->tzc_region_count; i++) {
+         for (uiox_uint32_t i = 0u; i < cfg->tzc_region_count; i++) {
              uiox_soc_tz_result_t trc =
                  uiox_soc_tzc_set_region(cfg->tzc_base, i,
                                           &cfg->tzc_regions[i]);
@@ -315,7 +315,7 @@
      r->smc_enabled = true;
      soc_puts_tz("[SOC] TZ init OK — ERET to NS entry 0x");
      char buf[20];
-     soc_puts_tz(soc_u64_hex_tz((uint64_t)cfg->ns_entry_addr, buf));
+     soc_puts_tz(soc_u64_hex_tz((uiox_uint64_t)cfg->ns_entry_addr, buf));
      soc_puts_tz("\n");
  
  #else   /* x86_64 */

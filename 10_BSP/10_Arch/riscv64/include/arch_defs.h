@@ -187,7 +187,9 @@ static inline long arch_sbi_call(unsigned long ext,
 #define SBI_EXT_IPI             0x735049UL    /* "sPI"  */
 #define SBI_EXT_RFNC            0x52464E43UL  /* "RFNC" */
 #define SBI_EXT_HSM             0x48534D55L   /* "HSMU" */
-#define SBI_EXT_SRST            0x53525354UL  /* "SRST" */
+#ifndef SBI_EXT_SRST
+#  define SBI_EXT_SRST          0x53525354UL  /* "SRST" */
+#endif
 
 /* SBI Base function IDs */
 #define SBI_BASE_GET_SPEC_VER   0UL

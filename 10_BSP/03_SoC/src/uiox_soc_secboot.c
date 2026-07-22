@@ -12,23 +12,23 @@
   * Bare-metal helpers
   * ====================================================================== */
  
- static void soc_memset_sb(void *dst, int val, size_t n)
+ static void soc_memset_sb(void *dst, int val, uiox_size_t n)
  {
-     uint8_t *d = (uint8_t *)dst;
-     while (n--) *d++ = (uint8_t)val;
+     uiox_uint8_t *d = (uiox_uint8_t *)dst;
+     while (n--) *d++ = (uiox_uint8_t)val;
  }
  
- static void soc_memcpy_sb(void *dst, const void *src, size_t n)
+ static void soc_memcpy_sb(void *dst, const void *src, uiox_size_t n)
  {
-     uint8_t *d       = (uint8_t *)dst;
-     const uint8_t *s = (const uint8_t *)src;
+    uiox_uint8_t *d       = (uiox_uint8_t *)dst;
+     const uiox_uint8_t *s = (const uiox_uint8_t *)src;
      while (n--) *d++ = *s++;
  }
  
- static int soc_memcmp_sb(const void *a, const void *b, size_t n)
+ static int soc_memcmp_sb(const void *a, const void *b, uiox_size_t n)
  {
-     const uint8_t *p = (const uint8_t *)a;
-     const uint8_t *q = (const uint8_t *)b;
+     const uiox_uint8_t *p = (const uiox_uint8_t *)a;
+     const uiox_uint8_t *q = (const uiox_uint8_t *)b;
      while (n--) {
          if (*p != *q) return (int)*p - (int)*q;
          p++; q++;
@@ -36,9 +36,9 @@
      return 0;
  }
  
- static void soc_strncpy_sb(char *dst, const char *src, size_t n)
+ static void soc_strncpy_sb(char *dst, const char *src, uiox_size_t n)
  {
-     size_t i = 0u;
+    uiox_size_t i = 0u;
      while (i < n - 1u && src[i]) { dst[i] = src[i]; i++; }
      dst[i] = '\0';
  }
@@ -57,7 +57,7 @@
   * SHA-256 (FIPS 180-4)
   * ====================================================================== */
  
- static const uint32_t K256[64] = {
+ static const uiox_uint32_t K256[64] = {
      0x428a2f98u, 0x71374491u, 0xb5c0fbcfu, 0xe9b5dba5u,
      0x3956c25bu, 0x59f111f1u, 0x923f82a4u, 0xab1c5ed5u,
      0xd807aa98u, 0x12835b01u, 0x243185beu, 0x550c7dc3u,
@@ -85,14 +85,14 @@
  #define sig1(x)  (ROTR32(x,17) ^ ROTR32(x,19) ^ ((x) >> 10))
  
  static void sha256_transform(uiox_soc_sha256_ctx_t *ctx,
-                               const uint8_t *block)
+                               const uiox_uint8_t *block)
  {
-     uint32_t W[64], a, b, c, d, e, f, g, h, T1, T2;
+    uiox_uint32_t W[64], a, b, c, d, e, f, g, h, T1, T2;
      for (int i = 0; i < 16; i++) {
-         W[i] = ((uint32_t)block[i*4]   << 24) |
-                ((uint32_t)block[i*4+1] << 16) |
-                ((uint32_t)block[i*4+2] <<  8) |
-                ((uint32_t)block[i*4+3]);
+         W[i] = ((uiox_uint32_t)block[i*4]   << 24) |
+                ((uiox_uint32_t)block[i*4+1] << 16) |
+                ((uiox_uint32_t)block[i*4+2] <<  8) |
+                ((uiox_uint32_t)block[i*4+3]);
      }
      for (int i = 16; i < 64; i++)
          W[i] = sig1(W[i-2]) + W[i-7] + sig0(W[i-15]) + W[i-16];
@@ -123,12 +123,12 @@
  }
  
  void uiox_soc_sha256_update(uiox_soc_sha256_ctx_t *ctx,
-                               const uint8_t *d, size_t len)
+                               const uiox_uint8_t *d, uiox_size_t len)
  {
-     ctx->bit_count += (uint64_t)len * 8u;
+     ctx->bit_count += (uiox_uint64_t)len * 8u;
      while (len > 0u) {
-         uint32_t space = 64u - ctx->buf_len;
-         uint32_t take  = (uint32_t)len < space ? (uint32_t)len : space;
+        uiox_uint32_t space = 64u - ctx->buf_len;
+        uiox_uint32_t take  = (uiox_uint32_t)len < space ? (uiox_uint32_t)len : space;
          soc_memcpy_sb(ctx->buf + ctx->buf_len, d, take);
          ctx->buf_len += take;
          d += take; len -= take;
@@ -140,27 +140,27 @@
  }
  
  void uiox_soc_sha256_final(uiox_soc_sha256_ctx_t *ctx,
-                              uint8_t digest[32])
+                              uiox_uint8_t digest[32])
  {
-     uint8_t pad[64];
+    uiox_uint8_t pad[64];
      soc_memset_sb(pad, 0, sizeof(pad));
      pad[0] = 0x80u;
-     uint32_t used = ctx->buf_len;
-     uint32_t pad_len = used < 56u ? 56u - used : 120u - used;
+     uiox_uint32_t used = ctx->buf_len;
+     uiox_uint32_t pad_len = used < 56u ? 56u - used : 120u - used;
      uiox_soc_sha256_update(ctx, pad, pad_len);
-     uint8_t len_be[8];
-     uint64_t bc = ctx->bit_count;
-     for (int i = 7; i >= 0; i--) { len_be[i] = (uint8_t)(bc & 0xFFu); bc >>= 8; }
+     uiox_uint8_t len_be[8];
+     uiox_uint64_t bc = ctx->bit_count;
+     for (int i = 7; i >= 0; i--) { len_be[i] = (uiox_uint8_t)(bc & 0xFFu); bc >>= 8; }
      uiox_soc_sha256_update(ctx, len_be, 8u);
      for (int i = 0; i < 8; i++) {
-         digest[i*4+0] = (uint8_t)(ctx->state[i] >> 24);
-         digest[i*4+1] = (uint8_t)(ctx->state[i] >> 16);
-         digest[i*4+2] = (uint8_t)(ctx->state[i] >>  8);
-         digest[i*4+3] = (uint8_t)(ctx->state[i]       );
+         digest[i*4+0] = (uiox_uint8_t)(ctx->state[i] >> 24);
+         digest[i*4+1] = (uiox_uint8_t)(ctx->state[i] >> 16);
+         digest[i*4+2] = (uiox_uint8_t)(ctx->state[i] >>  8);
+         digest[i*4+3] = (uiox_uint8_t)(ctx->state[i]       );
      }
  }
  
- void uiox_soc_sha256(const uint8_t *d, size_t l, uint8_t digest[32])
+ void uiox_soc_sha256(const uiox_uint8_t *d, uiox_size_t l, uiox_uint8_t digest[32])
  {
      uiox_soc_sha256_ctx_t ctx;
      uiox_soc_sha256_init(&ctx);
@@ -172,19 +172,19 @@
   * PCR (Platform Configuration Register) — 8 × 32-byte banks
   * ====================================================================== */
  
- static uint8_t s_pcr[8][32];
+ static uiox_uint8_t s_pcr[8][32];
  
- void uiox_soc_secboot_extend_pcr(uint32_t idx,
-                                    const uint8_t measurement[32])
+ void uiox_soc_secboot_extend_pcr(uiox_uint32_t idx,
+                                    const uiox_uint8_t measurement[32])
  {
      if (idx >= 8u) return;
-     uint8_t combined[64];
+     uiox_uint8_t combined[64];
      soc_memcpy_sb(combined,      s_pcr[idx], 32u);
      soc_memcpy_sb(combined + 32, measurement, 32u);
      uiox_soc_sha256(combined, 64u, s_pcr[idx]);
  }
  
- void uiox_soc_secboot_read_pcr(uint32_t idx, uint8_t out[32])
+ void uiox_soc_secboot_read_pcr(uiox_uint32_t idx, uiox_uint8_t out[32])
  {
      if (idx < 8u) soc_memcpy_sb(out, s_pcr[idx], 32u);
  }
@@ -194,9 +194,9 @@
   * ====================================================================== */
  
  uiox_soc_err_t uiox_soc_secboot_init(uiox_soc_secboot_ctx_t *ctx,
-                                        const uint8_t rot_hash[32],
+                                        const uiox_uint8_t rot_hash[32],
                                         uiox_soc_sig_algo_t   algo,
-                                        bool sim_mode)
+                                        uiox_bool_t sim_mode)
  {
      if (!ctx || !rot_hash) return UIOX_SOC_ERR_INVAL;
      soc_memset_sb(ctx, 0, sizeof(*ctx));
@@ -224,7 +224,7 @@
      }
  
      /* Real path: hash the subject public key and compare with RoT hash */
-     uint8_t computed[32];
+     uiox_uint8_t computed[32];
      uiox_soc_sha256(svc->subject_pubkey, svc->subject_pubkey_len,
                       computed);
      if (soc_memcmp_sb(computed, ctx->rot.pubkey_hash, 32u) != 0)
@@ -237,8 +237,8 @@
  uiox_soc_secboot_result_t
  uiox_soc_secboot_verify_image(uiox_soc_secboot_ctx_t          *ctx,
                                 const uiox_soc_signed_img_hdr_t *hdr,
-                                const uint8_t                   *payload,
-                                size_t                           len,
+                                const uiox_uint8_t                   *payload,
+                                uiox_size_t                           len,
                                 uiox_soc_secboot_report_t       *report)
  {
      uiox_soc_secboot_report_t local;

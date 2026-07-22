@@ -10,25 +10,25 @@
  
  /* ── No-libc helpers ─────────────────────────────────────────────── */
  
- void *uiox_soc_memset(void *dst, int c, size_t n)
+ void *uiox_soc_memset(void *dst, int c, uiox_size_t n)
  {
-     uint8_t *d = (uint8_t *)dst;
-     while (n--) *d++ = (uint8_t)c;
+     uiox_uint8_t *d = (uiox_uint8_t *)dst;
+     while (n--) *d++ = (uiox_uint8_t)c;
      return dst;
  }
  
- void *uiox_soc_memcpy(void *dst, const void *src, size_t n)
+ void *uiox_soc_memcpy(void *dst, const void *src, uiox_size_t n)
  {
-     uint8_t *d       = (uint8_t *)dst;
-     const uint8_t *s = (const uint8_t *)src;
+    uiox_uint8_t *d       = (uiox_uint8_t *)dst;
+     const uiox_uint8_t *s = (const uiox_uint8_t *)src;
      while (n--) *d++ = *s++;
      return dst;
  }
  
- int uiox_soc_memcmp(const void *a, const void *b, size_t n)
+ int uiox_soc_memcmp(const void *a, const void *b, uiox_size_t n)
  {
-     const uint8_t *p = (const uint8_t *)a;
-     const uint8_t *q = (const uint8_t *)b;
+     const uiox_uint8_t *p = (const uiox_uint8_t *)a;
+     const uiox_uint8_t *q = (const uiox_uint8_t *)b;
      while (n--) {
          if (*p != *q) return (int)*p - (int)*q;
          p++; q++;
@@ -36,9 +36,9 @@
      return 0;
  }
  
- size_t uiox_soc_strlen(const char *s)
+ uiox_size_t uiox_soc_strlen(const char *s)
  {
-     size_t n = 0u;
+     uiox_size_t n = 0u;
      while (*s++) n++;
      return n;
  }
@@ -46,11 +46,11 @@
  /* ── Internal helper ─────────────────────────────────────────────── */
  
  static void add_region(uiox_soc_mem_map_t  *m,
-                         uint64_t             base,
-                         uint64_t             size,
+                         uiox_uint64_t             base,
+                         uiox_uint64_t             size,
                          uiox_soc_mem_type_t  type,
-                         bool                 cacheable,
-                         bool                 exec,
+                         uiox_bool_t                 cacheable,
+                         uiox_bool_t                 exec,
                          const char          *name)
  {
      if (m->count >= UIOX_SOC_MEM_MAX_REGIONS) return;
@@ -61,7 +61,7 @@
      r->cacheable  = cacheable;
      r->executable = exec;
      /* Copy name (no strncpy in bare-metal) */
-     for (uint32_t i = 0u; i < 15u && name[i]; i++)
+     for (uiox_uint32_t i = 0u; i < 15u && name[i]; i++)
          r->name[i] = name[i];
      if (type == UIOX_SOC_MEM_RAM) m->total_ram += size;
  }
@@ -69,7 +69,7 @@
  /* ── uiox_soc_mem_init ───────────────────────────────────────────── */
  
  uiox_soc_err_t uiox_soc_mem_init(uiox_soc_mem_map_t *map,
-                                    uint64_t            dtb_pa)
+                                    uiox_uint64_t            dtb_pa)
  {
      UIOX_SOC_UNUSED(dtb_pa);
      if (!map) return UIOX_SOC_ERR_INVAL;
@@ -129,9 +129,9 @@
      uiox_soc_printf("[SOC] Memory map (%u regions, %llu MB RAM):\n",
                       map->count,
                       (unsigned long long)(map->total_ram >> 20u));
-     for (uint32_t i = 0u; i < map->count; i++) {
+     for (uiox_uint32_t i = 0u; i < map->count; i++) {
          const uiox_soc_mem_region_t *r = &map->regions[i];
-         uint8_t t = (uint8_t)r->type;
+         uiox_uint8_t t = (uiox_uint8_t)r->type;
          uiox_soc_printf("  [%u] %016llx + %8llx  %-8s  %s\n",
                           i,
                           (unsigned long long)r->base,

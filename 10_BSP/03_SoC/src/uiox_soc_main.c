@@ -35,7 +35,7 @@
  #include "uiox_soc_tz.h"
  #include "uiox_soc_dma.h"
  #include "uiox_soc_pcie.h"
- #include <stdarg.h>
+ #include "uiox_stdarg.h"
  
  /* =========================================================================
   * Forward declaration of linker symbol

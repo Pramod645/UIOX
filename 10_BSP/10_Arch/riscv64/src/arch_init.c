@@ -33,10 +33,10 @@
  */
 
  #include "arch_defs.h"
- #include "../../../20_DriverInterfaces/include/hw_types.h"
- #include "../../../20_DriverInterfaces/include/mmio.h"
- #include "../../../20_DriverInterfaces/include/irq.h"
- #include "../../../20_DriverInterfaces/include/cpu.h"
+ #include "hw_types.h"   // resolved via -I<arch>/include (already in Makefile)
+ #include "mmio.h"
+ #include "irq.h"
+ #include "cpu.h"
  #include "../../../03_SoC/include/uiox_soc_stdio.h"   /* replaces <stdio.h>  */
  #include "../../../03_SoC/include/uiox_soc_string.h"  /* replaces <string.h> */
  
@@ -110,7 +110,7 @@ static void riscv_stvec_install(void)
      */
     unsigned long vbase = (unsigned long)_vector_table & ~0x3UL;
     arch_csrw_stvec(vbase);   /* mode = Direct */
-    arch_isb();
+    //arch_isb();
     printf("[riscv] stvec installed @ 0x%016lx (Direct mode)\n", vbase);
 }
 

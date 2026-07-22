@@ -62,17 +62,17 @@ extern "C" {
  * ====================================================================== */
 
 /** Read MPIDR_EL1 and return the CPU's cluster and core indices. */
-static inline void arm64_mpidr_decode(uint64_t mpidr,
-                                       uint32_t *cluster, uint32_t *core)
+static inline void arm64_mpidr_decode(uiox_uint64_t mpidr,
+                                       uiox_uint32_t *cluster, uiox_uint32_t *core)
 {
-    *cluster = (uint32_t)((mpidr >> 8u)  & 0xFFu);
-    *core    = (uint32_t)((mpidr >> 0u)  & 0xFFu);
+    *cluster = (uiox_uint32_t)((mpidr >> 8u)  & 0xFFu);
+    *core    = (uiox_uint32_t)((mpidr >> 0u)  & 0xFFu);
 }
 
 /** Return true if the CPU is the primary boot CPU (MPIDR Aff0=0, Aff1=0). */
-static inline bool arm64_is_primary_cpu(void)
+static inline uiox_bool_t arm64_is_primary_cpu(void)
 {
-    uint64_t mpidr;
+    uiox_uint64_t mpidr;
     __asm__ volatile("mrs %0, mpidr_el1" : "=r"(mpidr));
     return ((mpidr & 0x00FFFFFFull) == 0u);
 }

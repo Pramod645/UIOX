@@ -93,7 +93,7 @@ static void x86_lapic_timer_init_hpet(uiox_uint32_t hz)
 }
 
 /* ── 8253/8254 PIT — legacy init (10 ms period, channel 0) ─────────── */
-static void x86_pit_init(uint32_t hz)
+static void x86_pit_init(uiox_uint32_t hz)
 {
     uiox_uint32_t divisor = 1193182u / hz;  /* PIT input = 1.193182 MHz        */
     _outb(SOC_PIT_PORT + 3u, 0x34u);  /* Channel 0, rate generator, lo/hi */

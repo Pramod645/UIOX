@@ -67,60 +67,60 @@
  #define UIOX_SOC_TZ_MAX_REGIONS  8u
  
  typedef struct {
-     uint64_t base;
-     uint64_t top;
-     uint8_t  nsaid_rd_en;
-     uint8_t  nsaid_wr_en;
-     bool     secure_only;
+     uiox_uint64_t base;
+     uiox_uint64_t top;
+     uiox_uint8_t  nsaid_rd_en;
+     uiox_uint8_t  nsaid_wr_en;
+     uiox_bool_t     secure_only;
  } uiox_soc_tzc_region_t;
  
  /* ── TrustZone configuration ────────────────────────────── */
  typedef struct {
-     uintptr_t               gic_dist_base;
-     uintptr_t               gic_rdist_base;
-     uintptr_t               el3_vbar;
-     uintptr_t               tzc_base;
+     uiox_uintptr_t               gic_dist_base;
+     uiox_uintptr_t               gic_rdist_base;
+     uiox_uintptr_t               el3_vbar;
+     uiox_uintptr_t               tzc_base;
      uiox_soc_tzc_region_t   tzc_regions[UIOX_SOC_TZ_MAX_REGIONS];
-     uint32_t                tzc_region_count;
-     uint64_t                secure_dram_base;
-     uint64_t                secure_dram_size;
-     uintptr_t               ns_entry_addr;
-     uint64_t                ns_spsr;
-     bool                    enable_fiq_routing;
-     bool                    enable_gic_secure;
-     bool                    enable_tzc;
+     uiox_uint32_t                tzc_region_count;
+     uiox_uint64_t                secure_dram_base;
+     uiox_uint64_t                secure_dram_size;
+     uiox_uintptr_t               ns_entry_addr;
+     uiox_uint64_t                ns_spsr;
+     uiox_bool_t                    enable_fiq_routing;
+     uiox_bool_t                    enable_gic_secure;
+     uiox_bool_t                    enable_tzc;
  } uiox_soc_tz_cfg_t;
  
  /* ── TrustZone report ───────────────────────────────────── */
  typedef struct {
      uiox_soc_tz_result_t result;
-     uint64_t             scr_el3_value;
-     uint64_t             cptr_el3_value;
-     uint32_t             current_el;
-     uint32_t             gic_groups_set;
-     uint32_t             tzc_regions_set;
-     bool                 fpu_enabled;
-     bool                 smc_enabled;
+     uiox_uint64_t             scr_el3_value;
+     uiox_uint64_t             cptr_el3_value;
+     uiox_uint32_t             current_el;
+     uiox_uint32_t             gic_groups_set;
+     uiox_uint32_t             tzc_regions_set;
+     uiox_bool_t                 fpu_enabled;
+     uiox_bool_t                 smc_enabled;
      char                 fail_msg[128];
  } uiox_soc_tz_report_t;
  
  /* ── TrustZone API ──────────────────────────────────────── */
  uiox_soc_tz_result_t uiox_soc_tz_init       (const uiox_soc_tz_cfg_t *cfg,
                                                 uiox_soc_tz_report_t *report);
- uiox_soc_tz_result_t uiox_soc_tz_gic_secure (uintptr_t gicd_base,
-                                                uint32_t  num_irqs,
-                                                uint32_t  secure_irq_mask);
- uiox_soc_tz_result_t uiox_soc_tzc_set_region(uintptr_t tzc_base,
-                                                uint32_t  region_id,
+ uiox_soc_tz_result_t uiox_soc_tz_gic_secure (uiox_uintptr_t gicd_base,
+                                                uiox_uint32_t  num_irqs,
+                                                uiox_uint32_t  secure_irq_mask);
+ uiox_soc_tz_result_t uiox_soc_tzc_set_region(uiox_uintptr_t tzc_base,
+                                                uiox_uint32_t  region_id,
                                                 const uiox_soc_tzc_region_t *r);
- uiox_soc_tz_result_t uiox_soc_tz_set_vbar   (uintptr_t vbar_pa);
+ uiox_soc_tz_result_t uiox_soc_tz_set_vbar   (uiox_uintptr_t vbar_pa);
  
  void __attribute__((noreturn))
-                      uiox_soc_tz_eret_to_ns  (uintptr_t entry,
-                                                uint64_t  spsr,
-                                                uint64_t  x0_arg);
+                      uiox_soc_tz_eret_to_ns  (uiox_uintptr_t entry,
+                                                uiox_uint64_t  spsr,
+                                                uiox_uint64_t  x0_arg);
  
- uint32_t             uiox_soc_tz_current_el  (void);
+ uiox_uint32_t             uiox_soc_tz_current_el  (void);
  void                 uiox_soc_tz_print       (const uiox_soc_tz_report_t *r);
  
  #ifdef __cplusplus

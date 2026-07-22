@@ -25,18 +25,18 @@
  } uiox_soc_mem_type_t;
  
  typedef struct {
-     uint64_t            base;
-     uint64_t            size;
+     uiox_uint64_t            base;
+     uiox_uint64_t            size;
      uiox_soc_mem_type_t type;
-     bool                cacheable;
-     bool                executable;
+     uiox_bool_t                cacheable;
+     uiox_bool_t                executable;
      char                name[16];
  } uiox_soc_mem_region_t;
  
  typedef struct {
      uiox_soc_mem_region_t regions[UIOX_SOC_MEM_MAX_REGIONS];
-     uint32_t              count;
-     uint64_t              total_ram;
+     uiox_uint32_t              count;
+     uiox_uint64_t              total_ram;
  } uiox_soc_mem_map_t;
  
  /* ── Platform memory map constants ──────────────────────── */
@@ -68,15 +68,15 @@
  
  /* ── Memory API ─────────────────────────────────────────── */
  uiox_soc_err_t uiox_soc_mem_init      (uiox_soc_mem_map_t *map,
-                                         uint64_t dtb_pa);
+                                         uiox_uint64_t dtb_pa);
  void           uiox_soc_mem_print     (const uiox_soc_mem_map_t *map);
  uiox_soc_err_t uiox_soc_mem_mmu_early (void); /**< Enable I/D caches     */
  
  /* No-libc memory helpers */
- void  *uiox_soc_memset  (void *dst, int c, size_t n);
- void  *uiox_soc_memcpy  (void *dst, const void *src, size_t n);
- int    uiox_soc_memcmp  (const void *a, const void *b, size_t n);
- size_t uiox_soc_strlen  (const char *s);
+ void  *uiox_soc_memset  (void *dst, int c, uiox_size_t n);
+ void  *uiox_soc_memcpy  (void *dst, const void *src, uiox_size_t n);
+ int    uiox_soc_memcmp  (const void *a, const void *b, uiox_size_t n);
+ uiox_size_t uiox_soc_strlen  (const char *s);
  
  #ifdef __cplusplus
  }

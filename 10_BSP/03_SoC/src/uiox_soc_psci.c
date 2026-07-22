@@ -12,10 +12,10 @@
   * Bare-metal helpers
   * ====================================================================== */
  
- static void soc_memset_ps(void *dst, int val, size_t n)
+ static void soc_memset_ps(void *dst, int val, uiox_size_t n)
  {
-     uint8_t *d = (uint8_t *)dst;
-     while (n--) *d++ = (uint8_t)val;
+     uiox_uint8_t *d = (uiox_uint8_t *)dst;
+     while (n--) *d++ = (uiox_uint8_t)val;
  }
  
  static void soc_puts_ps(const char *s)
@@ -28,7 +28,7 @@
      }
  }
  
- static char *soc_u32_dec_ps(uint32_t v, char *buf)
+ static char *soc_u32_dec_ps(uiox_uint32_t v, char *buf)
  {
      char tmp[12]; int n = 0;
      if (v == 0u) { buf[0] = '0'; buf[1] = '\0'; return buf; }
@@ -39,7 +39,7 @@
      return buf;
  }
  
- static char *soc_u64_hex_ps(uint64_t v, char *buf)
+ static char *soc_u64_hex_ps(uiox_uint64_t v, char *buf)
  {
      static const char h[] = "0123456789abcdef";
      for (int i = 15; i >= 0; i--) { buf[i] = h[v & 0xFu]; v >>= 4; }
@@ -57,51 +57,51 @@
   * Individual PSCI handler implementations
   * ====================================================================== */
  
- int64_t uiox_soc_psci_version(uint64_t a1, uint64_t a2,
-                                 uint64_t a3, uint64_t a4)
+ uiox_int64_t uiox_soc_psci_version(uiox_uint64_t a1, uiox_uint64_t a2,
+                                 uiox_uint64_t a3, uiox_uint64_t a4)
  {
      (void)a1; (void)a2; (void)a3; (void)a4;
-     return (int64_t)PSCI_VERSION_VALUE;
+     return (uiox_int64_t)PSCI_VERSION_VALUE;
  }
  
- int64_t uiox_soc_psci_cpu_on(uint64_t a1, uint64_t a2,
-                                uint64_t a3, uint64_t a4)
+ uiox_int64_t uiox_soc_psci_cpu_on(uiox_uint64_t a1, uiox_uint64_t a2,
+                                uiox_uint64_t a3, uiox_uint64_t a4)
  {
      (void)a4;
      if (!s_psci_ctx) return PSCI_RET_INTERNAL_FAILURE;
  
-     uint32_t cpu_id   = (uint32_t)(a1 & 0xFFu);
-     uint64_t entry_pa = a2;
-     uint64_t ctx_id   = a3;
+     uiox_uint32_t cpu_id   = (uiox_uint32_t)(a1 & 0xFFu);
+     uiox_uint64_t entry_pa = a2;
+     uiox_uint64_t ctx_id   = a3;
  
      if (cpu_id >= s_psci_ctx->num_cpus) return PSCI_RET_INVALID_PARAMS;
      if (s_psci_ctx->cpus[cpu_id].state == UIOX_SOC_CPU_STATE_ON)
          return PSCI_RET_ALREADY_ON;
  
-     s_psci_ctx->cpus[cpu_id].warm_entry  = (uintptr_t)entry_pa;
+     s_psci_ctx->cpus[cpu_id].warm_entry  = (uiox_uintptr_t)entry_pa;
      s_psci_ctx->cpus[cpu_id].context_id  = ctx_id;
      s_psci_ctx->cpus[cpu_id].state       = UIOX_SOC_CPU_STATE_ON_PEND;
      s_psci_ctx->cpu_on_count++;
  
      if (s_psci_ctx->platform_cpu_on)
-         s_psci_ctx->platform_cpu_on(cpu_id, (uintptr_t)entry_pa);
+         s_psci_ctx->platform_cpu_on(cpu_id, (uiox_uintptr_t)entry_pa);
  
      s_psci_ctx->cpus[cpu_id].state = UIOX_SOC_CPU_STATE_ON;
      return PSCI_RET_SUCCESS;
  }
  
- int64_t uiox_soc_psci_cpu_off(uint64_t a1, uint64_t a2,
-                                 uint64_t a3, uint64_t a4)
+ uiox_int64_t uiox_soc_psci_cpu_off(uiox_uint64_t a1, uiox_uint64_t a2,
+                                 uiox_uint64_t a3, uiox_uint64_t a4)
  {
      (void)a1; (void)a2; (void)a3; (void)a4;
      if (!s_psci_ctx) return PSCI_RET_INTERNAL_FAILURE;
  
      /* Identify current CPU by scanning affinity fields */
  #if defined(__aarch64__)
-     uint64_t mpidr;
+ uiox_uint64_t mpidr;
      __asm__ volatile("mrs %0, mpidr_el1" : "=r"(mpidr));
      mpidr &= 0xFF00FFFFFFu;
-     for (uint32_t i = 0u; i < s_psci_ctx->num_cpus; i++) {
+     for (uiox_uint32_t i = 0u; i < s_psci_ctx->num_cpus; i++) {
          if (s_psci_ctx->cpus[i].affinity == mpidr) {
              s_psci_ctx->cpus[i].state = UIOX_SOC_CPU_STATE_OFF;
              s_psci_ctx->cpu_off_count++;
@@ -114,8 +114,8 @@
      return PSCI_RET_SUCCESS;
  }
  
- int64_t uiox_soc_psci_cpu_suspend(uint64_t a1, uint64_t a2,
-                                     uint64_t a3, uint64_t a4)
+ uiox_int64_t uiox_soc_psci_cpu_suspend(uiox_uint64_t a1, uiox_uint64_t a2,
+                                     uiox_uint64_t a3, uiox_uint64_t a4)
  {
      (void)a1; (void)a2; (void)a3; (void)a4;
      if (!s_psci_ctx) return PSCI_RET_INTERNAL_FAILURE;
@@ -134,15 +134,15 @@
      return PSCI_RET_SUCCESS;
  }
  
- int64_t uiox_soc_psci_affinity_info(uint64_t a1, uint64_t a2,
-                                       uint64_t a3, uint64_t a4)
+ uiox_int64_t uiox_soc_psci_affinity_info(uiox_uint64_t a1, uiox_uint64_t a2,
+                                       uiox_uint64_t a3, uiox_uint64_t a4)
  {
      (void)a3; (void)a4;
      if (!s_psci_ctx) return PSCI_RET_INTERNAL_FAILURE;
-     uint64_t target_affinity = a1;
+     uiox_uint64_t target_affinity = a1;
      /* a2 = lowest affinity level (0 = core) */
      (void)a2;
-     for (uint32_t i = 0u; i < s_psci_ctx->num_cpus; i++) {
+     for (uiox_uint32_t i = 0u; i < s_psci_ctx->num_cpus; i++) {
          if (s_psci_ctx->cpus[i].affinity == target_affinity) {
              switch (s_psci_ctx->cpus[i].state) {
                  case UIOX_SOC_CPU_STATE_ON:      return PSCI_AFFINITY_LEVEL_ON;
@@ -154,8 +154,8 @@
      return PSCI_RET_INVALID_PARAMS;
  }
  
- int64_t uiox_soc_psci_system_off(uint64_t a1, uint64_t a2,
-                                    uint64_t a3, uint64_t a4)
+ uiox_int64_t uiox_soc_psci_system_off(uiox_uint64_t a1, uiox_uint64_t a2,
+                                    uiox_uint64_t a3, uiox_uint64_t a4)
  {
      (void)a1; (void)a2; (void)a3; (void)a4;
      if (s_psci_ctx && s_psci_ctx->platform_off)
@@ -173,8 +173,8 @@
  #endif
  }
  
- int64_t uiox_soc_psci_system_reset(uint64_t a1, uint64_t a2,
-                                      uint64_t a3, uint64_t a4)
+ uiox_int64_t uiox_soc_psci_system_reset(uiox_uint64_t a1, uiox_uint64_t a2,
+                                      uiox_uint64_t a3, uiox_uint64_t a4)
  {
      (void)a1; (void)a2; (void)a3; (void)a4;
      if (s_psci_ctx) s_psci_ctx->reset_count++;
@@ -193,11 +193,11 @@
 #endif
  }
  
- int64_t uiox_soc_psci_features(uint64_t a1, uint64_t a2,
-                                  uint64_t a3, uint64_t a4)
+ uiox_int64_t uiox_soc_psci_features(uiox_uint64_t a1, uiox_uint64_t a2,
+                                  uiox_uint64_t a3, uiox_uint64_t a4)
  {
      (void)a2; (void)a3; (void)a4;
-     return uiox_soc_psci_supported((uint32_t)a1)
+     return uiox_soc_psci_supported((uiox_uint32_t)a1)
             ? PSCI_RET_SUCCESS
             : PSCI_RET_NOT_SUPPORTED;
  }
@@ -207,7 +207,7 @@
   * ====================================================================== */
  
  typedef struct {
-     uint32_t                   fn_id;
+    uiox_uint32_t                   fn_id;
      const char                *name;
      uiox_soc_psci_handler_t    handler;
  } psci_entry_t;
@@ -233,8 +233,8 @@
   * ====================================================================== */
  
  uiox_soc_err_t uiox_soc_psci_init(uiox_soc_psci_ctx_t *ctx,
-                                     uint32_t             num_cpus,
-                                     bool                 use_smc)
+                                     uiox_uint32_t             num_cpus,
+                                     uiox_bool_t                 use_smc)
  {
      if (!ctx || num_cpus == 0u || num_cpus > UIOX_SOC_PSCI_MAX_CPUS)
          return UIOX_SOC_ERR_INVAL;
@@ -246,9 +246,9 @@
      s_psci_ctx       = ctx;
  
      /* Mark CPU0 as ON; others as OFF */
-     for (uint32_t i = 0u; i < num_cpus; i++) {
+     for (uiox_uint32_t i = 0u; i < num_cpus; i++) {
  #if defined(__aarch64__)
-         ctx->cpus[i].affinity = (uint64_t)i;
+         ctx->cpus[i].affinity = (uiox_uint64_t)i;
  #endif
          ctx->cpus[i].state = (i == 0u)
                               ? UIOX_SOC_CPU_STATE_ON
@@ -263,7 +263,7 @@
  }
  
  void uiox_soc_psci_set_cpu_on(uiox_soc_psci_ctx_t *ctx,
-                                 void (*fn)(uint32_t, uintptr_t))
+                                 void (*fn)(uiox_uint32_t, uiox_uintptr_t))
  {
      if (ctx) ctx->platform_cpu_on = fn;
  }
@@ -280,30 +280,30 @@
      if (ctx) ctx->platform_off = fn;
  }
  
- int64_t uiox_soc_psci_dispatch(uiox_soc_psci_ctx_t *ctx,
-                                  uint64_t fn_id,
-                                  uint64_t a1, uint64_t a2,
-                                  uint64_t a3)
+ uiox_int64_t uiox_soc_psci_dispatch(uiox_soc_psci_ctx_t *ctx,
+                                  uiox_uint64_t fn_id,
+                                  uiox_uint64_t a1, uiox_uint64_t a2,
+                                  uiox_uint64_t a3)
  {
      (void)ctx;
-     for (size_t i = 0u; i < PSCI_TABLE_LEN; i++) {
-         if (s_psci_table[i].fn_id == (uint32_t)fn_id)
+     for (uiox_size_t i = 0u; i < PSCI_TABLE_LEN; i++) {
+         if (s_psci_table[i].fn_id == (uiox_uint32_t)fn_id)
              return s_psci_table[i].handler(a1, a2, a3, 0u);
      }
      if (s_psci_ctx) s_psci_ctx->unknown_fn_count++;
      return PSCI_RET_NOT_SUPPORTED;
  }
  
- bool uiox_soc_psci_supported(uint32_t fn_id)
+ uiox_bool_t uiox_soc_psci_supported(uiox_uint32_t fn_id)
  {
-     for (size_t i = 0u; i < PSCI_TABLE_LEN; i++) {
+     for (uiox_size_t i = 0u; i < PSCI_TABLE_LEN; i++) {
          if (s_psci_table[i].fn_id == fn_id) return true;
      }
      return false;
  }
  
  uiox_soc_cpu_state_t uiox_soc_psci_cpu_state(
-         const uiox_soc_psci_ctx_t *ctx, uint32_t cpu_id)
+         const uiox_soc_psci_ctx_t *ctx, uiox_uint32_t cpu_id)
  {
      if (!ctx || cpu_id >= ctx->num_cpus) return UIOX_SOC_CPU_STATE_OFF;
      return ctx->cpus[cpu_id].state;
@@ -328,14 +328,14 @@
      static const char *state_names[] = {
          "OFF", "ON", "SUSPEND", "ON_PEND"
      };
-     for (uint32_t i = 0u; i < ctx->num_cpus; i++) {
+     for (uiox_uint32_t i = 0u; i < ctx->num_cpus; i++) {
          soc_puts_ps("    CPU");
          soc_puts_ps(soc_u32_dec_ps(i, buf));
          soc_puts_ps(" affinity=0x");
          char hbuf[20];
          soc_puts_ps(soc_u64_hex_ps(ctx->cpus[i].affinity, hbuf));
          soc_puts_ps("  state=");
-         uint32_t st = (uint32_t)ctx->cpus[i].state;
+         uiox_uint32_t st = (uiox_uint32_t)ctx->cpus[i].state;
          soc_puts_ps(st < 4u ? state_names[st] : "?");
          soc_puts_ps("\n");
      }

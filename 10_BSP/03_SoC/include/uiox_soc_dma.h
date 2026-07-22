@@ -37,31 +37,31 @@
      UIOX_SOC_DMA_WIDTH_32 = 2,
  } uiox_soc_dma_width_t;
  
- typedef void (*uiox_soc_dma_cb_t)(uint32_t chan,
+ typedef void (*uiox_soc_dma_cb_t)(uiox_uint32_t chan,
                                      int status, void *priv);
  
  typedef struct {
-     uintptr_t            src;
-     uintptr_t            dst;
-     uint32_t             len;
+    uiox_uintptr_t            src;
+    uiox_uintptr_t            dst;
+     uiox_uint32_t             len;
      uiox_soc_dma_dir_t   dir;
      uiox_soc_dma_width_t width;
-     bool                 src_inc;   /**< Increment source address        */
-     bool                 dst_inc;   /**< Increment dest  address         */
+     uiox_bool_t                 src_inc;   /**< Increment source address        */
+     uiox_bool_t                 dst_inc;   /**< Increment dest  address         */
      uiox_soc_dma_cb_t    complete_cb;
      void                *cb_priv;
  } uiox_soc_dma_xfer_t;
  
  typedef struct {
-     uintptr_t          base;
-     uint32_t           irq;
-     uint32_t           num_channels;
-     uint32_t           caps;
-     bool               initialized;
+    uiox_uintptr_t          base;
+     uiox_uint32_t           irq;
+     uiox_uint32_t           num_channels;
+     uiox_uint32_t           caps;
+     uiox_bool_t               initialized;
      /* Per-channel state */
      uiox_soc_dma_cb_t  chan_cb   [UIOX_SOC_DMA_MAX_CHANNELS];
      void              *chan_priv [UIOX_SOC_DMA_MAX_CHANNELS];
-     bool               chan_busy [UIOX_SOC_DMA_MAX_CHANNELS];
+     uiox_bool_t               chan_busy [UIOX_SOC_DMA_MAX_CHANNELS];
      void              *priv;
  } uiox_soc_dma_ctrl_t;
  
@@ -69,17 +69,17 @@
      uiox_soc_err_t (*init)      (uiox_soc_dma_ctrl_t *ctrl);
      void           (*deinit)    (uiox_soc_dma_ctrl_t *ctrl);
      uiox_soc_err_t (*transfer)  (uiox_soc_dma_ctrl_t *ctrl,
-                                   uint32_t chan,
+                                   uiox_uint32_t chan,
                                    const uiox_soc_dma_xfer_t *xfer);
-     bool           (*busy)      (uiox_soc_dma_ctrl_t *ctrl,
-                                   uint32_t chan);
+     uiox_bool_t           (*busy)      (uiox_soc_dma_ctrl_t *ctrl,
+                                   uiox_uint32_t chan);
      uiox_soc_err_t (*wait)      (uiox_soc_dma_ctrl_t *ctrl,
-                                   uint32_t chan);
+                                   uiox_uint32_t chan);
      void           (*abort)     (uiox_soc_dma_ctrl_t *ctrl,
-                                   uint32_t chan);
+                                   uiox_uint32_t chan);
      int            (*alloc_chan)(uiox_soc_dma_ctrl_t *ctrl);
      void           (*free_chan) (uiox_soc_dma_ctrl_t *ctrl,
-                                   uint32_t chan);
+                                   uiox_uint32_t chan);
      void           (*isr)       (uiox_soc_dma_ctrl_t *ctrl);
  } uiox_soc_dma_ops_t;
  
@@ -88,23 +88,23 @@
                                          const uiox_soc_dma_ops_t *ops);
  void           uiox_soc_dma_deinit    (uiox_soc_dma_ctrl_t *ctrl);
  uiox_soc_err_t uiox_soc_dma_transfer  (uiox_soc_dma_ctrl_t *ctrl,
-                                         uint32_t chan,
+                                         uiox_uint32_t chan,
                                          const uiox_soc_dma_xfer_t *xfer);
- bool           uiox_soc_dma_busy      (uiox_soc_dma_ctrl_t *ctrl,
-                                         uint32_t chan);
+ uiox_bool_t           uiox_soc_dma_busy      (uiox_soc_dma_ctrl_t *ctrl,
+                                         uiox_uint32_t chan);
  uiox_soc_err_t uiox_soc_dma_wait      (uiox_soc_dma_ctrl_t *ctrl,
-                                         uint32_t chan);
+                                         uiox_uint32_t chan);
  void           uiox_soc_dma_abort     (uiox_soc_dma_ctrl_t *ctrl,
-                                         uint32_t chan);
+                                         uiox_uint32_t chan);
  int            uiox_soc_dma_alloc_chan (uiox_soc_dma_ctrl_t *ctrl);
  void           uiox_soc_dma_free_chan  (uiox_soc_dma_ctrl_t *ctrl,
-                                         uint32_t chan);
+                                         uiox_uint32_t chan);
  
  /** Simple synchronous memory copy via DMA (blocks until done). */
  uiox_soc_err_t uiox_soc_dma_memcpy   (uiox_soc_dma_ctrl_t *ctrl,
-                                         uintptr_t dst,
-                                         uintptr_t src,
-                                         uint32_t  len);
+                                         uiox_uintptr_t dst,
+                                         uiox_uintptr_t src,
+                                         uiox_uint32_t  len);
  
  #ifdef __cplusplus
  }

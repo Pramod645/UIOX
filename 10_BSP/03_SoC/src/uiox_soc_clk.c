@@ -90,10 +90,10 @@ static uiox_soc_clock_t s_clocks[UIOX_SOC_CLOCK_MAX];
 
 static void clock_set(uiox_soc_clk_id_t id,
                        const char       *name,
-                       uint32_t          hz,
-                       bool              enabled)
+                       uiox_uint32_t          hz,
+                       uiox_bool_t              enabled)
 {
-    if ((uint32_t)id >= UIOX_SOC_CLOCK_MAX) return;
+    if ((uiox_uint32_t)id >= UIOX_SOC_CLOCK_MAX) return;
     uiox_soc_clock_t *c = &s_clocks[id];
     c->id      = id;
     c->freq_hz = hz;
@@ -174,13 +174,13 @@ uiox_soc_err_t uiox_soc_clock_init(void)
     uiox_soc_memset(s_clocks, 0, sizeof(s_clocks));
     clock_table_init();
     SOC_LOG("CLK", "clock registry init OK (%u entries)",
-            (uint32_t)UIOX_SOC_CLOCK_MAX);
+            (uiox_uint32_t)UIOX_SOC_CLOCK_MAX);
     return UIOX_SOC_OK;
 }
 
 uiox_soc_err_t uiox_soc_clock_enable(uiox_soc_clk_id_t id)
 {
-    if ((uint32_t)id >= UIOX_SOC_CLOCK_MAX) return UIOX_SOC_ERR_INVAL;
+    if ((uiox_uint32_t)id >= UIOX_SOC_CLOCK_MAX) return UIOX_SOC_ERR_INVAL;
     s_clocks[id].enabled = true;
     SOC_LOG("CLK", "enable  %-10s  %u Hz",
             s_clocks[id].name, s_clocks[id].freq_hz);
@@ -189,7 +189,7 @@ uiox_soc_err_t uiox_soc_clock_enable(uiox_soc_clk_id_t id)
 
 uiox_soc_err_t uiox_soc_clock_disable(uiox_soc_clk_id_t id)
 {
-    if ((uint32_t)id >= UIOX_SOC_CLOCK_MAX) return UIOX_SOC_ERR_INVAL;
+    if ((uiox_uint32_t)id >= UIOX_SOC_CLOCK_MAX) return UIOX_SOC_ERR_INVAL;
     if (id == UIOX_SOC_CLK_CPU || id == UIOX_SOC_CLK_BUS)
         return UIOX_SOC_ERR_PERM;
     s_clocks[id].enabled = false;
@@ -197,15 +197,15 @@ uiox_soc_err_t uiox_soc_clock_disable(uiox_soc_clk_id_t id)
     return UIOX_SOC_OK;
 }
 
-uint32_t uiox_soc_clock_get_hz(uiox_soc_clk_id_t id)
+uiox_uint32_t uiox_soc_clock_get_hz(uiox_soc_clk_id_t id)
 {
-    if ((uint32_t)id >= UIOX_SOC_CLOCK_MAX) return 0u;
+    if ((uiox_uint32_t)id >= UIOX_SOC_CLOCK_MAX) return 0u;
     return s_clocks[id].enabled ? s_clocks[id].freq_hz : 0u;
 }
 
-uiox_soc_err_t uiox_soc_clock_set_hz(uiox_soc_clk_id_t id, uint32_t hz)
+uiox_soc_err_t uiox_soc_clock_set_hz(uiox_soc_clk_id_t id, uiox_uint32_t hz)
 {
-    if ((uint32_t)id >= UIOX_SOC_CLOCK_MAX) return UIOX_SOC_ERR_INVAL;
+    if ((uiox_uint32_t)id >= UIOX_SOC_CLOCK_MAX) return UIOX_SOC_ERR_INVAL;
     if (hz == 0u)                            return UIOX_SOC_ERR_INVAL;
     s_clocks[id].freq_hz = hz;
     SOC_LOG("CLK", "set_hz  %-10s  %u Hz", s_clocks[id].name, hz);
@@ -215,8 +215,8 @@ uiox_soc_err_t uiox_soc_clock_set_hz(uiox_soc_clk_id_t id, uint32_t hz)
 void uiox_soc_clock_print(void)
 {
     uiox_soc_printf("[SOC] Clock table (%u entries):\n",
-                     (uint32_t)UIOX_SOC_CLOCK_MAX);
-    for (uint32_t i = 0u; i < (uint32_t)UIOX_SOC_CLOCK_MAX; i++) {
+                     (uiox_uint32_t)UIOX_SOC_CLOCK_MAX);
+    for (uiox_uint32_t i = 0u; i < (uiox_uint32_t)UIOX_SOC_CLOCK_MAX; i++) {
         const uiox_soc_clock_t *c = &s_clocks[i];
         uiox_soc_printf("  [%2u] %-10s  %10u Hz  %s\n",
                          i, c->name, c->freq_hz,
@@ -236,7 +236,7 @@ uiox_soc_err_t uiox_soc_clk_init(uiox_clk_ctx_t        *ctx,
     uiox_soc_err_t rc = uiox_soc_clock_init();
     if (rc != UIOX_SOC_OK) return rc;
 
-    for (uint32_t i = 0u; i < UIOX_SOC_CLK__COUNT; i++) {
+    for (uiox_uint32_t i = 0u; i < UIOX_SOC_CLK__COUNT; i++) {
         ctx->freq_hz[i] = s_clocks[i].freq_hz;
         ctx->enabled[i] = s_clocks[i].enabled;
     }
@@ -268,20 +268,20 @@ uiox_soc_err_t uiox_soc_clk_init(uiox_clk_ctx_t        *ctx,
     return UIOX_SOC_OK;
 }
 
-uint32_t uiox_soc_clk_get_hz(const uiox_clk_ctx_t *ctx,
+uiox_uint32_t uiox_soc_clk_get_hz(const uiox_clk_ctx_t *ctx,
                                uiox_soc_clk_id_t     id)
 {
-    if (!ctx || (uint32_t)id >= UIOX_SOC_CLK__COUNT) return 0u;
+    if (!ctx || (uiox_uint32_t)id >= UIOX_SOC_CLK__COUNT) return 0u;
     return ctx->enabled[id] ? ctx->freq_hz[id] : 0u;
 }
 
 uiox_soc_err_t uiox_soc_clk_enable(uiox_clk_ctx_t    *ctx,
                                      uiox_soc_clk_id_t  id)
 {
-    if (!ctx || (uint32_t)id >= UIOX_SOC_CLK__COUNT)
+    if (!ctx || (uiox_uint32_t)id >= UIOX_SOC_CLK__COUNT)
         return UIOX_SOC_ERR_INVAL;
     ctx->enabled[id] = true;
-    if ((uint32_t)id < UIOX_SOC_CLOCK_MAX)
+    if ((uiox_uint32_t)id < UIOX_SOC_CLOCK_MAX)
         s_clocks[id].enabled = true;
     return UIOX_SOC_OK;
 }
@@ -289,12 +289,12 @@ uiox_soc_err_t uiox_soc_clk_enable(uiox_clk_ctx_t    *ctx,
 uiox_soc_err_t uiox_soc_clk_disable(uiox_clk_ctx_t    *ctx,
                                       uiox_soc_clk_id_t  id)
 {
-    if (!ctx || (uint32_t)id >= UIOX_SOC_CLK__COUNT)
+    if (!ctx || (uiox_uint32_t)id >= UIOX_SOC_CLK__COUNT)
         return UIOX_SOC_ERR_INVAL;
     if (id == UIOX_SOC_CLK_CPU0 || id == UIOX_SOC_CLK_BUS)
         return UIOX_SOC_ERR_PERM;
     ctx->enabled[id] = false;
-    if ((uint32_t)id < UIOX_SOC_CLOCK_MAX)
+    if ((uiox_uint32_t)id < UIOX_SOC_CLOCK_MAX)
         s_clocks[id].enabled = false;
     return UIOX_SOC_OK;
 }
@@ -304,11 +304,11 @@ void uiox_soc_clk_print(const uiox_clk_ctx_t *ctx)
     if (!ctx) { uiox_soc_clock_print(); return; }
 
     uiox_soc_printf("[SOC] Clock context (%u entries):\n",
-                     (uint32_t)UIOX_SOC_CLK__COUNT);
-    for (uint32_t i = 0u; i < (uint32_t)UIOX_SOC_CLK__COUNT; i++) {
+                     (uiox_uint32_t)UIOX_SOC_CLK__COUNT);
+    for (uiox_uint32_t i = 0u; i < (uiox_uint32_t)UIOX_SOC_CLK__COUNT; i++) {
         uiox_soc_printf("  [%2u] %-10s  %10u Hz  %s\n",
                          i,
-                         ((uint32_t)i < UIOX_SOC_CLOCK_MAX &&
+                         ((uiox_uint32_t)i < UIOX_SOC_CLOCK_MAX &&
                           s_clocks[i].name[0])
                              ? s_clocks[i].name : "?",
                          ctx->freq_hz[i],
@@ -344,12 +344,12 @@ uiox_soc_err_t uiox_fw_clock_disable(uiox_soc_clk_id_t id)
     return uiox_soc_clock_disable(id);
 }
 
-uint32_t uiox_fw_clock_get_hz(uiox_soc_clk_id_t id)
+uiox_uint32_t uiox_fw_clock_get_hz(uiox_soc_clk_id_t id)
 {
     return uiox_soc_clock_get_hz(id);
 }
 
-uiox_soc_err_t uiox_fw_clock_set_hz(uiox_soc_clk_id_t id, uint32_t hz)
+uiox_soc_err_t uiox_fw_clock_set_hz(uiox_soc_clk_id_t id, uiox_uint32_t hz)
 {
     return uiox_soc_clock_set_hz(id, hz);
 }
