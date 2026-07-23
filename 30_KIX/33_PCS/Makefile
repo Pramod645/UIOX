@@ -1,83 +1,73 @@
-# =============================================================================
-# 30_KIX/33_ProcessControlSubsystem/Makefile
+# =============================================================
+# 30_KIX/33_PCS/Makefile
 #
-# UIOX Kernel — Process Control Subsystem (PCS).
-#
-# Directory layout:
-#   33_ProcessControlSubsystem/
-#   ├── include/                  public headers
-#   ├── src/                      top-level implementation (*.c)
-#   ├── 00_inter-process-communication/   IPC: pipes, signals, semaphores
-#   ├── 01_schedular/             CPU scheduler (CFS / round-robin)
-#   ├── 02_memory-managment/      virtual memory, page tables, mmap
-#   ├── 40_procStruct/            process/thread descriptor tables
-#   └── 50_scps/                  syscall dispatch table
-#
-# The umbrella Makefile calls:
-#   make -C 33_ProcessControlSubsystem CC=<cross> AR=<ar> CFLAGS="…" static
-#
-# @version 1.0.0
-# @date    2026-07-23
-# =============================================================================
+# Builds libpcs.a — the process-control subsystem static library.
+# Called by the 30_KIX umbrella Makefile:
+#   make CC=<cross-gcc> AR=<cross-ar> CFLAGS="<arch-flags>" static
+# =============================================================
 
-CC      ?= gcc
-AR      ?= ar
-CFLAGS  ?= -Wall -Wextra -O2 -std=c11
-ARFLAGS := rcs
+UNAMES := $(shell uname -s)
+ifeq ($(UNAMES),Darwin)
+  CC  ?= aarch64-elf-gcc
+  AR  ?= aarch64-elf-ar
+else
+  CC  ?= aarch64-linux-gnu-gcc
+  AR  ?= aarch64-linux-gnu-ar
+endif
 
-SRC_DIR := src
-OBJ_DIR := obj
-LIB_DIR := lib
+CFLAGS ?= \
+  -std=c11 -Wall -Wextra -Werror \
+  -ffreestanding -fno-builtin \
+  -fno-stack-protector \
+  -ffunction-sections -fdata-sections \
+  -Os -g
 
-SRCS    := $(wildcard $(SRC_DIR)/*.c)                               \
-           $(wildcard 00_inter-process-communication/src/*.c)        \
-           $(wildcard 01_schedular/src/*.c)                          \
-           $(wildcard 02_memory-managment/src/*.c)                   \
-           $(wildcard 40_procStruct/src/*.c)                         \
-           $(wildcard 50_scps/src/*.c)
-OBJS    := $(patsubst %.c, $(OBJ_DIR)/%.o, $(notdir $(SRCS)))
+BSPDIR    ?= $(realpath ../../10BSP)
+SOCINC     = $(BSPDIR)/03SoC/include
+ARCHINC    = $(BSPDIR)/10Arch/arm64/include
+UIXLIBINC  = ../../50_UIX/00_libs/00_uixlibs
 
-STATIC  := $(LIB_DIR)/libuiox_pcs.a
-SHARED  := $(LIB_DIR)/libuiox_pcs.so
+CINCLUDES  = \
+  -Iinclude \
+  -I40_procStruct/include \
+  -I50_scps/include \
+  -I$(SOCINC) \
+  -I$(ARCHINC) \
+  -I$(UIXLIBINC)
 
-CFLAGS  += -Iinclude \
-           -I00_inter-process-communication/include \
-           -I01_schedular/include                   \
-           -I02_memory-managment/include            \
-           -I40_procStruct/include                  \
-           -I50_scps/include
+ARFLAGS    = rcs
+OBJDIR     = build/obj
+LIBDIR     = build/lib
+STATIC     = $(LIBDIR)/libpcs.a
 
-.PHONY: all static shared clean
+CSRCS := \
+  40_procStruct/src/uiox_task.c \
+  02_MemMngnt/src/uiox_phys_alloc.c \
+  src/uiox_proc_init.c \
+  50_scps/src/uiox_sys_call.c
 
-all: static shared
+CSRCS += $(wildcard 01_schedular/src/*.c)
+CSRCS += $(wildcard 02_MemMngnt/src/uiox_timer*.c)
 
-static: $(STATIC)
-shared: $(SHARED)
+COBJS    := $(patsubst %.c,$(OBJDIR)/%.o,$(CSRCS))
+DEPFLAGS  = -MMD -MP -MF $(@:.o=.d)
+-include $(COBJS:.o=.d)
 
-$(STATIC): $(OBJS) | $(LIB_DIR)
+.PHONY: all static clean dirs
+all: static
+static: dirs $(STATIC)
+
+$(STATIC): $(COBJS) | $(LIBDIR)
 	$(AR) $(ARFLAGS) $@ $^
 	@echo "  [AR]  $@"
 
-$(SHARED): $(OBJS) | $(LIB_DIR)
-	$(CC) -shared -fPIC -o $@ $^
-	@echo "  [SO]  $@"
-
-vpath %.c $(SRC_DIR)                             \
-          00_inter-process-communication/src     \
-          01_schedular/src                       \
-          02_memory-managment/src                \
-          40_procStruct/src                      \
-          50_scps/src
-
-$(OBJ_DIR)/%.o: %.c | $(OBJ_DIR)
+$(OBJDIR)/%.o: %.c | $(OBJDIR)
+	@mkdir -p $(dir $@)
+	$(CC) $(CFLAGS) $(CINCLUDES) $(DEPFLAGS) -c $< -o $@
 	@echo "  [CC]  $<"
-	$(CC) $(CFLAGS) -fPIC -c $< -o $@
 
-$(OBJ_DIR):
-	mkdir -p $@
-
-$(LIB_DIR):
-	mkdir -p $@
-
+dirs: | $(OBJDIR) $(LIBDIR)
+$(OBJDIR): ; mkdir -p $@
+$(LIBDIR): ; mkdir -p $@
 clean:
-	rm -rf $(OBJ_DIR) $(LIB_DIR)
+	rm -rf build/
