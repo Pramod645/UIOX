@@ -3,21 +3,26 @@
  *
  * UIOX BSP — linker script for the dynamic / secondary-bootloader build.
  *
- * The BSP binary is loaded by the primary bootloader (01_uBoot) into SRAM
- * or early DRAM and executed before the kernel ELF is available.
+ * OUTPUT_FORMAT and OUTPUT_ARCH are intentionally omitted so the linker
+ * infers the correct ELF machine type from the input object files.
+ * The -m / LD_EMUL flag in the Makefile (_do_arm32 → armelf,
+ * _do_arm64 → aarch64elf, _do_riscv64 → elf64lriscv,
+ * _do_x86_64 → elf_x86_64) sets the emulation explicitly — that is
+ * the correct place to control the output format for a multi-arch build.
  *
- * Memory map (example — tune BSP_LOAD_ADDR per SoC):
+ * Previously this file had:
+ *   OUTPUT_FORMAT("elf64-littleaarch64")
+ *   OUTPUT_ARCH(aarch64)
+ * which caused arm-none-eabi-ld to error "cannot represent machine aarch64"
+ * when building arm32, riscv64, or x86_64 dynamic BSP binaries.
  *
+ * Memory map (tune BSP_LOAD_ADDR per SoC / arch):
  *   BSP_LOAD_ADDR  = 0x48000000   primary BL loads the BSP here
- *   KERNEL_LOAD    = 0x40000000   BSP will DMA the kernel ELF here
- *   STACK_SIZE     = 64K
+ *   STACK_SIZE     = 64 KiB
  *
- * @version 1.0.0
- * @date    2026-07-21
+ * @version 1.1.0
+ * @date    2026-07-22
  */
-
-OUTPUT_FORMAT("elf64-littleaarch64")   /* overridden per-arch by ARCH_LDFLAGS */
-OUTPUT_ARCH(aarch64)
 
 ENTRY(uiox_bsp_entry)
 
@@ -34,10 +39,10 @@ SECTIONS
     . = BSP_LOAD_ADDR;
 
     /*----------------------------------------------------------------
-     * Text
+     * Text — entry stub must be first so the primary BL jumps to it
      *----------------------------------------------------------------*/
     .text.bsp_entry : {
-        KEEP(*(.text.bsp_entry))    /* assembly stub must be first  */
+        KEEP(*(.text.bsp_entry))
     } > SRAM
 
     .text : {

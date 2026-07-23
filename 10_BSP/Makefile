@@ -37,7 +37,13 @@ BUILD ?= static
 UNAME_S := $(shell uname -s)
 
 ifeq ($(UNAME_S),Darwin)
-  LLVM_BIN  := $(shell brew --prefix llvm 2>/dev/null || echo /opt/homebrew/opt/llvm)/bin
+  #LLVM_BIN  := $(shell brew --prefix llvm 2>/dev/null || echo /opt/homebrew/opt/llvm)/bin
+  LLVM_BIN := $(shell \
+    if command -v llvm-objcopy >/dev/null 2>&1; then \
+        dirname $$(command -v llvm-objcopy); \
+    else \
+        echo $$(brew --prefix llvm 2>/dev/null || echo /opt/homebrew/opt/llvm)/bin; \
+    fi)
   ARM64_CC  := aarch64-elf-gcc
   ARM64_AR  := aarch64-elf-ar
   ARM64_LD  := aarch64-elf-ld
@@ -86,7 +92,8 @@ SOC_DIR    := $(BSP_DIR)/03_SoC
 INC_DIR    := $(BSP_DIR)/include
 LINKER_DIR := $(BSP_DIR)/linker
 
-BSP_SRCS_C := $(BSP_DIR)/src/uiox_bsp_main.c
+BSP_SRCS_C := $(BSP_DIR)/src/uiox_bsp_main.c\
+              $(BSP_DIR)/src/uiox_bsp_stubs.c
 
 # ── SoC sources — SPLIT into shared and arch-specific ────────────────────────
 # Shared: compiled for every arch. These files use only generic SOC APIs

@@ -33,6 +33,29 @@
 
  #include "../include/uiox_bsp.h"
 
+ // After the existing #include "../include/uiox_bsp.h" line, add:
+#include "uiox_soc_string.h"   /* provides memcpy, memset, memcmp, strlen */
+
+/* ── freestanding memcpy ─────────────────────────────────────────────────────
+ * RISC-V GCC -Os generates a bare 'memcpy' symbol call for the ELF segment
+ * copy loop inside load_kernel_elf().  uiox_soc_string.h maps the name to
+ * a macro, but the compiler-generated call bypasses macros.  We provide the
+ * real symbol here.  The #undef stops uiox_soc_string.h's macro from
+ * mangling the function declaration, then we re-apply the macro so all
+ * explicit call sites in this file still inline through uiox_memcpy.
+ * ─────────────────────────────────────────────────────────────────────────── */
+#ifdef memcpy
+#undef memcpy
+#endif
+void *memcpy(void *dst, const void *src, unsigned long n) {
+    unsigned char *d = (unsigned char *)dst;
+    const unsigned char *s = (const unsigned char *)src;
+    while (n--) *d++ = *s++;
+    return dst;
+}
+#define memcpy(d, s, n) uiox_memcpy((d),(s),(n))
+
+
  /* Subsystem init — implemented in sibling directories */
  extern int arch_init(void);           /* 10_BSP/10_Arch/<arch>/src/arch_init.c */
  extern int uiox_soc_init(void);       /* 10_BSP/03_SoC/src/uiox_soc_main.c    */
@@ -84,7 +107,7 @@
  
  /* ── BSS zero (dynamic build — no libc yet) ──────────────────────────────── */
  #if defined(UIOX_BSP_DYNAMIC_BUILD)
- static void bsp_bss_zero(void)
+ static void __attribute__((unused)) bsp_bss_zero(void)
  {
      uint8_t *p = _bss_start;
      while (p < _bss_end) *p++ = 0u;
