@@ -9,4 +9,7 @@
 | src/swapper.c | Algorithm 1 map_malloc (first-fit), Algorithm 2 swapper, swap_in/out_process |
 | src/page_fault.c | Algorithm 3 vfault (5 page states), Algorithm 4 pfault (COW handling) |
 
+==============================================================================================
+https://docs.kernel.org/arch/arm64/memory.html
+https://gcc.gnu.org/projects/c-status.html
 
