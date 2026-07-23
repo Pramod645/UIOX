@@ -1,7 +1,4 @@
 #include "../include/swapper.h"
-#include <string.h>
-#include <stdio.h>
-#include <stdlib.h>
 
 /* ── Globals ────────────────────────────────────────────────── */
 swap_device_t swap_device;

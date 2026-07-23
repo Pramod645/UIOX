@@ -1,5 +1,4 @@
 #include "../include/sched.h"
-#include <stddef.h>
 
 static sched_proc_t g_procs[MAX_PROCS];
 static int          g_current = -1;

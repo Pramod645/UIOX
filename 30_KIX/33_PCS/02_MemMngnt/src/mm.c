@@ -1,169 +1,155 @@
 /*
- * 33_PCS/02_MemMngnt/src/mm.c
+ * 30_KIX/33_PCS/02_MemMngnt/src/mm.c
  *
- * Physical page allocator — free list allocator over a contiguous DRAM
- * region. Provides the physallocpage() / physfreepage() symbols that
- * archruntime.c declares extern, and uioxmminit() called by
- * uioxprocinit().
+ * Physical page allocator — free-list over a contiguous DRAM region.
  *
- * Design
- * ──────
- * Each physical 4 KB page has a one-word descriptor in a statically
- * allocated array (s_pages). Free pages are linked into a singly-linked
- * free list through the descriptor's .next field. No buddy system yet —
- * that can be layered on top of this allocator later.
+ * Provides:
+ *   uiox_mm_init()      — called by uiox_proc_init()
+ *   phys_alloc_page()   — declared extern in archruntime.c
+ *   phys_free_page()
+ *   uiox_mm_free_pages()
+ *   uiox_mm_total_pages()
  *
- * Freestanding: no system headers. Types from uioxbasetypes.h.
- *
- * @version 1.0.0  @date 2026-07-23
+ * @version 2.0.0  @date 2026-07-23
  */
 
-#ifndef UIOXBASETYPESCOMPAT
-#define UIOXBASETYPESCOMPAT
-#endif
-#include "uioxbasetypes.h"
+/*
+ * uiox_klibc.h must be reachable via -I<path>/33_PCS/include.
+ * It provides: uint8_t, uint32_t, uint64_t, uintptr_t, size_t, NULL.
+ */
+#include "uiox_klibc.h"
 
-/* ── Memory-management descriptor (forward for uioxtask.h compat) ───── */
-/*    Full mm_desc: virtual address space, VMA list, page-table root.    */
-/*    For now we only need the physical allocator to unblock the link.   */
-struct uioxmmdesc {
-    uioxuintptrt  pgdphys;   /* physical address of page-global-directory */
-    uioxuintptrt  mmapbase;  /* start of user mmap area                   */
-    uioxuintptrt  mmaptop;   /* end of user mmap area                     */
-    uioxuintptrt  brkstart;  /* start of heap                             */
-    uioxuintptrt  brkcurrent;/* current heap break                        */
+/* ── Memory descriptor forward declaration (for uiox_task.h compat) ─── */
+struct uiox_mm_desc {
+    uintptr_t  mm_pgd_phys;     /* physical addr of page-global-directory */
+    uintptr_t  mm_mmap_base;    /* start of user mmap area                */
+    uintptr_t  mm_mmap_top;     /* end of user mmap area                  */
+    uintptr_t  mm_brk_start;    /* start of heap                          */
+    uintptr_t  mm_brk_current;  /* current heap break                     */
 };
 
 /* ── Page constants ─────────────────────────────────────────────────── */
-#define UIOXPAGESHIFT   12u
-#define UIOXPAGESIZE    (1u << UIOXPAGESHIFT)   /* 4 KB                  */
-#define UIOXPAGEMASK    (~(uioxuintptrt)(UIOXPAGESIZE - 1u))
+#define UIOX_PAGE_SHIFT   12
+#define UIOX_PAGE_SIZE    (1U << UIOX_PAGE_SHIFT)   /* 4 KB              */
+#define UIOX_PAGE_MASK    (~(uintptr_t)(UIOX_PAGE_SIZE - 1U))
 
-/* ── Maximum pages we can track (64 MB default = 16384 pages) ─────────  */
-/*    Raise UIOXMAXPAGES to support more RAM.                             */
-#define UIOXMAXPAGES    16384u
+/* Max pages tracked — 64 MB default (16384 × 4 KB). Raise as needed.  */
+#define UIOX_MAX_PAGES    16384
 
 /* ── Page descriptor ───────────────────────────────────────────────── */
-typedef struct uioxpage {
-    uioxuintptrt    phys;     /* physical address of this page           */
-    struct uioxpage *next;    /* free-list link (NULL when allocated)     */
-    uioxuint32t     flags;    /* reserved for future (dirty, pinned, ...) */
-    uioxuint32t     refcount; /* 0 = free, >0 = in use                   */
-} uioxpaget;
+typedef struct uiox_page {
+    uintptr_t          pg_phys;      /* physical address of this page   */
+    struct uiox_page  *pg_next;      /* free-list link (NULL if in use) */
+    uint32_t           pg_flags;     /* reserved: dirty, pinned, …      */
+    uint32_t           pg_refcount;  /* 0 = free, >0 = in use           */
+} uiox_page_t;
 
-/* ── Page descriptor array and free list head ───────────────────────── */
-static uioxpaget   s_pages[UIOXMAXPAGES];
-static uioxpaget  *s_freelist  = (uioxpaget *)0;
-static uioxuint32t s_nrfree    = 0u;
-static uioxuint32t s_nrtotal   = 0u;
-static uioxuint8t  s_mmready   = 0u;
+/* ── Allocator state ────────────────────────────────────────────────── */
+static uiox_page_t  s_pages[UIOX_MAX_PAGES];
+static uiox_page_t *s_free_list = (uiox_page_t *)0;
+static uint32_t     s_nr_free   = 0;
+static uint32_t     s_nr_total  = 0;
+static uint8_t      s_mm_ready  = 0;
 
 /* ────────────────────────────────────────────────────────────────────
- * uioxmminit — initialise the physical page allocator.
+ * uiox_mm_init — initialise the physical page allocator.
  *
- * @drambase   physical address of the first byte of available DRAM
- * @dramsize   size in bytes of the available DRAM region
+ * @dram_base  physical address of first available DRAM byte
+ * @dram_size  size in bytes of available DRAM region
  *
- * Aligns the base up to a page boundary and builds the free list.
- * Called once from uioxprocinit() before any allocation can occur.
+ * Aligns base up and top down to page boundaries, then builds the
+ * free list in reverse order so the lowest physical address is
+ * allocated first. Called once from uiox_proc_init().
  * ──────────────────────────────────────────────────────────────────── */
-void uioxmminit(uioxuint64t drambase, uioxuint64t dramsize)
+void uiox_mm_init(uint64_t dram_base, uint64_t dram_size)
 {
-    uioxuintptrt base, top, addr;
-    uioxuint32t  i;
+    uintptr_t base, top, addr;
+    uint32_t  i;
 
-    /* Align base up, top down */
-    base = (uioxuintptrt)((drambase + UIOXPAGESIZE - 1u) & UIOXPAGEMASK);
-    top  = (uioxuintptrt)((drambase + dramsize) & UIOXPAGEMASK);
+    base = (uintptr_t)((dram_base + UIOX_PAGE_SIZE - 1U) & UIOX_PAGE_MASK);
+    top  = (uintptr_t)((dram_base + dram_size) & UIOX_PAGE_MASK);
 
-    if (top <= base) { return; }   /* degenerate region */
+    if (top <= base) { return; }   /* degenerate / zero region */
 
-    s_freelist = (uioxpaget *)0;
-    s_nrfree   = 0u;
-    s_nrtotal  = 0u;
+    s_free_list = (uiox_page_t *)0;
+    s_nr_free   = 0;
+    s_nr_total  = 0;
 
-    /* Build free list — chain pages in reverse order so first page
-       is at the head (lowest physical address allocated first).       */
-    for (addr = top - UIOXPAGESIZE, i = 0u;
-         addr >= base && i < UIOXMAXPAGES;
-         addr -= UIOXPAGESIZE, i++) {
+    /* Build free list in reverse so lowest physical addr is at head */
+    for (addr = top - UIOX_PAGE_SIZE, i = 0;
+         i < UIOX_MAX_PAGES;
+         addr -= UIOX_PAGE_SIZE, i++) {
 
-        uioxpaget *pg = &s_pages[i];
-        pg->phys      = addr;
-        pg->refcount  = 0u;
-        pg->flags     = 0u;
-        pg->next      = s_freelist;
-        s_freelist    = pg;
-        s_nrfree++;
-        s_nrtotal++;
+        uiox_page_t *pg = &s_pages[i];
+        pg->pg_phys      = addr;
+        pg->pg_refcount  = 0;
+        pg->pg_flags     = 0;
+        pg->pg_next      = s_free_list;
+        s_free_list      = pg;
+        s_nr_free++;
+        s_nr_total++;
 
-        if (addr == base) { break; }  /* prevent underflow on uintptr */
+        if (addr == base) { break; }  /* prevent uintptr_t underflow */
     }
 
-    s_mmready = 1u;
+    s_mm_ready = 1;
 }
 
 /* ────────────────────────────────────────────────────────────────────
- * physallocpage — allocate one 4 KB physical page.
+ * phys_alloc_page — allocate one 4 KB physical page.
  *
- * Returns a pointer to the PHYSICAL address as a void*, or NULL.
- * The caller is responsible for mapping it into virtual address space.
+ * Returns the physical address cast to void*, or NULL on exhaustion.
+ * The caller maps it into virtual address space before use.
  *
- * Declared extern in archruntime.c — this is the definition.
+ * Name matches the extern declaration in archruntime.c.
  * ──────────────────────────────────────────────────────────────────── */
-void *physallocpage(void)
+void *phys_alloc_page(void)
 {
-    uioxpaget *pg;
+    uiox_page_t *pg;
 
-    if (!s_mmready || !s_freelist) { return (void *)0; }
+    if (!s_mm_ready || !s_free_list) { return (void *)0; }
 
-    pg             = s_freelist;
-    s_freelist     = pg->next;
-    pg->next       = (uioxpaget *)0;
-    pg->refcount   = 1u;
-    s_nrfree--;
+    pg               = s_free_list;
+    s_free_list      = pg->pg_next;
+    pg->pg_next      = (uiox_page_t *)0;
+    pg->pg_refcount  = 1;
+    s_nr_free--;
 
-    return (void *)(uioxuintptrt)pg->phys;
+    return (void *)(uintptr_t)pg->pg_phys;
 }
 
 /* ────────────────────────────────────────────────────────────────────
- * physfreepage — return a physical page to the free list.
+ * phys_free_page — return a physical page to the free list.
  * ──────────────────────────────────────────────────────────────────── */
-void physfreepage(void *page)
+void phys_free_page(void *page)
 {
-    uioxuintptrt phys;
-    uioxuint32t  i;
+    uintptr_t phys;
+    uint32_t  i;
 
-    if (!page || !s_mmready) { return; }
+    if (!page || !s_mm_ready) { return; }
 
-    phys = (uioxuintptrt)page & UIOXPAGEMASK;
+    phys = (uintptr_t)page & UIOX_PAGE_MASK;
 
     /* Find the descriptor for this physical address */
-    for (i = 0u; i < s_nrtotal; i++) {
-        if (s_pages[i].phys == phys) {
-            if (s_pages[i].refcount > 0u) {
-                s_pages[i].refcount--;
+    for (i = 0; i < s_nr_total; i++) {
+        if (s_pages[i].pg_phys == phys) {
+            if (s_pages[i].pg_refcount > 0) {
+                s_pages[i].pg_refcount--;
             }
-            if (s_pages[i].refcount == 0u) {
-                s_pages[i].next = s_freelist;
-                s_freelist      = &s_pages[i];
-                s_nrfree++;
+            if (s_pages[i].pg_refcount == 0) {
+                s_pages[i].pg_next = s_free_list;
+                s_free_list        = &s_pages[i];
+                s_nr_free++;
             }
             return;
         }
     }
-    /* Physical address not from our pool — ignore */
+    /* Physical address not from our pool — silently ignore */
 }
 
 /* ────────────────────────────────────────────────────────────────────
- * uioxmmfreepages — return number of free pages (debug / info).
+ * uiox_mm_free_pages  — number of free pages available.
+ * uiox_mm_total_pages — total pages managed by the allocator.
  * ──────────────────────────────────────────────────────────────────── */
-uioxuint32t uioxmmfreepages(void)
-{
-    return s_nrfree;
-}
-
-uioxuint32t uioxmmtotalpages(void)
-{
-    return s_nrtotal;
-}
+uint32_t uiox_mm_free_pages(void)  { return s_nr_free;  }
+uint32_t uiox_mm_total_pages(void) { return s_nr_total; }

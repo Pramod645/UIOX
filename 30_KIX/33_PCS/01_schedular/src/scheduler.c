@@ -1,15 +1,11 @@
-#include "scheduler.h"
-#include <stdio.h>
-#include <stdlib.h>
-#include <string.h>
+ #include "../include/scheduler.h"
 
 /* ─────────────────────────────────────────────────────────────
  * Global state
  * ───────────────────────────────────────────────────────────── */
 static RunQueue   rq;
-static Process    proc_table[MAX_PROCESSES];
-static int        proc_count = 0;
-static Process   *current   = NULL;  /* running process          */
+static Process   *current   __attribute__((unused)) = NULL;
+
 
 volatile uint64_t jiffies    = 0;
 volatile uint64_t jiffies_64 = 0;
@@ -35,8 +31,6 @@ static int priority_to_queue(int prio)
 void scheduler_init(void)
 {
     memset(&rq, 0, sizeof rq);
-    proc_count = 0;
-    current    = NULL;
     printf("[scheduler] initialised  queues=%d  HZ=%d\n",
            MAX_PRIORITY_QUEUES, HZ);
 }

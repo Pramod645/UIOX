@@ -1,8 +1,5 @@
 #include "../include/page_fault.h"
 #include "../include/scheduler.h"
-#include <string.h>
-#include <stdio.h>
-#include <stdlib.h>
 
 /* ── Globals ────────────────────────────────────────────────── */
 pfdata_t         pfdata_table[PHYS_PAGES];
