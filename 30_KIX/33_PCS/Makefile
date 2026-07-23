@@ -1,80 +1,224 @@
-# =============================================================
-# 30_KIX/33_PCS/Makefile
+# =============================================================================
+# 30_KIX/33_PCS/Makefile  — v2.0.0
 #
-# Builds libpcs.a — the process-control subsystem static library.
-# Called by the 30_KIX umbrella Makefile:
-#   make CC=<cross-gcc> AR=<cross-ar> CFLAGS="<arch-flags>" static
+# UIOX Process-Control Subsystem — master Makefile (Linux + macOS).
+# Builds libpcs.a for the selected architecture.
+#
+# Usage (matches 10_BSP/Makefile pattern):
+#   make arm64 / arm32 / riscv64 / x86_64
+#   make all                     # all four arches
+#   make clean[-arm64|-arm32|-riscv64|-x86_64]
+#   make info[-arm64|-arm32|-riscv64|-x86_64]
 #
 # Freestanding build: -nostdinc enforced.
 # All system headers replaced by 33_PCS/include/uiox_klibc.h.
-# =============================================================
+#
+# @version 2.0.0  @date 2026-07-23
+# =============================================================================
 
-UNAMES := $(shell uname -s)
-ifeq ($(UNAMES),Darwin)
-  CC  ?= aarch64-elf-gcc
-  AR  ?= aarch64-elf-ar
+# ── Makefile-relative base ────────────────────────────────────────────────────
+# All paths anchored here so make works correctly from any CWD.
+MFDIR := $(dir $(abspath $(lastword $(MAKEFILE_LIST))))
+
+# ── Host OS detection (matches 10_BSP pattern: UNAME_S) ──────────────────────
+UNAME_S := $(shell uname -s)
+
+ifeq ($(UNAME_S),Darwin)
+  LLVM_BIN := $(shell \
+    if command -v llvm-objcopy >/dev/null 2>&1; then \
+        dirname $$(command -v llvm-objcopy); \
+    else \
+        echo $$(brew --prefix llvm 2>/dev/null || echo /opt/homebrew/opt/llvm)/bin; \
+    fi)
+  ARM64_CC := aarch64-elf-gcc
+  ARM64_AR := aarch64-elf-ar
+  ARM32_CC := arm-none-eabi-gcc
+  ARM32_AR := arm-none-eabi-ar
+  RV64_CC  := riscv64-elf-gcc
+  RV64_AR  := riscv64-elf-ar
+  X86_CC   := x86_64-elf-gcc
+  X86_AR   := x86_64-elf-ar
 else
-  CC  ?= aarch64-linux-gnu-gcc
-  AR  ?= aarch64-linux-gnu-ar
+  ARM64_CC := aarch64-linux-gnu-gcc
+  ARM64_AR := aarch64-linux-gnu-ar
+  ARM32_CC := arm-linux-gnueabihf-gcc
+  ARM32_AR := arm-linux-gnueabihf-ar
+  RV64_CC  := riscv64-linux-gnu-gcc
+  RV64_AR  := riscv64-linux-gnu-ar
+  X86_CC   := x86_64-linux-gnu-gcc
+  X86_AR   := x86_64-linux-gnu-ar
 endif
 
-# ── PCS freestanding include root ─────────────────────────────────────
-# uiox_klibc.h lives here — replaces all system headers.
-PCSINC     = $(CURDIR)/include
+# ── BSP paths (anchored to MFDIR, not CWD) ───────────────────────────────────
+BSPDIR ?= $(abspath $(MFDIR)../../10_BSP)
+SOCINC  = $(BSPDIR)/03_SoC/include
 
-CFLAGS ?= \
-  -std=c11 -Wall -Wextra -Werror \
-  -ffreestanding -fno-builtin \
-  -fno-stack-protector \
-  -ffunction-sections -fdata-sections \
-  -nostdinc \
+# ── PCS include roots ─────────────────────────────────────────────────────────
+PCSINC := $(MFDIR)include
+
+# ── Common compiler flags (matches 10_BSP COMMON_CFLAGS_BASE) ────────────────
+COMMON_CFLAGS := \
+  -std=c11              \
+  -Wall -Wextra -Werror \
+  -ffreestanding        \
+  -fno-builtin          \
+  -fno-stack-protector  \
+  -ffunction-sections   \
+  -fdata-sections       \
+  -nostdinc             \
   -Os -g
 
-BSPDIR    ?= $(realpath ../../10BSP)
-SOCINC     = $(BSPDIR)/03SoC/include
-ARCHINC    = $(BSPDIR)/10Arch/arm64/include
+# ── Common include paths (all PCS-internal) ───────────────────────────────────
+COMMON_INCLUDES := \
+  -I$(PCSINC)                          \
+  -I$(MFDIR)40_procStruct/include      \
+  -I$(MFDIR)50_scps/include            \
+  -I$(MFDIR)01_schedular/include       \
+  -I$(MFDIR)02_MemMngnt/include        \
+  -I$(SOCINC)
 
-CINCLUDES  = \
-  -I$(PCSINC) \
-  -I40_procStruct/include \
-  -I50_scps/include \
-  -I$(SOCINC) \
-  -I$(ARCHINC)
+# ── Source files ──────────────────────────────────────────────────────────────
+PCS_SRCS_C := \
+  $(MFDIR)40_procStruct/src/uiox_task.c    \
+  $(MFDIR)02_MemMngnt/src/mm.c             \
+  $(MFDIR)src/uiox_proc_init.c             \
+  $(MFDIR)50_scps/src/uiox_sys_call.c
 
-ARFLAGS    = rcs
-OBJDIR     = build/obj
-LIBDIR     = build/lib
-STATIC     = $(LIBDIR)/libpcs.a
+PCS_SRCS_C += $(wildcard $(MFDIR)01_schedular/src/*.c)
+PCS_SRCS_C += $(wildcard $(MFDIR)02_MemMngnt/src/uiox_timer*.c)
 
-CSRCS := \
-  40_procStruct/src/uiox_task.c \
-  02_MemMngnt/src/mm.c \
-  src/uiox_proc_init.c \
-  50_scps/src/uiox_sys_call.c
+# ── vpath — compiler finds sources by basename (matches 10_BSP pattern) ──────
+vpath %.c \
+  $(MFDIR)40_procStruct/src \
+  $(MFDIR)02_MemMngnt/src   \
+  $(MFDIR)01_schedular/src  \
+  $(MFDIR)50_scps/src       \
+  $(MFDIR)src
 
-CSRCS += $(wildcard 01_schedular/src/*.c)
-CSRCS += $(wildcard 02_MemMngnt/src/uiox_timer*.c)
+ARFLAGS := rcs
 
-COBJS    := $(patsubst %.c,$(OBJDIR)/%.o,$(CSRCS))
-DEPFLAGS  = -MMD -MP -MF $(@:.o=.d)
--include $(COBJS:.o=.d)
+# =============================================================================
+# Per-architecture named targets  (same pattern as 10_BSP/Makefile)
+# =============================================================================
 
-.PHONY: all static clean dirs
-all: static
-static: dirs $(STATIC)
+.PHONY: arm64
+arm64: _do_arm64
+	@echo "[PCS] arm64 done → build/arm64/"
 
-$(STATIC): $(COBJS) | $(LIBDIR)
+.PHONY: _do_arm64
+_do_arm64:
+	@command -v $(ARM64_CC) >/dev/null 2>&1 || \
+	    { echo "ERROR: $(ARM64_CC) not found"; \
+	      echo "  Linux: sudo apt install gcc-aarch64-linux-gnu"; \
+	      echo "  macOS: brew install aarch64-elf-gcc"; exit 1; }
+	$(MAKE) -f $(MFDIR)Makefile _build       \
+	    _ARCH=arm64                           \
+	    CC=$(ARM64_CC) AR=$(ARM64_AR)         \
+	    ARCH_CFLAGS="-march=armv8-a -mabi=lp64 -mlittle-endian" \
+	    ARCH_CPUDEF="-D__aarch64__"
+
+.PHONY: arm32
+arm32: _do_arm32
+	@echo "[PCS] arm32 done → build/arm32/"
+
+.PHONY: _do_arm32
+_do_arm32:
+	@command -v $(ARM32_CC) >/dev/null 2>&1 || \
+	    { echo "ERROR: $(ARM32_CC) not found"; \
+	      echo "  Linux: sudo apt install gcc-arm-linux-gnueabihf"; \
+	      echo "  macOS: brew install arm-none-eabi-gcc"; exit 1; }
+	$(MAKE) -f $(MFDIR)Makefile _build              \
+	    _ARCH=arm32                                  \
+	    CC=$(ARM32_CC) AR=$(ARM32_AR)               \
+	    ARCH_CFLAGS="-march=armv7-a -marm -mfloat-abi=soft -mlittle-endian" \
+	    ARCH_CPUDEF="-D__arm__"
+
+.PHONY: riscv64
+riscv64: _do_riscv64
+	@echo "[PCS] riscv64 done → build/riscv64/"
+
+.PHONY: _do_riscv64
+_do_riscv64:
+	@command -v $(RV64_CC) >/dev/null 2>&1 || \
+	    { echo "ERROR: $(RV64_CC) not found"; \
+	      echo "  Linux: sudo apt install gcc-riscv64-linux-gnu"; \
+	      echo "  macOS: brew install riscv64-elf-gcc"; exit 1; }
+	$(MAKE) -f $(MFDIR)Makefile _build                    \
+	    _ARCH=riscv64                                      \
+	    CC=$(RV64_CC) AR=$(RV64_AR)                       \
+	    ARCH_CFLAGS="-march=rv64imafdc_zicsr_zifencei -mabi=lp64d -mcmodel=medany" \
+	    ARCH_CPUDEF="-D__riscv -D__riscv_xlen=64"
+
+.PHONY: x86_64
+x86_64: _do_x86_64
+	@echo "[PCS] x86_64 done → build/x86_64/"
+
+.PHONY: _do_x86_64
+_do_x86_64:
+	@command -v $(X86_CC) >/dev/null 2>&1 || \
+	    { echo "ERROR: $(X86_CC) not found"; \
+	      echo "  Linux: sudo apt install gcc-x86-64-linux-gnu"; \
+	      echo "  macOS: brew install x86_64-elf-gcc"; exit 1; }
+	$(MAKE) -f $(MFDIR)Makefile _build                         \
+	    _ARCH=x86_64                                            \
+	    CC=$(X86_CC) AR=$(X86_AR)                              \
+	    ARCH_CFLAGS="-m64 -mno-red-zone -mno-mmx -mno-sse -mno-sse2 -fno-pic -mcmodel=kernel" \
+	    ARCH_CPUDEF="-D__x86_64__"
+
+# =============================================================================
+# Internal _build target
+# =============================================================================
+_BUILD_DIR = $(MFDIR)build/$(_ARCH)
+
+_ARCH_INC   = $(BSPDIR)/10_Arch/$(_ARCH)/include
+
+_CFLAGS_ALL = $(COMMON_CFLAGS)    \
+              $(COMMON_INCLUDES)   \
+              -I$(_ARCH_INC)       \
+              $(ARCH_CFLAGS)       \
+              $(ARCH_CPUDEF)
+
+_OBJS = $(patsubst $(MFDIR)%.c,$(_BUILD_DIR)/%.o,$(PCS_SRCS_C))
+
+DEPFLAGS = -MMD -MP -MF $(@:.o=.d)
+-include $(_OBJS:.o=.d)
+
+.PHONY: _build
+_build: $(_BUILD_DIR)/libpcs.a
+	@echo "[PCS] _build done: $(_ARCH)"
+
+$(_BUILD_DIR)/libpcs.a: $(_OBJS)
+	@mkdir -p $(dir $@)
 	$(AR) $(ARFLAGS) $@ $^
 	@echo "  [AR]  $@"
 
-$(OBJDIR)/%.o: %.c | $(OBJDIR)
+$(_BUILD_DIR)/%.o: $(MFDIR)%.c
 	@mkdir -p $(dir $@)
-	$(CC) $(CFLAGS) $(CINCLUDES) $(DEPFLAGS) -c $< -o $@
+	$(CC) $(_CFLAGS_ALL) $(DEPFLAGS) -c $< -o $@
 	@echo "  [CC]  $<"
 
-dirs: | $(OBJDIR) $(LIBDIR)
-$(OBJDIR): ; mkdir -p $@
-$(LIBDIR): ; mkdir -p $@
+# =============================================================================
+# Convenience targets  (matches 10_BSP pattern)
+# =============================================================================
 
-clean:
-	rm -rf build/
+.PHONY: all
+all: arm64 arm32 riscv64 x86_64
+	@echo "" && echo "[PCS] all builds complete"
+
+.PHONY: clean-arm64 clean-arm32 clean-riscv64 clean-x86_64 clean
+clean-arm64:   ; rm -rf $(MFDIR)build/arm64
+clean-arm32:   ; rm -rf $(MFDIR)build/arm32
+clean-riscv64: ; rm -rf $(MFDIR)build/riscv64
+clean-x86_64:  ; rm -rf $(MFDIR)build/x86_64
+clean: clean-arm64 clean-arm32 clean-riscv64 clean-x86_64
+	@echo "[CLN] all build outputs removed"
+
+.PHONY: info-arm64 info-arm32 info-riscv64 info-x86_64
+info-arm64:
+	@echo "HOST=$(UNAME_S) ARCH=arm64   CC=$(ARM64_CC)"
+info-arm32:
+	@echo "HOST=$(UNAME_S) ARCH=arm32   CC=$(ARM32_CC)"
+info-riscv64:
+	@echo "HOST=$(UNAME_S) ARCH=riscv64 CC=$(RV64_CC)"
+info-x86_64:
+	@echo "HOST=$(UNAME_S) ARCH=x86_64  CC=$(X86_CC)"

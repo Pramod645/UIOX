@@ -62,7 +62,7 @@ void uiox_task_init(uiox_task_t *t, uix_pid_t pid,
 {
     if (!t) return;
     t->p_pid         = pid;
-    t->p_ppid        = parent ? parent->p_pid : 0u;
+    t->p_ppid        = parent ? parent->p_pid : 0;
     t->p_state       = UIOX_TASK_NEW;
     t->p_policy      = UIOX_SCHED_RR;
     t->p_priority    = priority;
