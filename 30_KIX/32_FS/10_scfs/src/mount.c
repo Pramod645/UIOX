@@ -2,7 +2,7 @@
 #include "../include/inode.h"
 #include "../include/mount.h"
 #include "../include/buf.h"
-#include <string.h>
+#include "../../33_PCS/include/uiox_klibc.h"  
 
 mount_t mount_table[NMOUNT];
 

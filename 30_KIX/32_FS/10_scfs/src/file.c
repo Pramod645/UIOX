@@ -1,7 +1,6 @@
 #include "../include/file.h"
 #include "../include/fs.h"
-#include <string.h>
-#include <stdio.h>
+#include "../../33_PCS/include/uiox_klibc.h"  
 
 file_t   file_table[NFILE];
 u_area_t u;

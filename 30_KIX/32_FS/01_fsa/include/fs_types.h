@@ -1,11 +1,8 @@
 #ifndef UIOX_FS_TYPES_H
 #define UIOX_FS_TYPES_H
 
-#include <stdint.h>
-#include <stdbool.h>
-#include <stddef.h>
-#include <time.h>
-
+//#include "../../33_PCS/include/uiox_klibc.h"  
+#include "/Users/pramodkumar/Hack/WS/UIOX/30_KIX/33_PCS/include/uiox_klibc.h"
 /* ─────────────────────────────────────────────────────────────
  * Filesystem geometry constants
  * ───────────────────────────────────────────────────────────── */

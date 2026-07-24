@@ -3,7 +3,7 @@
 
 #include "inode.h"
 #include "buf.h"
-#include <stdint.h>
+#include "../../33_PCS/include/uiox_klibc.h"  
 
 #define NMOUNT  20
 

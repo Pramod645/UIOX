@@ -5,7 +5,7 @@
 #include "file.h"
 #include "mount.h"
 #include "buf.h"
-#include <stdint.h>
+#include "../../33_PCS/include/uiox_klibc.h"  
 
 /* Stat structure */
 typedef struct stat {

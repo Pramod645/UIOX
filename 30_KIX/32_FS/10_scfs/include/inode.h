@@ -1,8 +1,7 @@
 #ifndef INODE_H
 #define INODE_H
 
-#include <stdint.h>
-#include <time.h>
+#include "../../33_PCS/include/uiox_klibc.h"  
 
 #define NBLOCK_DIRECT   10
 #define NBLOCK_INDIRECT  3

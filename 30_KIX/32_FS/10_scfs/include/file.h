@@ -2,7 +2,7 @@
 #define FILE_H
 
 #include "inode.h"
-#include <stdint.h>
+#include "../../33_PCS/include/uiox_klibc.h"  
 
 #define NFILE       100     /* max open files system-wide */
 #define NOFILE      20      /* max open files per process */

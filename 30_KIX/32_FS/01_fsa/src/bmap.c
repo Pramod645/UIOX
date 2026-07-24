@@ -1,7 +1,6 @@
 #include "bmap.h"
 #include "superblock.h"
-#include <stdio.h>
-#include <string.h>
+#include "/Users/pramodkumar/Hack/WS/UIOX/30_KIX/33_PCS/include/uiox_klibc.h"
 
 /* ─────────────────────────────────────────────────────────────
  * Internal: read one indirect block and extract a block pointer.

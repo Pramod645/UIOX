@@ -1,7 +1,7 @@
 #ifndef BUF_H
 #define BUF_H
 
-#include <stdint.h>
+#include "../../33_PCS/include/uiox_klibc.h"  
 
 #define NBUF        30
 #define BLOCK_SIZE  512

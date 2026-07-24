@@ -1,7 +1,5 @@
 #include "buffer.h"
-#include <stdio.h>
-#include <string.h>
-#include <stdlib.h>
+#include "/Users/pramodkumar/Hack/WS/UIOX/30_KIX/33_PCS/include/uiox_klibc.h"
 
 /* ─────────────────────────────────────────────────────────────
  * Simulated disk storage

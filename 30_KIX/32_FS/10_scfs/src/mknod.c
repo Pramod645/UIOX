@@ -1,8 +1,6 @@
 #include "../include/fs.h"
 #include "../include/inode.h"
-#include <libgen.h>
-#include <string.h>
-
+#include "../../33_PCS/include/uiox_klibc.h"  
 /*
  * Algorithm mknod
  * input : node name, file type, permissions, major, minor

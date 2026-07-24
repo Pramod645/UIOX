@@ -1,9 +1,7 @@
 #include "../include/inode.h"
 #include "../include/buf.h"
 #include "../include/fs.h"
-#include <string.h>
-#include <stdlib.h>
-#include <stdio.h>
+#include "../../33_PCS/include/uiox_klibc.h"  
 
 inode_t inode_table[NINODE];
 
