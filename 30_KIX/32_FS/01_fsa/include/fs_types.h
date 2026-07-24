@@ -1,11 +1,16 @@
+/*
+ *  30_KIX/32_FS/01_fsa/include/fs_types.h
+ *
+ *  Freestanding FS type definitions — no system headers.
+ *  v1.1: added #include "uiox_klibc.h" so bool/uint*_t/NULL flow
+ *        into every file that includes fs_types.h transitively.
+ */
 #ifndef UIOX_FS_TYPES_H
 #define UIOX_FS_TYPES_H
 
-//#include "../../33_PCS/include/uiox_klibc.h"  
-#include "/Users/pramodkumar/Hack/WS/UIOX/30_KIX/33_PCS/include/uiox_klibc.h"
-/* ─────────────────────────────────────────────────────────────
- * Filesystem geometry constants
- * ───────────────────────────────────────────────────────────── */
+#include "uiox_klibc.h"   /* replaces <stdint.h> <stdbool.h> <stddef.h> */
+
+/* ── Filesystem geometry ────────────────────────────────────── */
 #define BLOCK_SIZE          512     /* bytes per disk block             */
 #define MAX_BLOCKS          1024    /* total simulated disk blocks      */
 #define MAX_INODES          128     /* total inodes on disk             */
@@ -37,9 +42,9 @@ typedef enum {
 } FileType;
 
 /* ── Permission bits ──────────────────────────────────────── */
-#define PERM_UR  0400   /* user  read                               */
-#define PERM_UW  0200   /* user  write                              */
-#define PERM_UX  0100   /* user  execute                            */
+#define PERM_UR  0400
+#define PERM_UW  0200
+#define PERM_UX  0100
 #define PERM_GR  0040
 #define PERM_GW  0020
 #define PERM_GX  0010

@@ -2,7 +2,7 @@
 #define FILE_H
 
 #include "inode.h"
-#include "../../33_PCS/include/uiox_klibc.h"  
+#include "uiox_klibc.h"
 
 #define NFILE       100     /* max open files system-wide */
 #define NOFILE      20      /* max open files per process */
@@ -36,16 +36,12 @@ typedef struct u_area {
     uint16_t  u_uid;              /* user id */
     uint16_t  u_gid;              /* group id */
     uint16_t  u_umask;            /* file creation mask */
-
-    /* I/O parameters set before read/write */
-    char     *u_base;             /* user buffer address */
-    uint32_t  u_count;            /* byte count for I/O */
     uint32_t  u_offset;           /* current file offset */
     int       u_segflg;           /* 0 = user space, 1 = kernel space */
     int       u_error;            /* error code */
 } u_area_t;
 
-extern file_t  file_table[NFILE];
+extern file_t   file_table[NFILE];
 extern u_area_t u;
 
 /* File table operations */

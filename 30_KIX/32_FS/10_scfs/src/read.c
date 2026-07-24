@@ -1,70 +1,83 @@
+/*
+ *  30_KIX/32_FS/10_scfs/src/read.c  — freestanding fix v1.1
+ *    FIXED: ../../33_PCS path, fprintf(stderr,...)
+ */
 #include "../include/fs.h"
 #include "../include/inode.h"
 #include "../include/file.h"
 #include "../include/buf.h"
-#include "../../33_PCS/include/uiox_klibc.h"  
+#include "uiox_klibc.h"
 
 /*
  * Algorithm read
- * input : user file descriptor, buffer address, byte count
- * output: bytes copied into user space
+ * input : user file descriptor, buffer, byte count
+ * output: bytes read
  */
-int fs_read(int fd, char *ubuf, uint32_t count)
+int fs_read(int fd, char *buf, uint32_t count)
 {
+    file_t  *fp;
+    inode_t *ip;
+    uint32_t done = 0;
+
     if (fd < 0 || fd >= NOFILE) return FS_EBADF;
+    fp = u.u_ofile.ufd_file[fd];
+    if (!fp) return FS_EBADF;
+    if (!(fp->f_flag & O_RDONLY) && fp->f_flag != 0) return FS_EBADF;
 
-    file_t  *fp = u.u_ofile.ufd_file[fd];
-    if (!fp || !(fp->f_flag & O_RDONLY)) return FS_EBADF;
-
-    inode_t *ip = fp->f_inode;
+    ip = fp->f_inode;
     if (!ip) return FS_EBADF;
 
-    ilock(ip);
-
-    /* Set u area I/O parameters */
-    u.u_base   = ubuf;
-    u.u_count  = count;
-    u.u_offset = fp->f_offset;
-
-    uint32_t total_read = 0;
-
-    while (u.u_count > 0) {
-        /* Convert file offset to disk block (algorithm bmap) */
-        uint32_t blkno = bmap(ip, u.u_offset);
-
-        uint32_t blk_offset = u.u_offset % BLOCK_SIZE;
-        uint32_t bytes_avail = BLOCK_SIZE - blk_offset;
-
-        /* End of file? */
-        if (u.u_offset >= ip->i_size) break;
-
-        uint32_t to_read = u.u_count < bytes_avail
-                         ? u.u_count : bytes_avail;
-        if (u.u_offset + to_read > ip->i_size)
-            to_read = ip->i_size - u.u_offset;
-        if (to_read == 0) break;
-
-        /* Read block (breada if read-ahead available) */
-        buf_t *bp = bread(ip->i_dev, blkno);
-        if (!bp) break;
-
-        /* Copy data from system buffer to user address */
-        memcpy(u.u_base, bp->b_data + blk_offset, to_read);
-
-        /* Update u area fields */
-        u.u_base   += to_read;
-        u.u_offset += to_read;
-        u.u_count  -= to_read;
-        total_read += to_read;
-
-        brelse(bp);     /* release buffer locked in bread */
+    /* Pipe read */
+    if ((ip->i_mode & IFMT) == IFIFO) {
+        /* sim: return 0 (EOF) */
+        return 0;
     }
 
-    iunlock(ip);
+    while (done < count && fp->f_offset < ip->i_size) {
+        uint32_t blkno  = fp->f_offset / BLOCK_SIZE;
+        uint32_t blkoff = fp->f_offset % BLOCK_SIZE;
+        uint32_t avail  = BLOCK_SIZE - blkoff;
+        uint32_t want   = count - done;
+        uint32_t n      = (avail < want) ? avail : want;
+        uint32_t left   = ip->i_size - fp->f_offset;
+        if (n > left) n = left;
 
-    /* Update file table offset for next read */
-    fp->f_offset = u.u_offset;
+        if (blkno < (uint32_t)(NBLOCK_DIRECT + NBLOCK_INDIRECT) &&
+            ip->i_addr[blkno]) {
+            buf_t *bp = bread((uint16_t)ip->i_dev, ip->i_addr[blkno]);
+            if (bp) {
+                memcpy(buf + done, bp->b_data + blkoff, n);
+                brelse(bp);
+            } else {
+                break;
+            }
+        } else {
+            memset(buf + done, 0, n);
+        }
+        done         += n;
+        fp->f_offset += n;
+    }
 
     ip->i_flag |= IACC;
-    return (int)total_read;
+    return (int)done;
+}
+
+int fs_lseek(int fd, int32_t offset, int whence)
+{
+    file_t  *fp;
+    int32_t  new_off;
+
+    if (fd < 0 || fd >= NOFILE) return FS_EBADF;
+    fp = u.u_ofile.ufd_file[fd];
+    if (!fp) return FS_EBADF;
+
+    switch (whence) {
+        case 0: new_off = offset; break;                                  /* SEEK_SET */
+        case 1: new_off = (int32_t)fp->f_offset + offset; break;         /* SEEK_CUR */
+        case 2: new_off = (int32_t)fp->f_inode->i_size + offset; break;  /* SEEK_END */
+        default: return FS_EBADF;
+    }
+    if (new_off < 0) return FS_EBADF;
+    fp->f_offset = (uint32_t)new_off;
+    return (int)fp->f_offset;
 }

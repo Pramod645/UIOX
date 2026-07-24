@@ -1,0 +1,166 @@
+/*
+ *  30_KIX/32_FS/include/uiox_klibc.h
+ *
+ *  Freestanding C runtime replacement for the UIOX kernel.
+ *  Identical in content to 33_PCS/include/uiox_klibc.h — maintained
+ *  as a separate copy so 32_FS has no dependency on 33_PCS paths.
+ *
+ *  Sections:
+ *    §1  Integer types  (uint8_t … uint64_t, intptr_t, uintptr_t, limits)
+ *    §2  Boolean        (bool, true, false)
+ *    §3  NULL / size_t / ssize_t / ptrdiff_t / offsetof
+ *    §4  Time           (clock_t = uint64_t, time_t, uiox_timespec_t, uiox_timeval_t)
+ *    §5  Memory         (uiox_memset, uiox_memcpy, uiox_memmove, uiox_memcmp)
+ *    §6  String         (uiox_strlen, uiox_strcmp, uiox_strncmp, uiox_strcpy,
+ *                        uiox_strncpy, uiox_strchr)
+ *    §7  I/O            (uiox_printf — implemented by BSP SoC stdio)
+ *    §8  Math           (uiox_min, uiox_max, uiox_abs32/64, uiox_ilog2 — integer only)
+ *    §9  Aliases        (memset/memcpy/memmove/memcmp/printf map to uiox_* above)
+ */
+#ifndef UIOX_KLIBC_H
+#define UIOX_KLIBC_H
+
+/* ── §1  Integer types ──────────────────────────────────────── */
+typedef unsigned char       uint8_t;
+typedef unsigned short      uint16_t;
+typedef unsigned int        uint32_t;
+typedef unsigned long long  uint64_t;
+typedef signed char         int8_t;
+typedef short               int16_t;
+typedef int                 int32_t;
+typedef long long           int64_t;
+typedef uint64_t            uintptr_t;
+typedef int64_t             intptr_t;
+typedef uint64_t            uintmax_t;
+typedef int64_t             intmax_t;
+
+#define UINT8_MAX   0xFFU
+#define UINT16_MAX  0xFFFFU
+#define UINT32_MAX  0xFFFFFFFFU
+#define UINT64_MAX  0xFFFFFFFFFFFFFFFFULL
+#define INT8_MIN    (-128)
+#define INT8_MAX    127
+#define INT16_MIN   (-32768)
+#define INT16_MAX   32767
+#define INT32_MIN   (-2147483648)
+#define INT32_MAX   2147483647
+#define INT64_MIN   (-9223372036854775807LL - 1)
+#define INT64_MAX   9223372036854775807LL
+
+/* ── §2  Boolean ────────────────────────────────────────────── */
+#ifndef __cplusplus
+typedef _Bool bool;
+#define true  1
+#define false 0
+#endif
+
+/* ── §3  Pointer / size types ───────────────────────────────── */
+#ifndef NULL
+#define NULL ((void *)0)
+#endif
+
+typedef uint64_t  size_t;
+typedef int64_t   ssize_t;
+typedef int64_t   ptrdiff_t;
+
+#define offsetof(type, member) __builtin_offsetof(type, member)
+
+/* ── §4  Time types ─────────────────────────────────────────── */
+typedef uint64_t clock_t;   /* monotonic tick counter               */
+typedef int64_t  time_t;    /* Unix wall-clock seconds              */
+
+typedef struct { int64_t tv_sec; int32_t tv_nsec; } uiox_timespec_t;
+typedef struct { int64_t tv_sec; int32_t tv_usec; } uiox_timeval_t;
+
+/* ── §5  Memory operations (inline, no FPU, no libc) ────────── */
+static inline void *uiox_memset(void *s, int c, size_t n)
+{
+    unsigned char *p = (unsigned char *)s;
+    while (n--) *p++ = (unsigned char)c;
+    return s;
+}
+static inline void *uiox_memcpy(void *dst, const void *src, size_t n)
+{
+    unsigned char       *d = (unsigned char *)dst;
+    const unsigned char *s = (const unsigned char *)src;
+    while (n--) *d++ = *s++;
+    return dst;
+}
+static inline void *uiox_memmove(void *dst, const void *src, size_t n)
+{
+    unsigned char       *d = (unsigned char *)dst;
+    const unsigned char *s = (const unsigned char *)src;
+    if (d < s) { while (n--) *d++ = *s++; }
+    else if (d > s) { d += n; s += n; while (n--) *--d = *--s; }
+    return dst;
+}
+static inline int uiox_memcmp(const void *a, const void *b, size_t n)
+{
+    const unsigned char *p = (const unsigned char *)a;
+    const unsigned char *q = (const unsigned char *)b;
+    while (n--) { if (*p != *q) return (int)*p - (int)*q; p++; q++; }
+    return 0;
+}
+
+/* ── §6  String operations ──────────────────────────────────── */
+static inline size_t uiox_strlen(const char *s)
+    { size_t n = 0; while (*s++) n++; return n; }
+static inline int uiox_strcmp(const char *a, const char *b)
+    { while (*a && *a == *b) { a++; b++; } return (unsigned char)*a - (unsigned char)*b; }
+static inline int uiox_strncmp(const char *a, const char *b, size_t n)
+    { while (n-- && *a && *a == *b) { a++; b++; } return n == (size_t)-1 ? 0 : (unsigned char)*a - (unsigned char)*b; }
+static inline char *uiox_strcpy(char *d, const char *s)
+    { char *r = d; while ((*d++ = *s++)); return r; }
+static inline char *uiox_strncpy(char *d, const char *s, size_t n)
+    { char *r = d; while (n-- && (*d++ = *s++)); while (n-- > 0) *d++ = 0; return r; }
+static inline const char *uiox_strchr(const char *s, int c)
+    { while (*s) { if (*s == (char)c) return s; s++; } return (c == 0) ? s : NULL; }
+static inline char *uiox_strsep(char **sp, char sep)
+{
+    char *start = *sp;
+    if (!start) return NULL;
+    char *p = start;
+    while (*p && *p != sep) p++;
+    if (*p) { *p = '\0'; *sp = p + 1; } else { *sp = NULL; }
+    return start;
+}
+
+/* ── §7  I/O ────────────────────────────────────────────────── */
+/* uiox_printf is implemented by the BSP SoC stdio layer.        */
+extern int uiox_printf(const char *fmt, ...)
+    __attribute__((format(printf, 1, 2)));
+
+/* ── §8  Integer math (no FPU) ─────────────────────────────── */
+#define uiox_min(a, b)    ((a) < (b) ? (a) : (b))
+#define uiox_max(a, b)    ((a) > (b) ? (a) : (b))
+#define uiox_abs32(x)     ((int32_t)(x) < 0 ? -(int32_t)(x) : (int32_t)(x))
+#define uiox_abs64(x)     ((int64_t)(x) < 0 ? -(int64_t)(x) : (int64_t)(x))
+static inline int uiox_ilog2(uint64_t v)
+    { int n = 0; while (v >>= 1) n++; return n; }
+
+/* ── §9  Aliases (zero-cost: macros → uiox_* above) ────────── */
+#undef  memset
+#define memset   uiox_memset
+#undef  memcpy
+#define memcpy   uiox_memcpy
+#undef  memmove
+#define memmove  uiox_memmove
+#undef  memcmp
+#define memcmp   uiox_memcmp
+#undef  strlen
+#define strlen   uiox_strlen
+#undef  strcmp
+#define strcmp   uiox_strcmp
+#undef  strncmp
+#define strncmp  uiox_strncmp
+#undef  strcpy
+#define strcpy   uiox_strcpy
+#undef  strncpy
+#define strncpy  uiox_strncpy
+#undef  printf
+#define printf   uiox_printf
+
+/* stderr / fprintf do not exist in a freestanding build.
+ * Any fprintf(stderr,...) must be replaced with printf(...).   */
+
+#endif /* UIOX_KLIBC_H */

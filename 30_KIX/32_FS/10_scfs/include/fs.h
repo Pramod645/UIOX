@@ -5,7 +5,7 @@
 #include "file.h"
 #include "mount.h"
 #include "buf.h"
-#include "../../33_PCS/include/uiox_klibc.h"  
+#include "uiox_klibc.h"
 
 /* Stat structure */
 typedef struct stat {
@@ -41,19 +41,18 @@ int  fs_mknod  (const char *path, uint16_t mode,
                 uint8_t major, uint8_t minor);
 int  fs_chdir  (const char *path);
 int  fs_chroot (const char *path);
-int  fs_chown  (const char *path, uint16_t uid, uint16_t gid);
-int  fs_chmod  (const char *path, uint16_t mode);
-int  fs_stat   (const char *path, stat_t *st);
-int  fs_fstat  (int fd, stat_t *st);
-int  fs_pipe   (int fd[2]);
-int  fs_dup    (int fd);
-int  fs_link   (const char *oldpath, const char *newpath);
+int  fs_stat   (const char *path, stat_t *buf);
+int  fs_fstat  (int fd, stat_t *buf);
+int  fs_link   (const char *old, const char *new);
 int  fs_unlink (const char *path);
-int  fs_mount  (const char *special, const char *dir, int flags);
-int  fs_umount (const char *special);
+int  fs_mkdir  (const char *path, uint16_t mode);
+int  fs_rmdir  (const char *path);
+int  fs_rename (const char *old, const char *new);
+int  fs_mount  (const char *dev, const char *dir, int flags);
+int  fs_umount (const char *dev);
+int  fs_sync   (void);
 
 /* Error codes */
-#define FS_OK        0
 #define FS_ENOENT   -1
 #define FS_EACCES   -2
 #define FS_EEXIST   -3
@@ -66,11 +65,6 @@ int  fs_umount (const char *special);
 #define FS_EBUSY   -10
 #define FS_EROFS   -11
 #define FS_EXDEV   -12
-#define FS_EINVAL  -13
-
-/* Seek whence values */
-#define SEEK_SET    0
-#define SEEK_CUR    1
-#define SEEK_END    2
+#define FS_OK        0   /* success */
 
 #endif /* FS_H */

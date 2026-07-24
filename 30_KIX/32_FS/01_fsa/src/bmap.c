@@ -1,10 +1,16 @@
+/*
+ *  30_KIX/32_FS/01_fsa/src/bmap.c
+ *
+ *  Freestanding fixes (v1.1):
+ *    FIXED: #include "/Users/.../uiox_klibc.h"  →  #include "uiox_klibc.h"
+ *    FIXED: fprintf(stderr, "[bmap_alloc] ...")  →  printf("[bmap_alloc] ERROR: ...")
+ */
 #include "bmap.h"
 #include "superblock.h"
-#include "/Users/pramodkumar/Hack/WS/UIOX/30_KIX/33_PCS/include/uiox_klibc.h"
+#include "uiox_klibc.h"
 
 /* ─────────────────────────────────────────────────────────────
  * Internal: read one indirect block and extract a block pointer.
- * 'level' is used only for trace output.
  * ───────────────────────────────────────────────────────────── */
 static uint32_t indirect_lookup(uint32_t indirect_blkno,
                                  uint32_t index,
@@ -26,33 +32,27 @@ static uint32_t indirect_lookup(uint32_t indirect_blkno,
 
 /* ─────────────────────────────────────────────────────────────
  * Algorithm bmap  (§3)
+ *
+ * input : ip          — locked in-core inode
+ *         byte_offset — byte position within the file
+ * output: BmapResult  — { blkno, blk_offset, io_bytes, valid }
  * ───────────────────────────────────────────────────────────── */
 BmapResult bmap(InCoreInode *ip, uint32_t byte_offset)
 {
-    BmapResult r = {0};
+    uint32_t   logical_blk = byte_offset / BLOCK_SIZE;
+    BmapResult r           = {0};
+    BufEntry  *prev_buf    = NULL;
+    uint32_t   blkno       = 0;
 
-    if (!ip) return r;
-
-    /* ── Output 2: start byte within block ────────────────── */
     r.blk_offset = byte_offset % BLOCK_SIZE;
-
-    /* ── Output 3: bytes available for I/O in this block ──── */
     r.io_bytes   = BLOCK_SIZE - r.blk_offset;
 
-    /* ── Logical block number within file ─────────────────── */
-    uint32_t logical_blk = byte_offset / BLOCK_SIZE;
-
-    /* ── Read-ahead: next logical block (output 4) ─────────── */
-    uint32_t readahead_logical = logical_blk + 1;
-
-    BufEntry *prev_buf = NULL;
-    uint32_t  blkno    = 0;
-
-    /* ── Direct blocks ────────────────────────────────────── */
+    /* ── Direct ──────────────────────────────────────────── */
     if (logical_blk < NDIRECT) {
         blkno = ip->addr[logical_blk];
-        /* Read-ahead from direct array */
-        if (readahead_logical < NDIRECT)
+        /* Prefetch: if next direct block exists, set readahead */
+        uint32_t readahead_logical = logical_blk + 1;
+        if (readahead_logical < NDIRECT && ip->addr[readahead_logical])
             r.readahead_blk = ip->addr[readahead_logical];
         goto done;
     }
@@ -104,7 +104,7 @@ done:
     if (prev_buf) brelse(prev_buf);
     r.blkno = blkno;
     r.valid = (blkno != 0);
-    printf("[bmap] byte_off=%u → blk=%u  blk_off=%u  io_bytes=%u\n",
+    printf("[bmap] byte_off=%u -> blk=%u  blk_off=%u  io_bytes=%u\n",
            byte_offset, r.blkno, r.blk_offset, r.io_bytes);
     return r;
 }
@@ -165,6 +165,7 @@ BmapResult bmap_alloc(InCoreInode *ip, uint32_t byte_offset)
         return r;
     }
 
-    fprintf(stderr, "[bmap_alloc] double/triple indirect not implemented\n");
+    /* ── Double/triple indirect not yet implemented ─────── */
+    printf("[bmap_alloc] ERROR: double/triple indirect not implemented\n");
     return r;
 }

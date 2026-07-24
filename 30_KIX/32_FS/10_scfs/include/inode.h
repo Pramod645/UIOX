@@ -1,7 +1,7 @@
 #ifndef INODE_H
 #define INODE_H
 
-#include "../../33_PCS/include/uiox_klibc.h"  
+#include "uiox_klibc.h"
 
 #define NBLOCK_DIRECT   10
 #define NBLOCK_INDIRECT  3
@@ -17,21 +17,10 @@
 #define IFCHR   0020000   /* character special */
 #define IFIFO   0010000   /* named pipe / FIFO */
 
-/* Permission bits */
-#define ISUID   04000
-#define ISGID   02000
-#define ISVTX   01000
-#define IRWXU   0700
-#define IRUSR   0400
-#define IWUSR   0200
-#define IXUSR   0100
-#define IRWXG   0070
-#define IRWXO   0007
-
 /* Inode flags */
 #define ILOCK       0x01    /* inode is locked */
-#define IUPD        0x02    /* inode has been updated */
-#define IACC        0x04    /* inode access time updated */
+#define IUPD        0x02    /* inode has been modified */
+#define IACC        0x04    /* inode access time update needed */
 #define IMOUNT      0x08    /* inode is a mount point */
 #define IWANT       0x10    /* process waiting for inode */
 #define ITEXT       0x20    /* inode is a shared text file */
@@ -40,10 +29,10 @@
 #define BLOCK_SIZE  512
 
 typedef struct inode {
-    uint16_t  i_flag;                       /* state flags */
-    uint16_t  i_count;                      /* reference count */
-    uint16_t  i_dev;                        /* device where inode lives */
-    uint32_t  i_number;                     /* inode number */
+    uint16_t  i_flag;
+    uint16_t  i_count;
+    uint16_t  i_dev;
+    uint32_t  i_number;
     uint16_t  i_mode;                       /* file type + permissions */
     uint16_t  i_nlink;                      /* number of hard links */
     uint16_t  i_uid;                        /* owner user id */

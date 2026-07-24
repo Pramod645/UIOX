@@ -1,6 +1,6 @@
 #include "inode.h"
 #include "superblock.h"
-#include "/Users/pramodkumar/Hack/WS/UIOX/30_KIX/33_PCS/include/uiox_klibc.h"
+#include "uiox_klibc.h"
 
 /* ─────────────────────────────────────────────────────────────
  * In-core inode cache and free/hash lists
@@ -45,16 +45,11 @@ static void ihash_insert(InCoreInode *ip)
 
 static void ihash_remove(InCoreInode *ip)
 {
-    int          s    = ihash_slot(ip->ino);
-    InCoreInode *prev = NULL, *cur = ihash[s];
-    while (cur) {
-        if (cur == ip) {
-            if (prev) prev->hash_next = cur->hash_next;
-            else      ihash[s]        = cur->hash_next;
-            cur->hash_next = NULL;
-            return;
-        }
-        prev = cur; cur = cur->hash_next;
+    int s = ihash_slot(ip->ino);
+    InCoreInode **pp = &ihash[s];
+    while (*pp) {
+        if (*pp == ip) { *pp = ip->hash_next; ip->hash_next = NULL; return; }
+        pp = &(*pp)->hash_next;
     }
 }
 
@@ -73,11 +68,12 @@ static InCoreInode *ihash_lookup(uint32_t ino)
  * ───────────────────────────────────────────────────────────── */
 void inode_cache_init(void)
 {
+    int i;
     memset(icache, 0, sizeof icache);
     memset(ihash,  0, sizeof ihash);
     ifree_head = ifree_tail = NULL;
 
-    for (int i = 0; i < MAX_INCACHE; i++)
+    for (i = 0; i < MAX_INCACHE; i++)
         ifree_append(&icache[i]);
 
     printf("[inode] cache init: %d slots\n", MAX_INCACHE);
@@ -90,12 +86,16 @@ void inode_cache_init(void)
  * ───────────────────────────────────────────────────────────── */
 DiskInode *inode_disk_read(uint32_t ino, BufEntry **out_buf)
 {
+    uint32_t  blkno;
+    uint32_t  offset;
+    BufEntry *buf;
+
     if (ino == 0 || ino > MAX_INODES) return NULL;
 
-    uint32_t  blkno  = ((ino - 1) / INODES_PER_BLOCK) + INODE_START_BLOCK;
-    uint32_t  offset = ((ino - 1) % INODES_PER_BLOCK) * sizeof(DiskInode);
+    blkno  = ((ino - 1) / INODES_PER_BLOCK) + INODE_START_BLOCK;
+    offset = ((ino - 1) % INODES_PER_BLOCK) * (uint32_t)sizeof(DiskInode);
 
-    BufEntry *buf = bread(blkno);
+    buf = bread(blkno);
     if (!buf) return NULL;
     *out_buf = buf;
     return (DiskInode *)(buf->data + offset);
@@ -106,7 +106,7 @@ DiskInode *inode_disk_read(uint32_t ino, BufEntry **out_buf)
  * ───────────────────────────────────────────────────────────── */
 void iupdate(InCoreInode *ip)
 {
-    BufEntry *buf;
+    BufEntry  *buf;
     DiskInode *di = inode_disk_read(ip->ino, &buf);
     if (!di) return;
 
@@ -123,9 +123,7 @@ void iupdate(InCoreInode *ip)
     buf->dirty = true;
     bwrite(buf);
     brelse(buf);
-
     ip->flags &= (uint8_t)~(IFLAG_ACCESSED | IFLAG_CHANGED | IFLAG_MODIFIED);
-    printf("[inode] iupdate: ino=%u written to disk\n", ip->ino);
 }
 
 /* ─────────────────────────────────────────────────────────────
@@ -134,68 +132,60 @@ void iupdate(InCoreInode *ip)
 InCoreInode *iget(uint32_t ino)
 {
     if (ino == 0 || ino > MAX_INODES) {
-        fprintf(stderr, "[iget] invalid ino=%u\n", ino);
+        printf("[iget] ERROR: invalid ino=%u\n", ino);
         return NULL;
     }
 
     while (1) {
-        /* ── Check inode cache ─────────────────────────────── */
         InCoreInode *ip = ihash_lookup(ino);
         if (ip) {
-            if (ip->locked) {
-                /* Sleep until unlocked (simulated: just warn) */
-                printf("[iget] ino=%u locked — waiting\n", ino);
-                /* In a real kernel: sleep(event inode unlocked); continue */
-            }
-            /* Special mount-point processing would go here */
+            if (ip->locked)
+                printf("[iget] ino=%u locked - waiting\n", ino);
             if (ip->on_free_list) ifree_remove(ip);
             ip->refcount++;
             ip->locked = true;
-            printf("[iget] cache hit: ino=%u  ref=%d\n",
-                   ino, ip->refcount);
+            printf("[iget] cache hit: ino=%u  ref=%d\n", ino, ip->refcount);
             return ip;
         }
 
-        /* ── Not in cache — need a free slot ─────────────── */
         if (!ifree_head) {
-            fprintf(stderr, "[iget] inode cache full\n");
+            printf("[iget] ERROR: inode cache full\n");
             return NULL;
         }
 
         ip = ifree_head;
         ifree_remove(ip);
 
-        /* Remove from old hash chain; insert under new ino */
         if (ip->ino != 0) ihash_remove(ip);
         ip->ino = ino;
         ihash_insert(ip);
 
-        /* Read DiskInode from disk */
-        BufEntry  *buf;
-        DiskInode *di = inode_disk_read(ino, &buf);
-        if (!di) {
-            ifree_append(ip);
-            return NULL;
+        {
+            BufEntry  *buf;
+            DiskInode *di = inode_disk_read(ino, &buf);
+            if (!di) {
+                ifree_append(ip);
+                return NULL;
+            }
+
+            ip->mode      = di->mode;
+            ip->nlink     = di->nlink;
+            ip->uid       = di->uid;
+            ip->gid       = di->gid;
+            ip->size      = di->size;
+            memcpy(ip->addr, di->addr, sizeof ip->addr);
+            ip->atime     = di->atime;
+            ip->mtime     = di->mtime;
+            ip->ctime     = di->ctime;
+            ip->refcount  = 1;
+            ip->locked    = true;
+            ip->flags     = 0;
+
+            brelse(buf);
+            printf("[iget] disk read: ino=%u  size=%u  nlink=%u\n",
+                   ino, ip->size, ip->nlink);
+            return ip;
         }
-
-        /* Initialise in-core inode from disk data */
-        ip->mode      = di->mode;
-        ip->nlink     = di->nlink;
-        ip->uid       = di->uid;
-        ip->gid       = di->gid;
-        ip->size      = di->size;
-        memcpy(ip->addr, di->addr, sizeof ip->addr);
-        ip->atime     = di->atime;
-        ip->mtime     = di->mtime;
-        ip->ctime     = di->ctime;
-        ip->refcount  = 1;
-        ip->locked    = true;
-        ip->flags     = 0;
-
-        brelse(buf);
-        printf("[iget] disk read: ino=%u  size=%u  nlink=%u\n",
-               ino, ip->size, ip->nlink);
-        return ip;
     }
 }
 
@@ -206,29 +196,22 @@ void iput(InCoreInode *ip)
 {
     if (!ip) return;
 
-    if (!ip->locked) ip->locked = true; /* lock if not already */
-
     ip->refcount--;
-    printf("[iput] ino=%u  ref→%d\n", ip->ino, ip->refcount);
 
     if (ip->refcount == 0) {
 
         if (ip->nlink == 0) {
-            /* File has been unlinked — free all disk blocks */
             extern void fs_free_inode_blocks(InCoreInode *ip);
             fs_free_inode_blocks(ip);
             ip->mode = 0;
-            /* Free inode on disk */
             extern void ifree(uint32_t ino);
             ifree(ip->ino);
             printf("[iput] ino=%u: link==0, blocks+inode freed\n", ip->ino);
         }
 
-        /* Write back if dirty */
         if (ip->flags & (IFLAG_ACCESSED | IFLAG_CHANGED | IFLAG_MODIFIED))
             iupdate(ip);
 
-        /* Return to free list */
         ifree_append(ip);
     }
 
