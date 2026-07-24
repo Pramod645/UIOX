@@ -1,8 +1,8 @@
 #ifndef SCHEDULER_H
 #define SCHEDULER_H
 
-#include <stdint.h>
-#include <time.h>
+#include "uiox_klibc.h"
+//#include <time.h>
 
 /* ── Constants ──────────────────────────────────────────────── */
 #define NPROC           64          /* max processes             */

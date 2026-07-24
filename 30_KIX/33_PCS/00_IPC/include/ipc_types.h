@@ -1,10 +1,8 @@
 #ifndef UIOX_IPC_TYPES_H
 #define UIOX_IPC_TYPES_H
 
-#include <stdint.h>
-#include <stdbool.h>
-#include <stddef.h>
-#include <time.h>
+#include "../include/uiox_klibc.h"
+
 
 /* ─────────────────────────────────────────────────────────────
  * General IPC limits

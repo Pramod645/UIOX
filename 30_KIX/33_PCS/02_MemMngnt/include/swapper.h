@@ -1,7 +1,7 @@
 #ifndef SWAPPER_H
 #define SWAPPER_H
 
-#include <stdint.h>
+#include "uiox_klibc.h"
 #include "scheduler.h"
 
 /* ── Memory map entry (in-core free space table) ────────────── */

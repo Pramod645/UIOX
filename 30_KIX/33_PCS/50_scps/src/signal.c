@@ -1,7 +1,5 @@
 #include "../include/signal.h"
-#include <string.h>
-#include <stdio.h>
-#include <stdlib.h>
+#include "uiox_klibc.h"
 
 /* ── Signal descriptor table ─────────────────────────────────── */
 sig_desc_t sig_table[NSIG + 1] = {

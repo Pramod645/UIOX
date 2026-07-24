@@ -1,7 +1,7 @@
 #ifndef CLOCK_H
 #define CLOCK_H
 
-#include <stdint.h>
+#include "uiox_klibc.h"
 #include "scheduler.h"
 
 /* ── Callout table entry ────────────────────────────────────── */

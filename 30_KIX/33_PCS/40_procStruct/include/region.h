@@ -1,83 +1,98 @@
+/*
+ * 30_KIX/33_PCS/40_procStruct/include/region.h
+ *
+ * Freestanding fixes (v2.0)
+ * ─────────────────────────
+ *   REMOVED: system headers (implicitly pulled in via process.h → uiox_klibc.h)
+ *   ADDED:   ENOMEM — error code used by growreg()
+ *   ADDED:   MAX_REGION_SIZE — used by attachreg() / growreg()
+ *   NOTE:    pte_t is also defined in 02_MemMngnt/include/page_fault.h;
+ *            guard with #ifndef to avoid redefinition.
+ *
+ * @version 2.0.0  @date 2026-07-24
+ */
 #ifndef REGION_H
 #define REGION_H
 
-#include <stdint.h>
-#include <stddef.h>
+#include "process.h"   /* pulls in uiox_klibc.h for uint*_t, size_t etc. */
 
-/* ── Constants ──────────────────────────────────────────────── */
-#define NREGION         128     /* max regions in region table  */
-#define PAGE_SIZE       4096    /* page size in bytes           */
-#define MAX_PAGES       1024    /* max pages per region         */
-#define MAX_REG_PER_PROC 8      /* max regions per process      */
-#define MAX_REGION_SIZE (MAX_PAGES * PAGE_SIZE)
+/* ── Constants ───────────────────────────────────────────────── */
+#define NREGION          128
+#define PAGE_SIZE        4096
+#define MAX_PAGES        1024
+#define MAX_REG_PER_PROC 8
+#define MAX_REGION_SIZE  (MAX_PAGES * PAGE_SIZE)  /* 4 MB per region */
 
-/* ── Region Types ───────────────────────────────────────────── */
+/* ── Error codes used by region algorithms ────────────────────── */
+#ifndef ENOMEM
+#define ENOMEM  12   /* out of memory (POSIX errno value)   */
+#endif
+#ifndef EFAULT
+#define EFAULT  14   /* bad address                         */
+#endif
+
+/* ── Region Types ────────────────────────────────────────────── */
 typedef enum region_type {
-    REG_TEXT    = 1,    /* executable code (read-only)         */
-    REG_DATA    = 2,    /* initialized + BSS data (private)    */
-    REG_STACK   = 3,    /* process stack (private)             */
-    REG_SHMEM   = 4     /* shared memory                       */
+    REG_TEXT  = 1,
+    REG_DATA  = 2,
+    REG_STACK = 3,
+    REG_SHMEM = 4
 } region_type_t;
 
-/* ── Region Status Flags ────────────────────────────────────── */
-#define REG_LOCKED      0x01    /* region is locked             */
-#define REG_DEMAND      0x02    /* region in demand             */
-#define REG_LOADING     0x04    /* being loaded into memory     */
-#define REG_VALID       0x08    /* fully loaded, valid          */
-#define REG_STICKY      0x10    /* sticky bit set               */
+/* ── Region Status Flags ─────────────────────────────────────── */
+#define REG_LOCKED   0x01
+#define REG_DEMAND   0x02
+#define REG_LOADING  0x04
+#define REG_VALID    0x08
 
-/* ── Page Table Entry ───────────────────────────────────────── */
-typedef struct pte {
-    uint32_t  pte_pfn;          /* physical frame number        */
-    uint16_t  pte_flags;        /* permission + status flags    */
+/* ── Page Table Entry (local definition — guards against redefinition
+      if page_fault.h is also included) ──────────────────────── */
+#ifndef REGION_PTE_DEFINED
+#define REGION_PTE_DEFINED
+typedef struct region_pte {
+    uint32_t pte_pfn;     /* physical frame number     */
+    uint16_t pte_flags;   /* permission + status flags */
 } pte_t;
+#define PTE_VALID  0x001
+#define PTE_WRITE  0x002
+#define PTE_USER   0x004
+#define PTE_DIRTY  0x008
+#endif
 
-/* Page table entry flags */
-#define PTE_VALID   0x01        /* page is valid/present        */
-#define PTE_WRITE   0x02        /* page is writable             */
-#define PTE_USER    0x04        /* user-accessible              */
-#define PTE_DIRTY   0x08        /* page has been written        */
-#define PTE_ACCESSED 0x10       /* page has been accessed       */
-
-/* ── Region Table Entry ─────────────────────────────────────── */
-struct inode;                   /* forward declaration          */
-
+/* ── Region descriptor ───────────────────────────────────────── */
 typedef struct region {
-    struct inode  *r_inode;     /* inode of backing file        */
-    region_type_t  r_type;      /* text / data / stack / shmem  */
-    uint32_t       r_size;      /* size in bytes                */
-    void          *r_phys_addr; /* physical memory base address */
-    uint16_t       r_status;    /* status flags (see REG_*)     */
-    uint16_t       r_refcnt;    /* number of processes using it */
-    pte_t         *r_pgtbl;     /* page table (phys page nums)  */
-    uint32_t       r_npages;    /* number of pages in page table*/
-    struct region *r_free_next; /* next on free region list     */
-    struct region *r_act_next;  /* next on active region list   */
+    region_type_t  r_type;
+    struct inode  *r_inode;
+    uint16_t       r_refcnt;
+    pte_t         *r_pgtbl;
+    uint32_t       r_npages;
+    uint32_t       r_size;
+    uint16_t       r_status;
+    struct region *r_free_next;
+    struct region *r_act_next;
 } region_t;
 
-/* ── Per-Process Region Table Entry ────────────────────────── */
-struct proc;                    /* forward declaration          */
-
+/* ── Per-process region table entry ─────────────────────────── */
 typedef struct pregion {
-    region_t      *pr_region;   /* pointer to region            */
-    struct proc   *pr_proc;     /* owning process               */
-    region_type_t  pr_type;     /* type of attachment           */
-    uintptr_t      pr_vaddr;    /* virtual address in process   */
-    uint32_t       pr_size;     /* size of this attachment      */
-    int            pr_valid;    /* slot is in use               */
+    region_t      *pr_region;
+    struct proc   *pr_proc;
+    region_type_t  pr_type;
+    uintptr_t      pr_vaddr;
+    uint32_t       pr_size;
+    int            pr_valid;
 } pregion_t;
 
-/* ── Region Free / Active Lists ─────────────────────────────── */
+/* ── Globals ─────────────────────────────────────────────────── */
 extern region_t  region_table[NREGION];
 extern region_t *free_region_list;
 extern region_t *active_region_list;
 
-/* ── Physical Memory Pool (simulated) ───────────────────────── */
-#define PHYS_MEM_SIZE   (64 * 1024 * 1024)   /* 64 MB pool     */
-extern uint8_t phys_mem_pool[PHYS_MEM_SIZE];
+/* ── Physical Memory Pool (simulated) ────────────────────────── */
+#define PHYS_MEM_SIZE  (64 * 1024 * 1024)   /* 64 MB */
+extern uint8_t  phys_mem_pool[PHYS_MEM_SIZE];
 extern uint32_t phys_mem_used;
 
-/* ── Region Algorithm Prototypes ────────────────────────────── */
+/* ── Prototypes ──────────────────────────────────────────────── */
 region_t  *allocreg (struct inode *ip, region_type_t type);
 pregion_t *attachreg(region_t *rp, struct proc *p,
                      uintptr_t vaddr, region_type_t type);
@@ -89,11 +104,11 @@ void       freereg  (region_t *rp);
 void       detachreg(pregion_t *prp);
 region_t  *dupreg   (region_t *rp);
 
-/* ── Page / Memory Helpers ───────────────────────────────────── */
-void    *pmalloc(uint32_t size);
-void     pmfree(void *addr, uint32_t size);
+void    *pmalloc    (uint32_t size);
+void     pmfree     (void *addr, uint32_t size);
 pte_t   *pgtbl_alloc(uint32_t npages);
-void     pgtbl_free(pte_t *tbl, uint32_t npages);
-void     pgtbl_copy(pte_t *dst, pte_t *src, uint32_t npages);
+void     pgtbl_free (pte_t *tbl, uint32_t npages);
+void     pgtbl_copy (pte_t *dst, pte_t *src, uint32_t npages);
+void     region_init(void);
 
 #endif /* REGION_H */

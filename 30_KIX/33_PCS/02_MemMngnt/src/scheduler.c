@@ -1,7 +1,5 @@
 #include "../include/scheduler.h"
-#include <string.h>
-#include <stdio.h>
-#include <stdlib.h>
+#include "uiox_klibc.h"
 
 /* ── Globals ────────────────────────────────────────────────── */
 proc_entry_t  proc_table[NPROC];

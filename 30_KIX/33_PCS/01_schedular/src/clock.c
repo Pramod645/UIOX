@@ -20,9 +20,9 @@
  * 4. No other logic changed — all algorithms identical to original.
  */
 
- #include "../include/clock.h"
- #include "../include/scheduler.h"
- #include "../include/profiler.h"
+ #include "clock.h"
+ #include "scheduler.h"
+ #include "profiler.h"
  /* stdio.h / string.h / math.h removed — provided by uiox_klibc.h
     which flows in through clock.h → sched_types.h → uiox_klibc.h    */
  
