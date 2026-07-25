@@ -5,8 +5,6 @@
  */
 
  #include "uiox_mic_hw.h"
- #include <string.h>
- #include <errno.h>
  
  int uiox_mic_hw_init(uiox_mic_hw_t *hw, const uiox_mic_hw_ops_t *ops)
  {

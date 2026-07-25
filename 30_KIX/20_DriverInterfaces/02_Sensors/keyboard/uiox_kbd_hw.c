@@ -5,8 +5,6 @@
  */
 
  #include "uiox_kbd_hw.h"
- #include <string.h>
- #include <errno.h>
  
  int uiox_kbd_hw_init(uiox_kbd_hw_t *hw, const uiox_kbd_hw_ops_t *ops)
  {

@@ -1,6 +1,4 @@
 #include "uiox_cam_hw.h"
-#include <string.h>
-#include <errno.h>
 
 int uiox_cam_hw_init(uiox_cam_hw_t *hw, const uiox_cam_hw_ops_t *ops)
 {

@@ -5,8 +5,6 @@
  */
 
  #include "uiox_gpu_hw.h"
- #include <string.h>
- #include <errno.h>
  
  int uiox_gpu_hw_init(uiox_gpu_hw_t *hw, const uiox_gpu_hw_ops_t *ops)
  {

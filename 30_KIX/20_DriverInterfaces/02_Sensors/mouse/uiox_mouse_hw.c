@@ -5,8 +5,6 @@
  */
 
  #include "uiox_mouse_hw.h"
- #include <string.h>
- #include <errno.h>
  
  int uiox_mouse_hw_init(uiox_mouse_hw_t *hw, const uiox_mouse_hw_ops_t *ops)
  {

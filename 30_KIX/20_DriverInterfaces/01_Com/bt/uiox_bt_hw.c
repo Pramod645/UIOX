@@ -5,8 +5,6 @@
  */
 
  #include "uiox_bt_hw.h"
- #include <string.h>
- #include <errno.h>
  
  int uiox_bt_hw_init(uiox_bt_hw_t *hw, const uiox_bt_hw_ops_t *ops)
  {

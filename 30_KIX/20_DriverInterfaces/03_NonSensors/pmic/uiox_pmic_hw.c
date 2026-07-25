@@ -5,8 +5,6 @@
  */
 
  #include "uiox_pmic_hw.h"
- #include <string.h>
- #include <errno.h>
  
  int uiox_pmic_hw_init(uiox_pmic_hw_t *hw, const uiox_pmic_hw_ops_t *ops)
  {

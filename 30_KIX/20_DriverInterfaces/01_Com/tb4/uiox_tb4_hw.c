@@ -5,8 +5,6 @@
  */
 
  #include "uiox_tb4_hw.h"
- #include <string.h>
- #include <errno.h>
  
  int uiox_tb4_hw_init(uiox_tb4_hw_t *hw, const uiox_tb4_hw_ops_t *ops)
  {

@@ -22,9 +22,7 @@
  #ifndef UIOX_RTC_HW_H
  #define UIOX_RTC_HW_H
  
- #include <stdint.h>
- #include <stdbool.h>
- #include <stddef.h>
+ #include "uiox_klibc.h"
  
  #ifdef __cplusplus
  extern "C" {

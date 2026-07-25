@@ -5,8 +5,6 @@
  */
 
  #include "uiox_tpwd_hw.h"
- #include <string.h>
- #include <errno.h>
  
  int uiox_tpwd_hw_init(uiox_tpwd_hw_t *hw, const uiox_tpwd_hw_ops_t *ops)
  {

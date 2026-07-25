@@ -5,8 +5,6 @@
  */
 
  #include "uiox_mon_hw.h"
- #include <string.h>
- #include <errno.h>
  
  int uiox_mon_hw_init(uiox_mon_hw_t *hw, const uiox_mon_hw_ops_t *ops)
  {

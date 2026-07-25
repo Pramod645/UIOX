@@ -5,8 +5,6 @@
  */
 
  #include "uiox_chg_hw.h"
- #include <string.h>
- #include <errno.h>
  
  #define OPS(hw) ((const uiox_chg_hw_ops_t *)(hw)->priv)
  

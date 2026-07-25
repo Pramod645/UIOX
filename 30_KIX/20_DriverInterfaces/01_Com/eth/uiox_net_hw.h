@@ -19,9 +19,7 @@
  #ifndef UIOX_NET_HW_H
  #define UIOX_NET_HW_H
  
- #include <stdint.h>
- #include <stddef.h>
- #include <stdbool.h>
+#include "uiox_klibc.h"
  
  #ifdef __cplusplus
  extern "C" {

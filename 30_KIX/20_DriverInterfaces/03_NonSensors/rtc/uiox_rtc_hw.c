@@ -5,8 +5,6 @@
  */
 
  #include "uiox_rtc_hw.h"
- #include <string.h>
- #include <errno.h>
  
  /* Retrieve ops pointer stored in hw->priv */
  #define OPS(hw) ((const uiox_rtc_hw_ops_t *)(hw)->priv)

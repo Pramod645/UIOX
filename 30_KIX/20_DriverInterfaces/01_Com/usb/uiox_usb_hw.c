@@ -5,8 +5,6 @@
  */
 
  #include "uiox_usb_hw.h"
- #include <string.h>
- #include <errno.h>
  
  int uiox_usb_hw_init(uiox_usb_hw_t *hw, const uiox_usb_hw_ops_t *ops)
  {

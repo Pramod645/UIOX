@@ -5,8 +5,6 @@
  */
 
  #include "uiox_emmc_hw.h"
- #include <string.h>
- #include <errno.h>
  
  #define OPS(hw) ((const uiox_emmc_hw_ops_t *)(hw)->priv)
  

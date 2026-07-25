@@ -5,8 +5,6 @@
  */
 
  #include "uiox_wifi_hw.h"
- #include <string.h>
- #include <errno.h>
  
  int uiox_wifi_hw_init(uiox_wifi_hw_t *hw, const uiox_wifi_hw_ops_t *ops)
  {

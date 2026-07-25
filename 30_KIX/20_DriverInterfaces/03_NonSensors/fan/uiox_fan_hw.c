@@ -5,8 +5,6 @@
  */
 
  #include "uiox_fan_hw.h"
- #include <string.h>
- #include <errno.h>
  
  int uiox_fan_hw_init(uiox_fan_hw_t *hw, const uiox_fan_hw_ops_t *ops)
  {

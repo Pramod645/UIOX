@@ -5,8 +5,6 @@
  */
 
  #include "uiox_therm_hw.h"
- #include <string.h>
- #include <errno.h>
  
  int uiox_therm_hw_init(uiox_therm_hw_t *hw,
                          const uiox_therm_hw_ops_t *ops)

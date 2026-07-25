@@ -5,8 +5,6 @@
  */
 
  #include "uiox_spk_hw.h"
- #include <string.h>
- #include <errno.h>
  
  int uiox_spk_hw_init(uiox_spk_hw_t *hw, const uiox_spk_hw_ops_t *ops)
  {
