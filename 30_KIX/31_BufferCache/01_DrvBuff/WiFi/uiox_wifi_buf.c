@@ -5,8 +5,7 @@
  */
 
  #include "uiox_wifi_buf.h"
- #include <string.h>
- #include <assert.h>
+
  
  static uiox_wifi_frame_t s_tx_desc[UIOX_WIFI_TX_POOL_SIZE];
  static uiox_wifi_frame_t s_rx_desc[UIOX_WIFI_RX_POOL_SIZE];

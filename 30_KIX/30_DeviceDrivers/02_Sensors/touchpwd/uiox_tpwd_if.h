@@ -18,6 +18,7 @@
  
  #include "uiox_tpwd_hw.h"
  #include "uiox_tpwd_buf.h"
+ #include "uiox_klibc.h"
  
  #ifdef __cplusplus
  extern "C" {

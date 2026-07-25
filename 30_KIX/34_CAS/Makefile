@@ -1,75 +1,179 @@
 # =============================================================================
-# 30_KIX/34_CAS/Makefile
+# 30_KIX/34_CAS/Makefile  — v1.0.0
 #
-# UIOX Kernel — Communication Abstraction Subsystem (CAS).
+# UIOX Connected Application Services — master Makefile (Linux + macOS).
+# Builds libcas.a for the selected architecture.
 #
-# Directory layout:
+# Usage (matches 30_DeviceDrivers / 33_PCS / 32_FS / 10_BSP pattern):
+#   make arm64 / arm32 / riscv64 / x86_64
+#   make all
+#   make clean[-arm64|-arm32|-riscv64|-x86_64]
+#   make info[-arm64|-arm32|-riscv64|-x86_64]
+#
+# Directory layout (verified from live repo — main branch):
 #   34_CAS/
-#   ├── include/          public headers
-#   ├── src/              top-level implementation (*.c)
-#   ├── 01_Com/           communication primitives (sockets, pipes, channels)
-#   ├── 02_Sensors/       sensor abstraction interfaces
-#   └── 03_NonSecnsors/   non-sensor peripheral interfaces
+#   ├── 01_Com/          bt  eth  gpu  hdmi  monitor
+#   ├── 02_Sensors/      mic  mouse  thermal  touchpwd
+#   └── 03_NonSecnsors/  bms  chg  emmc  fan  pmic  rtc  speaker
 #
-# The umbrella Makefile calls:
-#   make -C 34_CAS CC=<cross> AR=<ar> CFLAGS="…" static
-#
-# @version 1.0.0
-# @date    2026-07-23
+# @version 1.0.0  @date 2026-07-25
 # =============================================================================
 
-CC      ?= gcc
-AR      ?= ar
-CFLAGS  ?= -Wall -Wextra -O2 -std=c11
+MFDIR    := $(dir $(abspath $(lastword $(MAKEFILE_LIST))))
+COMMONDIR := $(abspath $(MFDIR)../common)
+
+UNAME_S := $(shell uname -s)
+ifeq ($(UNAME_S),Darwin)
+  ARM64_CC := aarch64-elf-gcc
+  ARM64_AR := aarch64-elf-ar
+  ARM32_CC := arm-none-eabi-gcc
+  ARM32_AR := arm-none-eabi-ar
+  RV64_CC  := riscv64-elf-gcc
+  RV64_AR  := riscv64-elf-ar
+  X86_CC   := x86_64-elf-gcc
+  X86_AR   := x86_64-elf-ar
+else
+  ARM64_CC := aarch64-linux-gnu-gcc
+  ARM64_AR := aarch64-linux-gnu-ar
+  ARM32_CC := arm-linux-gnueabihf-gcc
+  ARM32_AR := arm-linux-gnueabihf-ar
+  RV64_CC  := riscv64-linux-gnu-gcc
+  RV64_AR  := riscv64-linux-gnu-ar
+  X86_CC   := x86_64-linux-gnu-gcc
+  X86_AR   := x86_64-linux-gnu-ar
+endif
+
+# Layer below this one
+DEVINC = $(abspath $(MFDIR)../30_DeviceDrivers)
+HALINC = $(abspath $(MFDIR)../20_DriverInterfaces/include)
+
+COMMON_CFLAGS := \
+  -std=c11 -Wall -Wextra -Werror \
+  -ffreestanding -fno-builtin -fno-stack-protector \
+  -ffunction-sections -fdata-sections -nostdinc -Os -g
+
+COMMON_INCLUDES := \
+  -I$(COMMONDIR)                           \
+  -I$(HALINC)                             \
+  -I$(MFDIR)01_Com/bt                     \
+  -I$(MFDIR)01_Com/eth                    \
+  -I$(MFDIR)01_Com/gpu                    \
+  -I$(MFDIR)01_Com/hdmi                   \
+  -I$(MFDIR)01_Com/monitor                \
+  -I$(MFDIR)02_Sensors/mic                \
+  -I$(MFDIR)02_Sensors/mouse              \
+  -I$(MFDIR)02_Sensors/thermal            \
+  -I$(MFDIR)02_Sensors/touchpwd           \
+  -I$(MFDIR)03_NonSecnsors/bms            \
+  -I$(MFDIR)03_NonSecnsors/chg            \
+  -I$(MFDIR)03_NonSecnsors/emmc           \
+  -I$(MFDIR)03_NonSecnsors/fan            \
+  -I$(MFDIR)03_NonSecnsors/pmic           \
+  -I$(MFDIR)03_NonSecnsors/rtc            \
+  -I$(MFDIR)03_NonSecnsors/speaker
+
+CAS_SRCS_C :=
+# 01_Com
+CAS_SRCS_C += $(wildcard $(MFDIR)01_Com/bt/*.c)
+CAS_SRCS_C += $(wildcard $(MFDIR)01_Com/eth/*.c)
+CAS_SRCS_C += $(wildcard $(MFDIR)01_Com/gpu/*.c)
+CAS_SRCS_C += $(wildcard $(MFDIR)01_Com/hdmi/*.c)
+CAS_SRCS_C += $(wildcard $(MFDIR)01_Com/monitor/*.c)
+# 02_Sensors
+CAS_SRCS_C += $(wildcard $(MFDIR)02_Sensors/mic/*.c)
+CAS_SRCS_C += $(wildcard $(MFDIR)02_Sensors/mouse/*.c)
+CAS_SRCS_C += $(wildcard $(MFDIR)02_Sensors/thermal/*.c)
+CAS_SRCS_C += $(wildcard $(MFDIR)02_Sensors/touchpwd/*.c)
+# 03_NonSecnsors
+CAS_SRCS_C += $(wildcard $(MFDIR)03_NonSecnsors/bms/*.c)
+CAS_SRCS_C += $(wildcard $(MFDIR)03_NonSecnsors/chg/*.c)
+CAS_SRCS_C += $(wildcard $(MFDIR)03_NonSecnsors/emmc/*.c)
+CAS_SRCS_C += $(wildcard $(MFDIR)03_NonSecnsors/fan/*.c)
+CAS_SRCS_C += $(wildcard $(MFDIR)03_NonSecnsors/pmic/*.c)
+CAS_SRCS_C += $(wildcard $(MFDIR)03_NonSecnsors/rtc/*.c)
+CAS_SRCS_C += $(wildcard $(MFDIR)03_NonSecnsors/speaker/*.c)
+
+vpath %.c \
+  $(MFDIR)01_Com/bt           $(MFDIR)01_Com/eth          \
+  $(MFDIR)01_Com/gpu          $(MFDIR)01_Com/hdmi         \
+  $(MFDIR)01_Com/monitor      $(MFDIR)02_Sensors/mic      \
+  $(MFDIR)02_Sensors/mouse    $(MFDIR)02_Sensors/thermal  \
+  $(MFDIR)02_Sensors/touchpwd \
+  $(MFDIR)03_NonSecnsors/bms  $(MFDIR)03_NonSecnsors/chg  \
+  $(MFDIR)03_NonSecnsors/emmc $(MFDIR)03_NonSecnsors/fan  \
+  $(MFDIR)03_NonSecnsors/pmic $(MFDIR)03_NonSecnsors/rtc  \
+  $(MFDIR)03_NonSecnsors/speaker
+
 ARFLAGS := rcs
 
-SRC_DIR := src
-OBJ_DIR := obj
-LIB_DIR := lib
+.PHONY: arm64
+arm64: _do_arm64
+	@echo "[CAS] arm64 done"
+.PHONY: _do_arm64
+_do_arm64:
+	$(MAKE) -f $(MFDIR)Makefile _build _ARCH=arm64 CC=$(ARM64_CC) AR=$(ARM64_AR) \
+	    ARCH_CFLAGS="-march=armv8-a -mabi=lp64 -mlittle-endian" ARCH_CPUDEF="-D__aarch64__"
 
-SRCS    := $(wildcard $(SRC_DIR)/*.c)            \
-           $(wildcard 01_Com/src/*.c)             \
-           $(wildcard 02_Sensors/src/*.c)         \
-           $(wildcard 03_NonSecnsors/src/*.c)
-OBJS    := $(patsubst %.c, $(OBJ_DIR)/%.o, $(notdir $(SRCS)))
+.PHONY: arm32
+arm32: _do_arm32
+	@echo "[CAS] arm32 done"
+.PHONY: _do_arm32
+_do_arm32:
+	$(MAKE) -f $(MFDIR)Makefile _build _ARCH=arm32 CC=$(ARM32_CC) AR=$(ARM32_AR) \
+	    ARCH_CFLAGS="-march=armv7-a -marm -mfloat-abi=soft -mlittle-endian" ARCH_CPUDEF="-D__arm__"
 
-STATIC  := $(LIB_DIR)/libuiox_cas.a
-SHARED  := $(LIB_DIR)/libuiox_cas.so
+.PHONY: riscv64
+riscv64: _do_riscv64
+	@echo "[CAS] riscv64 done"
+.PHONY: _do_riscv64
+_do_riscv64:
+	$(MAKE) -f $(MFDIR)Makefile _build _ARCH=riscv64 CC=$(RV64_CC) AR=$(RV64_AR) \
+	    ARCH_CFLAGS="-march=rv64imafdc_zicsr_zifencei -mabi=lp64d -mcmodel=medany" \
+	    ARCH_CPUDEF="-D__riscv -D__riscv_xlen=64"
 
-CFLAGS  += -Iinclude         \
-           -I01_Com/include  \
-           -I02_Sensors/include \
-           -I03_NonSecnsors/include
+.PHONY: x86_64
+x86_64: _do_x86_64
+	@echo "[CAS] x86_64 done"
+.PHONY: _do_x86_64
+_do_x86_64:
+	$(MAKE) -f $(MFDIR)Makefile _build _ARCH=x86_64 CC=$(X86_CC) AR=$(X86_AR) \
+	    ARCH_CFLAGS="-m64 -mno-red-zone -mno-mmx -mno-sse -mno-sse2 -fno-pic -mcmodel=kernel" \
+	    ARCH_CPUDEF="-D__x86_64__"
 
-.PHONY: all static shared clean
+_BUILD_DIR = $(MFDIR)build/$(_ARCH)
+_CFLAGS_ALL = $(COMMON_CFLAGS) $(COMMON_INCLUDES) $(ARCH_CFLAGS) $(ARCH_CPUDEF)
+_OBJS    = $(patsubst $(MFDIR)%.c,$(_BUILD_DIR)/%.o,$(CAS_SRCS_C))
+DEPFLAGS = -MMD -MP -MF $(@:.o=.d)
+-include $(_OBJS:.o=.d)
 
-all: static shared
+.PHONY: _build
+_build: $(_BUILD_DIR)/libcas.a
+	@echo "[CAS] _build done: $(_ARCH)"
 
-static: $(STATIC)
-shared: $(SHARED)
-
-$(STATIC): $(OBJS) | $(LIB_DIR)
+$(_BUILD_DIR)/libcas.a: $(_OBJS)
+	@mkdir -p $(dir $@)
 	$(AR) $(ARFLAGS) $@ $^
 	@echo "  [AR]  $@"
 
-$(SHARED): $(OBJS) | $(LIB_DIR)
-	$(CC) -shared -fPIC -o $@ $^
-	@echo "  [SO]  $@"
-
-vpath %.c $(SRC_DIR)        \
-          01_Com/src         \
-          02_Sensors/src     \
-          03_NonSecnsors/src
-
-$(OBJ_DIR)/%.o: %.c | $(OBJ_DIR)
+$(_BUILD_DIR)/%.o: $(MFDIR)%.c
+	@mkdir -p $(dir $@)
+	$(CC) $(_CFLAGS_ALL) $(DEPFLAGS) -c $< -o $@
 	@echo "  [CC]  $<"
-	$(CC) $(CFLAGS) -fPIC -c $< -o $@
 
-$(OBJ_DIR):
-	mkdir -p $@
+.PHONY: all
+all: arm64 arm32 riscv64 x86_64
+	@echo "[CAS] all builds complete"
 
-$(LIB_DIR):
-	mkdir -p $@
+.PHONY: clean-arm64 clean-arm32 clean-riscv64 clean-x86_64 clean
+clean-arm64:   ; rm -rf $(MFDIR)build/arm64
+clean-arm32:   ; rm -rf $(MFDIR)build/arm32
+clean-riscv64: ; rm -rf $(MFDIR)build/riscv64
+clean-x86_64:  ; rm -rf $(MFDIR)build/x86_64
+clean: clean-arm64 clean-arm32 clean-riscv64 clean-x86_64
+	@echo "[CLN] CAS build outputs removed"
 
-clean:
-	rm -rf $(OBJ_DIR) $(LIB_DIR)
+.PHONY: info-arm64 info-arm32 info-riscv64 info-x86_64
+info-arm64:   ; @echo "HOST=$(UNAME_S) ARCH=arm64   CC=$(ARM64_CC)"
+info-arm32:   ; @echo "HOST=$(UNAME_S) ARCH=arm32   CC=$(ARM32_CC)"
+info-riscv64: ; @echo "HOST=$(UNAME_S) ARCH=riscv64 CC=$(RV64_CC)"
+info-x86_64:  ; @echo "HOST=$(UNAME_S) ARCH=x86_64  CC=$(X86_CC)"

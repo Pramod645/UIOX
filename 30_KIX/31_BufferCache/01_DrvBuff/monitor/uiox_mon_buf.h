@@ -16,8 +16,7 @@
  #define UIOX_MON_BUF_H
  
  #include "uiox_mon_hw.h"
- #include <stdint.h>
- #include <stdbool.h>
+#include "uiox_klibc.h"
  
  #ifdef __cplusplus
  extern "C" {

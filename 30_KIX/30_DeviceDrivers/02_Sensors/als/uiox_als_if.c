@@ -5,8 +5,8 @@
  */
 
  #include "uiox_als_if.h"
- #include <string.h>
- #include <errno.h>
+ #include "uiox_klibc.h"
+
  
  int uiox_als_if_config(uiox_als_if_t *aif, uiox_als_hw_t *hw,
                          bool continuous)

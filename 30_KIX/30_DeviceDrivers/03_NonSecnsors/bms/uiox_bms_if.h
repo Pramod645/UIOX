@@ -9,6 +9,7 @@
  
  #include "uiox_bms_hw.h"
  #include "uiox_bms_buf.h"
+ #include "uiox_klibc.h"
  
  #ifdef __cplusplus
  extern "C" {

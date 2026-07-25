@@ -11,6 +11,7 @@
  #define UIOX_SPK_CODEC_H
  
  #include "uiox_spk_hw.h"
+ #include "uiox_klibc.h"
  
  #ifdef __cplusplus
  extern "C" {

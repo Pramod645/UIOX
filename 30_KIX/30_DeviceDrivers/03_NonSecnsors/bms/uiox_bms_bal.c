@@ -5,8 +5,6 @@
  */
 
  #include "uiox_bms_bal.h"
- #include <string.h>
- #include <errno.h>
  
  int uiox_bms_bal_init(uiox_bms_bal_t *bal, uiox_bms_if_t *bif,
                         uiox_bms_bal_mode_t mode,

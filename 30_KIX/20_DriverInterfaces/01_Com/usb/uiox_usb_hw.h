@@ -215,4 +215,4 @@
  }
  #endif
  #endif /* UIOX_USB_HW_H */
- 
+ #define UIOX_USB_DT_REPORT  0x22u  /* HID report descriptor type */

@@ -5,9 +5,7 @@
  */
 
  #include "uiox_tpwd_sec.h"
- #include <string.h>
- #include <errno.h>
- 
+
  /* =========================================================================
   * Minimal SHA-256 (FIPS 180-4)
   * Replace with mbedTLS / WolfSSL / hardware AES in production.
@@ -165,8 +163,10 @@
              hmac_sha256(pass, plen, U, SHA256_DIGEST_LEN, U);
              for (int j = 0; j < (int)SHA256_DIGEST_LEN; j++) T[j] ^= U[j];
          }
-         uint16_t cp = (uint16_t)(out_len - opos < SHA256_DIGEST_LEN ?
-                                   out_len - opos : SHA256_DIGEST_LEN);
+         /* FIX: cast both sides to uint16_t to avoid signed/unsigned comparison */
+         uint16_t rem = (uint16_t)(out_len - opos);
+         uint16_t cp  = (rem < (uint16_t)SHA256_DIGEST_LEN) ? rem
+                                                             : (uint16_t)SHA256_DIGEST_LEN;
          memcpy(out + opos, T, cp);
          opos += cp;
      }
@@ -202,7 +202,8 @@
      if (!sec || !salt) return;
      for (uint8_t i = 0; i < len; i += 4) {
          uint32_t r = lfsr_next(&sec->rng_state);
-         for (int j = 0; j < 4 && (i+j) < len; j++)
+         /* FIX: use uint8_t j to avoid signed/unsigned comparison with len */
+         for (uint8_t j = 0; j < 4u && (uint8_t)(i+j) < len; j++)
              salt[i+j] = (uint8_t)(r >> (j*8));
      }
  }
@@ -333,7 +334,8 @@
      if (!sec) return;
      for (uint8_t i = 0; i < UIOX_TPWD_SEC_TOKEN_LEN; i += 4) {
          uint32_t r = lfsr_next(&sec->rng_state);
-         for (int j = 0; j < 4 && (i+j) < UIOX_TPWD_SEC_TOKEN_LEN; j++)
+         /* FIX: use uint8_t j to avoid signed/unsigned comparison with UIOX_TPWD_SEC_TOKEN_LEN */
+         for (uint8_t j = 0; j < 4u && (uint8_t)(i+j) < UIOX_TPWD_SEC_TOKEN_LEN; j++)
              sec->session_token[i+j] = (uint8_t)(r >> (j*8));
      }
      sec->session_valid      = true;

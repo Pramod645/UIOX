@@ -5,8 +5,7 @@
  */
 
  #include "uiox_tb4_if.h"
- #include <string.h>
- #include <errno.h>
+ #include "uiox_klibc.h"
  
  int uiox_tb4_if_config(uiox_tb4_if_t *tif, uiox_tb4_hw_t *hw)
  {

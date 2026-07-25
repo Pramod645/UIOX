@@ -5,9 +5,7 @@
  */
 
  #include "uiox_mon_panel.h"
- #include <string.h>
- #include <stdio.h>
- #include <errno.h>
+ #include "uiox_klibc.h"
  
  /* =========================================================================
   * EDID checksum validation

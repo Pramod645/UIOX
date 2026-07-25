@@ -5,8 +5,6 @@
  */
 
  #include "uiox_kbd_if.h"
- #include <string.h>
- #include <errno.h>
  
  int uiox_kbd_if_config(uiox_kbd_if_t     *kif,
                          uiox_kbd_hw_t     *hw,

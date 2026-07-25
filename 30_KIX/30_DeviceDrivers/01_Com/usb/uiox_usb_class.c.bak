@@ -5,7 +5,7 @@
  */
 
  #include "uiox_usb_class.h"
- #include "uiox_klibc.h"
+#include "uiox_klibc.h"
  
  /* =========================================================================
   * HID class driver
@@ -106,16 +106,13 @@
      return 0;
  }
  
- /* Fix: len changed from uint8_t to uint16_t — uint8_t max is 255 which is
-  * less than UIOX_USB_URB_DATA_MAX (4096), making the clamp always-false
-  * and the assignment an overflow. uint16_t holds 0–65535 cleanly. */
  int uiox_usb_hid_send(uiox_usb_hid_t *hid,
-                        const uint8_t *data, uint16_t len)
+                        const uint8_t *data, uint8_t len)
  {
      if (!hid || !hid->uif || !data || !len) return -EINVAL;
      uiox_usb_urb_t *urb = uiox_usb_buf_alloc();
      if (!urb) return -ENOMEM;
-     if (len > UIOX_USB_URB_DATA_MAX) len = UIOX_USB_URB_DATA_MAX;
+     if (len > (uint8_t)UIOX_USB_URB_DATA_MAX) len = UIOX_USB_URB_DATA_MAX;
      memcpy(urb->buf, data, len);
      urb->buf_len = len;
      urb->ep_addr = hid->ep_in;
@@ -356,5 +353,5 @@
      msc->ep_out        = ep_out;
      msc->max_lun       = max_lun;
      return 0;
- }
+ } 
  

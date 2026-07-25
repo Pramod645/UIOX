@@ -1,41 +1,24 @@
 # =============================================================================
-# 30_KIX/32_FS/Makefile  — v1.0.0
+# 30_KIX/32_FS/Makefile  — v1.2.0
 #
 # UIOX File-System Subsystem — master Makefile (Linux + macOS).
 # Builds libfs.a for the selected architecture.
 #
-# Usage (matches 33_PCS/Makefile pattern):
+# Usage (matches 33_PCS / 10_BSP pattern):
 #   make arm64 / arm32 / riscv64 / x86_64
-#   make all                     # all four arches
+#   make all
 #   make clean[-arm64|-arm32|-riscv64|-x86_64]
 #   make info[-arm64|-arm32|-riscv64|-x86_64]
 #
-# Freestanding build: -nostdinc enforced.
-# All system headers replaced by 32_FS/include/uiox_klibc.h.
-#
-# Directory layout:
-#   32_FS/
-#   ├── include/          public headers  (uiox_klibc.h, VirtualFileSystem.h …)
-#   ├── src/              top-level glue  (uiox_fs_init.c …)
-#   ├── 01_fsa/           File-System Abstraction layer
-#   │   ├── include/      (inode.h, file.h, dentry.h, superblock.h, vfs.h …)
-#   │   └── src/          (inode.c, namei.c, file.c, super.c, pipe.c …)
-#   └── 10_scfs/          Simple Contiguous File System
-#       ├── include/      (scfs.h …)
-#       └── src/          (scfs_super.c, scfs_inode.c, scfs_file.c …)
-#
-# Called by the umbrella 30_KIX/Makefile with:
-#   make -C 32_FS CC=<cross> AR=<ar> CFLAGS="<arch-flags>" static
-#
-# @version 1.0.0  @date 2026-07-24
+# v1.2.0: COMMONDIR added — uiox_klibc.h now lives in 30_KIX/common/
+#         instead of a per-subsystem copy.
+# @version 1.2.0  @date 2026-07-25
 # =============================================================================
 
-# ── Makefile-relative base ────────────────────────────────────────────────────
-MFDIR := $(dir $(abspath $(lastword $(MAKEFILE_LIST))))
+MFDIR     := $(dir $(abspath $(lastword $(MAKEFILE_LIST))))
+COMMONDIR := $(abspath $(MFDIR)../common)
 
-# ── Host OS detection ─────────────────────────────────────────────────────────
 UNAME_S := $(shell uname -s)
-
 ifeq ($(UNAME_S),Darwin)
   LLVM_BIN := $(shell \
     if command -v llvm-objcopy >/dev/null 2>&1; then \
@@ -62,14 +45,10 @@ else
   X86_AR   := x86_64-linux-gnu-ar
 endif
 
-# ── BSP paths ─────────────────────────────────────────────────────────────────
 BSPDIR ?= $(abspath $(MFDIR)../../10_BSP)
 SOCINC  = $(BSPDIR)/03_SoC/include
+FSINC  := $(MFDIR)include
 
-# ── FS freestanding include root ──────────────────────────────────────────────
-FSINC := $(MFDIR)include
-
-# ── Common compiler flags ─────────────────────────────────────────────────────
 COMMON_CFLAGS := \
   -std=c11              \
   -Wall -Wextra -Werror \
@@ -81,26 +60,18 @@ COMMON_CFLAGS := \
   -nostdinc             \
   -Os -g
 
-# ── Include paths — all FS-internal ───────────────────────────────────────────
 COMMON_INCLUDES := \
-  -I$(FSINC)                    \
-  -I$(MFDIR)01_fsa/include      \
-  -I$(MFDIR)10_scfs/include     \
+  -I$(COMMONDIR)                    \
+  -I$(FSINC)                        \
+  -I$(MFDIR)01_fsa/include          \
+  -I$(MFDIR)10_scfs/include         \
   -I$(SOCINC)
 
-# ── Source files — explicit list (update when adding new .c files) ────────────
-
-# src/ — top-level init glue
-FS_SRCS_C := \
-  $(MFDIR)src/uiox_fs_init.c
-
-# 01_fsa/src/ — VFS abstraction layer (wildcard: add files freely)
+FS_SRCS_C :=
+FS_SRCS_C += $(wildcard $(MFDIR)src/*.c)
 FS_SRCS_C += $(wildcard $(MFDIR)01_fsa/src/*.c)
-
-# 10_scfs/src/ — Simple Contiguous File System (wildcard: add files freely)
 FS_SRCS_C += $(wildcard $(MFDIR)10_scfs/src/*.c)
 
-# ── vpath — sources found by basename ─────────────────────────────────────────
 vpath %.c \
   $(MFDIR)src          \
   $(MFDIR)01_fsa/src   \
@@ -108,77 +79,54 @@ vpath %.c \
 
 ARFLAGS := rcs
 
-# =============================================================================
-# Per-architecture named targets  (same pattern as 33_PCS/Makefile)
-# =============================================================================
-
 .PHONY: arm64
 arm64: _do_arm64
 	@echo "[FS] arm64 done → build/arm64/"
-
 .PHONY: _do_arm64
 _do_arm64:
 	@command -v $(ARM64_CC) >/dev/null 2>&1 || \
-	    { echo "ERROR: $(ARM64_CC) not found"; \
-	      echo "  Linux: sudo apt install gcc-aarch64-linux-gnu"; \
-	      echo "  macOS: brew install aarch64-elf-gcc"; exit 1; }
-	$(MAKE) -f $(MFDIR)Makefile _build            \
-	    _ARCH=arm64                                \
-	    CC=$(ARM64_CC) AR=$(ARM64_AR)              \
+	    { echo "ERROR: $(ARM64_CC) not found"; exit 1; }
+	$(MAKE) -f $(MFDIR)Makefile _build              \
+	    _ARCH=arm64 CC=$(ARM64_CC) AR=$(ARM64_AR)   \
 	    ARCH_CFLAGS="-march=armv8-a -mabi=lp64 -mlittle-endian" \
 	    ARCH_CPUDEF="-D__aarch64__"
 
 .PHONY: arm32
 arm32: _do_arm32
 	@echo "[FS] arm32 done → build/arm32/"
-
 .PHONY: _do_arm32
 _do_arm32:
 	@command -v $(ARM32_CC) >/dev/null 2>&1 || \
-	    { echo "ERROR: $(ARM32_CC) not found"; \
-	      echo "  Linux: sudo apt install gcc-arm-linux-gnueabihf"; \
-	      echo "  macOS: brew install arm-none-eabi-gcc"; exit 1; }
-	$(MAKE) -f $(MFDIR)Makefile _build                   \
-	    _ARCH=arm32                                       \
-	    CC=$(ARM32_CC) AR=$(ARM32_AR)                    \
+	    { echo "ERROR: $(ARM32_CC) not found"; exit 1; }
+	$(MAKE) -f $(MFDIR)Makefile _build                    \
+	    _ARCH=arm32 CC=$(ARM32_CC) AR=$(ARM32_AR)         \
 	    ARCH_CFLAGS="-march=armv7-a -marm -mfloat-abi=soft -mlittle-endian" \
 	    ARCH_CPUDEF="-D__arm__"
 
 .PHONY: riscv64
 riscv64: _do_riscv64
 	@echo "[FS] riscv64 done → build/riscv64/"
-
 .PHONY: _do_riscv64
 _do_riscv64:
 	@command -v $(RV64_CC) >/dev/null 2>&1 || \
-	    { echo "ERROR: $(RV64_CC) not found"; \
-	      echo "  Linux: sudo apt install gcc-riscv64-linux-gnu"; \
-	      echo "  macOS: brew install riscv64-elf-gcc"; exit 1; }
-	$(MAKE) -f $(MFDIR)Makefile _build                         \
-	    _ARCH=riscv64                                           \
-	    CC=$(RV64_CC) AR=$(RV64_AR)                            \
+	    { echo "ERROR: $(RV64_CC) not found"; exit 1; }
+	$(MAKE) -f $(MFDIR)Makefile _build                          \
+	    _ARCH=riscv64 CC=$(RV64_CC) AR=$(RV64_AR)               \
 	    ARCH_CFLAGS="-march=rv64imafdc_zicsr_zifencei -mabi=lp64d -mcmodel=medany" \
 	    ARCH_CPUDEF="-D__riscv -D__riscv_xlen=64"
 
 .PHONY: x86_64
 x86_64: _do_x86_64
 	@echo "[FS] x86_64 done → build/x86_64/"
-
 .PHONY: _do_x86_64
 _do_x86_64:
 	@command -v $(X86_CC) >/dev/null 2>&1 || \
-	    { echo "ERROR: $(X86_CC) not found"; \
-	      echo "  Linux: sudo apt install gcc-x86-64-linux-gnu"; \
-	      echo "  macOS: brew install x86_64-elf-gcc"; exit 1; }
-	$(MAKE) -f $(MFDIR)Makefile _build                              \
-	    _ARCH=x86_64                                                 \
-	    CC=$(X86_CC) AR=$(X86_AR)                                   \
+	    { echo "ERROR: $(X86_CC) not found"; exit 1; }
+	$(MAKE) -f $(MFDIR)Makefile _build                               \
+	    _ARCH=x86_64 CC=$(X86_CC) AR=$(X86_AR)                     \
 	    ARCH_CFLAGS="-m64 -mno-red-zone -mno-mmx -mno-sse -mno-sse2 -fno-pic -mcmodel=kernel" \
 	    ARCH_CPUDEF="-D__x86_64__"
 
-# =============================================================================
-# Internal _build target
-# =============================================================================
 _BUILD_DIR = $(MFDIR)build/$(_ARCH)
 _ARCH_INC  = $(BSPDIR)/10_Arch/$(_ARCH)/include
 
@@ -205,10 +153,6 @@ $(_BUILD_DIR)/%.o: $(MFDIR)%.c
 	@mkdir -p $(dir $@)
 	$(CC) $(_CFLAGS_ALL) $(DEPFLAGS) -c $< -o $@
 	@echo "  [CC]  $<"
-
-# =============================================================================
-# Convenience targets
-# =============================================================================
 
 .PHONY: all
 all: arm64 arm32 riscv64 x86_64

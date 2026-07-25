@@ -5,8 +5,6 @@
  */
 
  #include "uiox_rtc_if.h"
- #include <string.h>
- #include <errno.h>
  
  /* Spin until UIP clears; returns 0 on success, -ETIME on timeout */
  static int wait_uip_clear(uiox_rtc_if_t *rif)

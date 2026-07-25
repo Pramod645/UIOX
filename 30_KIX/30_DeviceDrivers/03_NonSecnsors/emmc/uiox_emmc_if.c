@@ -5,8 +5,6 @@
  */
 
  #include "uiox_emmc_if.h"
- #include <string.h>
- #include <errno.h>
  
  int uiox_emmc_if_config(uiox_emmc_if_t *eif, uiox_emmc_hw_t *hw)
  {

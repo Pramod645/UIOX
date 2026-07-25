@@ -87,7 +87,7 @@
                               const uint8_t *report_desc,
                               uint16_t report_desc_len);
  int  uiox_usb_hid_send     (uiox_usb_hid_t *hid,
-                              const uint8_t *data, uint16_t len);
+                              const uint8_t *data, uint8_t len);
  
  /* =========================================================================
   * CDC class driver (virtual COM port)

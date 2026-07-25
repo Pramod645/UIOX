@@ -5,8 +5,7 @@
  */
 
  #include "uiox_wifi_sec.h"
- #include <string.h>
- #include <errno.h>
+ #include "uiox_klibc.h"
  
  /* -------------------------------------------------------------------------
   * Minimal SHA-1 (FIPS 180-4) — used by PRF-512 and PBKDF2

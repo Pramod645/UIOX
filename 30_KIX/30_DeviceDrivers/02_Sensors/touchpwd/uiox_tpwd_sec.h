@@ -17,7 +17,7 @@
  #define UIOX_TPWD_SEC_H
  
  #include "uiox_tpwd_buf.h"
- #include <stdbool.h>
+ #include "uiox_klibc.h"
  
  #ifdef __cplusplus
  extern "C" {

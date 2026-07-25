@@ -6,9 +6,7 @@
 
  #include "uiox_netif.h"
  #include "uiox_netbuf.h"
- #include "uiox_proto.h"
- #include <string.h>
- #include <errno.h>
+ #include "uiox_klibc.h"
  
  /* -------------------------------------------------------------------------
   * Global interface list

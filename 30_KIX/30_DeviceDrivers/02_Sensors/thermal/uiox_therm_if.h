@@ -9,6 +9,8 @@
  
  #include "uiox_therm_hw.h"
  #include "uiox_therm_buf.h"
+ #include "uiox_klibc.h"
+ 
  
  #ifdef __cplusplus
  extern "C" {

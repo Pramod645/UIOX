@@ -5,8 +5,7 @@
  */
 
  #include "uiox_bt_if.h"
- #include <string.h>
- #include <errno.h>
+#include "uiox_klibc.h"
  
  int uiox_bt_if_config(uiox_bt_if_t *bif, uiox_bt_hw_t *hw)
  {

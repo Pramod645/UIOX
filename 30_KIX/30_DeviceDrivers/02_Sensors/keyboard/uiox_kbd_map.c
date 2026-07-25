@@ -6,8 +6,7 @@
 
  #include "uiox_kbd_map.h"
  #include "uiox_kbd_buf.h"
- #include <string.h>
- #include <errno.h>
+
  
  /* =========================================================================
   * QWERTY-US keymap table (partial — most common keys)

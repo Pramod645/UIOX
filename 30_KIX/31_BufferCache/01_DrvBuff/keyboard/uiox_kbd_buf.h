@@ -12,8 +12,8 @@
  #ifndef UIOX_KBD_BUF_H
  #define UIOX_KBD_BUF_H
  
- #include <stdint.h>
- #include <stdbool.h>
+ #include "uiox_klibc.h"
+
  
  #ifdef __cplusplus
  extern "C" {

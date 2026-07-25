@@ -8,6 +8,7 @@
  #define UIOX_PMIC_RAIL_H
  
  #include "uiox_pmic_if.h"
+ #include "uiox_klibc.h"
  
  #ifdef __cplusplus
  extern "C" {

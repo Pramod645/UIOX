@@ -9,6 +9,8 @@
  
  #include "uiox_mic_hw.h"
  #include "uiox_mic_buf.h"
+ #include "uiox_klibc.h"
+
  
  #ifdef __cplusplus
  extern "C" {

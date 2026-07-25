@@ -5,8 +5,7 @@
  */
 
  #include "uiox_usb_if.h"
- #include <string.h>
- #include <errno.h>
+#include "uiox_klibc.h"
  
  int uiox_usb_if_config(uiox_usb_if_t *uif, uiox_usb_hw_t *hw)
  {

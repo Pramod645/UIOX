@@ -81,12 +81,7 @@ HALBT   = $(abspath $(MFDIR)../20_DriverInterfaces/01_Com/bt)
 HALETH  = $(abspath $(MFDIR)../20_DriverInterfaces/01_Com/eth)
 HALHDMI = $(abspath $(MFDIR)../20_DriverInterfaces/01_Com/hdmi)
 HALTB4  = $(abspath $(MFDIR)../20_DriverInterfaces/01_Com/tb4)
-HALMON  = $(abspath $(MFDIR)../20_DriverInterfaces/01_Com/monitor)
-HALUSB  = $(abspath $(MFDIR)../20_DriverInterfaces/01_Com/usb)
 HALWIFI = $(abspath $(MFDIR)../20_DriverInterfaces/02_Sensors/WiFi)
-HALALS  = $(abspath $(MFDIR)../20_DriverInterfaces/02_Sensors/als)
-HALKBD  = $(abspath $(MFDIR)../20_DriverInterfaces/02_Sensors/keyboard)
-HALMOU  = $(abspath $(MFDIR)../20_DriverInterfaces/02_Sensors/mouse)
 HALCAM  = $(abspath $(MFDIR)../20_DriverInterfaces/02_Sensors/camera)
 HALMIC  = $(abspath $(MFDIR)../20_DriverInterfaces/02_Sensors/mic)
 HALTHM  = $(abspath $(MFDIR)../20_DriverInterfaces/02_Sensors/thermal)
@@ -129,12 +124,7 @@ COMMON_INCLUDES := \
   -I$(HALETH)                           \
   -I$(HALHDMI)                          \
   -I$(HALTB4)                           \
-  -I$(HALMON)                           \
-  -I$(HALUSB)                           \
   -I$(HALWIFI)                          \
-  -I$(HALALS)                           \
-  -I$(HALKBD)                           \
-  -I$(HALMOU)                           \
   -I$(HALCAM)                           \
   -I$(HALMIC)                           \
   -I$(HALTHM)                           \

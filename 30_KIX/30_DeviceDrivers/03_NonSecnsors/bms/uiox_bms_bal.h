@@ -8,6 +8,7 @@
  #define UIOX_BMS_BAL_H
  
  #include "uiox_bms_if.h"
+ #include "uiox_klibc.h"
  
  #ifdef __cplusplus
  extern "C" {

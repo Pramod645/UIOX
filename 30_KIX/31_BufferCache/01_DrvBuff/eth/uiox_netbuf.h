@@ -19,9 +19,7 @@
  #ifndef UIOX_NETBUF_H
  #define UIOX_NETBUF_H
  
- #include <stdint.h>
- #include <stddef.h>
- #include <stdbool.h>
+#include "uiox_klibc.h"
  
  #ifdef __cplusplus
  extern "C" {

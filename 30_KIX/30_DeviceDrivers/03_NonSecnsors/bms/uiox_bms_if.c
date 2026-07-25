@@ -5,8 +5,6 @@
  */
 // Layer 2
  #include "uiox_bms_if.h"
- #include <string.h>
- #include <errno.h>
  
  int uiox_bms_if_config(uiox_bms_if_t *bif, uiox_bms_hw_t *hw)
  {

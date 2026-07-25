@@ -11,6 +11,8 @@
  #define UIOX_MIC_CODEC_H
  
  #include "uiox_mic_hw.h"
+ #include "uiox_klibc.h"
+
  
  #ifdef __cplusplus
  extern "C" {

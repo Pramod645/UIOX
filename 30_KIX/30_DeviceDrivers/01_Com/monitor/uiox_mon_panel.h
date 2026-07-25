@@ -16,7 +16,7 @@
  #define UIOX_MON_PANEL_H
  
  #include "uiox_mon_hw.h"
- #include <stdbool.h>
+ #include "uiox_klibc.h"
  
  #ifdef __cplusplus
  extern "C" {

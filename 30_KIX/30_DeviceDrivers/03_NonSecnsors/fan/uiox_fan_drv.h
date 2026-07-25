@@ -8,6 +8,7 @@
  #define UIOX_FAN_DRV_H
  
  #include "uiox_fan_if.h"
+ #include "uiox_klibc.h"
  
  #ifdef __cplusplus
  extern "C" {

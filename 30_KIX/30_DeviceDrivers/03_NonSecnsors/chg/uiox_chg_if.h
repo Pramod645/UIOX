@@ -9,6 +9,7 @@
  
  #include "uiox_chg_hw.h"
  #include "uiox_chg_buf.h"
+ #include "uiox_klibc.h"
  
  #ifdef __cplusplus
  extern "C" {

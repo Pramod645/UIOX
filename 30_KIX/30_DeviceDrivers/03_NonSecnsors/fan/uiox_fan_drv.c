@@ -5,8 +5,6 @@
  */
 
  #include "uiox_fan_drv.h"
- #include <string.h>
- #include <errno.h>
  
  int uiox_fan_drv_init(uiox_fan_drv_t *drv, uiox_fan_if_t *fif)
  {

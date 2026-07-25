@@ -5,8 +5,6 @@
  */
 
  #include "uiox_spk_codec.h"
- #include <string.h>
- #include <errno.h>
  
  /* -------------------------------------------------------------------------
   * Codec register address stubs (TAS5756-style as example)

@@ -18,7 +18,7 @@
  
  #include "uiox_wifi_hw.h"
  #include "uiox_wifi_buf.h"
- #include <stdbool.h>
+ #include "uiox_klibc.h"
  
  #ifdef __cplusplus
  extern "C" {

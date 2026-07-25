@@ -22,8 +22,7 @@
  
  #include "uiox_net_hw.h"
  #include "uiox_netbuf.h"
- #include <stdint.h>
- #include <stdbool.h>
+ #include "uiox_klibc.h"
  
  #ifdef __cplusplus
  extern "C" {
@@ -176,6 +175,20 @@
  
  /** Reset interface statistics counters. */
  void uiox_netif_stats_reset(uiox_netif_t *netif);
+
+ /* =========================================================================
+ * Protocol-stack callbacks — implemented by the network protocol layer.
+ * Forward-declared here so the netif driver compiles without a dependency
+ * on the (not-yet-generated) protocol stack headers.
+ * ====================================================================== */
+
+void uiox_proto_ip4_input(uiox_netif_t *netif, uiox_netbuf_t *buf);
+void uiox_proto_ip6_input(uiox_netif_t *netif, uiox_netbuf_t *buf);
+void uiox_arp_input      (uiox_netif_t *netif, uiox_netbuf_t *buf);
+int  uiox_proto_arp_request(uiox_netif_t *netif, uint32_t ip4,
+                             uint8_t mac_out[UIOX_HW_MAC_ADDR_LEN],
+                             uint32_t timeout_ms);
+
  
  #ifdef __cplusplus
  }

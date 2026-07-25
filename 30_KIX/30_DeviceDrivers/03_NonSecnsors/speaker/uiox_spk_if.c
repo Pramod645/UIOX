@@ -5,8 +5,6 @@
  */
 
  #include "uiox_spk_if.h"
- #include <string.h>
- #include <errno.h>
  
  int uiox_spk_if_config(uiox_spk_if_t *sif,
                          uiox_spk_hw_t *hw,

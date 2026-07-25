@@ -5,8 +5,6 @@
  */
 
  #include "uiox_chg_if.h"
- #include <string.h>
- #include <errno.h>
  
  int uiox_chg_if_config(uiox_chg_if_t *cif, uiox_chg_hw_t *hw)
  {

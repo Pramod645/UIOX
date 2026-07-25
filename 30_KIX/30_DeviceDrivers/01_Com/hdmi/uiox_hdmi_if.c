@@ -5,8 +5,7 @@
  */
 
  #include "uiox_hdmi_if.h"
- #include <string.h>
- #include <errno.h>
+ #include "uiox_klibc.h"
  
  /* =========================================================================
   * N/CTS computation (IEC 60958 / CEA-861)

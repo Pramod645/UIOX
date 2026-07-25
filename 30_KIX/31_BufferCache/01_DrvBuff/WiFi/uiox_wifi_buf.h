@@ -16,9 +16,7 @@
  #ifndef UIOX_WIFI_BUF_H
  #define UIOX_WIFI_BUF_H
  
- #include <stdint.h>
- #include <stdbool.h>
- #include <stddef.h>
+#include "uiox_klibc.h"
  
  #ifdef __cplusplus
  extern "C" {

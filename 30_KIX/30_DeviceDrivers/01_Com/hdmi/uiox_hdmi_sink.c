@@ -5,9 +5,7 @@
  */
 
  #include "uiox_hdmi_sink.h"
- #include <string.h>
- #include <stdio.h>
- #include <errno.h>
+ #include "uiox_klibc.h"
  
  /* -------------------------------------------------------------------------
   * EDID checksum
@@ -218,7 +216,7 @@
      /* Parse CEA-861 extension */
      if (b[126] >= 1u) parse_cea861(sink, &b[128]);
  
-     /* Determine HDMI version from max
+     /* Determine HDMI version from max */
     /* Determine HDMI version from max TMDS clock */
     uint8_t max_tmds = b[131]; /* byte 131 of CEA ext = max TMDS / 5 */
     e->max_tmds_mhz  = (uint16_t)(max_tmds * 5u);

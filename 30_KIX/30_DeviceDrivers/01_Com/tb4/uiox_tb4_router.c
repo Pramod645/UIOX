@@ -1,8 +1,6 @@
 /* uiox_tb4_router.c */
 #include "uiox_tb4_router.h"
-#include <string.h>
-#include <stdio.h>
-#include <errno.h>
+#include "uiox_klibc.h"
 
 int uiox_tb4_topo_init(uiox_tb4_topo_t *topo, uiox_tb4_if_t *tif)
 {

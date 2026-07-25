@@ -5,7 +5,6 @@
  */
 
  #include "uiox_kbd_buf.h"
- #include <string.h>
  
  void uiox_kbd_buf_init(uiox_kbd_ringbuf_t *rb)
  {

@@ -5,8 +5,6 @@
  */
 
  #include "uiox_mic_if.h"
- #include <string.h>
- #include <errno.h>
  
  int uiox_mic_if_config(uiox_mic_if_t *mif, uiox_mic_hw_t *hw,
                          const uiox_mic_audio_fmt_t *fmt)

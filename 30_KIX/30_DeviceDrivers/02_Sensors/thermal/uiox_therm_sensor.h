@@ -8,6 +8,7 @@
  #define UIOX_THERM_SENSOR_H
  
  #include "uiox_therm_if.h"
+ #include "uiox_klibc.h"
  
  #ifdef __cplusplus
  extern "C" {

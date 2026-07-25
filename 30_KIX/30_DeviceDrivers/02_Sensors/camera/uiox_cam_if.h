@@ -11,6 +11,8 @@
  
  #include "uiox_cam_hw.h"
  #include "uiox_cam_buf.h"
+ #include "uiox_klibc.h"
+
  
  #ifdef __cplusplus
  extern "C" {

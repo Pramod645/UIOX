@@ -1,6 +1,4 @@
 #include "uiox_cam_if.h"
-#include <errno.h>
-#include <string.h>
 
 int uiox_cam_if_config(uiox_cam_if_t *cif,
                        uiox_cam_hw_t *hw,

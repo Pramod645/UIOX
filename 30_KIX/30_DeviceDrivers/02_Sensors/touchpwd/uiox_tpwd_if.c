@@ -5,9 +5,7 @@
  */
 
  #include "uiox_tpwd_if.h"
- #include <string.h>
- #include <errno.h>
- 
+
  int uiox_tpwd_if_config(uiox_tpwd_if_t *tif,
                           uiox_tpwd_hw_t *hw,
                           uint32_t debounce_ms,
@@ -95,32 +93,25 @@
          uint16_t xn = W ? (uint16_t)((uint32_t)x * 1000u / W) : 0u;
          uint16_t yn = H ? (uint16_t)((uint32_t)y * 1000u / H) : 0u;
  
-         uiox_tpwd_touch_evt_t ev = {
-             .type     = UIOX_TPWD_TE_PRESS,
-             .cell     = cell,
-             .col      = col,
-             .row      = row,
-             .x_norm   = xn,
-             .y_norm   = yn,
-             .pressure = raw.pts[0].pressure,
-             .ts_ns    = raw.ts_ns,
-             .hold_ms  = 0,
-         };
- 
-         /* Check for hold */
+         /* Hold detection */
          if (tif->press_start_ms == 0) tif->press_start_ms = now_ms;
          uint32_t held = now_ms - tif->press_start_ms;
-         if (held >= tif->hold_threshold_ms) {
-             ev.type    = UIOX_TPWD_TE_HOLD;
-             ev.hold_ms = held;
-         }
+         bool is_hold  = (held >= tif->hold_threshold_ms);
  
-         /* Push as raw_evt carrying logical info in x/y fields */
+         /*
+          * Pack logical info into raw_evt for the gesture layer:
+          *   pts[0].x      = normalised X (0..1000)
+          *   pts[0].y      = normalised Y (0..1000)
+          *   gesture_id    = cell index  (bits [6:0])
+          *                   bit 7 set   = hold event
+          */
          uiox_tpwd_raw_evt_t logical_ev;
          memcpy(&logical_ev, &raw, sizeof(raw));
-         logical_ev.pts[0].x = xn;
-         logical_ev.pts[0].y = yn;
-         logical_ev.gesture_id = cell;
+         logical_ev.pts[0].x  = xn;
+         logical_ev.pts[0].y  = yn;
+         logical_ev.gesture_id = (uint8_t)(cell | (is_hold ? 0x80u : 0x00u));
+ 
+         (void)col; (void)row; /* consumed via cell; available to caller via map_cell */
  
          if (!uiox_tpwd_evtbuf_push(dst_rb, &logical_ev))
              tif->stats.overflow_events++;

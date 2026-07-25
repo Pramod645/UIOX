@@ -5,8 +5,6 @@
  */
 
  #include "uiox_pmic_if.h"
- #include <string.h>
- #include <errno.h>
  
  int uiox_pmic_if_config(uiox_pmic_if_t *pif, uiox_pmic_hw_t *hw)
  {

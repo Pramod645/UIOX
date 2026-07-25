@@ -5,8 +5,6 @@
  */
 
  #include "uiox_fan_if.h"
- #include <string.h>
- #include <errno.h>
  
  int uiox_fan_if_config(uiox_fan_if_t *fif, uiox_fan_hw_t *hw)
  {

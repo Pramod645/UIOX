@@ -5,8 +5,7 @@
  */
 
  #include "uiox_mon_if.h"
- #include <string.h>
- #include <errno.h>
+ #include "uiox_klibc.h"
  
  int uiox_mon_if_config(uiox_mon_if_t        *mif,
                          uiox_mon_hw_t        *hw,

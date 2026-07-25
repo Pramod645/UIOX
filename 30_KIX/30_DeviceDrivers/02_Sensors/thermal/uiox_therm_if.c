@@ -5,8 +5,6 @@
  */
 
  #include "uiox_therm_if.h"
- #include <string.h>
- #include <errno.h>
  
  int uiox_therm_if_config(uiox_therm_if_t *tif, uiox_therm_hw_t *hw)
  {

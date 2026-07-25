@@ -5,8 +5,6 @@
  */
 
  #include "uiox_mic_codec.h"
- #include <string.h>
- #include <errno.h>
  
  #define REG_DEVICE_ID   0x00u
  #define REG_POWER       0x01u

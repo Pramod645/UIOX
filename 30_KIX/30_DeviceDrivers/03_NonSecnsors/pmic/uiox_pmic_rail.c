@@ -5,8 +5,6 @@
  */
 
  #include "uiox_pmic_rail.h"
- #include <string.h>
- #include <errno.h>
  
  int uiox_pmic_rail_init(uiox_pmic_rail_mgr_t *mgr, uiox_pmic_if_t *pif)
  {

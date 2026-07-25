@@ -16,7 +16,8 @@
 #
 # Directory layout:
 #   20_DriverInterfaces/
-#   ├── include/          uiox_klibc.h
+#   ├── include/          cpu.h  hw_types.h
+#   ├── src/              cpu.c
 #   ├── 01_Com/           bt  eth  hdmi  tb4
 #   ├── 02_Sensors/       WiFi  camera  mic  thermal  touchpwd
 #   └── 03_NonSecnsors/   bms  chg  emmc  fan  pmic  rtc  speaker
@@ -24,11 +25,17 @@
 # All .c files in src/ and all peripheral subdirectories are compiled
 # automatically via wildcards — no Makefile edit needed when adding files.
 #
-# @version 1.0.0  @date 2026-07-25
+# v1.1.0 changes:
+#   · HW_SRCS_C wildcards use $(abspath) — immune to CWD at invocation
+#   · Added "make list-sources" target to debug empty wildcards
+#   · _OBJS uses := (immediate) — evaluated once at parse time is safe
+#     since HW_SRCS_C is := and MFDIR is absolute
+# @version 1.1.0  @date 2026-07-25
 # =============================================================================
 
 # ── Makefile-relative base ────────────────────────────────────────────────────
-MFDIR := $(dir $(abspath $(lastword $(MAKEFILE_LIST))))
+MFDIR    := $(dir $(abspath $(lastword $(MAKEFILE_LIST))))
+COMMONDIR := $(abspath $(MFDIR)../common)
 
 # ── Host OS detection ─────────────────────────────────────────────────────────
 UNAME_S := $(shell uname -s)
@@ -80,6 +87,7 @@ COMMON_CFLAGS := \
 
 # ── Include paths ─────────────────────────────────────────────────────────────
 COMMON_INCLUDES := \
+  -I$(COMMONDIR)                           \
   -I$(HWINC)                                    \
   -I$(MFDIR)01_Com/eth                          \
   -I$(MFDIR)01_Com/hdmi                         \
@@ -221,6 +229,8 @@ _CFLAGS_ALL = $(COMMON_CFLAGS)   \
               $(ARCH_CFLAGS)      \
               $(ARCH_CPUDEF)
 
+# _OBJS must stay recursive (=) because _BUILD_DIR depends on _ARCH
+# which is only known when _build is invoked.
 _OBJS    = $(patsubst $(MFDIR)%.c,$(_BUILD_DIR)/%.o,$(HW_SRCS_C))
 DEPFLAGS = -MMD -MP -MF $(@:.o=.d)
 -include $(_OBJS:.o=.d)
@@ -238,6 +248,24 @@ $(_BUILD_DIR)/%.o: $(MFDIR)%.c
 	@mkdir -p $(dir $@)
 	$(CC) $(_CFLAGS_ALL) $(DEPFLAGS) -c $< -o $@
 	@echo "  [CC]  $<"
+
+# =============================================================================
+# Debug targets — run these to verify wildcard expansion
+# =============================================================================
+
+.PHONY: list-sources
+list-sources:
+	@echo "[HW] HW_SRCS_C ($(words $(HW_SRCS_C)) files):"
+	@for f in $(HW_SRCS_C); do echo "  $f"; done
+
+.PHONY: list-objs
+list-objs:
+	@$(MAKE) -f $(MFDIR)Makefile _list_objs _ARCH=arm64
+
+.PHONY: _list_objs
+_list_objs:
+	@echo "[HW] _OBJS for $(_ARCH) ($(words $(_OBJS)) files):"
+	@for f in $(_OBJS); do echo "  $f"; done
 
 # =============================================================================
 # Convenience targets
