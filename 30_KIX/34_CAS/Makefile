@@ -64,13 +64,13 @@ COMMON_INCLUDES := \
   -I$(MFDIR)02_Sensors/mouse              \
   -I$(MFDIR)02_Sensors/thermal            \
   -I$(MFDIR)02_Sensors/touchpwd           \
-  -I$(MFDIR)03_NonSecnsors/bms            \
-  -I$(MFDIR)03_NonSecnsors/chg            \
-  -I$(MFDIR)03_NonSecnsors/emmc           \
-  -I$(MFDIR)03_NonSecnsors/fan            \
-  -I$(MFDIR)03_NonSecnsors/pmic           \
-  -I$(MFDIR)03_NonSecnsors/rtc            \
-  -I$(MFDIR)03_NonSecnsors/speaker
+  -I$(MFDIR)03_NonSensors/bms            \
+  -I$(MFDIR)03_NonSensors/chg            \
+  -I$(MFDIR)03_NonSensors/emmc           \
+  -I$(MFDIR)03_NonSensors/fan            \
+  -I$(MFDIR)03_NonSensors/pmic           \
+  -I$(MFDIR)03_NonSensors/rtc            \
+  -I$(MFDIR)03_NonSensors/speaker
 
 CAS_SRCS_C :=
 # 01_Com
@@ -85,13 +85,13 @@ CAS_SRCS_C += $(wildcard $(MFDIR)02_Sensors/mouse/*.c)
 CAS_SRCS_C += $(wildcard $(MFDIR)02_Sensors/thermal/*.c)
 CAS_SRCS_C += $(wildcard $(MFDIR)02_Sensors/touchpwd/*.c)
 # 03_NonSecnsors
-CAS_SRCS_C += $(wildcard $(MFDIR)03_NonSecnsors/bms/*.c)
-CAS_SRCS_C += $(wildcard $(MFDIR)03_NonSecnsors/chg/*.c)
-CAS_SRCS_C += $(wildcard $(MFDIR)03_NonSecnsors/emmc/*.c)
-CAS_SRCS_C += $(wildcard $(MFDIR)03_NonSecnsors/fan/*.c)
-CAS_SRCS_C += $(wildcard $(MFDIR)03_NonSecnsors/pmic/*.c)
-CAS_SRCS_C += $(wildcard $(MFDIR)03_NonSecnsors/rtc/*.c)
-CAS_SRCS_C += $(wildcard $(MFDIR)03_NonSecnsors/speaker/*.c)
+CAS_SRCS_C += $(wildcard $(MFDIR)03_NonSensors/bms/*.c)
+CAS_SRCS_C += $(wildcard $(MFDIR)03_NonSensors/chg/*.c)
+CAS_SRCS_C += $(wildcard $(MFDIR)03_NonSensors/emmc/*.c)
+CAS_SRCS_C += $(wildcard $(MFDIR)03_NonSensors/fan/*.c)
+CAS_SRCS_C += $(wildcard $(MFDIR)03_NonSensors/pmic/*.c)
+CAS_SRCS_C += $(wildcard $(MFDIR)03_NonSensors/rtc/*.c)
+CAS_SRCS_C += $(wildcard $(MFDIR)03_NonSensors/speaker/*.c)
 
 vpath %.c \
   $(MFDIR)01_Com/bt           $(MFDIR)01_Com/eth          \
@@ -99,10 +99,10 @@ vpath %.c \
   $(MFDIR)01_Com/monitor      $(MFDIR)02_Sensors/mic      \
   $(MFDIR)02_Sensors/mouse    $(MFDIR)02_Sensors/thermal  \
   $(MFDIR)02_Sensors/touchpwd \
-  $(MFDIR)03_NonSecnsors/bms  $(MFDIR)03_NonSecnsors/chg  \
-  $(MFDIR)03_NonSecnsors/emmc $(MFDIR)03_NonSecnsors/fan  \
-  $(MFDIR)03_NonSecnsors/pmic $(MFDIR)03_NonSecnsors/rtc  \
-  $(MFDIR)03_NonSecnsors/speaker
+  $(MFDIR)03_NonSensors/bms  $(MFDIR)03_NonSensors/chg  \
+  $(MFDIR)03_NonSensors/emmc $(MFDIR)03_NonSensors/fan  \
+  $(MFDIR)03_NonSensors/pmic $(MFDIR)03_NonSensors/rtc  \
+  $(MFDIR)03_NonSensors/speaker
 
 ARFLAGS := rcs
 

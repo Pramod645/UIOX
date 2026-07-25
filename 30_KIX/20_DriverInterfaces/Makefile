@@ -98,13 +98,13 @@ COMMON_INCLUDES := \
   -I$(MFDIR)02_Sensors/mic                      \
   -I$(MFDIR)02_Sensors/thermal                  \
   -I$(MFDIR)02_Sensors/touchpwd                 \
-  -I$(MFDIR)03_NonSecnsors/bms                  \
-  -I$(MFDIR)03_NonSecnsors/chg                  \
-  -I$(MFDIR)03_NonSecnsors/emmc                 \
-  -I$(MFDIR)03_NonSecnsors/fan                  \
-  -I$(MFDIR)03_NonSecnsors/pmic                 \
-  -I$(MFDIR)03_NonSecnsors/rtc                  \
-  -I$(MFDIR)03_NonSecnsors/speaker              \
+  -I$(MFDIR)03_NonSensors/bms                  \
+  -I$(MFDIR)03_NonSensors/chg                  \
+  -I$(MFDIR)03_NonSensors/emmc                 \
+  -I$(MFDIR)03_NonSensors/fan                  \
+  -I$(MFDIR)03_NonSensors/pmic                 \
+  -I$(MFDIR)03_NonSensors/rtc                  \
+  -I$(MFDIR)03_NonScnsors/speaker              \
   -I$(SOCINC)
 
 # ── Source files — wildcards pick up every .c in the tree ────────────────────
@@ -119,13 +119,13 @@ HW_SRCS_C += $(wildcard $(MFDIR)02_Sensors/camera/*.c)
 HW_SRCS_C += $(wildcard $(MFDIR)02_Sensors/mic/*.c)
 HW_SRCS_C += $(wildcard $(MFDIR)02_Sensors/thermal/*.c)
 HW_SRCS_C += $(wildcard $(MFDIR)02_Sensors/touchpwd/*.c)
-HW_SRCS_C += $(wildcard $(MFDIR)03_NonSecnsors/bms/*.c)
-HW_SRCS_C += $(wildcard $(MFDIR)03_NonSecnsors/chg/*.c)
-HW_SRCS_C += $(wildcard $(MFDIR)03_NonSecnsors/emmc/*.c)
-HW_SRCS_C += $(wildcard $(MFDIR)03_NonSecnsors/fan/*.c)
-HW_SRCS_C += $(wildcard $(MFDIR)03_NonSecnsors/pmic/*.c)
-HW_SRCS_C += $(wildcard $(MFDIR)03_NonSecnsors/rtc/*.c)
-HW_SRCS_C += $(wildcard $(MFDIR)03_NonSecnsors/speaker/*.c)
+HW_SRCS_C += $(wildcard $(MFDIR)03_NonSensors/bms/*.c)
+HW_SRCS_C += $(wildcard $(MFDIR)03_NonSensors/chg/*.c)
+HW_SRCS_C += $(wildcard $(MFDIR)03_NonSensors/emmc/*.c)
+HW_SRCS_C += $(wildcard $(MFDIR)03_NonSensors/fan/*.c)
+HW_SRCS_C += $(wildcard $(MFDIR)03_NonSensors/pmic/*.c)
+HW_SRCS_C += $(wildcard $(MFDIR)03_NonSensors/rtc/*.c)
+HW_SRCS_C += $(wildcard $(MFDIR)03_NonSensors/speaker/*.c)
 
 # ── vpath — sources found by basename ─────────────────────────────────────────
 vpath %.c \
@@ -139,13 +139,13 @@ vpath %.c \
   $(MFDIR)02_Sensors/mic            \
   $(MFDIR)02_Sensors/thermal        \
   $(MFDIR)02_Sensors/touchpwd       \
-  $(MFDIR)03_NonSecnsors/bms        \
-  $(MFDIR)03_NonSecnsors/chg        \
-  $(MFDIR)03_NonSecnsors/emmc       \
-  $(MFDIR)03_NonSecnsors/fan        \
-  $(MFDIR)03_NonSecnsors/pmic       \
-  $(MFDIR)03_NonSecnsors/rtc        \
-  $(MFDIR)03_NonSecnsors/speaker
+  $(MFDIR)03_NonSensors/bms        \
+  $(MFDIR)03_NonSensors/chg        \
+  $(MFDIR)03_NonSensors/emmc       \
+  $(MFDIR)03_NonSensors/fan        \
+  $(MFDIR)03_NonSensors/pmic       \
+  $(MFDIR)03_NonSensors/rtc        \
+  $(MFDIR)03_NonSensors/speaker
 
 ARFLAGS := rcs
 

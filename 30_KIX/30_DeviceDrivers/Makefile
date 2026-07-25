@@ -91,13 +91,13 @@ HALCAM  = $(abspath $(MFDIR)../20_DriverInterfaces/02_Sensors/camera)
 HALMIC  = $(abspath $(MFDIR)../20_DriverInterfaces/02_Sensors/mic)
 HALTHM  = $(abspath $(MFDIR)../20_DriverInterfaces/02_Sensors/thermal)
 HALTPWD = $(abspath $(MFDIR)../20_DriverInterfaces/02_Sensors/touchpwd)
-HALBMS  = $(abspath $(MFDIR)../20_DriverInterfaces/03_NonSecnsors/bms)
-HALCHG  = $(abspath $(MFDIR)../20_DriverInterfaces/03_NonSecnsors/chg)
-HALEMMC = $(abspath $(MFDIR)../20_DriverInterfaces/03_NonSecnsors/emmc)
-HALFAN  = $(abspath $(MFDIR)../20_DriverInterfaces/03_NonSecnsors/fan)
-HALPMIC = $(abspath $(MFDIR)../20_DriverInterfaces/03_NonSecnsors/pmic)
-HALRTC  = $(abspath $(MFDIR)../20_DriverInterfaces/03_NonSecnsors/rtc)
-HALSPK  = $(abspath $(MFDIR)../20_DriverInterfaces/03_NonSecnsors/speaker)
+HALBMS  = $(abspath $(MFDIR)../20_DriverInterfaces/03_NonSensors/bms)
+HALCHG  = $(abspath $(MFDIR)../20_DriverInterfaces/03_NonSensors/chg)
+HALEMMC = $(abspath $(MFDIR)../20_DriverInterfaces/03_NonSensors/emmc)
+HALFAN  = $(abspath $(MFDIR)../20_DriverInterfaces/03_NonSensors/fan)
+HALPMIC = $(abspath $(MFDIR)../20_DriverInterfaces/03_NonSensors/pmic)
+HALRTC  = $(abspath $(MFDIR)../20_DriverInterfaces/03_NonSensors/rtc)
+HALSPK  = $(abspath $(MFDIR)../20_DriverInterfaces/03_NonSensors/speaker)
 # 31_BufferCache/01_DrvBuff buffer headers — all subdirs
 BUFWIFI = $(abspath $(MFDIR)../31_BufferCache/01_DrvBuff/WiFi)
 BUFALS  = $(abspath $(MFDIR)../31_BufferCache/01_DrvBuff/als)
@@ -181,12 +181,12 @@ COMMON_INCLUDES := \
   -I$(MFDIR)02_Sensors/mouse            \
   -I$(MFDIR)02_Sensors/thermal          \
   -I$(MFDIR)02_Sensors/touchpwd         \
-  -I$(MFDIR)03_NonSecnsors/bms          \
-  -I$(MFDIR)03_NonSecnsors/chg          \
-  -I$(MFDIR)03_NonSecnsors/fan          \
-  -I$(MFDIR)03_NonSecnsors/pmic         \
-  -I$(MFDIR)03_NonSecnsors/rtc          \
-  -I$(MFDIR)03_NonSecnsors/speaker
+  -I$(MFDIR)03_NonSensors/bms          \
+  -I$(MFDIR)03_NonSensors/chg          \
+  -I$(MFDIR)03_NonSensors/fan          \
+  -I$(MFDIR)03_NonSensors/pmic         \
+  -I$(MFDIR)03_NonSensors/rtc          \
+  -I$(MFDIR)03_NonSensors/speaker
 
 # ── Source files ──────────────────────────────────────────────────────────────
 DEV_SRCS_C :=
@@ -206,12 +206,12 @@ DEV_SRCS_C += $(wildcard $(MFDIR)02_Sensors/mouse/*.c)
 DEV_SRCS_C += $(wildcard $(MFDIR)02_Sensors/thermal/*.c)
 DEV_SRCS_C += $(wildcard $(MFDIR)02_Sensors/touchpwd/*.c)
 # 03_NonSecnsors
-DEV_SRCS_C += $(wildcard $(MFDIR)03_NonSecnsors/bms/*.c)
-DEV_SRCS_C += $(wildcard $(MFDIR)03_NonSecnsors/chg/*.c)
-DEV_SRCS_C += $(wildcard $(MFDIR)03_NonSecnsors/fan/*.c)
-DEV_SRCS_C += $(wildcard $(MFDIR)03_NonSecnsors/pmic/*.c)
-DEV_SRCS_C += $(wildcard $(MFDIR)03_NonSecnsors/rtc/*.c)
-DEV_SRCS_C += $(wildcard $(MFDIR)03_NonSecnsors/speaker/*.c)
+DEV_SRCS_C += $(wildcard $(MFDIR)03_NonSensors/bms/*.c)
+DEV_SRCS_C += $(wildcard $(MFDIR)03_NonSensors/chg/*.c)
+DEV_SRCS_C += $(wildcard $(MFDIR)03_NonSensors/fan/*.c)
+DEV_SRCS_C += $(wildcard $(MFDIR)03_NonSensors/pmic/*.c)
+DEV_SRCS_C += $(wildcard $(MFDIR)03_NonSensors/rtc/*.c)
+DEV_SRCS_C += $(wildcard $(MFDIR)03_NonSensors/speaker/*.c)
 
 # ── vpath ─────────────────────────────────────────────────────────────────────
 vpath %.c \
@@ -228,12 +228,12 @@ vpath %.c \
   $(MFDIR)02_Sensors/mouse      \
   $(MFDIR)02_Sensors/thermal    \
   $(MFDIR)02_Sensors/touchpwd   \
-  $(MFDIR)03_NonSecnsors/bms    \
-  $(MFDIR)03_NonSecnsors/chg    \
-  $(MFDIR)03_NonSecnsors/fan    \
-  $(MFDIR)03_NonSecnsors/pmic   \
-  $(MFDIR)03_NonSecnsors/rtc    \
-  $(MFDIR)03_NonSecnsors/speaker
+  $(MFDIR)03_NonSensors/bms    \
+  $(MFDIR)03_NonSensors/chg    \
+  $(MFDIR)03_NonSensors/fan    \
+  $(MFDIR)03_NonSensors/pmic   \
+  $(MFDIR)03_NonSensors/rtc    \
+  $(MFDIR)03_NonSensors/speaker
 
 ARFLAGS := rcs
 
