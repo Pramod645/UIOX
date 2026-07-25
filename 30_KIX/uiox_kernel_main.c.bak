@@ -67,7 +67,6 @@
 #include "uiox_fw_uart.h"       /* PL011/UART macros — after uiox_soc.h     */
 #include "uiox_boot_handoff.h"  /* uiox_boot_args_t, uiox_boot_handoff_*    */
 #include "uiox_boot_types.h"    /* remaining boot enums/structs/macros       */
-#include "uiox_fboot.h"         /* uiox_fb_master_ctx_t, fb_init/ready/report */
 
 /* ── Forward declarations of subsystem init functions ────────────────── */
 extern int  arch_init(void);                /* 10_Arch/<arch>/src/arch_init.c  */
@@ -78,6 +77,8 @@ extern void uiox_ks_boot_entry(            /* 50_UIX/12_ksign/src/uiox_ksign.c*/
                 size_t      text_size,
                 uintptr_t   rodata_base,
                 size_t      rodata_size);
+extern void uiox_fb_shell_ready(           /* 50_UIX/13_fboot                  */
+                uiox_fb_master_ctx_t *ctx);
 extern void uiox_proc_init(void);          /* 33_ProcessControlSubsystem       */
 extern void uiox_shell_start(void);        /* 50_UIX/01_shell                  */
 

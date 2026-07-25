@@ -148,7 +148,7 @@ _do_riscv64:
 	$(MAKE) -f $(MFDIR)Makefile _build                    \
 	    _ARCH=riscv64                                      \
 	    CC=$(RV64_CC) AR=$(RV64_AR)                       \
-	    ARCH_CFLAGS="-march=rv64imafdczicsrzifencei -mabi=lp64d -mcmodel=medany" \
+	    ARCH_CFLAGS="-march=rv64imafdc_zicsr_zifencei -mabi=lp64d -mcmodel=medany" \
 	    ARCH_CPUDEF="-D__riscv -D__riscv_xlen=64"
 
 .PHONY: x86_64

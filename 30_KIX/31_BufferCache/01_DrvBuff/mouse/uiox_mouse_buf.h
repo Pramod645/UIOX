@@ -8,6 +8,7 @@
  #define UIOX_MOUSE_BUF_H
  
  #include "uiox_mouse_hw.h"
+ #include "uiox_klibc.h"
  
  #ifdef __cplusplus
  extern "C" {

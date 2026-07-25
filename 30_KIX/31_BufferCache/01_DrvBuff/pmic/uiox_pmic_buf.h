@@ -8,6 +8,7 @@
  #define UIOX_PMIC_BUF_H
  
  #include "uiox_pmic_hw.h"
+ #include "uiox_klibc.h"
  
  #ifdef __cplusplus
  extern "C" {

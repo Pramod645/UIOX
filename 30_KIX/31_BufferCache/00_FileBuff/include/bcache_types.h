@@ -1,9 +1,7 @@
 #ifndef UIOX_BCACHE_TYPES_H
 #define UIOX_BCACHE_TYPES_H
 
-#include <stdint.h>
-#include <stdbool.h>
-#include <stddef.h>
+#include "uiox_klibc.h"
 
 /* ─────────────────────────────────────────────────────────────
  * Filesystem / disk geometry

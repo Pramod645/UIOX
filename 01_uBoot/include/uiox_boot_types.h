@@ -5,6 +5,15 @@
  * This is the only header that may be included by every other bootloader
  * module without risk of circular dependencies.
  *
+ * FIX: All primitive typedefs and redefinable macros are now guarded so
+ * this header can be included after uiox_fw_types.h or uiox_base_types.h
+ * without triggering -Werror=redefine or conflicting-types errors.
+ *
+ * The guard symbol UIOX_PRIMITIVE_TYPES_DEFINED is set by uiox_fw_types.h
+ * when it defines int64_t etc. via __INT64_TYPE__.  When that symbol is
+ * already defined we skip the "signed long long" typedefs entirely, which
+ * avoids the AArch64 "long" vs "long long" conflict.
+ *
  * @version 1.0.0  (1.0.0 + RISC-V RV64GC additions — 2026-07-12)
  * @date    2026-07-12
  */
@@ -13,8 +22,13 @@
  #define UIOX_BOOT_TYPES_H
  
  /* =========================================================================
-  * Portable integer types (no libc in boot environment)
+  * Portable integer types
+  *
+  * Only define when uiox_fw_types.h has NOT already defined them via
+  * compiler built-ins (__INT64_TYPE__ etc.).  uiox_fw_types.h sets
+  * UIOX_FW_TYPES_H as its include guard — use that as the sentinel.
   * ====================================================================== */
+ #ifndef UIOX_FW_TYPES_H   /* uiox_fw_types.h not yet included */
  
  typedef unsigned char       uint8_t;
  typedef unsigned short      uint16_t;
@@ -36,9 +50,22 @@
  #endif
  
  typedef _Bool bool;
- #define true  1
- #define false 0
- #define NULL  ((void *)0)
+ 
+ #ifndef true
+ # define true  1
+ #endif
+ #ifndef false
+ # define false 0
+ #endif
+ #ifndef NULL
+ # define NULL  ((void *)0)
+ #endif
+ 
+ #else  /* uiox_fw_types.h already included — skip conflicting typedefs */
+ 
+ /* bool/true/false/NULL are already defined by uiox_fw_types.h */
+ 
+ #endif /* UIOX_FW_TYPES_H */
  
  /* =========================================================================
   * Architecture identifier
@@ -48,7 +75,7 @@
      UIOX_ARCH_ARM64  = 0,
      UIOX_ARCH_ARM32  = 1,
      UIOX_ARCH_X86_64 = 2,
-     UIOX_ARCH_RV64   = 3, 
+     UIOX_ARCH_RV64   = 3,
  } uiox_arch_t;
  
  /* =========================================================================
@@ -74,7 +101,7 @@
  
  #define UIOX_IMAGE_MAGIC        0x55494F58u  /**< "UIOX"                  */
  #define UIOX_BOOT_ARGS_MAGIC    0x55415247u  /**< "UARG"                  */
- #define UIOX_DTB_MAGIC          0xD00DFEEDu /**< FDT / DTB               */
+ #define UIOX_DTB_MAGIC          0xD00DFEEDu  /**< FDT / DTB               */
  #define UIOX_MULTIBOOT2_MAGIC   0xE85250D6u  /**< Multiboot2 header magic */
  #define UIOX_MULTIBOOT2_LOADER  0x36D76289u  /**< Bootloader magic        */
  
@@ -97,97 +124,90 @@
      char     cmdline[UIOX_IMAGE_CMDLINE_MAX]; /**< Default kernel cmdline  */
      uint8_t  _pad[60];       /**< Padding to 512-byte alignment           */
  } uiox_image_hdr_t;
+ 
  /* =========================================================================
- * Boot arguments passed to the kernel
- * ====================================================================== */
-//typedef struct {
-//    uint32_t magic;          /**< UIOX_BOOT_ARGS_MAGIC                    */
-//    uint32_t version;
-//    uint64_t dtb_pa;         /**< DTB physical address                    */
-//    uint64_t initrd_start;
-//    uint64_t initrd_size;
-//    char     cmdline[UIOX_IMAGE_CMDLINE_MAX];
-//} uiox_boot_args_t;
-
-
-/* =========================================================================
- * Arch-specific MMIO base addresses (boot-time constants)
- *
- * ARM64  — QEMU virt (aarch64)
- *   PL011 UART @ 0x09000000  (QEMU virt serial0)
- *   GIC-v2     @ 0x08000000 / 0x08010000
- *
- * ARM32  — QEMU versatilepb
- *   PL011 UART @ 0x101F1000
- *   SP804 Timer @ 0x101E2000
- *
- * x86-64 — QEMU q35
- *   COM1 16550A @ I/O 0x3F8
- *   PIT 8254    @ I/O 0x40
- *
- * RISC-V — QEMU virt (riscv64)                               <<< NEW >>>
- *   NS16550A UART    @ 0x10000000  (DTB: uart0 node)
- *   CLINT mtime      @ 0x0200BFF8  (DTB: clint node; cpu_hw: clint_base)
- *   PLIC             @ 0x0C000000  (DTB: plic node; cpu_hw: gic_base)
- *   Test Finisher    @ 0x00100000  (QEMU virt reset/exit)
- * ====================================================================== */
-
-/* ARM64 */
-#define UIOX_PL011_BASE_ARM64   0x09000000UL /**< QEMU virt PL011        */
-#define UIOX_GIC_DIST_BASE      0x08000000UL
-#define UIOX_GIC_CPU_BASE       0x08010000UL
-
-/* ARM32 */
-#define UIOX_PL011_BASE_ARM32   0x101F1000UL /**< versatilepb PL011      */
-#define UIOX_SP804_BASE_ARM32   0x101E2000UL /**< versatilepb SP804      */
-
-/* x86-64 */
-#define UIOX_COM1_PORT          0x3F8u       /**< COM1 I/O port base     */
-#define UIOX_PIT_PORT           0x40u        /**< PIT 8254 I/O port base */
-
-/* RISC-V RV64GC                                               <<< NEW >>> */
-#define UIOX_RV_UART_BASE       0x10000000UL /**< NS16550A UART (QEMU)   */
-#define UIOX_RV_CLINT_BASE      0x02000000UL /**< CLINT (cpu_hw clint_base) */
-#define UIOX_RV_CLINT_MTIME     (UIOX_RV_CLINT_BASE + 0xBFF8UL)
-#define UIOX_RV_CLINT_MTIMECMP0 (UIOX_RV_CLINT_BASE + 0x4000UL)
-#define UIOX_RV_PLIC_BASE       0x0C000000UL /**< PLIC (cpu_hw gic_base)  */
-#define UIOX_RV_TEST_BASE       0x00100000UL /**< QEMU test finisher      */
-
-/* PL011 register offsets (ARM64 + ARM32 shared) */
-#define PL011_DR                0x000u
-#define PL011_FR                0x018u
-#define PL011_IBRD              0x024u
-#define PL011_FBRD              0x028u
-#define PL011_LCR_H             0x02Cu
-#define PL011_CR                0x030u
-#define PL011_FR_TXFF           (1u << 5)
-#define PL011_LCR_WLEN8         (3u << 5)
-#define PL011_LCR_FEN           (1u << 4)
-#define PL011_CR_UARTEN         (1u << 0)
-#define PL011_CR_TXE            (1u << 8)
-#define PL011_CR_RXE            (1u << 9)
-
-/* x86-64 COM1 register offsets */
-#define COM1_THR                0u
-#define COM1_LSR                5u
-#define COM1_LSR_THRE           (1u << 5)
-#define COM1_IER                1u
-#define COM1_FCR                2u
-#define COM1_LCR                3u
-#define COM1_MCR                4u
-#define COM1_DLL                0u
-#define COM1_DLM                1u
-
- /* =========================================================================
-  * Utility macros
+  * Arch-specific MMIO base addresses (boot-time constants)
   * ====================================================================== */
  
- #define UIOX_ALIGN_UP(v, a)     (((v) + ((a) - 1u)) & ~((a) - 1u))
- #define UIOX_ALIGN_DN(v, a)     ((v) & ~((a) - 1u))
- #define UIOX_ARRAY_SIZE(a)      (sizeof(a) / sizeof((a)[0]))
- #define UIOX_UNUSED(x)          ((void)(x))
- #define UIOX_MIN(a, b)          ((a) < (b) ? (a) : (b))
- #define UIOX_MAX(a, b)          ((a) > (b) ? (a) : (b))
+ /* ARM64 */
+ #define UIOX_PL011_BASE_ARM64   0x09000000UL /**< QEMU virt PL011        */
+ #define UIOX_GIC_DIST_BASE      0x08000000UL
+ #define UIOX_GIC_CPU_BASE       0x08010000UL
+ 
+ /* ARM32 */
+ #define UIOX_PL011_BASE_ARM32   0x101F1000UL /**< versatilepb PL011      */
+ #define UIOX_SP804_BASE_ARM32   0x101E2000UL /**< versatilepb SP804      */
+ 
+ /* x86-64 */
+ #define UIOX_COM1_PORT          0x3F8u       /**< COM1 I/O port base     */
+ #define UIOX_PIT_PORT           0x40u        /**< PIT 8254 I/O port base */
+ 
+ /* RISC-V RV64GC */
+ #define UIOX_RV_UART_BASE       0x10000000UL /**< NS16550A UART (QEMU)   */
+ #define UIOX_RV_CLINT_BASE      0x02000000UL /**< CLINT                  */
+ #define UIOX_RV_CLINT_MTIME     (UIOX_RV_CLINT_BASE + 0xBFF8UL)
+ #define UIOX_RV_CLINT_MTIMECMP0 (UIOX_RV_CLINT_BASE + 0x4000UL)
+ #define UIOX_RV_PLIC_BASE       0x0C000000UL /**< PLIC                   */
+ #define UIOX_RV_TEST_BASE       0x00100000UL /**< QEMU test finisher     */
+ 
+ /* PL011 register offsets (ARM64 + ARM32 shared) */
+ #define PL011_DR                0x000u
+ #define PL011_FR                0x018u
+ #define PL011_IBRD              0x024u
+ #define PL011_FBRD              0x028u
+ #define PL011_LCR_H             0x02Cu
+ #define PL011_CR                0x030u
+ #ifndef PL011_FR_TXFF
+ # define PL011_FR_TXFF          (1u << 5)
+ #endif
+ #ifndef PL011_LCR_WLEN8
+ # define PL011_LCR_WLEN8        (3u << 5)
+ #endif
+ #ifndef PL011_LCR_FEN
+ # define PL011_LCR_FEN          (1u << 4)
+ #endif
+ #ifndef PL011_CR_UARTEN
+ # define PL011_CR_UARTEN        (1u << 0)
+ #endif
+ #ifndef PL011_CR_TXE
+ # define PL011_CR_TXE           (1u << 8)
+ #endif
+ #ifndef PL011_CR_RXE
+ # define PL011_CR_RXE           (1u << 9)
+ #endif
+ 
+ /* x86-64 COM1 register offsets */
+ #define COM1_THR                0u
+ #define COM1_LSR                5u
+ #define COM1_LSR_THRE           (1u << 5)
+ #define COM1_IER                1u
+ #define COM1_FCR                2u
+ #define COM1_LCR                3u
+ #define COM1_MCR                4u
+ #define COM1_DLL                0u
+ #define COM1_DLM                1u
+ 
+ /* =========================================================================
+  * Utility macros — guarded so uiox_fw_types.h definitions win if earlier.
+  * ====================================================================== */
+ #ifndef UIOX_ALIGN_UP
+ # define UIOX_ALIGN_UP(v, a)    (((v) + ((a) - 1u)) & ~((a) - 1u))
+ #endif
+ #ifndef UIOX_ALIGN_DN
+ # define UIOX_ALIGN_DN(v, a)    ((v) & ~((a) - 1u))
+ #endif
+ #ifndef UIOX_ARRAY_SIZE
+ # define UIOX_ARRAY_SIZE(a)     (sizeof(a) / sizeof((a)[0]))
+ #endif
+ #ifndef UIOX_UNUSED
+ # define UIOX_UNUSED(x)         ((void)(x))
+ #endif
+ #ifndef UIOX_MIN
+ # define UIOX_MIN(a, b)         ((a) < (b) ? (a) : (b))
+ #endif
+ #ifndef UIOX_MAX
+ # define UIOX_MAX(a, b)         ((a) > (b) ? (a) : (b))
+ #endif
  
  #endif /* UIOX_BOOT_TYPES_H */
  

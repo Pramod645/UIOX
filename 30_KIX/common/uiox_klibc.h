@@ -49,6 +49,7 @@
 #define ENETDOWN 100
 #define ENOBUFS 105
 #define EPROTO 71
+#define ETIME 64 /* Timer expired */
 
 /* ── §1  Integer types ──────────────────────────────────────────────────────── */
 typedef unsigned char       uint8_t;

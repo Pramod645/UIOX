@@ -8,6 +8,7 @@
  #define UIOX_TB4_BUF_H
  
  #include "uiox_tb4_hw.h"
+ #include "uiox_klibc.h"
  
  #ifdef __cplusplus
  extern "C" {

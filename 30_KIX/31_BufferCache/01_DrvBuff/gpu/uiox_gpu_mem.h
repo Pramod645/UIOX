@@ -15,7 +15,7 @@
  #define UIOX_GPU_MEM_H
  
  #include "uiox_gpu_hw.h"
- #include <stdint.h>
+ #include "uiox_klibc.h"
  
  #ifdef __cplusplus
  extern "C" {

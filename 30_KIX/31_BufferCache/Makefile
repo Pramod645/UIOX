@@ -54,13 +54,25 @@ HALCAM  = $(abspath $(MFDIR)../20_DriverInterfaces/02_Sensors/camera)
 HALMIC  = $(abspath $(MFDIR)../20_DriverInterfaces/02_Sensors/mic)
 HALTHM  = $(abspath $(MFDIR)../20_DriverInterfaces/02_Sensors/thermal)
 HALTPWD = $(abspath $(MFDIR)../20_DriverInterfaces/02_Sensors/touchpwd)
-HALBMS  = $(abspath $(MFDIR)../20_DriverInterfaces/03_NonSecnsors/bms)
-HALCHG  = $(abspath $(MFDIR)../20_DriverInterfaces/03_NonSecnsors/chg)
-HALEMMC = $(abspath $(MFDIR)../20_DriverInterfaces/03_NonSecnsors/emmc)
-HALFAN  = $(abspath $(MFDIR)../20_DriverInterfaces/03_NonSecnsors/fan)
-HALPMIC = $(abspath $(MFDIR)../20_DriverInterfaces/03_NonSecnsors/pmic)
-HALRTC  = $(abspath $(MFDIR)../20_DriverInterfaces/03_NonSecnsors/rtc)
-HALSPK  = $(abspath $(MFDIR)../20_DriverInterfaces/03_NonSecnsors/speaker)
+HALBMS  = $(abspath $(MFDIR)../20_DriverInterfaces/03_NonSensors/bms)
+HALCHG  = $(abspath $(MFDIR)../20_DriverInterfaces/03_NonSensors/chg)
+HALEMMC = $(abspath $(MFDIR)../20_DriverInterfaces/03_NonSensors/emmc)
+HALFAN  = $(abspath $(MFDIR)../20_DriverInterfaces/03_NonSensors/fan)
+HALPMIC = $(abspath $(MFDIR)../20_DriverInterfaces/03_NonSensors/pmic)
+HALRTC  = $(abspath $(MFDIR)../20_DriverInterfaces/03_NonSensors/rtc)
+HALSPK  = $(abspath $(MFDIR)../20_DriverInterfaces/03_NonSensors/speaker)
+# HALALS / HALKBD / HALMOU were missing — uiox_als_hw.h etc. live here
+HALALS  = $(abspath $(MFDIR)../20_DriverInterfaces/02_Sensors/als)
+HALKBD  = $(abspath $(MFDIR)../20_DriverInterfaces/02_Sensors/keyboard)
+HALMOU  = $(abspath $(MFDIR)../20_DriverInterfaces/02_Sensors/mouse)
+HALGPU  = $(abspath $(MFDIR)../20_DriverInterfaces/01_Com/gpu)
+HALMON  = $(abspath $(MFDIR)../20_DriverInterfaces/01_Com/monitor)
+# ── HAL headers from 20_DriverInterfaces (every peripheral subdir) ────────────
+
+# 01_Com
+HALUSB  = $(abspath $(MFDIR)../20_DriverInterfaces/01_Com/usb)
+
+
 
 COMMON_CFLAGS := \
   -std=c11 -Wall -Wextra -Werror \
@@ -86,6 +98,12 @@ COMMON_INCLUDES := \
   -I$(HALPMIC)                             \
   -I$(HALRTC)                              \
   -I$(HALSPK)                              \
+  -I$(HALALS)                              \
+  -I$(HALKBD)                              \
+  -I$(HALMOU)                              \
+  -I$(HALGPU)                              \
+  -I$(HALMON)                              \
+  -I$(HALUSB)                              \
   -I$(MFDIR)00_FileBuff/include            \
   -I$(MFDIR)01_DrvBuff/WiFi               \
   -I$(MFDIR)01_DrvBuff/als                \

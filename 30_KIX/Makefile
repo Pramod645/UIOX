@@ -79,7 +79,8 @@ KERNEL_CFLAGS_BASE := \
   -I$(MFDIR)33_PCS/include                   \
   -I$(SOCINC)                                \
   -I$(MFDIR)../01_uBoot/include              \
-  -I$(MFDIR)../50_UIX/12_ksign/include
+  -I$(MFDIR)../50_UIX/12_ksign/include       \
+  -I$(MFDIR)../50_UIX/13_fboot/include
 
 # =============================================================================
 # Per-architecture named targets

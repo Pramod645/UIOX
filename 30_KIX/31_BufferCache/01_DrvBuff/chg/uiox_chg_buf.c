@@ -5,12 +5,14 @@
  */
 
  #include "uiox_chg_buf.h"
- #include <string.h>
- #include <assert.h>
+
+ /* Freestanding assert — no libc assert.h available under -nostdinc */
+ #ifndef UIOX_ASSERT
+ #  define UIOX_ASSERT(cond)  do { if (!(cond)) __builtin_trap(); } while (0)
+ #endif
  
  static uiox_chg_evt_t   s_evt_pool  [UIOX_CHG_EVT_POOL_SIZE];
  static uiox_chg_fault_t s_fault_pool[UIOX_CHG_FAULT_POOL_SIZE];
- 
  static uint8_t s_evt_cnt   = 0u;
  static uint8_t s_fault_cnt = 0u;
  
@@ -27,8 +29,7 @@
      for (uint8_t i = 0u; i < UIOX_CHG_EVT_POOL_SIZE; i++) {
          if (!s_evt_pool[i].in_use) {
              memset(&s_evt_pool[i], 0, sizeof(s_evt_pool[i]));
-             s_evt_pool[i].in_use = 1u;
-             s_evt_cnt--;
+             s_evt_pool[i].in_use = 1u; s_evt_cnt--;
              return &s_evt_pool[i];
          }
      }
@@ -38,9 +39,8 @@
  void uiox_chg_evt_free(uiox_chg_evt_t *e)
  {
      if (!e) return;
-     assert(e->in_use > 0u);
-     e->in_use = 0u;
-     s_evt_cnt++;
+     UIOX_ASSERT(e->in_use > 0u);
+     e->in_use = 0u; s_evt_cnt++;
  }
  
  uint8_t uiox_chg_evt_free_cnt(void) { return s_evt_cnt; }
@@ -50,8 +50,7 @@
      for (uint8_t i = 0u; i < UIOX_CHG_FAULT_POOL_SIZE; i++) {
          if (!s_fault_pool[i].in_use) {
              memset(&s_fault_pool[i], 0, sizeof(s_fault_pool[i]));
-             s_fault_pool[i].in_use = 1u;
-             s_fault_cnt--;
+             s_fault_pool[i].in_use = 1u; s_fault_cnt--;
              return &s_fault_pool[i];
          }
      }
@@ -61,9 +60,8 @@
  void uiox_chg_fault_free(uiox_chg_fault_t *f)
  {
      if (!f) return;
-     assert(f->in_use > 0u);
-     f->in_use = 0u;
-     s_fault_cnt++;
+     UIOX_ASSERT(f->in_use > 0u);
+     f->in_use = 0u; s_fault_cnt++;
  }
  
  uint8_t uiox_chg_fault_free_cnt(void) { return s_fault_cnt; }

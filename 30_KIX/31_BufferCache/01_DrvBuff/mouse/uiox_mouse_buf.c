@@ -5,7 +5,7 @@
  */
 
  #include "uiox_mouse_buf.h"
- #include <string.h>
+
  
  void uiox_mouse_buf_init(uiox_mouse_ringbuf_t *rb)
  {

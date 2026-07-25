@@ -8,6 +8,7 @@
  #define UIOX_EMMC_BUF_H
  
  #include "uiox_emmc_hw.h"
+ #include "uiox_klibc.h"
  
  #ifdef __cplusplus
  extern "C" {

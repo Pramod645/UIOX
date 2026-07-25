@@ -5,8 +5,11 @@
  */
 
  #include "uiox_bms_buf.h"
- #include <string.h>
- #include <assert.h>
+
+ /* Freestanding assert — no libc assert.h available under -nostdinc */
+ #ifndef UIOX_ASSERT
+ #  define UIOX_ASSERT(cond)  do { if (!(cond)) __builtin_trap(); } while (0)
+ #endif
  
  static uiox_bms_event_t s_evlog[UIOX_BMS_EVENT_LOG_SIZE];
  static uint8_t           s_ev_head = 0;
@@ -65,7 +68,8 @@
  void uiox_bms_telem_free(uiox_bms_telem_t *t)
  {
      if (!t) return;
-     assert(t->in_use > 0);
+     /* FIX: replaced assert() (unavailable under -nostdinc) with UIOX_ASSERT */
+     UIOX_ASSERT(t->in_use > 0);
      if (--t->in_use == 0) {
          t->next      = s_telem_free;
          s_telem_free = t;

@@ -5,8 +5,6 @@
  */
 
  #include "uiox_gpu_mem.h"
- #include <string.h>
- #include <errno.h>
  
  int uiox_gpu_mem_init(uiox_gpu_mem_t *mem, uiox_gpu_hw_t *hw,
                         uint64_t heap_phys, uint64_t heap_size)

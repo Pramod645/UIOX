@@ -5,16 +5,16 @@
  */
 
  #include "uiox_wifi_if.h"
-#include "uiox_klibc.h"
+ #include "uiox_klibc.h"
  
  int uiox_wifi_if_config(uiox_wifi_if_t *wif, uiox_wifi_hw_t *hw)
  {
      if (!wif || !hw) return -EINVAL;
      memset(wif, 0, sizeof(*wif));
      wif->hw = hw;
-     wif->rate.rate_idx      = 0u;
-     wif->rate.max_rate_idx  = 11u; /* e.g. MCS7 */
-     wif->rate.probe_interval= 10u;
+     wif->rate.rate_idx       = 0u;
+     wif->rate.max_rate_idx   = 11u;
+     wif->rate.probe_interval = 10u;
      wif->primed = true;
      return 0;
  }
@@ -87,9 +87,15 @@
          (const uiox_wifi_hw_ops_t *)wif->hw->priv;
      if (!ops || !ops->rx_poll) return NULL;
  
-     uintptr_t phys   = 0;
-     uint32_t  len    = 0;
-     int8_t    rssi   = 0;
+     /*
+      * phys must be uintptr_t to match rx_poll's signature on both
+      * arm32 (uintptr_t = uint32_t) and arm64 (uintptr_t = uint64_t).
+      * Never cast it to/from void * directly — use memcpy instead to
+      * avoid -Werror=int-to-pointer-cast on arm32.
+      */
+     uintptr_t phys = 0;
+     uint32_t  len  = 0;
+     int8_t    rssi = 0;
  
      int rc = ops->rx_poll(wif->hw, &phys, &len, &rssi);
      if (rc <= 0) return NULL;
@@ -97,12 +103,33 @@
      uiox_wifi_frame_t *f = uiox_wifi_buf_alloc_rx();
      if (!f) { wif->stats.rx_dropped++; return NULL; }
  
-     /* Copy from DMA buffer into pool frame */
      if (len > UIOX_WIFI_FRAME_MAX) len = UIOX_WIFI_FRAME_MAX;
-     memcpy(f->data, (void *)phys, len);
+ 
+     /*
+      * Reinterpret phys as void * without casting.
+      * sizeof(void *) == sizeof(uintptr_t) on every target, so this
+      * memcpy is always safe and emits no pointer-size warnings.
+      */
+     {
+         void *src = NULL;
+         memcpy(&src, &phys, sizeof(src));
+         memcpy(f->data, src, len);
+     }
      f->len      = (uint16_t)len;
      f->rssi_dbm = rssi;
-     f->paddr    = (uintptr_t)f->data;
+ 
+     /*
+      * Store the pool frame's virtual address in paddr.
+      * memcpy void * → uint64_t: zero casts, no pointer-to-int warning.
+      * sizeof(p) is 4 on arm32 / 8 on arm64; the remaining bytes of the
+      * uint64_t are zero-initialised, so the value is always correct.
+      */
+     {
+         void    *p  = f->data;
+         uint64_t pa = 0u;
+         memcpy(&pa, &p, sizeof(p));
+         f->paddr = pa;
+     }
  
      wif->stats.rx_frames++;
      wif->stats.rx_bytes += len;
@@ -117,7 +144,6 @@
      if (success) {
          r->fail_count = 0;
          r->success_count++;
-         /* Probe higher rate after probe_interval successes */
          if (r->success_count >= r->probe_interval &&
              r->rate_idx < r->max_rate_idx) {
              r->rate_idx++;
@@ -126,7 +152,6 @@
      } else {
          r->success_count = 0;
          r->fail_count++;
-         /* Fall back after 3 consecutive failures */
          if (r->fail_count >= 3u && r->rate_idx > 0u) {
              r->rate_idx--;
              r->fail_count = 0;

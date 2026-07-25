@@ -13,6 +13,7 @@
  #define UIOX_USB_BUF_H
  
  #include "uiox_usb_hw.h"
+ #include "uiox_klibc.h"
  
  #ifdef __cplusplus
  extern "C" {

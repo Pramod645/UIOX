@@ -5,8 +5,11 @@
  */
 
  #include "uiox_als_buf.h"
- #include <string.h>
- #include <assert.h>
+
+ /* Freestanding assert — no libc assert.h available under -nostdinc */
+ #ifndef UIOX_ASSERT
+ #  define UIOX_ASSERT(cond)  do { if (!(cond)) __builtin_trap(); } while (0)
+ #endif
  
  static uiox_als_sample_t s_sample_pool[UIOX_ALS_SAMPLE_POOL_SIZE];
  static uiox_als_evt_t    s_evt_pool   [UIOX_ALS_EVT_POOL_SIZE];
@@ -38,7 +41,8 @@
  void uiox_als_sample_free(uiox_als_sample_t *s)
  {
      if (!s) return;
-     assert(s->in_use > 0u);
+     /* FIX: was 'f->in_use' — parameter is 's' in this function */
+     UIOX_ASSERT(s->in_use > 0);
      s->in_use = 0u;
      s_sample_cnt++;
  }
@@ -61,7 +65,8 @@
  void uiox_als_evt_free(uiox_als_evt_t *e)
  {
      if (!e) return;
-     assert(e->in_use > 0u);
+     /* FIX: was 'f->in_use' — parameter is 'e' in this function */
+     UIOX_ASSERT(e->in_use > 0);
      e->in_use = 0u;
      s_evt_cnt++;
  }

@@ -13,6 +13,7 @@
  #define UIOX_HDMI_BUF_H
  
  #include "uiox_hdmi_hw.h"
+ #include "uiox_klibc.h"
  
  #ifdef __cplusplus
  extern "C" {
