@@ -1,0 +1,1081 @@
+
+Merging object attributes
+
+
+Discarded input sections
+
+ .text          0x0000000000000000        0x0 /Users/pramodkumar/Hack/WS/UIOX/10_BSP/build/x86_64/uiox_bsp_main.o
+ .data          0x0000000000000000        0x0 /Users/pramodkumar/Hack/WS/UIOX/10_BSP/build/x86_64/uiox_bsp_main.o
+ .bss           0x0000000000000000        0x0 /Users/pramodkumar/Hack/WS/UIOX/10_BSP/build/x86_64/uiox_bsp_main.o
+ .text.memcpy   0x0000000000000000       0x16 /Users/pramodkumar/Hack/WS/UIOX/10_BSP/build/x86_64/uiox_bsp_main.o
+ .text.uiox_bsp_init
+                0x0000000000000000       0xbd /Users/pramodkumar/Hack/WS/UIOX/10_BSP/build/x86_64/uiox_bsp_main.o
+ .rodata.uiox_bsp_late_init.str1.1
+                0x0000000000000000       0x2e /Users/pramodkumar/Hack/WS/UIOX/10_BSP/build/x86_64/uiox_bsp_main.o
+ .text.uiox_bsp_late_init
+                0x0000000000000000       0x14 /Users/pramodkumar/Hack/WS/UIOX/10_BSP/build/x86_64/uiox_bsp_main.o
+ .text.uiox_bsp_get_config
+                0x0000000000000000       0x18 /Users/pramodkumar/Hack/WS/UIOX/10_BSP/build/x86_64/uiox_bsp_main.o
+ .comment       0x0000000000000000       0x13 /Users/pramodkumar/Hack/WS/UIOX/10_BSP/build/x86_64/uiox_bsp_main.o
+ .eh_frame      0x0000000000000000       0xd8 /Users/pramodkumar/Hack/WS/UIOX/10_BSP/build/x86_64/uiox_bsp_main.o
+ .text          0x0000000000000000        0x0 /Users/pramodkumar/Hack/WS/UIOX/10_BSP/build/x86_64/uiox_bsp_stubs.o
+ .data          0x0000000000000000        0x0 /Users/pramodkumar/Hack/WS/UIOX/10_BSP/build/x86_64/uiox_bsp_stubs.o
+ .bss           0x0000000000000000        0x0 /Users/pramodkumar/Hack/WS/UIOX/10_BSP/build/x86_64/uiox_bsp_stubs.o
+ .text.timer0_irq_handler
+                0x0000000000000000        0x1 /Users/pramodkumar/Hack/WS/UIOX/10_BSP/build/x86_64/uiox_bsp_stubs.o
+ .text.uart0_irq_handler
+                0x0000000000000000        0x1 /Users/pramodkumar/Hack/WS/UIOX/10_BSP/build/x86_64/uiox_bsp_stubs.o
+ .text.syscall_dispatch
+                0x0000000000000000        0x8 /Users/pramodkumar/Hack/WS/UIOX/10_BSP/build/x86_64/uiox_bsp_stubs.o
+ .text.exception_dispatch
+                0x0000000000000000        0x1 /Users/pramodkumar/Hack/WS/UIOX/10_BSP/build/x86_64/uiox_bsp_stubs.o
+ .comment       0x0000000000000000       0x13 /Users/pramodkumar/Hack/WS/UIOX/10_BSP/build/x86_64/uiox_bsp_stubs.o
+ .eh_frame      0x0000000000000000       0xa8 /Users/pramodkumar/Hack/WS/UIOX/10_BSP/build/x86_64/uiox_bsp_stubs.o
+ .text          0x0000000000000000        0x0 /Users/pramodkumar/Hack/WS/UIOX/10_BSP/build/x86_64/arch_init.o
+ .data          0x0000000000000000        0x0 /Users/pramodkumar/Hack/WS/UIOX/10_BSP/build/x86_64/arch_init.o
+ .bss           0x0000000000000000        0x0 /Users/pramodkumar/Hack/WS/UIOX/10_BSP/build/x86_64/arch_init.o
+ .rodata.arch_fini.str1.1
+                0x0000000000000000       0x31 /Users/pramodkumar/Hack/WS/UIOX/10_BSP/build/x86_64/arch_init.o
+ .text.arch_fini
+                0x0000000000000000       0x25 /Users/pramodkumar/Hack/WS/UIOX/10_BSP/build/x86_64/arch_init.o
+ .comment       0x0000000000000000       0x13 /Users/pramodkumar/Hack/WS/UIOX/10_BSP/build/x86_64/arch_init.o
+ .eh_frame      0x0000000000000000       0x60 /Users/pramodkumar/Hack/WS/UIOX/10_BSP/build/x86_64/arch_init.o
+ .text          0x0000000000000000        0x0 /Users/pramodkumar/Hack/WS/UIOX/10_BSP/build/x86_64/arch_runtime.o
+ .data          0x0000000000000000        0x0 /Users/pramodkumar/Hack/WS/UIOX/10_BSP/build/x86_64/arch_runtime.o
+ .bss           0x0000000000000000        0x0 /Users/pramodkumar/Hack/WS/UIOX/10_BSP/build/x86_64/arch_runtime.o
+ .text.x86_pte_walk
+                0x0000000000000000      0x108 /Users/pramodkumar/Hack/WS/UIOX/10_BSP/build/x86_64/arch_runtime.o
+ .text.x86_irq_dispatch
+                0x0000000000000000       0x17 /Users/pramodkumar/Hack/WS/UIOX/10_BSP/build/x86_64/arch_runtime.o
+ .text.x86_exception_dispatch
+                0x0000000000000000        0x5 /Users/pramodkumar/Hack/WS/UIOX/10_BSP/build/x86_64/arch_runtime.o
+ .text.arch_syscall_dispatch
+                0x0000000000000000        0x5 /Users/pramodkumar/Hack/WS/UIOX/10_BSP/build/x86_64/arch_runtime.o
+ .text.arch_irq_save
+                0x0000000000000000        0x4 /Users/pramodkumar/Hack/WS/UIOX/10_BSP/build/x86_64/arch_runtime.o
+ .text.arch_irq_restore
+                0x0000000000000000        0x3 /Users/pramodkumar/Hack/WS/UIOX/10_BSP/build/x86_64/arch_runtime.o
+ .text.arch_mmu_map
+                0x0000000000000000       0x99 /Users/pramodkumar/Hack/WS/UIOX/10_BSP/build/x86_64/arch_runtime.o
+ .text.arch_mmu_unmap
+                0x0000000000000000       0x21 /Users/pramodkumar/Hack/WS/UIOX/10_BSP/build/x86_64/arch_runtime.o
+ .text.arch_tlb_flush
+                0x0000000000000000        0x4 /Users/pramodkumar/Hack/WS/UIOX/10_BSP/build/x86_64/arch_runtime.o
+ .text.arch_tlb_flush_all
+                0x0000000000000000        0x7 /Users/pramodkumar/Hack/WS/UIOX/10_BSP/build/x86_64/arch_runtime.o
+ .text.arch_mmu_switch
+                0x0000000000000000        0x4 /Users/pramodkumar/Hack/WS/UIOX/10_BSP/build/x86_64/arch_runtime.o
+ .text.arch_atomic_add
+                0x0000000000000000        0x9 /Users/pramodkumar/Hack/WS/UIOX/10_BSP/build/x86_64/arch_runtime.o
+ .text.arch_atomic_sub
+                0x0000000000000000        0xc /Users/pramodkumar/Hack/WS/UIOX/10_BSP/build/x86_64/arch_runtime.o
+ .text.arch_atomic_cas
+                0x0000000000000000       0x12 /Users/pramodkumar/Hack/WS/UIOX/10_BSP/build/x86_64/arch_runtime.o
+ .text.arch_atomic_load
+                0x0000000000000000        0x4 /Users/pramodkumar/Hack/WS/UIOX/10_BSP/build/x86_64/arch_runtime.o
+ .text.arch_atomic_store
+                0x0000000000000000        0x5 /Users/pramodkumar/Hack/WS/UIOX/10_BSP/build/x86_64/arch_runtime.o
+ .text.arch_spin_lock
+                0x0000000000000000       0x13 /Users/pramodkumar/Hack/WS/UIOX/10_BSP/build/x86_64/arch_runtime.o
+ .text.arch_spin_unlock
+                0x0000000000000000        0x8 /Users/pramodkumar/Hack/WS/UIOX/10_BSP/build/x86_64/arch_runtime.o
+ .text.arch_spin_trylock
+                0x0000000000000000       0x13 /Users/pramodkumar/Hack/WS/UIOX/10_BSP/build/x86_64/arch_runtime.o
+ .debug_info    0x0000000000000000      0xa79 /Users/pramodkumar/Hack/WS/UIOX/10_BSP/build/x86_64/arch_runtime.o
+ .debug_abbrev  0x0000000000000000      0x2d6 /Users/pramodkumar/Hack/WS/UIOX/10_BSP/build/x86_64/arch_runtime.o
+ .debug_loclists
+                0x0000000000000000      0x63b /Users/pramodkumar/Hack/WS/UIOX/10_BSP/build/x86_64/arch_runtime.o
+ .debug_aranges
+                0x0000000000000000      0x150 /Users/pramodkumar/Hack/WS/UIOX/10_BSP/build/x86_64/arch_runtime.o
+ .debug_rnglists
+                0x0000000000000000      0x113 /Users/pramodkumar/Hack/WS/UIOX/10_BSP/build/x86_64/arch_runtime.o
+ .debug_line    0x0000000000000000      0x4b9 /Users/pramodkumar/Hack/WS/UIOX/10_BSP/build/x86_64/arch_runtime.o
+ .debug_str     0x0000000000000000      0x386 /Users/pramodkumar/Hack/WS/UIOX/10_BSP/build/x86_64/arch_runtime.o
+ .debug_line_str
+                0x0000000000000000      0x1b1 /Users/pramodkumar/Hack/WS/UIOX/10_BSP/build/x86_64/arch_runtime.o
+ .comment       0x0000000000000000       0x13 /Users/pramodkumar/Hack/WS/UIOX/10_BSP/build/x86_64/arch_runtime.o
+ .eh_frame      0x0000000000000000      0x1e8 /Users/pramodkumar/Hack/WS/UIOX/10_BSP/build/x86_64/arch_runtime.o
+ .text          0x0000000000000000        0x0 /Users/pramodkumar/Hack/WS/UIOX/10_BSP/build/x86_64/irq.o
+ .data          0x0000000000000000        0x0 /Users/pramodkumar/Hack/WS/UIOX/10_BSP/build/x86_64/irq.o
+ .bss           0x0000000000000000        0x0 /Users/pramodkumar/Hack/WS/UIOX/10_BSP/build/x86_64/irq.o
+ .text.irq_enable
+                0x0000000000000000       0x28 /Users/pramodkumar/Hack/WS/UIOX/10_BSP/build/x86_64/irq.o
+ .text.irq_free
+                0x0000000000000000       0x4c /Users/pramodkumar/Hack/WS/UIOX/10_BSP/build/x86_64/irq.o
+ .text.irq_dispatch
+                0x0000000000000000       0x6f /Users/pramodkumar/Hack/WS/UIOX/10_BSP/build/x86_64/irq.o
+ .comment       0x0000000000000000       0x13 /Users/pramodkumar/Hack/WS/UIOX/10_BSP/build/x86_64/irq.o
+ .eh_frame      0x0000000000000000       0x90 /Users/pramodkumar/Hack/WS/UIOX/10_BSP/build/x86_64/irq.o
+ .text          0x0000000000000000        0x0 /Users/pramodkumar/Hack/WS/UIOX/10_BSP/build/x86_64/uiox_soc_main.o
+ .data          0x0000000000000000        0x0 /Users/pramodkumar/Hack/WS/UIOX/10_BSP/build/x86_64/uiox_soc_main.o
+ .bss           0x0000000000000000        0x0 /Users/pramodkumar/Hack/WS/UIOX/10_BSP/build/x86_64/uiox_soc_main.o
+ .text.platform_cpu_on_cb
+                0x0000000000000000        0x1 /Users/pramodkumar/Hack/WS/UIOX/10_BSP/build/x86_64/uiox_soc_main.o
+ .text.soc_puthex
+                0x0000000000000000       0x5f /Users/pramodkumar/Hack/WS/UIOX/10_BSP/build/x86_64/uiox_soc_main.o
+ .text.platform_off_cb
+                0x0000000000000000        0x9 /Users/pramodkumar/Hack/WS/UIOX/10_BSP/build/x86_64/uiox_soc_main.o
+ .text.platform_reset_cb
+                0x0000000000000000        0x9 /Users/pramodkumar/Hack/WS/UIOX/10_BSP/build/x86_64/uiox_soc_main.o
+ .text.udiv32_soc.part.0
+                0x0000000000000000       0x37 /Users/pramodkumar/Hack/WS/UIOX/10_BSP/build/x86_64/uiox_soc_main.o
+ .text.div64_u32_soc.constprop.0
+                0x0000000000000000       0x7f /Users/pramodkumar/Hack/WS/UIOX/10_BSP/build/x86_64/uiox_soc_main.o
+ .text.soc_putdec_u64
+                0x0000000000000000      0x136 /Users/pramodkumar/Hack/WS/UIOX/10_BSP/build/x86_64/uiox_soc_main.o
+ .text.uiox_soc_putc
+                0x0000000000000000       0x23 /Users/pramodkumar/Hack/WS/UIOX/10_BSP/build/x86_64/uiox_soc_main.o
+ .text.uiox_soc_puts.part.0
+                0x0000000000000000       0x1f /Users/pramodkumar/Hack/WS/UIOX/10_BSP/build/x86_64/uiox_soc_main.o
+ .text.uiox_soc_puts
+                0x0000000000000000        0xb /Users/pramodkumar/Hack/WS/UIOX/10_BSP/build/x86_64/uiox_soc_main.o
+ .rodata.uiox_soc_printf.str1.1
+                0x0000000000000000        0xa /Users/pramodkumar/Hack/WS/UIOX/10_BSP/build/x86_64/uiox_soc_main.o
+ .text.uiox_soc_printf
+                0x0000000000000000      0x30a /Users/pramodkumar/Hack/WS/UIOX/10_BSP/build/x86_64/uiox_soc_main.o
+ .rodata.uiox_soc_main.str1.1
+                0x0000000000000000      0x38a /Users/pramodkumar/Hack/WS/UIOX/10_BSP/build/x86_64/uiox_soc_main.o
+ .text.uiox_soc_main
+                0x0000000000000000      0x46c /Users/pramodkumar/Hack/WS/UIOX/10_BSP/build/x86_64/uiox_soc_main.o
+ .rodata.h.0    0x0000000000000000       0x11 /Users/pramodkumar/Hack/WS/UIOX/10_BSP/build/x86_64/uiox_soc_main.o
+ .bss.s_ramdisk
+                0x0000000000000000   0x100000 /Users/pramodkumar/Hack/WS/UIOX/10_BSP/build/x86_64/uiox_soc_main.o
+ .rodata.s_rot_hash
+                0x0000000000000000       0x20 /Users/pramodkumar/Hack/WS/UIOX/10_BSP/build/x86_64/uiox_soc_main.o
+ .bss.s_power   0x0000000000000000       0x2c /Users/pramodkumar/Hack/WS/UIOX/10_BSP/build/x86_64/uiox_soc_main.o
+ .bss.s_mem_map
+                0x0000000000000000      0x510 /Users/pramodkumar/Hack/WS/UIOX/10_BSP/build/x86_64/uiox_soc_main.o
+ .bss.s_pcie    0x0000000000000000      0xd48 /Users/pramodkumar/Hack/WS/UIOX/10_BSP/build/x86_64/uiox_soc_main.o
+ .bss.s_dma     0x0000000000000000       0xa8 /Users/pramodkumar/Hack/WS/UIOX/10_BSP/build/x86_64/uiox_soc_main.o
+ .bss.s_secboot_report
+                0x0000000000000000       0xac /Users/pramodkumar/Hack/WS/UIOX/10_BSP/build/x86_64/uiox_soc_main.o
+ .bss.s_secboot_ctx
+                0x0000000000000000       0x38 /Users/pramodkumar/Hack/WS/UIOX/10_BSP/build/x86_64/uiox_soc_main.o
+ .bss.s_post_report
+                0x0000000000000000       0xa0 /Users/pramodkumar/Hack/WS/UIOX/10_BSP/build/x86_64/uiox_soc_main.o
+ .bss.s_psci_ctx
+                0x0000000000000000      0x180 /Users/pramodkumar/Hack/WS/UIOX/10_BSP/build/x86_64/uiox_soc_main.o
+ .bss.s_tz_report
+                0x0000000000000000       0xa8 /Users/pramodkumar/Hack/WS/UIOX/10_BSP/build/x86_64/uiox_soc_main.o
+ .debug_info    0x0000000000000000     0x3163 /Users/pramodkumar/Hack/WS/UIOX/10_BSP/build/x86_64/uiox_soc_main.o
+ .debug_abbrev  0x0000000000000000      0x630 /Users/pramodkumar/Hack/WS/UIOX/10_BSP/build/x86_64/uiox_soc_main.o
+ .debug_loclists
+                0x0000000000000000      0xfc8 /Users/pramodkumar/Hack/WS/UIOX/10_BSP/build/x86_64/uiox_soc_main.o
+ .debug_aranges
+                0x0000000000000000       0xe0 /Users/pramodkumar/Hack/WS/UIOX/10_BSP/build/x86_64/uiox_soc_main.o
+ .debug_rnglists
+                0x0000000000000000      0x1be /Users/pramodkumar/Hack/WS/UIOX/10_BSP/build/x86_64/uiox_soc_main.o
+ .debug_line    0x0000000000000000      0xe48 /Users/pramodkumar/Hack/WS/UIOX/10_BSP/build/x86_64/uiox_soc_main.o
+ .debug_str     0x0000000000000000     0x18cd /Users/pramodkumar/Hack/WS/UIOX/10_BSP/build/x86_64/uiox_soc_main.o
+ .debug_line_str
+                0x0000000000000000      0x219 /Users/pramodkumar/Hack/WS/UIOX/10_BSP/build/x86_64/uiox_soc_main.o
+ .comment       0x0000000000000000       0x13 /Users/pramodkumar/Hack/WS/UIOX/10_BSP/build/x86_64/uiox_soc_main.o
+ .eh_frame      0x0000000000000000      0x1a8 /Users/pramodkumar/Hack/WS/UIOX/10_BSP/build/x86_64/uiox_soc_main.o
+ .text          0x0000000000000000        0x0 /Users/pramodkumar/Hack/WS/UIOX/10_BSP/build/x86_64/uiox_soc_clk.o
+ .data          0x0000000000000000        0x0 /Users/pramodkumar/Hack/WS/UIOX/10_BSP/build/x86_64/uiox_soc_clk.o
+ .bss           0x0000000000000000        0x0 /Users/pramodkumar/Hack/WS/UIOX/10_BSP/build/x86_64/uiox_soc_clk.o
+ .text.clock_set.part.0
+                0x0000000000000000       0x47 /Users/pramodkumar/Hack/WS/UIOX/10_BSP/build/x86_64/uiox_soc_clk.o
+ .rodata.uiox_soc_clock_init.str1.1
+                0x0000000000000000       0x77 /Users/pramodkumar/Hack/WS/UIOX/10_BSP/build/x86_64/uiox_soc_clk.o
+ .text.uiox_soc_clock_init
+                0x0000000000000000      0x182 /Users/pramodkumar/Hack/WS/UIOX/10_BSP/build/x86_64/uiox_soc_clk.o
+ .rodata.uiox_soc_clock_enable.str1.1
+                0x0000000000000000       0x22 /Users/pramodkumar/Hack/WS/UIOX/10_BSP/build/x86_64/uiox_soc_clk.o
+ .text.uiox_soc_clock_enable
+                0x0000000000000000       0x46 /Users/pramodkumar/Hack/WS/UIOX/10_BSP/build/x86_64/uiox_soc_clk.o
+ .rodata.uiox_soc_clock_disable.str1.1
+                0x0000000000000000       0x1b /Users/pramodkumar/Hack/WS/UIOX/10_BSP/build/x86_64/uiox_soc_clk.o
+ .text.uiox_soc_clock_disable
+                0x0000000000000000       0x49 /Users/pramodkumar/Hack/WS/UIOX/10_BSP/build/x86_64/uiox_soc_clk.o
+ .text.uiox_soc_clock_get_hz
+                0x0000000000000000       0x1e /Users/pramodkumar/Hack/WS/UIOX/10_BSP/build/x86_64/uiox_soc_clk.o
+ .rodata.uiox_soc_clock_set_hz.str1.1
+                0x0000000000000000       0x22 /Users/pramodkumar/Hack/WS/UIOX/10_BSP/build/x86_64/uiox_soc_clk.o
+ .text.uiox_soc_clock_set_hz
+                0x0000000000000000       0x41 /Users/pramodkumar/Hack/WS/UIOX/10_BSP/build/x86_64/uiox_soc_clk.o
+ .rodata.uiox_soc_clock_print.str1.1
+                0x0000000000000000       0x44 /Users/pramodkumar/Hack/WS/UIOX/10_BSP/build/x86_64/uiox_soc_clk.o
+ .text.uiox_soc_clock_print
+                0x0000000000000000       0x62 /Users/pramodkumar/Hack/WS/UIOX/10_BSP/build/x86_64/uiox_soc_clk.o
+ .rodata.uiox_soc_clk_init.str1.1
+                0x0000000000000000       0x2e /Users/pramodkumar/Hack/WS/UIOX/10_BSP/build/x86_64/uiox_soc_clk.o
+ .text.uiox_soc_clk_init
+                0x0000000000000000       0xf0 /Users/pramodkumar/Hack/WS/UIOX/10_BSP/build/x86_64/uiox_soc_clk.o
+ .text.uiox_soc_clk_get_hz
+                0x0000000000000000       0x1a /Users/pramodkumar/Hack/WS/UIOX/10_BSP/build/x86_64/uiox_soc_clk.o
+ .text.uiox_soc_clk_enable
+                0x0000000000000000       0x25 /Users/pramodkumar/Hack/WS/UIOX/10_BSP/build/x86_64/uiox_soc_clk.o
+ .text.uiox_soc_clk_disable
+                0x0000000000000000       0x32 /Users/pramodkumar/Hack/WS/UIOX/10_BSP/build/x86_64/uiox_soc_clk.o
+ .rodata.uiox_soc_clk_print.str1.1
+                0x0000000000000000       0x6a /Users/pramodkumar/Hack/WS/UIOX/10_BSP/build/x86_64/uiox_soc_clk.o
+ .text.uiox_soc_clk_print
+                0x0000000000000000       0xe9 /Users/pramodkumar/Hack/WS/UIOX/10_BSP/build/x86_64/uiox_soc_clk.o
+ .text.uiox_fw_clock_init
+                0x0000000000000000        0x5 /Users/pramodkumar/Hack/WS/UIOX/10_BSP/build/x86_64/uiox_soc_clk.o
+ .text.uiox_fw_clock_enable
+                0x0000000000000000        0x5 /Users/pramodkumar/Hack/WS/UIOX/10_BSP/build/x86_64/uiox_soc_clk.o
+ .text.uiox_fw_clock_disable
+                0x0000000000000000        0x5 /Users/pramodkumar/Hack/WS/UIOX/10_BSP/build/x86_64/uiox_soc_clk.o
+ .text.uiox_fw_clock_get_hz
+                0x0000000000000000        0x5 /Users/pramodkumar/Hack/WS/UIOX/10_BSP/build/x86_64/uiox_soc_clk.o
+ .text.uiox_fw_clock_set_hz
+                0x0000000000000000        0x5 /Users/pramodkumar/Hack/WS/UIOX/10_BSP/build/x86_64/uiox_soc_clk.o
+ .text.uiox_fw_clock_print
+                0x0000000000000000        0x5 /Users/pramodkumar/Hack/WS/UIOX/10_BSP/build/x86_64/uiox_soc_clk.o
+ .bss.s_clocks  0x0000000000000000      0x1c0 /Users/pramodkumar/Hack/WS/UIOX/10_BSP/build/x86_64/uiox_soc_clk.o
+ .debug_info    0x0000000000000000     0x1547 /Users/pramodkumar/Hack/WS/UIOX/10_BSP/build/x86_64/uiox_soc_clk.o
+ .debug_abbrev  0x0000000000000000      0x336 /Users/pramodkumar/Hack/WS/UIOX/10_BSP/build/x86_64/uiox_soc_clk.o
+ .debug_loclists
+                0x0000000000000000      0x7cd /Users/pramodkumar/Hack/WS/UIOX/10_BSP/build/x86_64/uiox_soc_clk.o
+ .debug_aranges
+                0x0000000000000000      0x140 /Users/pramodkumar/Hack/WS/UIOX/10_BSP/build/x86_64/uiox_soc_clk.o
+ .debug_rnglists
+                0x0000000000000000      0x104 /Users/pramodkumar/Hack/WS/UIOX/10_BSP/build/x86_64/uiox_soc_clk.o
+ .debug_line    0x0000000000000000      0x711 /Users/pramodkumar/Hack/WS/UIOX/10_BSP/build/x86_64/uiox_soc_clk.o
+ .debug_str     0x0000000000000000      0x9a1 /Users/pramodkumar/Hack/WS/UIOX/10_BSP/build/x86_64/uiox_soc_clk.o
+ .debug_line_str
+                0x0000000000000000      0x16f /Users/pramodkumar/Hack/WS/UIOX/10_BSP/build/x86_64/uiox_soc_clk.o
+ .comment       0x0000000000000000       0x13 /Users/pramodkumar/Hack/WS/UIOX/10_BSP/build/x86_64/uiox_soc_clk.o
+ .eh_frame      0x0000000000000000      0x200 /Users/pramodkumar/Hack/WS/UIOX/10_BSP/build/x86_64/uiox_soc_clk.o
+ .text          0x0000000000000000        0x0 /Users/pramodkumar/Hack/WS/UIOX/10_BSP/build/x86_64/uiox_soc_dma.o
+ .data          0x0000000000000000        0x0 /Users/pramodkumar/Hack/WS/UIOX/10_BSP/build/x86_64/uiox_soc_dma.o
+ .bss           0x0000000000000000        0x0 /Users/pramodkumar/Hack/WS/UIOX/10_BSP/build/x86_64/uiox_soc_dma.o
+ .text.sw_dma_init
+                0x0000000000000000        0xe /Users/pramodkumar/Hack/WS/UIOX/10_BSP/build/x86_64/uiox_soc_dma.o
+ .text.sw_dma_deinit
+                0x0000000000000000        0x5 /Users/pramodkumar/Hack/WS/UIOX/10_BSP/build/x86_64/uiox_soc_dma.o
+ .text.sw_dma_transfer
+                0x0000000000000000       0xed /Users/pramodkumar/Hack/WS/UIOX/10_BSP/build/x86_64/uiox_soc_dma.o
+ .text.sw_dma_busy
+                0x0000000000000000       0x11 /Users/pramodkumar/Hack/WS/UIOX/10_BSP/build/x86_64/uiox_soc_dma.o
+ .text.sw_dma_wait
+                0x0000000000000000        0x3 /Users/pramodkumar/Hack/WS/UIOX/10_BSP/build/x86_64/uiox_soc_dma.o
+ .text.sw_dma_abort
+                0x0000000000000000       0x10 /Users/pramodkumar/Hack/WS/UIOX/10_BSP/build/x86_64/uiox_soc_dma.o
+ .text.sw_dma_alloc_chan
+                0x0000000000000000       0x1b /Users/pramodkumar/Hack/WS/UIOX/10_BSP/build/x86_64/uiox_soc_dma.o
+ .text.sw_dma_free_chan
+                0x0000000000000000        0x5 /Users/pramodkumar/Hack/WS/UIOX/10_BSP/build/x86_64/uiox_soc_dma.o
+ .text.sw_dma_isr
+                0x0000000000000000        0x1 /Users/pramodkumar/Hack/WS/UIOX/10_BSP/build/x86_64/uiox_soc_dma.o
+ .text.uiox_soc_dma_init
+                0x0000000000000000       0x22 /Users/pramodkumar/Hack/WS/UIOX/10_BSP/build/x86_64/uiox_soc_dma.o
+ .text.uiox_soc_dma_deinit
+                0x0000000000000000       0x1d /Users/pramodkumar/Hack/WS/UIOX/10_BSP/build/x86_64/uiox_soc_dma.o
+ .text.uiox_soc_dma_transfer
+                0x0000000000000000       0x1f /Users/pramodkumar/Hack/WS/UIOX/10_BSP/build/x86_64/uiox_soc_dma.o
+ .text.uiox_soc_dma_busy
+                0x0000000000000000       0x17 /Users/pramodkumar/Hack/WS/UIOX/10_BSP/build/x86_64/uiox_soc_dma.o
+ .text.uiox_soc_dma_wait
+                0x0000000000000000       0x1a /Users/pramodkumar/Hack/WS/UIOX/10_BSP/build/x86_64/uiox_soc_dma.o
+ .text.uiox_soc_dma_abort
+                0x0000000000000000       0x15 /Users/pramodkumar/Hack/WS/UIOX/10_BSP/build/x86_64/uiox_soc_dma.o
+ .text.uiox_soc_dma_alloc_chan
+                0x0000000000000000       0x1a /Users/pramodkumar/Hack/WS/UIOX/10_BSP/build/x86_64/uiox_soc_dma.o
+ .text.uiox_soc_dma_free_chan
+                0x0000000000000000       0x15 /Users/pramodkumar/Hack/WS/UIOX/10_BSP/build/x86_64/uiox_soc_dma.o
+ .text.uiox_soc_dma_memcpy
+                0x0000000000000000       0x96 /Users/pramodkumar/Hack/WS/UIOX/10_BSP/build/x86_64/uiox_soc_dma.o
+ .rodata.sw_dma_ops
+                0x0000000000000000       0x48 /Users/pramodkumar/Hack/WS/UIOX/10_BSP/build/x86_64/uiox_soc_dma.o
+ .debug_info    0x0000000000000000      0xb58 /Users/pramodkumar/Hack/WS/UIOX/10_BSP/build/x86_64/uiox_soc_dma.o
+ .debug_abbrev  0x0000000000000000      0x266 /Users/pramodkumar/Hack/WS/UIOX/10_BSP/build/x86_64/uiox_soc_dma.o
+ .debug_loclists
+                0x0000000000000000      0x49b /Users/pramodkumar/Hack/WS/UIOX/10_BSP/build/x86_64/uiox_soc_dma.o
+ .debug_aranges
+                0x0000000000000000      0x140 /Users/pramodkumar/Hack/WS/UIOX/10_BSP/build/x86_64/uiox_soc_dma.o
+ .debug_rnglists
+                0x0000000000000000       0xf2 /Users/pramodkumar/Hack/WS/UIOX/10_BSP/build/x86_64/uiox_soc_dma.o
+ .debug_line    0x0000000000000000      0x56e /Users/pramodkumar/Hack/WS/UIOX/10_BSP/build/x86_64/uiox_soc_dma.o
+ .debug_str     0x0000000000000000      0x60c /Users/pramodkumar/Hack/WS/UIOX/10_BSP/build/x86_64/uiox_soc_dma.o
+ .debug_line_str
+                0x0000000000000000      0x14e /Users/pramodkumar/Hack/WS/UIOX/10_BSP/build/x86_64/uiox_soc_dma.o
+ .comment       0x0000000000000000       0x13 /Users/pramodkumar/Hack/WS/UIOX/10_BSP/build/x86_64/uiox_soc_dma.o
+ .eh_frame      0x0000000000000000      0x1b0 /Users/pramodkumar/Hack/WS/UIOX/10_BSP/build/x86_64/uiox_soc_dma.o
+ .text          0x0000000000000000        0x0 /Users/pramodkumar/Hack/WS/UIOX/10_BSP/build/x86_64/uiox_soc_hw.o
+ .data          0x0000000000000000        0x0 /Users/pramodkumar/Hack/WS/UIOX/10_BSP/build/x86_64/uiox_soc_hw.o
+ .bss           0x0000000000000000        0x0 /Users/pramodkumar/Hack/WS/UIOX/10_BSP/build/x86_64/uiox_soc_hw.o
+ .text.uiox_soc_hw_register
+                0x0000000000000000        0xf /Users/pramodkumar/Hack/WS/UIOX/10_BSP/build/x86_64/uiox_soc_hw.o
+ .text.uiox_soc_hw_barrier
+                0x0000000000000000       0x4d /Users/pramodkumar/Hack/WS/UIOX/10_BSP/build/x86_64/uiox_soc_hw.o
+ .text.uiox_soc_hw_ops
+                0x0000000000000000        0x8 /Users/pramodkumar/Hack/WS/UIOX/10_BSP/build/x86_64/uiox_soc_hw.o
+ .text.uiox_soc_hw_platform
+                0x0000000000000000        0x8 /Users/pramodkumar/Hack/WS/UIOX/10_BSP/build/x86_64/uiox_soc_hw.o
+ .text.uiox_soc_hw_init
+                0x0000000000000000       0x23 /Users/pramodkumar/Hack/WS/UIOX/10_BSP/build/x86_64/uiox_soc_hw.o
+ .text.uiox_soc_hw_irq_init
+                0x0000000000000000       0x1f /Users/pramodkumar/Hack/WS/UIOX/10_BSP/build/x86_64/uiox_soc_hw.o
+ .text.uiox_soc_hw_irq_enable
+                0x0000000000000000       0x18 /Users/pramodkumar/Hack/WS/UIOX/10_BSP/build/x86_64/uiox_soc_hw.o
+ .text.uiox_soc_hw_irq_disable
+                0x0000000000000000       0x18 /Users/pramodkumar/Hack/WS/UIOX/10_BSP/build/x86_64/uiox_soc_hw.o
+ .text.uiox_soc_hw_irq_ack
+                0x0000000000000000       0x18 /Users/pramodkumar/Hack/WS/UIOX/10_BSP/build/x86_64/uiox_soc_hw.o
+ .text.uiox_soc_hw_irq_global_en
+                0x0000000000000000       0x18 /Users/pramodkumar/Hack/WS/UIOX/10_BSP/build/x86_64/uiox_soc_hw.o
+ .text.uiox_soc_hw_irq_global_dis
+                0x0000000000000000       0x18 /Users/pramodkumar/Hack/WS/UIOX/10_BSP/build/x86_64/uiox_soc_hw.o
+ .text.uiox_soc_hw_cache_enable
+                0x0000000000000000       0x18 /Users/pramodkumar/Hack/WS/UIOX/10_BSP/build/x86_64/uiox_soc_hw.o
+ .text.uiox_soc_hw_cache_disable
+                0x0000000000000000       0x18 /Users/pramodkumar/Hack/WS/UIOX/10_BSP/build/x86_64/uiox_soc_hw.o
+ .text.uiox_soc_hw_tlb_flush
+                0x0000000000000000       0x18 /Users/pramodkumar/Hack/WS/UIOX/10_BSP/build/x86_64/uiox_soc_hw.o
+ .text.uiox_soc_hw_dsb
+                0x0000000000000000       0x18 /Users/pramodkumar/Hack/WS/UIOX/10_BSP/build/x86_64/uiox_soc_hw.o
+ .text.uiox_soc_hw_isb
+                0x0000000000000000       0x18 /Users/pramodkumar/Hack/WS/UIOX/10_BSP/build/x86_64/uiox_soc_hw.o
+ .text.uiox_soc_hw_tick
+                0x0000000000000000       0x1d /Users/pramodkumar/Hack/WS/UIOX/10_BSP/build/x86_64/uiox_soc_hw.o
+ .text.uiox_soc_hw_reset
+                0x0000000000000000       0x20 /Users/pramodkumar/Hack/WS/UIOX/10_BSP/build/x86_64/uiox_soc_hw.o
+ .text.uiox_soc_hw_shutdown
+                0x0000000000000000       0x20 /Users/pramodkumar/Hack/WS/UIOX/10_BSP/build/x86_64/uiox_soc_hw.o
+ .bss.s_plat    0x0000000000000000        0x8 /Users/pramodkumar/Hack/WS/UIOX/10_BSP/build/x86_64/uiox_soc_hw.o
+ .comment       0x0000000000000000       0x13 /Users/pramodkumar/Hack/WS/UIOX/10_BSP/build/x86_64/uiox_soc_hw.o
+ .eh_frame      0x0000000000000000      0x1d8 /Users/pramodkumar/Hack/WS/UIOX/10_BSP/build/x86_64/uiox_soc_hw.o
+ .text          0x0000000000000000        0x0 /Users/pramodkumar/Hack/WS/UIOX/10_BSP/build/x86_64/uiox_soc_irq.o
+ .data          0x0000000000000000        0x0 /Users/pramodkumar/Hack/WS/UIOX/10_BSP/build/x86_64/uiox_soc_irq.o
+ .bss           0x0000000000000000        0x0 /Users/pramodkumar/Hack/WS/UIOX/10_BSP/build/x86_64/uiox_soc_irq.o
+ .rodata.uiox_soc_irq_init.str1.1
+                0x0000000000000000       0x2e /Users/pramodkumar/Hack/WS/UIOX/10_BSP/build/x86_64/uiox_soc_irq.o
+ .text.uiox_soc_irq_init
+                0x0000000000000000       0x52 /Users/pramodkumar/Hack/WS/UIOX/10_BSP/build/x86_64/uiox_soc_irq.o
+ .text.uiox_soc_irq_register
+                0x0000000000000000       0x43 /Users/pramodkumar/Hack/WS/UIOX/10_BSP/build/x86_64/uiox_soc_irq.o
+ .text.uiox_soc_irq_unregister
+                0x0000000000000000       0x3e /Users/pramodkumar/Hack/WS/UIOX/10_BSP/build/x86_64/uiox_soc_irq.o
+ .text.uiox_soc_irq_dispatch
+                0x0000000000000000        0x1 /Users/pramodkumar/Hack/WS/UIOX/10_BSP/build/x86_64/uiox_soc_irq.o
+ .text.uiox_soc_irq_fire
+                0x0000000000000000       0x43 /Users/pramodkumar/Hack/WS/UIOX/10_BSP/build/x86_64/uiox_soc_irq.o
+ .text.uiox_soc_irq_enable
+                0x0000000000000000       0x1b /Users/pramodkumar/Hack/WS/UIOX/10_BSP/build/x86_64/uiox_soc_irq.o
+ .text.uiox_soc_irq_disable
+                0x0000000000000000       0x1b /Users/pramodkumar/Hack/WS/UIOX/10_BSP/build/x86_64/uiox_soc_irq.o
+ .text.uiox_soc_irq_global_enable
+                0x0000000000000000        0x5 /Users/pramodkumar/Hack/WS/UIOX/10_BSP/build/x86_64/uiox_soc_irq.o
+ .text.uiox_soc_irq_global_disable
+                0x0000000000000000        0x5 /Users/pramodkumar/Hack/WS/UIOX/10_BSP/build/x86_64/uiox_soc_irq.o
+ .text.uiox_soc_irq_count
+                0x0000000000000000       0x17 /Users/pramodkumar/Hack/WS/UIOX/10_BSP/build/x86_64/uiox_soc_irq.o
+ .rodata.uiox_soc_irq_print.str1.1
+                0x0000000000000000       0x3c /Users/pramodkumar/Hack/WS/UIOX/10_BSP/build/x86_64/uiox_soc_irq.o
+ .text.uiox_soc_irq_print
+                0x0000000000000000       0x60 /Users/pramodkumar/Hack/WS/UIOX/10_BSP/build/x86_64/uiox_soc_irq.o
+ .bss.s_irq     0x0000000000000000     0x1800 /Users/pramodkumar/Hack/WS/UIOX/10_BSP/build/x86_64/uiox_soc_irq.o
+ .debug_info    0x0000000000000000      0x659 /Users/pramodkumar/Hack/WS/UIOX/10_BSP/build/x86_64/uiox_soc_irq.o
+ .debug_abbrev  0x0000000000000000      0x1fb /Users/pramodkumar/Hack/WS/UIOX/10_BSP/build/x86_64/uiox_soc_irq.o
+ .debug_loclists
+                0x0000000000000000      0x196 /Users/pramodkumar/Hack/WS/UIOX/10_BSP/build/x86_64/uiox_soc_irq.o
+ .debug_aranges
+                0x0000000000000000       0xd0 /Users/pramodkumar/Hack/WS/UIOX/10_BSP/build/x86_64/uiox_soc_irq.o
+ .debug_rnglists
+                0x0000000000000000       0x8b /Users/pramodkumar/Hack/WS/UIOX/10_BSP/build/x86_64/uiox_soc_irq.o
+ .debug_line    0x0000000000000000      0x2fd /Users/pramodkumar/Hack/WS/UIOX/10_BSP/build/x86_64/uiox_soc_irq.o
+ .debug_str     0x0000000000000000      0x771 /Users/pramodkumar/Hack/WS/UIOX/10_BSP/build/x86_64/uiox_soc_irq.o
+ .debug_line_str
+                0x0000000000000000      0x17d /Users/pramodkumar/Hack/WS/UIOX/10_BSP/build/x86_64/uiox_soc_irq.o
+ .comment       0x0000000000000000       0x13 /Users/pramodkumar/Hack/WS/UIOX/10_BSP/build/x86_64/uiox_soc_irq.o
+ .eh_frame      0x0000000000000000      0x148 /Users/pramodkumar/Hack/WS/UIOX/10_BSP/build/x86_64/uiox_soc_irq.o
+ .text          0x0000000000000000        0x0 /Users/pramodkumar/Hack/WS/UIOX/10_BSP/build/x86_64/uiox_soc_mem.o
+ .data          0x0000000000000000        0x0 /Users/pramodkumar/Hack/WS/UIOX/10_BSP/build/x86_64/uiox_soc_mem.o
+ .bss           0x0000000000000000        0x0 /Users/pramodkumar/Hack/WS/UIOX/10_BSP/build/x86_64/uiox_soc_mem.o
+ .text.add_region
+                0x0000000000000000       0x61 /Users/pramodkumar/Hack/WS/UIOX/10_BSP/build/x86_64/uiox_soc_mem.o
+ .text.uiox_soc_memset
+                0x0000000000000000       0x14 /Users/pramodkumar/Hack/WS/UIOX/10_BSP/build/x86_64/uiox_soc_mem.o
+ .text.uiox_soc_memcpy
+                0x0000000000000000       0x16 /Users/pramodkumar/Hack/WS/UIOX/10_BSP/build/x86_64/uiox_soc_mem.o
+ .text.uiox_soc_memcmp
+                0x0000000000000000       0x24 /Users/pramodkumar/Hack/WS/UIOX/10_BSP/build/x86_64/uiox_soc_mem.o
+ .text.uiox_soc_strlen
+                0x0000000000000000        0xe /Users/pramodkumar/Hack/WS/UIOX/10_BSP/build/x86_64/uiox_soc_mem.o
+ .rodata.uiox_soc_mem_init.str1.1
+                0x0000000000000000       0x16 /Users/pramodkumar/Hack/WS/UIOX/10_BSP/build/x86_64/uiox_soc_mem.o
+ .text.uiox_soc_mem_init
+                0x0000000000000000       0xa3 /Users/pramodkumar/Hack/WS/UIOX/10_BSP/build/x86_64/uiox_soc_mem.o
+ .rodata.uiox_soc_mem_print.str1.1
+                0x0000000000000000       0x51 /Users/pramodkumar/Hack/WS/UIOX/10_BSP/build/x86_64/uiox_soc_mem.o
+ .text.uiox_soc_mem_print
+                0x0000000000000000       0x84 /Users/pramodkumar/Hack/WS/UIOX/10_BSP/build/x86_64/uiox_soc_mem.o
+ .text.uiox_soc_mem_mmu_early
+                0x0000000000000000       0x17 /Users/pramodkumar/Hack/WS/UIOX/10_BSP/build/x86_64/uiox_soc_mem.o
+ .rodata.str1.1
+                0x0000000000000000       0x1b /Users/pramodkumar/Hack/WS/UIOX/10_BSP/build/x86_64/uiox_soc_mem.o
+ .rodata.type_name.0
+                0x0000000000000000       0x28 /Users/pramodkumar/Hack/WS/UIOX/10_BSP/build/x86_64/uiox_soc_mem.o
+ .debug_info    0x0000000000000000      0x7f5 /Users/pramodkumar/Hack/WS/UIOX/10_BSP/build/x86_64/uiox_soc_mem.o
+ .debug_abbrev  0x0000000000000000      0x278 /Users/pramodkumar/Hack/WS/UIOX/10_BSP/build/x86_64/uiox_soc_mem.o
+ .debug_loclists
+                0x0000000000000000      0x453 /Users/pramodkumar/Hack/WS/UIOX/10_BSP/build/x86_64/uiox_soc_mem.o
+ .debug_aranges
+                0x0000000000000000       0xa0 /Users/pramodkumar/Hack/WS/UIOX/10_BSP/build/x86_64/uiox_soc_mem.o
+ .debug_rnglists
+                0x0000000000000000       0x7f /Users/pramodkumar/Hack/WS/UIOX/10_BSP/build/x86_64/uiox_soc_mem.o
+ .debug_line    0x0000000000000000      0x365 /Users/pramodkumar/Hack/WS/UIOX/10_BSP/build/x86_64/uiox_soc_mem.o
+ .debug_str     0x0000000000000000      0x4b2 /Users/pramodkumar/Hack/WS/UIOX/10_BSP/build/x86_64/uiox_soc_mem.o
+ .debug_line_str
+                0x0000000000000000      0x160 /Users/pramodkumar/Hack/WS/UIOX/10_BSP/build/x86_64/uiox_soc_mem.o
+ .comment       0x0000000000000000       0x13 /Users/pramodkumar/Hack/WS/UIOX/10_BSP/build/x86_64/uiox_soc_mem.o
+ .eh_frame      0x0000000000000000       0xf8 /Users/pramodkumar/Hack/WS/UIOX/10_BSP/build/x86_64/uiox_soc_mem.o
+ .text          0x0000000000000000        0x0 /Users/pramodkumar/Hack/WS/UIOX/10_BSP/build/x86_64/uiox_soc_pcie.o
+ .data          0x0000000000000000        0x0 /Users/pramodkumar/Hack/WS/UIOX/10_BSP/build/x86_64/uiox_soc_pcie.o
+ .bss           0x0000000000000000        0x0 /Users/pramodkumar/Hack/WS/UIOX/10_BSP/build/x86_64/uiox_soc_pcie.o
+ .text.uiox_soc_pcie_cfg_read32
+                0x0000000000000000       0x24 /Users/pramodkumar/Hack/WS/UIOX/10_BSP/build/x86_64/uiox_soc_pcie.o
+ .text.uiox_soc_pcie_cfg_read16
+                0x0000000000000000       0x25 /Users/pramodkumar/Hack/WS/UIOX/10_BSP/build/x86_64/uiox_soc_pcie.o
+ .text.uiox_soc_pcie_cfg_write32
+                0x0000000000000000       0x25 /Users/pramodkumar/Hack/WS/UIOX/10_BSP/build/x86_64/uiox_soc_pcie.o
+ .text.uiox_soc_pcie_init
+                0x0000000000000000       0x5b /Users/pramodkumar/Hack/WS/UIOX/10_BSP/build/x86_64/uiox_soc_pcie.o
+ .text.uiox_soc_pcie_scan
+                0x0000000000000000      0x176 /Users/pramodkumar/Hack/WS/UIOX/10_BSP/build/x86_64/uiox_soc_pcie.o
+ .text.uiox_soc_pcie_assign_bars
+                0x0000000000000000      0x109 /Users/pramodkumar/Hack/WS/UIOX/10_BSP/build/x86_64/uiox_soc_pcie.o
+ .text.uiox_soc_pcie_enable_dev
+                0x0000000000000000       0x35 /Users/pramodkumar/Hack/WS/UIOX/10_BSP/build/x86_64/uiox_soc_pcie.o
+ .text.uiox_soc_pcie_find_class
+                0x0000000000000000       0x37 /Users/pramodkumar/Hack/WS/UIOX/10_BSP/build/x86_64/uiox_soc_pcie.o
+ .debug_info    0x0000000000000000      0x966 /Users/pramodkumar/Hack/WS/UIOX/10_BSP/build/x86_64/uiox_soc_pcie.o
+ .debug_abbrev  0x0000000000000000      0x1ec /Users/pramodkumar/Hack/WS/UIOX/10_BSP/build/x86_64/uiox_soc_pcie.o
+ .debug_loclists
+                0x0000000000000000      0x5f8 /Users/pramodkumar/Hack/WS/UIOX/10_BSP/build/x86_64/uiox_soc_pcie.o
+ .debug_aranges
+                0x0000000000000000       0xa0 /Users/pramodkumar/Hack/WS/UIOX/10_BSP/build/x86_64/uiox_soc_pcie.o
+ .debug_rnglists
+                0x0000000000000000       0xb7 /Users/pramodkumar/Hack/WS/UIOX/10_BSP/build/x86_64/uiox_soc_pcie.o
+ .debug_line    0x0000000000000000      0x496 /Users/pramodkumar/Hack/WS/UIOX/10_BSP/build/x86_64/uiox_soc_pcie.o
+ .debug_str     0x0000000000000000      0x4f7 /Users/pramodkumar/Hack/WS/UIOX/10_BSP/build/x86_64/uiox_soc_pcie.o
+ .debug_line_str
+                0x0000000000000000      0x152 /Users/pramodkumar/Hack/WS/UIOX/10_BSP/build/x86_64/uiox_soc_pcie.o
+ .comment       0x0000000000000000       0x13 /Users/pramodkumar/Hack/WS/UIOX/10_BSP/build/x86_64/uiox_soc_pcie.o
+ .eh_frame      0x0000000000000000      0x110 /Users/pramodkumar/Hack/WS/UIOX/10_BSP/build/x86_64/uiox_soc_pcie.o
+ .text          0x0000000000000000        0x0 /Users/pramodkumar/Hack/WS/UIOX/10_BSP/build/x86_64/uiox_soc_post.o
+ .data          0x0000000000000000        0x0 /Users/pramodkumar/Hack/WS/UIOX/10_BSP/build/x86_64/uiox_soc_post.o
+ .bss           0x0000000000000000        0x0 /Users/pramodkumar/Hack/WS/UIOX/10_BSP/build/x86_64/uiox_soc_post.o
+ .text.soc_puts_post
+                0x0000000000000000       0x45 /Users/pramodkumar/Hack/WS/UIOX/10_BSP/build/x86_64/uiox_soc_post.o
+ .text.soc_print_u64_post
+                0x0000000000000000       0x76 /Users/pramodkumar/Hack/WS/UIOX/10_BSP/build/x86_64/uiox_soc_post.o
+ .text.soc_strncpy_post.constprop.0
+                0x0000000000000000       0x1a /Users/pramodkumar/Hack/WS/UIOX/10_BSP/build/x86_64/uiox_soc_post.o
+ .text.uiox_soc_post_stack_mark
+                0x0000000000000000        0x8 /Users/pramodkumar/Hack/WS/UIOX/10_BSP/build/x86_64/uiox_soc_post.o
+ .rodata.uiox_soc_post_print.str1.1
+                0x0000000000000000       0xae /Users/pramodkumar/Hack/WS/UIOX/10_BSP/build/x86_64/uiox_soc_post.o
+ .text.uiox_soc_post_print
+                0x0000000000000000      0x14f /Users/pramodkumar/Hack/WS/UIOX/10_BSP/build/x86_64/uiox_soc_post.o
+ .text.uiox_soc_crc32
+                0x0000000000000000       0x3b /Users/pramodkumar/Hack/WS/UIOX/10_BSP/build/x86_64/uiox_soc_post.o
+ .rodata.uiox_soc_post_run.str1.1
+                0x0000000000000000       0x5c /Users/pramodkumar/Hack/WS/UIOX/10_BSP/build/x86_64/uiox_soc_post.o
+ .text.uiox_soc_post_run
+                0x0000000000000000      0x204 /Users/pramodkumar/Hack/WS/UIOX/10_BSP/build/x86_64/uiox_soc_post.o
+ .rodata.h.0    0x0000000000000000       0x11 /Users/pramodkumar/Hack/WS/UIOX/10_BSP/build/x86_64/uiox_soc_post.o
+ .rodata.patterns.1
+                0x0000000000000000       0x14 /Users/pramodkumar/Hack/WS/UIOX/10_BSP/build/x86_64/uiox_soc_post.o
+ .debug_info    0x0000000000000000     0x116f /Users/pramodkumar/Hack/WS/UIOX/10_BSP/build/x86_64/uiox_soc_post.o
+ .debug_abbrev  0x0000000000000000      0x3f7 /Users/pramodkumar/Hack/WS/UIOX/10_BSP/build/x86_64/uiox_soc_post.o
+ .debug_loclists
+                0x0000000000000000      0x5e4 /Users/pramodkumar/Hack/WS/UIOX/10_BSP/build/x86_64/uiox_soc_post.o
+ .debug_aranges
+                0x0000000000000000       0x90 /Users/pramodkumar/Hack/WS/UIOX/10_BSP/build/x86_64/uiox_soc_post.o
+ .debug_rnglists
+                0x0000000000000000       0xed /Users/pramodkumar/Hack/WS/UIOX/10_BSP/build/x86_64/uiox_soc_post.o
+ .debug_line    0x0000000000000000      0x78f /Users/pramodkumar/Hack/WS/UIOX/10_BSP/build/x86_64/uiox_soc_post.o
+ .debug_str     0x0000000000000000      0x7c4 /Users/pramodkumar/Hack/WS/UIOX/10_BSP/build/x86_64/uiox_soc_post.o
+ .debug_line_str
+                0x0000000000000000      0x160 /Users/pramodkumar/Hack/WS/UIOX/10_BSP/build/x86_64/uiox_soc_post.o
+ .comment       0x0000000000000000       0x13 /Users/pramodkumar/Hack/WS/UIOX/10_BSP/build/x86_64/uiox_soc_post.o
+ .eh_frame      0x0000000000000000       0xf0 /Users/pramodkumar/Hack/WS/UIOX/10_BSP/build/x86_64/uiox_soc_post.o
+ .text          0x0000000000000000        0x0 /Users/pramodkumar/Hack/WS/UIOX/10_BSP/build/x86_64/uiox_soc_power.o
+ .data          0x0000000000000000        0x0 /Users/pramodkumar/Hack/WS/UIOX/10_BSP/build/x86_64/uiox_soc_power.o
+ .bss           0x0000000000000000        0x0 /Users/pramodkumar/Hack/WS/UIOX/10_BSP/build/x86_64/uiox_soc_power.o
+ .rodata.uiox_soc_power_init.str1.1
+                0x0000000000000000       0x31 /Users/pramodkumar/Hack/WS/UIOX/10_BSP/build/x86_64/uiox_soc_power.o
+ .text.uiox_soc_power_init
+                0x0000000000000000       0x6c /Users/pramodkumar/Hack/WS/UIOX/10_BSP/build/x86_64/uiox_soc_power.o
+ .text.uiox_soc_power_idle
+                0x0000000000000000        0x2 /Users/pramodkumar/Hack/WS/UIOX/10_BSP/build/x86_64/uiox_soc_power.o
+ .text.uiox_soc_power_cpu_on
+                0x0000000000000000       0x15 /Users/pramodkumar/Hack/WS/UIOX/10_BSP/build/x86_64/uiox_soc_power.o
+ .rodata.uiox_soc_power_cpu_off.str1.1
+                0x0000000000000000       0x18 /Users/pramodkumar/Hack/WS/UIOX/10_BSP/build/x86_64/uiox_soc_power.o
+ .text.uiox_soc_power_cpu_off
+                0x0000000000000000       0x3c /Users/pramodkumar/Hack/WS/UIOX/10_BSP/build/x86_64/uiox_soc_power.o
+ .text.uiox_soc_power_reset
+                0x0000000000000000        0x6 /Users/pramodkumar/Hack/WS/UIOX/10_BSP/build/x86_64/uiox_soc_power.o
+ .text.uiox_soc_power_shutdown
+                0x0000000000000000        0xe /Users/pramodkumar/Hack/WS/UIOX/10_BSP/build/x86_64/uiox_soc_power.o
+ .debug_info    0x0000000000000000      0x3ef /Users/pramodkumar/Hack/WS/UIOX/10_BSP/build/x86_64/uiox_soc_power.o
+ .debug_abbrev  0x0000000000000000      0x1db /Users/pramodkumar/Hack/WS/UIOX/10_BSP/build/x86_64/uiox_soc_power.o
+ .debug_loclists
+                0x0000000000000000       0x93 /Users/pramodkumar/Hack/WS/UIOX/10_BSP/build/x86_64/uiox_soc_power.o
+ .debug_aranges
+                0x0000000000000000       0x80 /Users/pramodkumar/Hack/WS/UIOX/10_BSP/build/x86_64/uiox_soc_power.o
+ .debug_rnglists
+                0x0000000000000000       0x5f /Users/pramodkumar/Hack/WS/UIOX/10_BSP/build/x86_64/uiox_soc_power.o
+ .debug_line    0x0000000000000000      0x1e0 /Users/pramodkumar/Hack/WS/UIOX/10_BSP/build/x86_64/uiox_soc_power.o
+ .debug_str     0x0000000000000000      0x4c1 /Users/pramodkumar/Hack/WS/UIOX/10_BSP/build/x86_64/uiox_soc_power.o
+ .debug_line_str
+                0x0000000000000000      0x169 /Users/pramodkumar/Hack/WS/UIOX/10_BSP/build/x86_64/uiox_soc_power.o
+ .comment       0x0000000000000000       0x13 /Users/pramodkumar/Hack/WS/UIOX/10_BSP/build/x86_64/uiox_soc_power.o
+ .eh_frame      0x0000000000000000       0xb0 /Users/pramodkumar/Hack/WS/UIOX/10_BSP/build/x86_64/uiox_soc_power.o
+ .text          0x0000000000000000        0x0 /Users/pramodkumar/Hack/WS/UIOX/10_BSP/build/x86_64/uiox_soc_psci.o
+ .data          0x0000000000000000        0x0 /Users/pramodkumar/Hack/WS/UIOX/10_BSP/build/x86_64/uiox_soc_psci.o
+ .bss           0x0000000000000000        0x0 /Users/pramodkumar/Hack/WS/UIOX/10_BSP/build/x86_64/uiox_soc_psci.o
+ .text.uiox_soc_psci_version
+                0x0000000000000000        0x6 /Users/pramodkumar/Hack/WS/UIOX/10_BSP/build/x86_64/uiox_soc_psci.o
+ .text.uiox_soc_psci_cpu_on
+                0x0000000000000000       0x85 /Users/pramodkumar/Hack/WS/UIOX/10_BSP/build/x86_64/uiox_soc_psci.o
+ .text.uiox_soc_psci_cpu_off
+                0x0000000000000000       0x10 /Users/pramodkumar/Hack/WS/UIOX/10_BSP/build/x86_64/uiox_soc_psci.o
+ .text.uiox_soc_psci_cpu_suspend
+                0x0000000000000000       0x20 /Users/pramodkumar/Hack/WS/UIOX/10_BSP/build/x86_64/uiox_soc_psci.o
+ .text.uiox_soc_psci_affinity_info
+                0x0000000000000000       0x51 /Users/pramodkumar/Hack/WS/UIOX/10_BSP/build/x86_64/uiox_soc_psci.o
+ .text.uiox_soc_psci_system_off
+                0x0000000000000000       0x21 /Users/pramodkumar/Hack/WS/UIOX/10_BSP/build/x86_64/uiox_soc_psci.o
+ .text.uiox_soc_psci_system_reset
+                0x0000000000000000       0x27 /Users/pramodkumar/Hack/WS/UIOX/10_BSP/build/x86_64/uiox_soc_psci.o
+ .text.soc_puts_ps
+                0x0000000000000000       0x45 /Users/pramodkumar/Hack/WS/UIOX/10_BSP/build/x86_64/uiox_soc_psci.o
+ .text.soc_u32_dec_ps
+                0x0000000000000000       0x69 /Users/pramodkumar/Hack/WS/UIOX/10_BSP/build/x86_64/uiox_soc_psci.o
+ .rodata.uiox_soc_psci_init.str1.1
+                0x0000000000000000       0x23 /Users/pramodkumar/Hack/WS/UIOX/10_BSP/build/x86_64/uiox_soc_psci.o
+ .text.uiox_soc_psci_init
+                0x0000000000000000       0x9d /Users/pramodkumar/Hack/WS/UIOX/10_BSP/build/x86_64/uiox_soc_psci.o
+ .text.uiox_soc_psci_set_cpu_on
+                0x0000000000000000        0xd /Users/pramodkumar/Hack/WS/UIOX/10_BSP/build/x86_64/uiox_soc_psci.o
+ .text.uiox_soc_psci_set_reset
+                0x0000000000000000        0xd /Users/pramodkumar/Hack/WS/UIOX/10_BSP/build/x86_64/uiox_soc_psci.o
+ .text.uiox_soc_psci_set_off
+                0x0000000000000000        0xd /Users/pramodkumar/Hack/WS/UIOX/10_BSP/build/x86_64/uiox_soc_psci.o
+ .text.uiox_soc_psci_dispatch
+                0x0000000000000000       0x48 /Users/pramodkumar/Hack/WS/UIOX/10_BSP/build/x86_64/uiox_soc_psci.o
+ .text.uiox_soc_psci_supported
+                0x0000000000000000       0x1d /Users/pramodkumar/Hack/WS/UIOX/10_BSP/build/x86_64/uiox_soc_psci.o
+ .text.uiox_soc_psci_features
+                0x0000000000000000       0x11 /Users/pramodkumar/Hack/WS/UIOX/10_BSP/build/x86_64/uiox_soc_psci.o
+ .text.uiox_soc_psci_cpu_state
+                0x0000000000000000       0x1a /Users/pramodkumar/Hack/WS/UIOX/10_BSP/build/x86_64/uiox_soc_psci.o
+ .rodata.uiox_soc_psci_print.str1.1
+                0x0000000000000000       0xa8 /Users/pramodkumar/Hack/WS/UIOX/10_BSP/build/x86_64/uiox_soc_psci.o
+ .text.uiox_soc_psci_print
+                0x0000000000000000      0x19a /Users/pramodkumar/Hack/WS/UIOX/10_BSP/build/x86_64/uiox_soc_psci.o
+ .rodata.h.0    0x0000000000000000       0x11 /Users/pramodkumar/Hack/WS/UIOX/10_BSP/build/x86_64/uiox_soc_psci.o
+ .rodata.str1.1
+                0x0000000000000000       0x9d /Users/pramodkumar/Hack/WS/UIOX/10_BSP/build/x86_64/uiox_soc_psci.o
+ .rodata.state_names.1
+                0x0000000000000000       0x20 /Users/pramodkumar/Hack/WS/UIOX/10_BSP/build/x86_64/uiox_soc_psci.o
+ .rodata.s_psci_table
+                0x0000000000000000      0x108 /Users/pramodkumar/Hack/WS/UIOX/10_BSP/build/x86_64/uiox_soc_psci.o
+ .bss.s_psci_ctx
+                0x0000000000000000        0x8 /Users/pramodkumar/Hack/WS/UIOX/10_BSP/build/x86_64/uiox_soc_psci.o
+ .debug_info    0x0000000000000000     0x1230 /Users/pramodkumar/Hack/WS/UIOX/10_BSP/build/x86_64/uiox_soc_psci.o
+ .debug_abbrev  0x0000000000000000      0x405 /Users/pramodkumar/Hack/WS/UIOX/10_BSP/build/x86_64/uiox_soc_psci.o
+ .debug_loclists
+                0x0000000000000000      0x652 /Users/pramodkumar/Hack/WS/UIOX/10_BSP/build/x86_64/uiox_soc_psci.o
+ .debug_aranges
+                0x0000000000000000      0x140 /Users/pramodkumar/Hack/WS/UIOX/10_BSP/build/x86_64/uiox_soc_psci.o
+ .debug_rnglists
+                0x0000000000000000      0x119 /Users/pramodkumar/Hack/WS/UIOX/10_BSP/build/x86_64/uiox_soc_psci.o
+ .debug_line    0x0000000000000000      0x7ee /Users/pramodkumar/Hack/WS/UIOX/10_BSP/build/x86_64/uiox_soc_psci.o
+ .debug_str     0x0000000000000000      0x833 /Users/pramodkumar/Hack/WS/UIOX/10_BSP/build/x86_64/uiox_soc_psci.o
+ .debug_line_str
+                0x0000000000000000      0x160 /Users/pramodkumar/Hack/WS/UIOX/10_BSP/build/x86_64/uiox_soc_psci.o
+ .comment       0x0000000000000000       0x13 /Users/pramodkumar/Hack/WS/UIOX/10_BSP/build/x86_64/uiox_soc_psci.o
+ .eh_frame      0x0000000000000000      0x200 /Users/pramodkumar/Hack/WS/UIOX/10_BSP/build/x86_64/uiox_soc_psci.o
+ .text          0x0000000000000000        0x0 /Users/pramodkumar/Hack/WS/UIOX/10_BSP/build/x86_64/uiox_soc_secboot.o
+ .data          0x0000000000000000        0x0 /Users/pramodkumar/Hack/WS/UIOX/10_BSP/build/x86_64/uiox_soc_secboot.o
+ .bss           0x0000000000000000        0x0 /Users/pramodkumar/Hack/WS/UIOX/10_BSP/build/x86_64/uiox_soc_secboot.o
+ .text.soc_memcpy_sb
+                0x0000000000000000       0x13 /Users/pramodkumar/Hack/WS/UIOX/10_BSP/build/x86_64/uiox_soc_secboot.o
+ .text.soc_puts_sb
+                0x0000000000000000       0x45 /Users/pramodkumar/Hack/WS/UIOX/10_BSP/build/x86_64/uiox_soc_secboot.o
+ .text.soc_strncpy_sb.constprop.0
+                0x0000000000000000       0x1a /Users/pramodkumar/Hack/WS/UIOX/10_BSP/build/x86_64/uiox_soc_secboot.o
+ .text.uiox_soc_sha256_init
+                0x0000000000000000       0x43 /Users/pramodkumar/Hack/WS/UIOX/10_BSP/build/x86_64/uiox_soc_secboot.o
+ .text.uiox_soc_sha256_update
+                0x0000000000000000      0x293 /Users/pramodkumar/Hack/WS/UIOX/10_BSP/build/x86_64/uiox_soc_secboot.o
+ .text.uiox_soc_sha256_final
+                0x0000000000000000       0xaf /Users/pramodkumar/Hack/WS/UIOX/10_BSP/build/x86_64/uiox_soc_secboot.o
+ .text.uiox_soc_sha256
+                0x0000000000000000       0x74 /Users/pramodkumar/Hack/WS/UIOX/10_BSP/build/x86_64/uiox_soc_secboot.o
+ .text.uiox_soc_secboot_extend_pcr.part.0
+                0x0000000000000000       0x48 /Users/pramodkumar/Hack/WS/UIOX/10_BSP/build/x86_64/uiox_soc_secboot.o
+ .text.uiox_soc_secboot_extend_pcr
+                0x0000000000000000        0xb /Users/pramodkumar/Hack/WS/UIOX/10_BSP/build/x86_64/uiox_soc_secboot.o
+ .text.uiox_soc_secboot_read_pcr
+                0x0000000000000000       0x23 /Users/pramodkumar/Hack/WS/UIOX/10_BSP/build/x86_64/uiox_soc_secboot.o
+ .rodata.uiox_soc_secboot_init.str1.1
+                0x0000000000000000       0x22 /Users/pramodkumar/Hack/WS/UIOX/10_BSP/build/x86_64/uiox_soc_secboot.o
+ .text.uiox_soc_secboot_init
+                0x0000000000000000       0x73 /Users/pramodkumar/Hack/WS/UIOX/10_BSP/build/x86_64/uiox_soc_secboot.o
+ .rodata.uiox_soc_secboot_verify_cert.str1.1
+                0x0000000000000000       0x20 /Users/pramodkumar/Hack/WS/UIOX/10_BSP/build/x86_64/uiox_soc_secboot.o
+ .text.uiox_soc_secboot_verify_cert
+                0x0000000000000000       0x86 /Users/pramodkumar/Hack/WS/UIOX/10_BSP/build/x86_64/uiox_soc_secboot.o
+ .rodata.uiox_soc_secboot_verify_image.str1.1
+                0x0000000000000000       0x21 /Users/pramodkumar/Hack/WS/UIOX/10_BSP/build/x86_64/uiox_soc_secboot.o
+ .text.uiox_soc_secboot_verify_image
+                0x0000000000000000      0x145 /Users/pramodkumar/Hack/WS/UIOX/10_BSP/build/x86_64/uiox_soc_secboot.o
+ .rodata.uiox_soc_secboot_print.str1.1
+                0x0000000000000000       0x76 /Users/pramodkumar/Hack/WS/UIOX/10_BSP/build/x86_64/uiox_soc_secboot.o
+ .text.uiox_soc_secboot_print
+                0x0000000000000000      0x112 /Users/pramodkumar/Hack/WS/UIOX/10_BSP/build/x86_64/uiox_soc_secboot.o
+ .bss.s_pcr     0x0000000000000000      0x100 /Users/pramodkumar/Hack/WS/UIOX/10_BSP/build/x86_64/uiox_soc_secboot.o
+ .rodata.K256   0x0000000000000000      0x100 /Users/pramodkumar/Hack/WS/UIOX/10_BSP/build/x86_64/uiox_soc_secboot.o
+ .debug_info    0x0000000000000000     0x1642 /Users/pramodkumar/Hack/WS/UIOX/10_BSP/build/x86_64/uiox_soc_secboot.o
+ .debug_abbrev  0x0000000000000000      0x40f /Users/pramodkumar/Hack/WS/UIOX/10_BSP/build/x86_64/uiox_soc_secboot.o
+ .debug_loclists
+                0x0000000000000000      0xdf6 /Users/pramodkumar/Hack/WS/UIOX/10_BSP/build/x86_64/uiox_soc_secboot.o
+ .debug_aranges
+                0x0000000000000000      0x100 /Users/pramodkumar/Hack/WS/UIOX/10_BSP/build/x86_64/uiox_soc_secboot.o
+ .debug_rnglists
+                0x0000000000000000      0x131 /Users/pramodkumar/Hack/WS/UIOX/10_BSP/build/x86_64/uiox_soc_secboot.o
+ .debug_line    0x0000000000000000      0xa8c /Users/pramodkumar/Hack/WS/UIOX/10_BSP/build/x86_64/uiox_soc_secboot.o
+ .debug_str     0x0000000000000000      0x9bc /Users/pramodkumar/Hack/WS/UIOX/10_BSP/build/x86_64/uiox_soc_secboot.o
+ .debug_line_str
+                0x0000000000000000      0x16c /Users/pramodkumar/Hack/WS/UIOX/10_BSP/build/x86_64/uiox_soc_secboot.o
+ .comment       0x0000000000000000       0x13 /Users/pramodkumar/Hack/WS/UIOX/10_BSP/build/x86_64/uiox_soc_secboot.o
+ .eh_frame      0x0000000000000000      0x218 /Users/pramodkumar/Hack/WS/UIOX/10_BSP/build/x86_64/uiox_soc_secboot.o
+ .text          0x0000000000000000        0x0 /Users/pramodkumar/Hack/WS/UIOX/10_BSP/build/x86_64/uiox_soc_stdio.o
+ .data          0x0000000000000000        0x0 /Users/pramodkumar/Hack/WS/UIOX/10_BSP/build/x86_64/uiox_soc_stdio.o
+ .bss           0x0000000000000000        0x0 /Users/pramodkumar/Hack/WS/UIOX/10_BSP/build/x86_64/uiox_soc_stdio.o
+ .text.uiox_putc
+                0x0000000000000000       0x23 /Users/pramodkumar/Hack/WS/UIOX/10_BSP/build/x86_64/uiox_soc_stdio.o
+ .text.uiox_puts
+                0x0000000000000000       0x2e /Users/pramodkumar/Hack/WS/UIOX/10_BSP/build/x86_64/uiox_soc_stdio.o
+ .text.uiox_snprintf
+                0x0000000000000000       0x4e /Users/pramodkumar/Hack/WS/UIOX/10_BSP/build/x86_64/uiox_soc_stdio.o
+ .comment       0x0000000000000000       0x13 /Users/pramodkumar/Hack/WS/UIOX/10_BSP/build/x86_64/uiox_soc_stdio.o
+ .eh_frame      0x0000000000000000      0x1b0 /Users/pramodkumar/Hack/WS/UIOX/10_BSP/build/x86_64/uiox_soc_stdio.o
+ .text          0x0000000000000000        0x0 /Users/pramodkumar/Hack/WS/UIOX/10_BSP/build/x86_64/uiox_soc_tz.o
+ .data          0x0000000000000000        0x0 /Users/pramodkumar/Hack/WS/UIOX/10_BSP/build/x86_64/uiox_soc_tz.o
+ .bss           0x0000000000000000        0x0 /Users/pramodkumar/Hack/WS/UIOX/10_BSP/build/x86_64/uiox_soc_tz.o
+ .text.soc_puts_tz
+                0x0000000000000000       0x45 /Users/pramodkumar/Hack/WS/UIOX/10_BSP/build/x86_64/uiox_soc_tz.o
+ .text.soc_u32_dec_tz
+                0x0000000000000000       0x69 /Users/pramodkumar/Hack/WS/UIOX/10_BSP/build/x86_64/uiox_soc_tz.o
+ .text.uiox_soc_tz_current_el
+                0x0000000000000000        0x3 /Users/pramodkumar/Hack/WS/UIOX/10_BSP/build/x86_64/uiox_soc_tz.o
+ .text.uiox_soc_tz_set_vbar
+                0x0000000000000000        0x3 /Users/pramodkumar/Hack/WS/UIOX/10_BSP/build/x86_64/uiox_soc_tz.o
+ .text.uiox_soc_tz_gic_secure
+                0x0000000000000000       0x39 /Users/pramodkumar/Hack/WS/UIOX/10_BSP/build/x86_64/uiox_soc_tz.o
+ .text.uiox_soc_tzc_set_region
+                0x0000000000000000       0x73 /Users/pramodkumar/Hack/WS/UIOX/10_BSP/build/x86_64/uiox_soc_tz.o
+ .text.uiox_soc_tz_eret_to_ns
+                0x0000000000000000        0x3 /Users/pramodkumar/Hack/WS/UIOX/10_BSP/build/x86_64/uiox_soc_tz.o
+ .rodata.uiox_soc_tz_init.str1.1
+                0x0000000000000000       0x3f /Users/pramodkumar/Hack/WS/UIOX/10_BSP/build/x86_64/uiox_soc_tz.o
+ .text.uiox_soc_tz_init
+                0x0000000000000000       0x7e /Users/pramodkumar/Hack/WS/UIOX/10_BSP/build/x86_64/uiox_soc_tz.o
+ .rodata.uiox_soc_tz_print.str1.1
+                0x0000000000000000       0xe4 /Users/pramodkumar/Hack/WS/UIOX/10_BSP/build/x86_64/uiox_soc_tz.o
+ .text.uiox_soc_tz_print
+                0x0000000000000000      0x1a9 /Users/pramodkumar/Hack/WS/UIOX/10_BSP/build/x86_64/uiox_soc_tz.o
+ .rodata.h.0    0x0000000000000000       0x11 /Users/pramodkumar/Hack/WS/UIOX/10_BSP/build/x86_64/uiox_soc_tz.o
+ .debug_info    0x0000000000000000     0x105d /Users/pramodkumar/Hack/WS/UIOX/10_BSP/build/x86_64/uiox_soc_tz.o
+ .debug_abbrev  0x0000000000000000      0x3e4 /Users/pramodkumar/Hack/WS/UIOX/10_BSP/build/x86_64/uiox_soc_tz.o
+ .debug_loclists
+                0x0000000000000000      0x5a6 /Users/pramodkumar/Hack/WS/UIOX/10_BSP/build/x86_64/uiox_soc_tz.o
+ .debug_aranges
+                0x0000000000000000       0xb0 /Users/pramodkumar/Hack/WS/UIOX/10_BSP/build/x86_64/uiox_soc_tz.o
+ .debug_rnglists
+                0x0000000000000000       0xf4 /Users/pramodkumar/Hack/WS/UIOX/10_BSP/build/x86_64/uiox_soc_tz.o
+ .debug_line    0x0000000000000000      0x6b0 /Users/pramodkumar/Hack/WS/UIOX/10_BSP/build/x86_64/uiox_soc_tz.o
+ .debug_str     0x0000000000000000      0x7f9 /Users/pramodkumar/Hack/WS/UIOX/10_BSP/build/x86_64/uiox_soc_tz.o
+ .debug_line_str
+                0x0000000000000000      0x158 /Users/pramodkumar/Hack/WS/UIOX/10_BSP/build/x86_64/uiox_soc_tz.o
+ .comment       0x0000000000000000       0x13 /Users/pramodkumar/Hack/WS/UIOX/10_BSP/build/x86_64/uiox_soc_tz.o
+ .eh_frame      0x0000000000000000      0x118 /Users/pramodkumar/Hack/WS/UIOX/10_BSP/build/x86_64/uiox_soc_tz.o
+ .text          0x0000000000000000        0x0 /Users/pramodkumar/Hack/WS/UIOX/10_BSP/build/x86_64/uiox_kernel_loader.o
+ .data          0x0000000000000000        0x0 /Users/pramodkumar/Hack/WS/UIOX/10_BSP/build/x86_64/uiox_kernel_loader.o
+ .bss           0x0000000000000000        0x0 /Users/pramodkumar/Hack/WS/UIOX/10_BSP/build/x86_64/uiox_kernel_loader.o
+ .rodata.uiox_kernel_loader_init.str1.1
+                0x0000000000000000       0x32 /Users/pramodkumar/Hack/WS/UIOX/10_BSP/build/x86_64/uiox_kernel_loader.o
+ .text.uiox_kernel_loader_init
+                0x0000000000000000       0x67 /Users/pramodkumar/Hack/WS/UIOX/10_BSP/build/x86_64/uiox_kernel_loader.o
+ .rodata.uiox_kernel_load.str1.1
+                0x0000000000000000      0x113 /Users/pramodkumar/Hack/WS/UIOX/10_BSP/build/x86_64/uiox_kernel_loader.o
+ .text.uiox_kernel_load
+                0x0000000000000000      0x128 /Users/pramodkumar/Hack/WS/UIOX/10_BSP/build/x86_64/uiox_kernel_loader.o
+ .rodata.uiox_kernel_verify.str1.1
+                0x0000000000000000       0x5e /Users/pramodkumar/Hack/WS/UIOX/10_BSP/build/x86_64/uiox_kernel_loader.o
+ .text.uiox_kernel_verify
+                0x0000000000000000       0x94 /Users/pramodkumar/Hack/WS/UIOX/10_BSP/build/x86_64/uiox_kernel_loader.o
+ .rodata.uiox_kernel_jump.str1.1
+                0x0000000000000000       0x31 /Users/pramodkumar/Hack/WS/UIOX/10_BSP/build/x86_64/uiox_kernel_loader.o
+ .text.uiox_kernel_jump
+                0x0000000000000000       0x32 /Users/pramodkumar/Hack/WS/UIOX/10_BSP/build/x86_64/uiox_kernel_loader.o
+ .debug_info    0x0000000000000000      0x898 /Users/pramodkumar/Hack/WS/UIOX/10_BSP/build/x86_64/uiox_kernel_loader.o
+ .debug_abbrev  0x0000000000000000      0x2ab /Users/pramodkumar/Hack/WS/UIOX/10_BSP/build/x86_64/uiox_kernel_loader.o
+ .debug_loclists
+                0x0000000000000000      0x3ce /Users/pramodkumar/Hack/WS/UIOX/10_BSP/build/x86_64/uiox_kernel_loader.o
+ .debug_aranges
+                0x0000000000000000       0x60 /Users/pramodkumar/Hack/WS/UIOX/10_BSP/build/x86_64/uiox_kernel_loader.o
+ .debug_rnglists
+                0x0000000000000000       0x6a /Users/pramodkumar/Hack/WS/UIOX/10_BSP/build/x86_64/uiox_kernel_loader.o
+ .debug_line    0x0000000000000000      0x343 /Users/pramodkumar/Hack/WS/UIOX/10_BSP/build/x86_64/uiox_kernel_loader.o
+ .debug_str     0x0000000000000000      0x521 /Users/pramodkumar/Hack/WS/UIOX/10_BSP/build/x86_64/uiox_kernel_loader.o
+ .debug_line_str
+                0x0000000000000000      0x185 /Users/pramodkumar/Hack/WS/UIOX/10_BSP/build/x86_64/uiox_kernel_loader.o
+ .comment       0x0000000000000000       0x13 /Users/pramodkumar/Hack/WS/UIOX/10_BSP/build/x86_64/uiox_kernel_loader.o
+ .eh_frame      0x0000000000000000       0xb0 /Users/pramodkumar/Hack/WS/UIOX/10_BSP/build/x86_64/uiox_kernel_loader.o
+ .text          0x0000000000000000        0x0 /Users/pramodkumar/Hack/WS/UIOX/10_BSP/build/x86_64/uiox_soc_x86.o
+ .data          0x0000000000000000        0x0 /Users/pramodkumar/Hack/WS/UIOX/10_BSP/build/x86_64/uiox_soc_x86.o
+ .bss           0x0000000000000000        0x0 /Users/pramodkumar/Hack/WS/UIOX/10_BSP/build/x86_64/uiox_soc_x86.o
+ .text.uiox_memcpy_u32
+                0x0000000000000000       0x12 /Users/pramodkumar/Hack/WS/UIOX/10_BSP/build/x86_64/uiox_soc_x86.o
+ .rodata.uiox_soc_init_x86.str1.1
+                0x0000000000000000      0x123 /Users/pramodkumar/Hack/WS/UIOX/10_BSP/build/x86_64/uiox_soc_x86.o
+ .text.uiox_soc_init_x86
+                0x0000000000000000      0x226 /Users/pramodkumar/Hack/WS/UIOX/10_BSP/build/x86_64/uiox_soc_x86.o
+ .debug_info    0x0000000000000000      0xe02 /Users/pramodkumar/Hack/WS/UIOX/10_BSP/build/x86_64/uiox_soc_x86.o
+ .debug_abbrev  0x0000000000000000      0x2b2 /Users/pramodkumar/Hack/WS/UIOX/10_BSP/build/x86_64/uiox_soc_x86.o
+ .debug_loclists
+                0x0000000000000000      0x45e /Users/pramodkumar/Hack/WS/UIOX/10_BSP/build/x86_64/uiox_soc_x86.o
+ .debug_aranges
+                0x0000000000000000       0x40 /Users/pramodkumar/Hack/WS/UIOX/10_BSP/build/x86_64/uiox_soc_x86.o
+ .debug_rnglists
+                0x0000000000000000       0x7e /Users/pramodkumar/Hack/WS/UIOX/10_BSP/build/x86_64/uiox_soc_x86.o
+ .debug_line    0x0000000000000000      0x36d /Users/pramodkumar/Hack/WS/UIOX/10_BSP/build/x86_64/uiox_soc_x86.o
+ .debug_str     0x0000000000000000      0x676 /Users/pramodkumar/Hack/WS/UIOX/10_BSP/build/x86_64/uiox_soc_x86.o
+ .debug_line_str
+                0x0000000000000000      0x1df /Users/pramodkumar/Hack/WS/UIOX/10_BSP/build/x86_64/uiox_soc_x86.o
+ .comment       0x0000000000000000       0x13 /Users/pramodkumar/Hack/WS/UIOX/10_BSP/build/x86_64/uiox_soc_x86.o
+ .eh_frame      0x0000000000000000       0x60 /Users/pramodkumar/Hack/WS/UIOX/10_BSP/build/x86_64/uiox_soc_x86.o
+ .text          0x0000000000000000        0x0 /Users/pramodkumar/Hack/WS/UIOX/10_BSP/build/x86_64/uiox_soc_x86_init.o
+ .data          0x0000000000000000        0x0 /Users/pramodkumar/Hack/WS/UIOX/10_BSP/build/x86_64/uiox_soc_x86_init.o
+ .bss           0x0000000000000000        0x0 /Users/pramodkumar/Hack/WS/UIOX/10_BSP/build/x86_64/uiox_soc_x86_init.o
+ .rodata.uiox_soc_x86_init.str1.1
+                0x0000000000000000      0x1b1 /Users/pramodkumar/Hack/WS/UIOX/10_BSP/build/x86_64/uiox_soc_x86_init.o
+ .text.uiox_soc_x86_init
+                0x0000000000000000      0x1ac /Users/pramodkumar/Hack/WS/UIOX/10_BSP/build/x86_64/uiox_soc_x86_init.o
+ .rodata.uiox_soc_x86_fini.str1.1
+                0x0000000000000000       0x22 /Users/pramodkumar/Hack/WS/UIOX/10_BSP/build/x86_64/uiox_soc_x86_init.o
+ .text.uiox_soc_x86_fini
+                0x0000000000000000       0x19 /Users/pramodkumar/Hack/WS/UIOX/10_BSP/build/x86_64/uiox_soc_x86_init.o
+ .debug_info    0x0000000000000000      0xbb6 /Users/pramodkumar/Hack/WS/UIOX/10_BSP/build/x86_64/uiox_soc_x86_init.o
+ .debug_abbrev  0x0000000000000000      0x22a /Users/pramodkumar/Hack/WS/UIOX/10_BSP/build/x86_64/uiox_soc_x86_init.o
+ .debug_loclists
+                0x0000000000000000      0x487 /Users/pramodkumar/Hack/WS/UIOX/10_BSP/build/x86_64/uiox_soc_x86_init.o
+ .debug_aranges
+                0x0000000000000000       0x40 /Users/pramodkumar/Hack/WS/UIOX/10_BSP/build/x86_64/uiox_soc_x86_init.o
+ .debug_rnglists
+                0x0000000000000000       0xfc /Users/pramodkumar/Hack/WS/UIOX/10_BSP/build/x86_64/uiox_soc_x86_init.o
+ .debug_line    0x0000000000000000      0x43f /Users/pramodkumar/Hack/WS/UIOX/10_BSP/build/x86_64/uiox_soc_x86_init.o
+ .debug_str     0x0000000000000000      0x415 /Users/pramodkumar/Hack/WS/UIOX/10_BSP/build/x86_64/uiox_soc_x86_init.o
+ .debug_line_str
+                0x0000000000000000      0x167 /Users/pramodkumar/Hack/WS/UIOX/10_BSP/build/x86_64/uiox_soc_x86_init.o
+ .comment       0x0000000000000000       0x13 /Users/pramodkumar/Hack/WS/UIOX/10_BSP/build/x86_64/uiox_soc_x86_init.o
+ .eh_frame      0x0000000000000000       0x60 /Users/pramodkumar/Hack/WS/UIOX/10_BSP/build/x86_64/uiox_soc_x86_init.o
+ .text          0x0000000000000000        0x0 /Users/pramodkumar/Hack/WS/UIOX/10_BSP/build/x86_64/bsp_entry.o
+ .data          0x0000000000000000        0x0 /Users/pramodkumar/Hack/WS/UIOX/10_BSP/build/x86_64/bsp_entry.o
+ .bss           0x0000000000000000        0x0 /Users/pramodkumar/Hack/WS/UIOX/10_BSP/build/x86_64/bsp_entry.o
+ .text          0x0000000000000000       0xa6 /Users/pramodkumar/Hack/WS/UIOX/10_BSP/build/x86_64/arch_context.o
+ .data          0x0000000000000000        0x0 /Users/pramodkumar/Hack/WS/UIOX/10_BSP/build/x86_64/arch_context.o
+ .bss           0x0000000000000000        0x0 /Users/pramodkumar/Hack/WS/UIOX/10_BSP/build/x86_64/arch_context.o
+ .debug_line    0x0000000000000000       0x7f /Users/pramodkumar/Hack/WS/UIOX/10_BSP/build/x86_64/arch_context.o
+ .debug_line_str
+                0x0000000000000000       0x70 /Users/pramodkumar/Hack/WS/UIOX/10_BSP/build/x86_64/arch_context.o
+ .debug_info    0x0000000000000000       0x49 /Users/pramodkumar/Hack/WS/UIOX/10_BSP/build/x86_64/arch_context.o
+ .debug_abbrev  0x0000000000000000       0x28 /Users/pramodkumar/Hack/WS/UIOX/10_BSP/build/x86_64/arch_context.o
+ .debug_aranges
+                0x0000000000000000       0x30 /Users/pramodkumar/Hack/WS/UIOX/10_BSP/build/x86_64/arch_context.o
+ .debug_str     0x0000000000000000       0xa4 /Users/pramodkumar/Hack/WS/UIOX/10_BSP/build/x86_64/arch_context.o
+ .text          0x0000000000000000      0xcb7 /Users/pramodkumar/Hack/WS/UIOX/10_BSP/build/x86_64/arch_irq.o
+ .data          0x0000000000000000        0x0 /Users/pramodkumar/Hack/WS/UIOX/10_BSP/build/x86_64/arch_irq.o
+ .bss           0x0000000000000000        0x0 /Users/pramodkumar/Hack/WS/UIOX/10_BSP/build/x86_64/arch_irq.o
+ .rodata        0x0000000000000000      0x800 /Users/pramodkumar/Hack/WS/UIOX/10_BSP/build/x86_64/arch_irq.o
+ .debug_line    0x0000000000000000      0x17a /Users/pramodkumar/Hack/WS/UIOX/10_BSP/build/x86_64/arch_irq.o
+ .debug_line_str
+                0x0000000000000000       0x6c /Users/pramodkumar/Hack/WS/UIOX/10_BSP/build/x86_64/arch_irq.o
+ .debug_info    0x0000000000000000       0x29 /Users/pramodkumar/Hack/WS/UIOX/10_BSP/build/x86_64/arch_irq.o
+ .debug_abbrev  0x0000000000000000       0x14 /Users/pramodkumar/Hack/WS/UIOX/10_BSP/build/x86_64/arch_irq.o
+ .debug_aranges
+                0x0000000000000000       0x30 /Users/pramodkumar/Hack/WS/UIOX/10_BSP/build/x86_64/arch_irq.o
+ .debug_str     0x0000000000000000       0x7a /Users/pramodkumar/Hack/WS/UIOX/10_BSP/build/x86_64/arch_irq.o
+
+Memory Configuration
+
+Name             Origin             Length             Attributes
+SRAM             0x0000000048000000 0x0000000000400000 xrw
+*default*        0x0000000000000000 0xffffffffffffffff
+
+Linker script and memory map
+
+                0x0000000048000000                BSP_LOAD_ADDR = 0x48000000
+                0x0000000000010000                STACK_SIZE = 0x10000
+                0x0000000048000000                . = BSP_LOAD_ADDR
+
+.text.bsp_entry
+                0x0000000048000000       0x3b
+ *(.text.bsp_entry)
+ .text.bsp_entry
+                0x0000000048000000       0x3b /Users/pramodkumar/Hack/WS/UIOX/10_BSP/build/x86_64/bsp_entry.o
+                0x0000000048000000                uiox_bsp_entry
+
+.text           0x000000004800003b      0xa60
+ *(.text .text.*)
+ .text.bsp_puts
+                0x000000004800003b       0x36 /Users/pramodkumar/Hack/WS/UIOX/10_BSP/build/x86_64/uiox_bsp_main.o
+ .text.uiox_bsp_jump_to_kernel
+                0x0000000048000071       0x27 /Users/pramodkumar/Hack/WS/UIOX/10_BSP/build/x86_64/uiox_bsp_main.o
+                0x0000000048000071                uiox_bsp_jump_to_kernel
+ .text.uiox_bsp_entry_c
+                0x0000000048000098      0x138 /Users/pramodkumar/Hack/WS/UIOX/10_BSP/build/x86_64/uiox_bsp_main.o
+                0x0000000048000098                uiox_bsp_entry_c
+ .text.uiox_soc_init
+                0x00000000480001d0        0x3 /Users/pramodkumar/Hack/WS/UIOX/10_BSP/build/x86_64/uiox_bsp_stubs.o
+                0x00000000480001d0                uiox_soc_init
+ .text.timer_irq_handler
+                0x00000000480001d3        0x1 /Users/pramodkumar/Hack/WS/UIOX/10_BSP/build/x86_64/uiox_bsp_stubs.o
+                0x00000000480001d3                timer_irq_handler
+ .text.uart_irq_handler
+                0x00000000480001d4        0x1 /Users/pramodkumar/Hack/WS/UIOX/10_BSP/build/x86_64/uiox_bsp_stubs.o
+                0x00000000480001d4                uart_irq_handler
+ .text.arch_init
+                0x00000000480001d5      0x15b /Users/pramodkumar/Hack/WS/UIOX/10_BSP/build/x86_64/arch_init.o
+                0x00000000480001d5                arch_init
+ .text.irq_init
+                0x0000000048000330       0x20 /Users/pramodkumar/Hack/WS/UIOX/10_BSP/build/x86_64/irq.o
+                0x0000000048000330                irq_init
+ .text.irq_request
+                0x0000000048000350       0x38 /Users/pramodkumar/Hack/WS/UIOX/10_BSP/build/x86_64/irq.o
+                0x0000000048000350                irq_request
+ .text.uiox_soc_hw_uart_putc
+                0x0000000048000388       0x1c /Users/pramodkumar/Hack/WS/UIOX/10_BSP/build/x86_64/uiox_soc_hw.o
+                0x0000000048000388                uiox_soc_hw_uart_putc
+ .text._udiv32.part.0
+                0x00000000480003a4       0x37 /Users/pramodkumar/Hack/WS/UIOX/10_BSP/build/x86_64/uiox_soc_stdio.o
+ .text._sink_putc
+                0x00000000480003db       0x43 /Users/pramodkumar/Hack/WS/UIOX/10_BSP/build/x86_64/uiox_soc_stdio.o
+ .text._put_hex
+                0x000000004800041e       0x78 /Users/pramodkumar/Hack/WS/UIOX/10_BSP/build/x86_64/uiox_soc_stdio.o
+ .text._udiv64_u32.constprop.0
+                0x0000000048000496       0x7f /Users/pramodkumar/Hack/WS/UIOX/10_BSP/build/x86_64/uiox_soc_stdio.o
+ .text._put_udec64
+                0x0000000048000515      0x151 /Users/pramodkumar/Hack/WS/UIOX/10_BSP/build/x86_64/uiox_soc_stdio.o
+ .text._vformat.constprop.0
+                0x0000000048000666      0x3e2 /Users/pramodkumar/Hack/WS/UIOX/10_BSP/build/x86_64/uiox_soc_stdio.o
+ .text.uiox_printf
+                0x0000000048000a48       0x53 /Users/pramodkumar/Hack/WS/UIOX/10_BSP/build/x86_64/uiox_soc_stdio.o
+                0x0000000048000a48                uiox_printf
+
+.iplt           0x0000000048000a9b        0x0
+ .iplt          0x0000000048000a9b        0x0 /Users/pramodkumar/Hack/WS/UIOX/10_BSP/build/x86_64/uiox_bsp_main.o
+
+.rodata         0x0000000048000aa0      0x341
+ *(.rodata .rodata.*)
+ .rodata.uiox_bsp_init.str1.1
+                0x0000000048000aa0      0x307 /Users/pramodkumar/Hack/WS/UIOX/10_BSP/build/x86_64/uiox_bsp_main.o
+                                         0xc2 (size before relaxing)
+ .rodata.uiox_bsp_jump_to_kernel.str1.1
+                0x0000000048000da7        0x0 /Users/pramodkumar/Hack/WS/UIOX/10_BSP/build/x86_64/uiox_bsp_main.o
+                                         0x21 (size before relaxing)
+ .rodata.uiox_bsp_entry_c.str1.1
+                0x0000000048000da7        0x0 /Users/pramodkumar/Hack/WS/UIOX/10_BSP/build/x86_64/uiox_bsp_main.o
+                                         0xf3 (size before relaxing)
+ .rodata.arch_init.str1.1
+                0x0000000048000da7        0x0 /Users/pramodkumar/Hack/WS/UIOX/10_BSP/build/x86_64/arch_init.o
+                                        0x12a (size before relaxing)
+ .rodata._vformat.constprop.0.str1.1
+                0x0000000048000da7        0x0 /Users/pramodkumar/Hack/WS/UIOX/10_BSP/build/x86_64/uiox_soc_stdio.o
+                                          0x7 (size before relaxing)
+ *fill*         0x0000000048000da7        0x9 
+ .rodata.lo.0   0x0000000048000db0       0x11 /Users/pramodkumar/Hack/WS/UIOX/10_BSP/build/x86_64/uiox_soc_stdio.o
+ *fill*         0x0000000048000dc1        0xf 
+ .rodata.hi.1   0x0000000048000dd0       0x11 /Users/pramodkumar/Hack/WS/UIOX/10_BSP/build/x86_64/uiox_soc_stdio.o
+
+.rela.dyn       0x0000000048000de8        0x0
+ .rela.got      0x0000000048000de8        0x0 /Users/pramodkumar/Hack/WS/UIOX/10_BSP/build/x86_64/uiox_bsp_main.o
+ .rela.iplt     0x0000000048000de8        0x0 /Users/pramodkumar/Hack/WS/UIOX/10_BSP/build/x86_64/uiox_bsp_main.o
+ .rela.text.arch_init
+                0x0000000048000de8        0x0 /Users/pramodkumar/Hack/WS/UIOX/10_BSP/build/x86_64/uiox_bsp_main.o
+ .rela.text.bsp_entry
+                0x0000000048000de8        0x0 /Users/pramodkumar/Hack/WS/UIOX/10_BSP/build/x86_64/uiox_bsp_main.o
+
+.data
+ *(.data .data.*)
+
+.got            0x0000000048000de8        0x0
+ .got           0x0000000048000de8        0x0 /Users/pramodkumar/Hack/WS/UIOX/10_BSP/build/x86_64/uiox_bsp_main.o
+
+.got.plt        0x0000000048000de8        0x0
+ .got.plt       0x0000000048000de8        0x0 /Users/pramodkumar/Hack/WS/UIOX/10_BSP/build/x86_64/uiox_bsp_main.o
+
+.igot.plt       0x0000000048000de8        0x0
+ .igot.plt      0x0000000048000de8        0x0 /Users/pramodkumar/Hack/WS/UIOX/10_BSP/build/x86_64/uiox_bsp_main.o
+
+.bss            0x0000000048000e00     0x1868
+                0x0000000048000e00                _bss_start = .
+ *(.bss .bss.*)
+ .bss.g_bsp_ready
+                0x0000000048000e00        0x4 /Users/pramodkumar/Hack/WS/UIOX/10_BSP/build/x86_64/uiox_bsp_main.o
+ *fill*         0x0000000048000e04       0x1c 
+ .bss.g_bsp_cfg
+                0x0000000048000e20       0x28 /Users/pramodkumar/Hack/WS/UIOX/10_BSP/build/x86_64/uiox_bsp_main.o
+ *fill*         0x0000000048000e48       0x18 
+ .bss.g_slots   0x0000000048000e60     0x1800 /Users/pramodkumar/Hack/WS/UIOX/10_BSP/build/x86_64/irq.o
+ .bss.s_ops     0x0000000048002660        0x8 /Users/pramodkumar/Hack/WS/UIOX/10_BSP/build/x86_64/uiox_soc_hw.o
+ *(COMMON)
+                0x0000000048002668                _bss_end = .
+                0x0000000048002670                . = ALIGN (0x10)
+
+.stack          0x0000000048002668    0x10000
+                0x0000000048012668                . = (. + STACK_SIZE)
+ *fill*         0x0000000048002668    0x10000 
+                0x0000000048012668                _stack_top = .
+
+/DISCARD/
+ *(.comment)
+ *(.note*)
+ *(.ARM.exidx*)
+ *(.ARM.extab*)
+LOAD /Users/pramodkumar/Hack/WS/UIOX/10_BSP/build/x86_64/uiox_bsp_main.o
+LOAD /Users/pramodkumar/Hack/WS/UIOX/10_BSP/build/x86_64/uiox_bsp_stubs.o
+LOAD /Users/pramodkumar/Hack/WS/UIOX/10_BSP/build/x86_64/arch_init.o
+LOAD /Users/pramodkumar/Hack/WS/UIOX/10_BSP/build/x86_64/arch_runtime.o
+LOAD /Users/pramodkumar/Hack/WS/UIOX/10_BSP/build/x86_64/irq.o
+LOAD /Users/pramodkumar/Hack/WS/UIOX/10_BSP/build/x86_64/uiox_soc_main.o
+LOAD /Users/pramodkumar/Hack/WS/UIOX/10_BSP/build/x86_64/uiox_soc_clk.o
+LOAD /Users/pramodkumar/Hack/WS/UIOX/10_BSP/build/x86_64/uiox_soc_dma.o
+LOAD /Users/pramodkumar/Hack/WS/UIOX/10_BSP/build/x86_64/uiox_soc_hw.o
+LOAD /Users/pramodkumar/Hack/WS/UIOX/10_BSP/build/x86_64/uiox_soc_irq.o
+LOAD /Users/pramodkumar/Hack/WS/UIOX/10_BSP/build/x86_64/uiox_soc_mem.o
+LOAD /Users/pramodkumar/Hack/WS/UIOX/10_BSP/build/x86_64/uiox_soc_pcie.o
+LOAD /Users/pramodkumar/Hack/WS/UIOX/10_BSP/build/x86_64/uiox_soc_post.o
+LOAD /Users/pramodkumar/Hack/WS/UIOX/10_BSP/build/x86_64/uiox_soc_power.o
+LOAD /Users/pramodkumar/Hack/WS/UIOX/10_BSP/build/x86_64/uiox_soc_psci.o
+LOAD /Users/pramodkumar/Hack/WS/UIOX/10_BSP/build/x86_64/uiox_soc_secboot.o
+LOAD /Users/pramodkumar/Hack/WS/UIOX/10_BSP/build/x86_64/uiox_soc_stdio.o
+LOAD /Users/pramodkumar/Hack/WS/UIOX/10_BSP/build/x86_64/uiox_soc_tz.o
+LOAD /Users/pramodkumar/Hack/WS/UIOX/10_BSP/build/x86_64/uiox_kernel_loader.o
+LOAD /Users/pramodkumar/Hack/WS/UIOX/10_BSP/build/x86_64/uiox_soc_x86.o
+LOAD /Users/pramodkumar/Hack/WS/UIOX/10_BSP/build/x86_64/uiox_soc_x86_init.o
+LOAD /Users/pramodkumar/Hack/WS/UIOX/10_BSP/build/x86_64/bsp_entry.o
+LOAD /Users/pramodkumar/Hack/WS/UIOX/10_BSP/build/x86_64/arch_context.o
+LOAD /Users/pramodkumar/Hack/WS/UIOX/10_BSP/build/x86_64/arch_irq.o
+OUTPUT(/Users/pramodkumar/Hack/WS/UIOX/10_BSP/build/x86_64/uiox_bsp.elf elf64-x86-64)
+
+.debug_info     0x0000000000000000     0x3038
+ .debug_info    0x0000000000000000      0x9ae /Users/pramodkumar/Hack/WS/UIOX/10_BSP/build/x86_64/uiox_bsp_main.o
+ .debug_info    0x00000000000009ae      0x227 /Users/pramodkumar/Hack/WS/UIOX/10_BSP/build/x86_64/uiox_bsp_stubs.o
+ .debug_info    0x0000000000000bd5      0x708 /Users/pramodkumar/Hack/WS/UIOX/10_BSP/build/x86_64/arch_init.o
+ .debug_info    0x00000000000012dd      0x5c0 /Users/pramodkumar/Hack/WS/UIOX/10_BSP/build/x86_64/irq.o
+ .debug_info    0x000000000000189d      0x63f /Users/pramodkumar/Hack/WS/UIOX/10_BSP/build/x86_64/uiox_soc_hw.o
+ .debug_info    0x0000000000001edc     0x1123 /Users/pramodkumar/Hack/WS/UIOX/10_BSP/build/x86_64/uiox_soc_stdio.o
+ .debug_info    0x0000000000002fff       0x39 /Users/pramodkumar/Hack/WS/UIOX/10_BSP/build/x86_64/bsp_entry.o
+
+.debug_abbrev   0x0000000000000000      0xd01
+ .debug_abbrev  0x0000000000000000      0x2e3 /Users/pramodkumar/Hack/WS/UIOX/10_BSP/build/x86_64/uiox_bsp_main.o
+ .debug_abbrev  0x00000000000002e3      0x11b /Users/pramodkumar/Hack/WS/UIOX/10_BSP/build/x86_64/uiox_bsp_stubs.o
+ .debug_abbrev  0x00000000000003fe      0x1f8 /Users/pramodkumar/Hack/WS/UIOX/10_BSP/build/x86_64/arch_init.o
+ .debug_abbrev  0x00000000000005f6      0x1d4 /Users/pramodkumar/Hack/WS/UIOX/10_BSP/build/x86_64/irq.o
+ .debug_abbrev  0x00000000000007ca      0x1df /Users/pramodkumar/Hack/WS/UIOX/10_BSP/build/x86_64/uiox_soc_hw.o
+ .debug_abbrev  0x00000000000009a9      0x330 /Users/pramodkumar/Hack/WS/UIOX/10_BSP/build/x86_64/uiox_soc_stdio.o
+ .debug_abbrev  0x0000000000000cd9       0x28 /Users/pramodkumar/Hack/WS/UIOX/10_BSP/build/x86_64/bsp_entry.o
+
+.debug_loclists
+                0x0000000000000000     0x13b9
+ .debug_loclists
+                0x0000000000000000      0x389 /Users/pramodkumar/Hack/WS/UIOX/10_BSP/build/x86_64/uiox_bsp_main.o
+ .debug_loclists
+                0x0000000000000389      0x1c1 /Users/pramodkumar/Hack/WS/UIOX/10_BSP/build/x86_64/arch_init.o
+ .debug_loclists
+                0x000000000000054a      0x1e3 /Users/pramodkumar/Hack/WS/UIOX/10_BSP/build/x86_64/irq.o
+ .debug_loclists
+                0x000000000000072d       0x94 /Users/pramodkumar/Hack/WS/UIOX/10_BSP/build/x86_64/uiox_soc_hw.o
+ .debug_loclists
+                0x00000000000007c1      0xbf8 /Users/pramodkumar/Hack/WS/UIOX/10_BSP/build/x86_64/uiox_soc_stdio.o
+
+.debug_aranges  0x0000000000000000      0x420
+ .debug_aranges
+                0x0000000000000000       0x90 /Users/pramodkumar/Hack/WS/UIOX/10_BSP/build/x86_64/uiox_bsp_main.o
+ .debug_aranges
+                0x0000000000000090       0x90 /Users/pramodkumar/Hack/WS/UIOX/10_BSP/build/x86_64/uiox_bsp_stubs.o
+ .debug_aranges
+                0x0000000000000120       0x40 /Users/pramodkumar/Hack/WS/UIOX/10_BSP/build/x86_64/arch_init.o
+ .debug_aranges
+                0x0000000000000160       0x70 /Users/pramodkumar/Hack/WS/UIOX/10_BSP/build/x86_64/irq.o
+ .debug_aranges
+                0x00000000000001d0      0x160 /Users/pramodkumar/Hack/WS/UIOX/10_BSP/build/x86_64/uiox_soc_hw.o
+ .debug_aranges
+                0x0000000000000330       0xc0 /Users/pramodkumar/Hack/WS/UIOX/10_BSP/build/x86_64/uiox_soc_stdio.o
+ .debug_aranges
+                0x00000000000003f0       0x30 /Users/pramodkumar/Hack/WS/UIOX/10_BSP/build/x86_64/bsp_entry.o
+
+.debug_rnglists
+                0x0000000000000000      0x342
+ .debug_rnglists
+                0x0000000000000000       0xa5 /Users/pramodkumar/Hack/WS/UIOX/10_BSP/build/x86_64/uiox_bsp_main.o
+ .debug_rnglists
+                0x00000000000000a5       0x53 /Users/pramodkumar/Hack/WS/UIOX/10_BSP/build/x86_64/uiox_bsp_stubs.o
+ .debug_rnglists
+                0x00000000000000f8       0x32 /Users/pramodkumar/Hack/WS/UIOX/10_BSP/build/x86_64/arch_init.o
+ .debug_rnglists
+                0x000000000000012a       0x4f /Users/pramodkumar/Hack/WS/UIOX/10_BSP/build/x86_64/irq.o
+ .debug_rnglists
+                0x0000000000000179       0xd5 /Users/pramodkumar/Hack/WS/UIOX/10_BSP/build/x86_64/uiox_soc_hw.o
+ .debug_rnglists
+                0x000000000000024e       0xf4 /Users/pramodkumar/Hack/WS/UIOX/10_BSP/build/x86_64/uiox_soc_stdio.o
+
+.debug_line     0x0000000000000000     0x1817
+ .debug_line    0x0000000000000000      0x3d6 /Users/pramodkumar/Hack/WS/UIOX/10_BSP/build/x86_64/uiox_bsp_main.o
+ .debug_line    0x00000000000003d6      0x108 /Users/pramodkumar/Hack/WS/UIOX/10_BSP/build/x86_64/uiox_bsp_stubs.o
+ .debug_line    0x00000000000004de      0x1dc /Users/pramodkumar/Hack/WS/UIOX/10_BSP/build/x86_64/arch_init.o
+ .debug_line    0x00000000000006ba      0x261 /Users/pramodkumar/Hack/WS/UIOX/10_BSP/build/x86_64/irq.o
+ .debug_line    0x000000000000091b      0x4df /Users/pramodkumar/Hack/WS/UIOX/10_BSP/build/x86_64/uiox_soc_hw.o
+ .debug_line    0x0000000000000dfa      0x9c0 /Users/pramodkumar/Hack/WS/UIOX/10_BSP/build/x86_64/uiox_soc_stdio.o
+ .debug_line    0x00000000000017ba       0x5d /Users/pramodkumar/Hack/WS/UIOX/10_BSP/build/x86_64/bsp_entry.o
+
+.debug_str      0x0000000000000000      0xa82
+ .debug_str     0x0000000000000000      0xa82 /Users/pramodkumar/Hack/WS/UIOX/10_BSP/build/x86_64/uiox_bsp_main.o
+                                        0x3c3 (size before relaxing)
+ .debug_str     0x0000000000000a82        0x0 /Users/pramodkumar/Hack/WS/UIOX/10_BSP/build/x86_64/uiox_bsp_stubs.o
+                                        0x1cf (size before relaxing)
+ .debug_str     0x0000000000000a82        0x0 /Users/pramodkumar/Hack/WS/UIOX/10_BSP/build/x86_64/arch_init.o
+                                        0x2ac (size before relaxing)
+ .debug_str     0x0000000000000a82        0x0 /Users/pramodkumar/Hack/WS/UIOX/10_BSP/build/x86_64/irq.o
+                                        0x268 (size before relaxing)
+ .debug_str     0x0000000000000a82        0x0 /Users/pramodkumar/Hack/WS/UIOX/10_BSP/build/x86_64/uiox_soc_hw.o
+                                        0x611 (size before relaxing)
+ .debug_str     0x0000000000000a82        0x0 /Users/pramodkumar/Hack/WS/UIOX/10_BSP/build/x86_64/uiox_soc_stdio.o
+                                        0x2b6 (size before relaxing)
+ .debug_str     0x0000000000000a82        0x0 /Users/pramodkumar/Hack/WS/UIOX/10_BSP/build/x86_64/bsp_entry.o
+                                         0x7b (size before relaxing)
+
+.debug_line_str
+                0x0000000000000000      0x409
+ .debug_line_str
+                0x0000000000000000      0x409 /Users/pramodkumar/Hack/WS/UIOX/10_BSP/build/x86_64/uiox_bsp_main.o
+                                        0x15d (size before relaxing)
+ .debug_line_str
+                0x0000000000000409        0x0 /Users/pramodkumar/Hack/WS/UIOX/10_BSP/build/x86_64/uiox_bsp_stubs.o
+                                         0xd7 (size before relaxing)
+ .debug_line_str
+                0x0000000000000409        0x0 /Users/pramodkumar/Hack/WS/UIOX/10_BSP/build/x86_64/arch_init.o
+                                        0x1e7 (size before relaxing)
+ .debug_line_str
+                0x0000000000000409        0x0 /Users/pramodkumar/Hack/WS/UIOX/10_BSP/build/x86_64/irq.o
+                                        0x173 (size before relaxing)
+ .debug_line_str
+                0x0000000000000409        0x0 /Users/pramodkumar/Hack/WS/UIOX/10_BSP/build/x86_64/uiox_soc_hw.o
+                                        0x143 (size before relaxing)
+ .debug_line_str
+                0x0000000000000409        0x0 /Users/pramodkumar/Hack/WS/UIOX/10_BSP/build/x86_64/uiox_soc_stdio.o
+                                        0x154 (size before relaxing)
+ .debug_line_str
+                0x0000000000000409        0x0 /Users/pramodkumar/Hack/WS/UIOX/10_BSP/build/x86_64/bsp_entry.o
+                                         0x5e (size before relaxing)

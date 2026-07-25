@@ -1,5 +1,5 @@
 /*
- * 33_ProcessControlSubsystem/uiox_kernel_main.c
+ * uiox_kernel_main.c
  *
  * UIOX Kernel Entry Point — all four architectures.
  *
@@ -28,103 +28,202 @@
  *     a0 = dtb_pa    — Physical address of Device Tree Blob
  *     a1 = args_pa   — Physical address of uiox_boot_args_t
  *
- * Call chain after this function:
+ * BSP_MODE — controlled by the build system (-DUIOX_BSP_DYNAMIC_BOOT):
+ *
+ *   Static  (default, no define):
+ *     BSP is linked into this ELF.  uiox_kernel_main() calls arch_init()
+ *     and uiox_soc_init() itself via uiox_bsp_init().
+ *     Build:  make arm64 LINK=yes
+ *
+ *   Dynamic (UIOX_BSP_DYNAMIC_BOOT defined):
+ *     BSP ran as a standalone secondary bootloader before the kernel.
+ *     arch_init() and uiox_soc_init() are already complete.
+ *     uiox_kernel_main() skips those steps and proceeds directly to
+ *     subsystem init.
+ *     Build:  make kernel-dynamic-arm64
+ *
+ * Call chain:
  *
  *   uiox_kernel_main()
  *       ├─▶ early_console_init()          — UART output before MMU
  *       ├─▶ bss_zero()                    — clear BSS segment
  *       ├─▶ stack_setup()                 — set kernel stack pointer
- *       ├─▶ arch_init()                   — GIC/APIC/PLIC, cache, MMU on
+ *       ├─▶ [static only] arch_init()     — GIC/APIC/PLIC, cache, MMU on
  *       │       └─▶ uiox_soc_init()       — SoC detect + clock + PM
  *       ├─▶ uiox_ks_boot_entry()          — 12_ksign verify + PCR extend
  *       ├─▶ uiox_fb_shell_ready()         — 13_fboot timing milestone
  *       ├─▶ uiox_proc_init()              — 33_PCS scheduler + process table
  *       └─▶ uiox_shell_start()            — 50_UIX/01_shell first prompt
  *
- * @version 1.0.0
- * @date    2026-07-16
+ * @version 1.1.0
+ * @date    2026-07-25
  */
 
 /*
- * FIX: Include order corrected to eliminate conflicting type redefinitions.
+ * Include order: uiox_fw_types.h (via uiox_soc.h) must come first so its
+ * compiler-builtin typedefs (__INT64_TYPE__ etc.) win over the "long long"
+ * aliases in uiox_boot_types.h.  Everything else follows.
  *
- * uiox_fw_types.h (pulled in by uiox_soc.h and uiox_fw_uart.h) defines
- * int64_t/uint64_t/intptr_t/uintptr_t/size_t using compiler built-in
- * __INT64_TYPE__ etc., which are the authoritative definitions for the
- * target ABI.  uiox_boot_types.h defines the same types as
- * "signed long long" / "unsigned long long", which conflicts on AArch64
- * where the compiler maps __INT64_TYPE__ to "long" not "long long".
- *
- * Solution: include FwHal/SoC headers first so the compiler-builtin
- * typedefs win, then include uiox_boot_types.h which must only add the
- * structs/enums/macros that are not already defined.  uiox_boot_types.h
- * uses standard include guards so anything already declared is skipped.
- *
- * uiox_aslr.h is removed: it is not used anywhere in this translation
- * unit (ASLR is applied by uiox_ks_boot_entry() internally).
+ * NOTE: uiox_bsp.h is intentionally NOT included here.  It re-declares
+ * types already defined by uiox_boot_handoff.h (uiox_mem_region_t,
+ * uiox_mem_map_t, uiox_boot_args_t, UIOX_BOOT_ARGS_MAGIC) and uiox_fboot.h
+ * (uiox_fb_mode_t, uiox_fb_master_ctx_t, uiox_fb_init, uiox_fb_shell_ready)
+ * with conflicting struct layouts and return types, causing -Werror failures.
+ * The two BSP symbols actually needed (uiox_bsp_config_t + uiox_bsp_init)
+ * are forward-declared below so the static build can call uiox_bsp_init()
+ * without pulling in the conflicting header.
  */
 #include "uiox_soc.h"           /* pulls uiox_fw_types.h — primitive types  */
 #include "uiox_fw_uart.h"       /* PL011/UART macros — after uiox_soc.h     */
 #include "uiox_boot_handoff.h"  /* uiox_boot_args_t, uiox_boot_handoff_*    */
 #include "uiox_boot_types.h"    /* remaining boot enums/structs/macros       */
-#include "uiox_fboot.h"         /* uiox_fb_master_ctx_t, fb_init/ready/report */
+#include "uiox_fboot.h"         /* uiox_fb_master_ctx_t, fb_init/ready/report*/
+
+/*
+ * Static build only: forward-declare the two BSP symbols we need without
+ * including uiox_bsp.h (which conflicts with the headers above).
+ * Definitions live in 10_BSP/src/uiox_bsp_main.c, linked via libbsp.a.
+ */
+#if !defined(UIOX_BSP_DYNAMIC_BOOT)
+typedef struct {
+    uint32_t flags;
+    uint64_t dtb_pa;
+    uint64_t args_pa;
+    uint64_t kernel_load_pa;
+} uiox_bsp_config_t;
+
+#define UIOX_BSP_OK           0
+#define UIOX_BSP_FL_DYN_LOAD  (1u << 0)
+
+extern int uiox_bsp_init(const uiox_bsp_config_t *cfg);
+#endif
 
 /* ── Forward declarations of subsystem init functions ────────────────── */
-extern int  arch_init(void);                /* 10_Arch/<arch>/src/arch_init.c  */
-extern void uiox_ks_boot_entry(            /* 50_UIX/12_ksign/src/uiox_ksign.c*/
-                const void *image,
-                size_t      image_size,
-                uintptr_t   text_base,
-                size_t      text_size,
-                uintptr_t   rodata_base,
-                size_t      rodata_size);
-extern void uiox_proc_init(void);          /* 33_ProcessControlSubsystem       */
-extern void uiox_shell_start(void);        /* 50_UIX/01_shell                  */
+extern int  arch_init(void);               /* 10_Arch/<arch>/src/arch_init.c  */
+extern void uiox_proc_init(void);         /* 33_PCS                           */
 
-/* ── Kernel BSS symbols (provided by the linker script) ──────────────── */
+/* Forward declaration so weak stubs below can call early_puts()
+ * before its static definition appears later in this file.        */
+static void early_puts(const char *s);
+
+/*
+ * Weak stub implementations for subsystems not yet built.
+ *
+ * __attribute__((weak)) — the linker replaces these automatically when the
+ * real implementations appear in a linked library. No source changes needed.
+ *
+ * 50_UIX/12_ksign — kernel image signing / verification
+ * 50_UIX/13_fboot — fast-boot timing milestones
+ * 50_UIX/01_shell — first user shell
+ * 33_PCS internal — scheduler and timer (33_PCS sub-Makefiles)
+ */
+__attribute__((weak))
+void uiox_ks_boot_entry(const void *image,
+                         size_t      image_size,
+                         uintptr_t   text_base,
+                         size_t      text_size,
+                         uintptr_t   rodata_base,
+                         size_t      rodata_size)
+{
+    (void)image; (void)image_size;
+    (void)text_base; (void)text_size;
+    (void)rodata_base; (void)rodata_size;
+    early_puts("[kernel]   uiox_ks_boot_entry: stub (12_ksign not built)\r\n");
+}
+
+__attribute__((weak))
+uiox_fb_err_t uiox_fb_init(uiox_fb_master_ctx_t *ctx,
+                             uiox_fb_mode_t        mode,
+                             uint64_t              budget_ns)
+{
+    (void)ctx; (void)mode; (void)budget_ns;
+    early_puts("[kernel]   uiox_fb_init: stub (13_fboot not built)\r\n");
+    return 0;
+}
+
+__attribute__((weak))
+uiox_fb_err_t uiox_fb_shell_ready(uiox_fb_master_ctx_t *ctx)
+{
+    (void)ctx;
+    early_puts("[kernel]   uiox_fb_shell_ready: stub (13_fboot not built)\r\n");
+    return 0;
+}
+
+__attribute__((weak))
+void uiox_fb_report(const uiox_fb_master_ctx_t *ctx)
+{
+    (void)ctx;
+    early_puts("[kernel]   uiox_fb_report: stub (13_fboot not built)\r\n");
+}
+
+__attribute__((weak))
+void uiox_shell_start(void)
+{
+    early_puts("[kernel]   uiox_shell_start: stub (01_shell not built)\r\n");
+    early_puts("[kernel]   System halted — shell not available.\r\n");
+    for (;;) {
+#if defined(__x86_64__)
+        __asm__ volatile("hlt");
+#else
+        __asm__ volatile("wfi");
+#endif
+    }
+}
+
+__attribute__((weak))
+void uiox_sched_init(void)
+{
+    early_puts("[kernel]   uiox_sched_init: stub (33_PCS/01_schedular not built)\r\n");
+}
+
+__attribute__((weak))
+void uiox_timer_init(void)
+{
+    early_puts("[kernel]   uiox_timer_init: stub (33_PCS timer not built)\r\n");
+}
+
+/* ── Kernel BSS / stack symbols (provided by the linker script) ───────── */
 extern uint8_t _bss_start[];
 extern uint8_t _bss_end[];
-extern uint8_t _stack_top[];               /* top of kernel stack region        */
+extern uint8_t _stack_top[];
+extern uint8_t _text_start[];
+extern uint8_t _text_end[];
+extern uint8_t _rodata_start[];
+extern uint8_t _rodata_end[];
 
-/* ── Global boot-args pointer — set once, read-only thereafter ────────── */
-static const uiox_boot_args_t *g_boot_args  = NULL;
-static uint64_t                g_dtb_pa     = 0u;
+/* ── Global boot-args pointer — set once at entry, read-only thereafter ─ */
+static const uiox_boot_args_t *g_boot_args = NULL;
+static uint64_t                g_dtb_pa    = 0u;
 
 /* =========================================================================
  * Internal helpers
  * ====================================================================== */
 
-/* ── Zero BSS without libc ─────────────────────────────────────────── */
 static void bss_zero(void)
 {
     uint8_t *p = _bss_start;
     while (p < _bss_end) *p++ = 0u;
 }
 
-/* ── Architecture-specific stack pointer setup ─────────────────────── */
 static void stack_setup(void)
 {
 #if defined(__aarch64__)
-    /*
-     * Set SP_EL1 to the top of the kernel stack region defined by the
-     * linker script.  Must be 16-byte aligned per AArch64 ABI.
-     */
     __asm__ volatile(
         "mov  sp, %0\n\t"
-        "msr  sp_el0, xzr\n\t"   /* clear user-mode stack (unused at init) */
+        "msr  sp_el0, xzr\n\t"
         :: "r"((uint64_t)_stack_top & ~0xFull)
         : "memory"
     );
 #elif defined(__arm__)
     __asm__ volatile(
         "mov  sp, %0\n\t"
-        :: "r"((uint32_t)_stack_top & ~7u)  /* ARM32: 8-byte aligned */
+        :: "r"((uint32_t)_stack_top & ~7u)
         : "memory"
     );
 #elif defined(__x86_64__)
     __asm__ volatile(
         "movq %0, %%rsp\n\t"
-        :: "r"((uint64_t)_stack_top & ~0xFull)  /* x86: 16-byte aligned */
+        :: "r"((uint64_t)_stack_top & ~0xFull)
         : "memory"
     );
 #elif defined(__riscv)
@@ -136,16 +235,14 @@ static void stack_setup(void)
 #endif
 }
 
-/* ── Minimal early UART output (before MMU/caches are on) ──────────── */
 static void early_putc(char c)
 {
 #if defined(__aarch64__) || defined(__arm__)
-    /* PL011 UART — poll FR.TXFF (bit 5) then write DR */
     volatile uint32_t *fr = (volatile uint32_t *)(
 #  if defined(__aarch64__)
-        0x09000000UL + 0x018u    /* ARM64 QEMU virt PL011 FR */
+        0x09000000UL + 0x018u
 #  else
-        0x10009000UL + 0x018u    /* ARM32 versatilepb PL011 FR */
+        0x10009000UL + 0x018u
 #  endif
     );
     volatile uint32_t *dr = (volatile uint32_t *)(
@@ -155,16 +252,12 @@ static void early_putc(char c)
         0x10009000UL + 0x000u
 #  endif
     );
-    while (*fr & (1u << 5u)) {}   /* wait while TX FIFO full */
+    while (*fr & (1u << 5u)) {}
     *dr = (uint32_t)(uint8_t)c;
-
 #elif defined(__x86_64__)
-    /* NS16550A COM1 — poll LSR.THRE (bit 5) then write THR */
     while (!(({uint8_t v; __asm__ volatile("inb %1,%0":"=a"(v):"Nd"((uint16_t)0x3FDu)); v;}) & (1u<<5u))) {}
     __asm__ volatile("outb %0,%1" :: "a"((uint8_t)c), "Nd"((uint16_t)0x3F8u));
-
 #elif defined(__riscv)
-    /* NS16550A UART — base 0x10000000, LSR offset 5, THR offset 0 */
     volatile uint32_t *lsr = (volatile uint32_t *)(0x10000000UL + 0x05u);
     volatile uint32_t *thr = (volatile uint32_t *)(0x10000000UL + 0x00u);
     while (!(*lsr & (1u << 5u))) {}
@@ -180,7 +273,6 @@ static void early_puts(const char *s)
     }
 }
 
-/* Simple unsigned 64-bit hex print for early debug */
 static void early_puthex(uint64_t v)
 {
     static const char hex[] = "0123456789ABCDEF";
@@ -190,154 +282,37 @@ static void early_puthex(uint64_t v)
 }
 
 /* =========================================================================
- * ── ARM64 kernel entry ────────────────────────────────────────────────
- *
- * uiox_boot_arch_jump() sets:
- *   x0 = dtb_pa
- *   x1 = args_pa
- *   x2 = x3 = 0
- *
- * The __asm__ register variables capture x0/x1 BEFORE any C prologue
- * can overwrite them.  This is the standard Linux kernel pattern.
+ * arch_init wrapper — skipped in dynamic mode (BSP already ran it)
  * ====================================================================== */
-#if defined(__aarch64__)
-
-void __attribute__((noreturn))
-uiox_kernel_main(void)
+static int kernel_arch_init(void)
 {
-    /*
-     * Capture x0/x1 immediately — these hold dtb_pa and args_pa
-     * as placed by uiox_boot_arch_jump().  Any C function call would
-     * corrupt x0/x1, so we must pin them to named variables first.
-     */
-    register uint64_t dtb_pa  __asm__("x0");
-    register uint64_t args_pa __asm__("x1");
-
-    /* Prevent the compiler reordering anything before this read */
-    __asm__ volatile("" : "=r"(dtb_pa), "=r"(args_pa));
-
-    /* ── 1. Set up the kernel stack ────────────────────────────────── */
-    stack_setup();
-
-    /* ── 2. Zero BSS segment ───────────────────────────────────────── */
-    bss_zero();
-
-    /* ── 3. Save boot arguments to globals ────────────────────────── */
-    g_dtb_pa    = dtb_pa;
-    g_boot_args = (const uiox_boot_args_t *)(uintptr_t)args_pa;
-
-    /* ── 4. Early console — UART output before MMU ─────────────────── */
-    early_puts("\r\n[kernel] UIOX kernel entry (ARM64)\r\n");
-    early_puts("[kernel]   dtb_pa   = ");
-    early_puthex(dtb_pa);
-    early_puts("\r\n[kernel]   args_pa  = ");
-    early_puthex(args_pa);
-    early_puts("\r\n");
-
-    early_puts("[kernel]   arch     = ARM64 / AArch64\r\n");
-    early_puts("[kernel]   MMU      = OFF (enabling in arch_init)\r\n");
-
-    /* ── 5. Architecture init: GIC, MMU, caches, UART irq ─────────── */
-    early_puts("[kernel] arch_init()...\r\n");
-    int rc = arch_init();
-    if (rc != 0) {
-        early_puts("[kernel] FATAL: arch_init failed\r\n");
-        for (;;) __asm__ volatile("wfi");
-    }
-
-    /* ── 6. SoC init (clock, PM) — called inside arch_init() ─────── */
-    /* uiox_soc_init() is called from arch_init() →
-     *   10_Arch/arm64/src/arch_init.c calls uiox_soc_init()
-     *   which calls uiox_soc_init_arm64() from 02_FwHal              */
-
-    /* ── 7. Kernel signature verification (12_ksign) ──────────────── */
-    early_puts("[kernel] uiox_ks_boot_entry()...\r\n");
-    /*
-     * Pass kernel text section boundaries.
-     * In a real build these come from linker symbols __text_start/__text_end.
-     * Here we use the load address from boot args as a safe default.
-     */
-    extern uint8_t _text_start[];
-    extern uint8_t _text_end[];
-    extern uint8_t _rodata_start[];
-    extern uint8_t _rodata_end[];
-
-    uiox_ks_boot_entry(
-        (const void *)(uintptr_t)g_boot_args->kernel_entry,
-        0u,                            /* image_size — 0 = skip re-verify */
-        (uintptr_t)_text_start,
-        (size_t)(_text_end   - _text_start),
-        (uintptr_t)_rodata_start,
-        (size_t)(_rodata_end - _rodata_start)
-    );
-
-    /* ── 8. Fast-boot milestone: shell is ready ────────────────────── */
-    early_puts("[kernel] uiox_fb_shell_ready()...\r\n");
-    uiox_fb_master_ctx_t fb_ctx;
-    uiox_fb_init(&fb_ctx, UIOX_FB_MODE_COLD, 3000000u);
-    uiox_fb_shell_ready(&fb_ctx);
-    uiox_fb_report(&fb_ctx);
-
-    /* ── 9. Process control subsystem ─────────────────────────────── */
-    early_puts("[kernel] uiox_proc_init()...\r\n");
-    uiox_proc_init();
-
-    /* ── 10. Spawn shell — first user-visible prompt ───────────────── */
-    early_puts("[kernel] uiox_shell_start()...\r\n");
-    uiox_shell_start();
-
-    /* ── Should never reach here ─────────────────────────────────── */
-    early_puts("[kernel] FATAL: shell returned — halting\r\n");
-    for (;;) __asm__ volatile("wfi");
+#if defined(UIOX_BSP_DYNAMIC_BOOT)
+    early_puts("[kernel]   arch_init: skipped (BSP dynamic boot)\r\n");
+    return 0;
+#else
+    return arch_init();
+#endif
 }
 
 /* =========================================================================
- * ── ARM32 kernel entry ────────────────────────────────────────────────
- *
- * uiox_boot_arch_jump() sets:
- *   r0 = 0  (machine type — unused with DTB)
- *   r1 = 0  (reserved)
- *   r2 = dtb_pa
- *   r3 = args_pa
+ * Common kernel init — called from every arch entry after boot args saved
  * ====================================================================== */
-#elif defined(__arm__)
-
-void __attribute__((noreturn))
-uiox_kernel_main(void)
+static void __attribute__((noreturn)) kernel_common_init(void)
 {
-    /* Capture r2/r3 before any C function corrupts them */
-    register uint32_t dtb_pa  __asm__("r2");
-    register uint32_t args_pa __asm__("r3");
-    __asm__ volatile("" : "=r"(dtb_pa), "=r"(args_pa));
-
-    /* ── 1. Stack and BSS ──────────────────────────────────────────── */
-    stack_setup();
-    bss_zero();
-
-    /* ── 2. Save boot arguments ────────────────────────────────────── */
-    g_dtb_pa    = (uint64_t)dtb_pa;
-    g_boot_args = (const uiox_boot_args_t *)(uintptr_t)args_pa;
-
-    /* ── 3. Early console ──────────────────────────────────────────── */
-    early_puts("\r\n[kernel] UIOX kernel entry (ARM32)\r\n");
-    early_puts("[kernel]   dtb_pa   = ");
-    early_puthex((uint64_t)dtb_pa);
-    early_puts("\r\n[kernel]   args_pa  = ");
-    early_puthex((uint64_t)args_pa);
-    early_puts("\r\n");
-    early_puts("[kernel]   arch     = ARM32 / ARMv7-A\r\n");
-
-    /* ── 4. Architecture init ──────────────────────────────────────── */
     early_puts("[kernel] arch_init()...\r\n");
-    int rc = arch_init();
+    int rc = kernel_arch_init();
     if (rc != 0) {
         early_puts("[kernel] FATAL: arch_init failed\r\n");
-        for (;;) __asm__ volatile("wfi");
+        for (;;) {
+#if defined(__x86_64__)
+            __asm__ volatile("hlt");
+#else
+            __asm__ volatile("wfi");
+#endif
+        }
     }
 
-    /* ── 5. Signature verify, fast-boot, process init, shell ──────── */
     early_puts("[kernel] uiox_ks_boot_entry()...\r\n");
-    extern uint8_t _text_start[], _text_end[], _rodata_start[], _rodata_end[];
     uiox_ks_boot_entry(
         (const void *)(uintptr_t)g_boot_args->kernel_entry,
         0u,
@@ -360,20 +335,85 @@ uiox_kernel_main(void)
     uiox_shell_start();
 
     early_puts("[kernel] FATAL: shell returned — halting\r\n");
-    for (;;) __asm__ volatile("wfi");
+    for (;;) {
+#if defined(__x86_64__)
+        __asm__ volatile("hlt");
+#else
+        __asm__ volatile("wfi");
+#endif
+    }
+}
+
+/* =========================================================================
+ * ── ARM64 kernel entry ────────────────────────────────────────────────
+ *
+ * uiox_boot_arch_jump() sets:  x0 = dtb_pa,  x1 = args_pa
+ * ====================================================================== */
+#if defined(__aarch64__)
+
+void __attribute__((noreturn))
+uiox_kernel_main(void)
+{
+    register uint64_t dtb_pa  __asm__("x0");
+    register uint64_t args_pa __asm__("x1");
+    __asm__ volatile("" : "=r"(dtb_pa), "=r"(args_pa));
+
+    stack_setup();
+    bss_zero();
+
+    g_dtb_pa    = dtb_pa;
+    g_boot_args = (const uiox_boot_args_t *)(uintptr_t)args_pa;
+
+    early_puts("\r\n[kernel] UIOX kernel entry (ARM64)\r\n");
+    early_puts("[kernel]   dtb_pa   = "); early_puthex(dtb_pa);  early_puts("\r\n");
+    early_puts("[kernel]   args_pa  = "); early_puthex(args_pa); early_puts("\r\n");
+    early_puts("[kernel]   arch     = ARM64 / AArch64\r\n");
+#if defined(UIOX_BSP_DYNAMIC_BOOT)
+    early_puts("[kernel]   boot     = dynamic (BSP secondary bootloader)\r\n");
+#else
+    early_puts("[kernel]   boot     = static (BSP linked)\r\n");
+#endif
+
+    kernel_common_init();
+}
+
+/* =========================================================================
+ * ── ARM32 kernel entry ────────────────────────────────────────────────
+ *
+ * uiox_boot_arch_jump() sets:  r2 = dtb_pa,  r3 = args_pa
+ * ====================================================================== */
+#elif defined(__arm__)
+
+void __attribute__((noreturn))
+uiox_kernel_main(void)
+{
+    register uint32_t dtb_pa  __asm__("r2");
+    register uint32_t args_pa __asm__("r3");
+    __asm__ volatile("" : "=r"(dtb_pa), "=r"(args_pa));
+
+    stack_setup();
+    bss_zero();
+
+    g_dtb_pa    = (uint64_t)dtb_pa;
+    g_boot_args = (const uiox_boot_args_t *)(uintptr_t)args_pa;
+
+    early_puts("\r\n[kernel] UIOX kernel entry (ARM32)\r\n");
+    early_puts("[kernel]   dtb_pa   = "); early_puthex((uint64_t)dtb_pa);  early_puts("\r\n");
+    early_puts("[kernel]   args_pa  = "); early_puthex((uint64_t)args_pa); early_puts("\r\n");
+    early_puts("[kernel]   arch     = ARM32 / ARMv7-A\r\n");
+#if defined(UIOX_BSP_DYNAMIC_BOOT)
+    early_puts("[kernel]   boot     = dynamic (BSP secondary bootloader)\r\n");
+#else
+    early_puts("[kernel]   boot     = static (BSP linked)\r\n");
+#endif
+
+    kernel_common_init();
 }
 
 /* =========================================================================
  * ── x86-64 kernel entry ───────────────────────────────────────────────
  *
- * uiox_boot_arch_jump() jumps via JMPQ *RAX.
- * SysV AMD64 ABI on entry:
- *   rdi = args_pa
- *   rsi = dtb_pa
- *   rdx = 0
- *
- * Because this is called via JMPQ (not CALL), there is no return
- * address on the stack.  The function is __attribute__((noreturn)).
+ * SysV ABI:  rdi = args_pa,  rsi = dtb_pa
  * ====================================================================== */
 #elif defined(__x86_64__)
 
@@ -381,166 +421,72 @@ void __attribute__((noreturn))
 uiox_kernel_main(uiox_boot_args_t *args_pa_ptr,
                  uint64_t          dtb_pa_val)
 {
-    /*
-     * On x86 the bootloader uses the SysV ABI:
-     *   rdi → args_pa_ptr   (first argument)
-     *   rsi → dtb_pa_val    (second argument)
-     * The C function signature captures them directly.
-     */
-
-    /* ── 1. Stack and BSS ──────────────────────────────────────────── */
     stack_setup();
     bss_zero();
 
-    /* ── 2. Save boot arguments ────────────────────────────────────── */
     g_dtb_pa    = dtb_pa_val;
     g_boot_args = (const uiox_boot_args_t *)args_pa_ptr;
 
-    /* ── 3. Early console (COM1 16550A) ────────────────────────────── */
     early_puts("\r\n[kernel] UIOX kernel entry (x86-64)\r\n");
-    early_puts("[kernel]   args_pa  = ");
-    early_puthex((uint64_t)(uintptr_t)args_pa_ptr);
-    early_puts("\r\n[kernel]   dtb_pa   = ");
-    early_puthex(dtb_pa_val);
-    early_puts("\r\n");
+    early_puts("[kernel]   args_pa  = "); early_puthex((uint64_t)(uintptr_t)args_pa_ptr); early_puts("\r\n");
+    early_puts("[kernel]   dtb_pa   = "); early_puthex(dtb_pa_val); early_puts("\r\n");
     early_puts("[kernel]   arch     = x86-64 / AMD64\r\n");
+#if defined(UIOX_BSP_DYNAMIC_BOOT)
+    early_puts("[kernel]   boot     = dynamic (BSP secondary bootloader)\r\n");
+#else
+    early_puts("[kernel]   boot     = static (BSP linked)\r\n");
+#endif
 
-    /* ── 4. Architecture init ──────────────────────────────────────── */
-    early_puts("[kernel] arch_init()...\r\n");
-    int rc = arch_init();
-    if (rc != 0) {
-        early_puts("[kernel] FATAL: arch_init failed\r\n");
-        for (;;) __asm__ volatile("hlt");
-    }
-
-    /* ── 5. Signature verify ───────────────────────────────────────── */
-    early_puts("[kernel] uiox_ks_boot_entry()...\r\n");
-    extern uint8_t _text_start[], _text_end[], _rodata_start[], _rodata_end[];
-    uiox_ks_boot_entry(
-        (const void *)(uintptr_t)g_boot_args->kernel_entry,
-        0u,
-        (uintptr_t)_text_start,
-        (size_t)(_text_end   - _text_start),
-        (uintptr_t)_rodata_start,
-        (size_t)(_rodata_end - _rodata_start)
-    );
-
-    /* ── 6. Fast-boot milestone ────────────────────────────────────── */
-    early_puts("[kernel] uiox_fb_shell_ready()...\r\n");
-    uiox_fb_master_ctx_t fb_ctx;
-    uiox_fb_init(&fb_ctx, UIOX_FB_MODE_COLD, 3000000u);
-    uiox_fb_shell_ready(&fb_ctx);
-    uiox_fb_report(&fb_ctx);
-
-    /* ── 7. Process init and shell ─────────────────────────────────── */
-    early_puts("[kernel] uiox_proc_init()...\r\n");
-    uiox_proc_init();
-
-    early_puts("[kernel] uiox_shell_start()...\r\n");
-    uiox_shell_start();
-
-    early_puts("[kernel] FATAL: shell returned — halting\r\n");
-    for (;;) __asm__ volatile("hlt");
+    kernel_common_init();
 }
 
 /* =========================================================================
  * ── RISC-V 64 kernel entry ────────────────────────────────────────────
  *
- * uiox_boot_arch_jump() (RISC-V variant) sets:
- *   a0 = dtb_pa
- *   a1 = args_pa
- *   then: jalr zero, 0(t0)  (jump to kernel entry)
- *
- * On entry the MMU is OFF (satp=0), S-mode, SIE=0.
+ * uiox_boot_arch_jump() sets:  a0 = dtb_pa,  a1 = args_pa
  * ====================================================================== */
 #elif defined(__riscv)
 
 void __attribute__((noreturn))
 uiox_kernel_main(void)
 {
-    /* Capture a0/a1 before any C function call corrupts them */
     register uint64_t dtb_pa  __asm__("a0");
     register uint64_t args_pa __asm__("a1");
     __asm__ volatile("" : "=r"(dtb_pa), "=r"(args_pa));
 
-    /* ── 1. Stack and BSS ──────────────────────────────────────────── */
     stack_setup();
     bss_zero();
 
-    /* ── 2. Save boot arguments ────────────────────────────────────── */
     g_dtb_pa    = dtb_pa;
     g_boot_args = (const uiox_boot_args_t *)(uintptr_t)args_pa;
 
-    /* ── 3. Early console (NS16550A at 0x10000000) ─────────────────── */
     early_puts("\r\n[kernel] UIOX kernel entry (RISC-V 64)\r\n");
-    early_puts("[kernel]   dtb_pa   = ");
-    early_puthex(dtb_pa);
-    early_puts("\r\n[kernel]   args_pa  = ");
-    early_puthex(args_pa);
-    early_puts("\r\n");
+    early_puts("[kernel]   dtb_pa   = "); early_puthex(dtb_pa);  early_puts("\r\n");
+    early_puts("[kernel]   args_pa  = "); early_puthex(args_pa); early_puts("\r\n");
     early_puts("[kernel]   arch     = RV64IMAFDC\r\n");
     early_puts("[kernel]   satp     = 0 (bare, MMU off)\r\n");
+#if defined(UIOX_BSP_DYNAMIC_BOOT)
+    early_puts("[kernel]   boot     = dynamic (BSP secondary bootloader)\r\n");
+#else
+    early_puts("[kernel]   boot     = static (BSP linked)\r\n");
+#endif
 
-    /* ── 4. Architecture init ──────────────────────────────────────── */
-    early_puts("[kernel] arch_init()...\r\n");
-    int rc = arch_init();
-    if (rc != 0) {
-        early_puts("[kernel] FATAL: arch_init failed\r\n");
-        for (;;) __asm__ volatile("wfi");
-    }
-
-    /* ── 5. Signature verify ───────────────────────────────────────── */
-    early_puts("[kernel] uiox_ks_boot_entry()...\r\n");
-    extern uint8_t _text_start[], _text_end[], _rodata_start[], _rodata_end[];
-    uiox_ks_boot_entry(
-        (const void *)(uintptr_t)g_boot_args->kernel_entry,
-        0u,
-        (uintptr_t)_text_start,
-        (size_t)(_text_end   - _text_start),
-        (uintptr_t)_rodata_start,
-        (size_t)(_rodata_end - _rodata_start)
-    );
-
-    /* ── 6. Fast-boot milestone ────────────────────────────────────── */
-    early_puts("[kernel] uiox_fb_shell_ready()...\r\n");
-    uiox_fb_master_ctx_t fb_ctx;
-    uiox_fb_init(&fb_ctx, UIOX_FB_MODE_COLD, 3000000u);
-    uiox_fb_shell_ready(&fb_ctx);
-    uiox_fb_report(&fb_ctx);
-
-    /* ── 7. Process init and shell ─────────────────────────────────── */
-    early_puts("[kernel] uiox_proc_init()...\r\n");
-    uiox_proc_init();
-
-    early_puts("[kernel] uiox_shell_start()...\r\n");
-    uiox_shell_start();
-
-    early_puts("[kernel] FATAL: shell returned — halting\r\n");
-    for (;;) __asm__ volatile("wfi");
+    kernel_common_init();
 }
 
 #else
 #  error "uiox_kernel_main.c: unsupported architecture"
 #endif
 
-
 /* =========================================================================
  * Public accessors — called by subsystems after kernel_main runs
  * ====================================================================== */
 
-/**
- * @brief Return the physical address of the Device Tree Blob.
- *        Valid after uiox_kernel_main() has saved it.
- */
 uint64_t uiox_kernel_get_dtb_pa(void)
 {
     return g_dtb_pa;
 }
 
-/**
- * @brief Return a pointer to the boot arguments struct.
- *        Valid after uiox_kernel_main() has saved it.
- */
 const uiox_boot_args_t *uiox_kernel_get_boot_args(void)
 {
     return g_boot_args;

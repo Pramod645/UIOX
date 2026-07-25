@@ -1,5 +1,5 @@
 # =============================================================================
-# 30_KIX/Makefile  — v2.1.0
+# 30_KIX/Makefile  — v2.2.0
 #
 # UIOX Kernel Umbrella Makefile (Linux + macOS).
 #
@@ -11,22 +11,42 @@
 #   5. 32_FS                                       → file system
 #   6. 33_PCS                                      → process control
 #   7. 34_CAS                                      → connected app services
-#   8. uiox_kernel_main.c                          → kernel entry point
+#   8. 50_UIX/12_ksign                             → kernel image signing
+#   9. 50_UIX/13_fboot                             → fast-boot milestones
+#  10. 50_UIX/01_shell                             → first user shell
+#  11. uiox_kernel_main.c                          → kernel entry point
 #
 # Usage:
 #   make arm64 / arm32 / riscv64 / x86_64
 #   make all
-#   make arm64 LINK=yes BSP_LIB=<path>   # link final kernel ELF
+#   make arm64 LINK=yes                      # static BSP, link kernel ELF
+#   make arm64 LINK=yes BSP_MODE=dynamic     # dynamic BSP, link kernel ELF
+#   make bsp-dynamic-arm64                   # build BSP as standalone binary
+#   make kernel-dynamic-arm64                # bsp-dynamic + kernel (no BSP lib)
 #   make clean[-arm64|-arm32|-riscv64|-x86_64]
 #   make info[-arm64|-arm32|-riscv64|-x86_64]
 #
-# @version 2.1.0  @date 2026-07-25
+# BSP_MODE:
+#   static  (default) — BSP is linked into the kernel as libbsp.a.
+#                       uiox_kernel_main() calls uiox_bsp_init().
+#   dynamic           — BSP is a standalone secondary-bootloader binary.
+#                       Kernel is loaded by the BSP; arch_init/soc_init
+#                       already done before uiox_kernel_main() runs.
+#                       Kernel does NOT link libbsp.a.
+#
+# @version 2.2.0  @date 2026-07-25
 # =============================================================================
 
 MFDIR     := $(dir $(abspath $(lastword $(MAKEFILE_LIST))))
 COMMONDIR := $(MFDIR)common
-LINK   ?= no
-BSP_LIB ?=
+LINK      ?= no
+BSP_MODE  ?= static
+
+# ── BSP_MODE: resolve lib argument and compiler define ────────────────────────
+#   These variables are expanded lazily (=) so $(_ARCH) is correct when used
+#   inside _build_kernel_main / _link_kernel which run after _ARCH is set.
+BSP_LIB_ARG  = $(if $(filter dynamic,$(BSP_MODE)),,$(BSPDIR)/build/$(_ARCH)/libbsp.a)
+BSP_MODE_DEF = $(if $(filter dynamic,$(BSP_MODE)),-DUIOX_BSP_DYNAMIC_BOOT,)
 
 UNAME_S := $(shell uname -s)
 ifeq ($(UNAME_S),Darwin)
@@ -67,20 +87,22 @@ endif
 BSPDIR ?= $(abspath $(MFDIR)../10_BSP)
 FWHAL  := $(abspath $(MFDIR)../02_FwHal)
 SOCINC  = $(BSPDIR)/03_SoC/include
+UIXDIR  := $(abspath $(MFDIR)../50_UIX)
 
 # ── kernel_main compiler flags ────────────────────────────────────────────────
 KERNEL_CFLAGS_BASE := \
   -I$(COMMONDIR)                         \
-  -std=c11 -Wall -Wextra -Werror \
+  -std=c11 -Wall -Wextra -Werror         \
   -ffreestanding -fno-builtin -fno-stack-protector \
   -ffunction-sections -fdata-sections -nostdinc -Os -g \
-  -I$(FWHAL)/include                         \
-  -I$(MFDIR)32_FS/include                    \
-  -I$(MFDIR)33_PCS/include                   \
-  -I$(SOCINC)                                \
-  -I$(MFDIR)../01_uBoot/include              \
-  -I$(MFDIR)../50_UIX/12_ksign/include       \
-  -I$(MFDIR)../50_UIX/13_fboot/include
+  -I$(FWHAL)/include                     \
+  -I$(MFDIR)32_FS/include                \
+  -I$(MFDIR)33_PCS/include               \
+  -I$(SOCINC)                            \
+  -I$(MFDIR)../01_uBoot/include          \
+  -I$(MFDIR)../50_UIX/12_ksign/include   \
+  -I$(MFDIR)../50_UIX/13_fboot/include   \
+  -I$(BSPDIR)/include
 
 # =============================================================================
 # Per-architecture named targets
@@ -94,10 +116,11 @@ arm64: _do_arm64
 _do_arm64:
 	@command -v $(ARM64_CC) >/dev/null 2>&1 || \
 	    { echo "ERROR: $(ARM64_CC) not found"; exit 1; }
-	$(MAKE) -f $(MFDIR)Makefile _build_all            \
+	$(MAKE) -f $(MFDIR)Makefile _build_all              \
 	    _ARCH=arm64 CC=$(ARM64_CC) AR=$(ARM64_AR) LD=$(ARM64_LD) \
-	    ARCH_CFLAGS="-march=armv8-a -mabi=lp64 -mlittle-endian"  \
-	    ARCH_CPUDEF="-D__aarch64__" ARCH_LD_EMUL=aarch64elf
+	    ARCH_CFLAGS="-march=armv8-a -mabi=lp64 -mlittle-endian" \
+	    ARCH_CPUDEF="-D__aarch64__" ARCH_LD_EMUL=aarch64elf \
+	    BSP_MODE=$(BSP_MODE)
 
 .PHONY: arm32
 arm32: _do_arm32
@@ -107,10 +130,11 @@ arm32: _do_arm32
 _do_arm32:
 	@command -v $(ARM32_CC) >/dev/null 2>&1 || \
 	    { echo "ERROR: $(ARM32_CC) not found"; exit 1; }
-	$(MAKE) -f $(MFDIR)Makefile _build_all                 \
+	$(MAKE) -f $(MFDIR)Makefile _build_all                  \
 	    _ARCH=arm32 CC=$(ARM32_CC) AR=$(ARM32_AR) LD=$(ARM32_LD) \
 	    ARCH_CFLAGS="-march=armv7-a -marm -mfloat-abi=soft -mlittle-endian" \
-	    ARCH_CPUDEF="-D__arm__" ARCH_LD_EMUL=armelf
+	    ARCH_CPUDEF="-D__arm__" ARCH_LD_EMUL=armelf \
+	    BSP_MODE=$(BSP_MODE)
 
 .PHONY: riscv64
 riscv64: _do_riscv64
@@ -120,10 +144,11 @@ riscv64: _do_riscv64
 _do_riscv64:
 	@command -v $(RV64_CC) >/dev/null 2>&1 || \
 	    { echo "ERROR: $(RV64_CC) not found"; exit 1; }
-	$(MAKE) -f $(MFDIR)Makefile _build_all                  \
+	$(MAKE) -f $(MFDIR)Makefile _build_all                   \
 	    _ARCH=riscv64 CC=$(RV64_CC) AR=$(RV64_AR) LD=$(RV64_LD) \
 	    ARCH_CFLAGS="-march=rv64imafdc_zicsr_zifencei -mabi=lp64d -mcmodel=medany" \
-	    ARCH_CPUDEF="-D__riscv -D__riscv_xlen=64" ARCH_LD_EMUL=elf64lriscv
+	    ARCH_CPUDEF="-D__riscv -D__riscv_xlen=64" ARCH_LD_EMUL=elf64lriscv \
+	    BSP_MODE=$(BSP_MODE)
 
 .PHONY: x86_64
 x86_64: _do_x86_64
@@ -133,10 +158,35 @@ x86_64: _do_x86_64
 _do_x86_64:
 	@command -v $(X86_CC) >/dev/null 2>&1 || \
 	    { echo "ERROR: $(X86_CC) not found"; exit 1; }
-	$(MAKE) -f $(MFDIR)Makefile _build_all                   \
-	    _ARCH=x86_64 CC=$(X86_CC) AR=$(X86_AR) LD=$(X86_LD)  \
+	$(MAKE) -f $(MFDIR)Makefile _build_all                    \
+	    _ARCH=x86_64 CC=$(X86_CC) AR=$(X86_AR) LD=$(X86_LD)   \
 	    ARCH_CFLAGS="-m64 -mno-red-zone -mno-mmx -mno-sse -mno-sse2 -fno-pic -mcmodel=kernel" \
-	    ARCH_CPUDEF="-D__x86_64__" ARCH_LD_EMUL=elf_x86_64
+	    ARCH_CPUDEF="-D__x86_64__" ARCH_LD_EMUL=elf_x86_64 \
+	    BSP_MODE=$(BSP_MODE)
+
+# =============================================================================
+# Dynamic BSP convenience targets — one per arch
+# =============================================================================
+
+.PHONY: bsp-dynamic-arm64 bsp-dynamic-arm32 bsp-dynamic-riscv64 bsp-dynamic-x86_64
+bsp-dynamic-arm64:
+	$(MAKE) -C $(BSPDIR) arm64 BUILD=dynamic
+bsp-dynamic-arm32:
+	$(MAKE) -C $(BSPDIR) arm32 BUILD=dynamic
+bsp-dynamic-riscv64:
+	$(MAKE) -C $(BSPDIR) riscv64 BUILD=dynamic
+bsp-dynamic-x86_64:
+	$(MAKE) -C $(BSPDIR) x86_64 BUILD=dynamic
+
+.PHONY: kernel-dynamic-arm64 kernel-dynamic-arm32 kernel-dynamic-riscv64 kernel-dynamic-x86_64
+kernel-dynamic-arm64:  bsp-dynamic-arm64
+	$(MAKE) -f $(MFDIR)Makefile _do_arm64   BSP_MODE=dynamic LINK=yes
+kernel-dynamic-arm32:  bsp-dynamic-arm32
+	$(MAKE) -f $(MFDIR)Makefile _do_arm32   BSP_MODE=dynamic LINK=yes
+kernel-dynamic-riscv64: bsp-dynamic-riscv64
+	$(MAKE) -f $(MFDIR)Makefile _do_riscv64 BSP_MODE=dynamic LINK=yes
+kernel-dynamic-x86_64: bsp-dynamic-x86_64
+	$(MAKE) -f $(MFDIR)Makefile _do_x86_64  BSP_MODE=dynamic LINK=yes
 
 # =============================================================================
 # _build_all: invoke each subsystem in dependency order
@@ -152,7 +202,7 @@ endif
 
 .PHONY: _build_subsystems
 _build_subsystems:
-	@echo "[KIX] building subsystems for $(_ARCH)..."
+	@echo "[KIX] building subsystems for $(_ARCH) (BSP_MODE=$(BSP_MODE))..."
 	# 1. 02_FwHal — firmware HAL (repo root sibling)
 	+$(MAKE) -C $(FWHAL) CC="$(CC)" AR="$(AR)" \
 	    ARCH_CFLAGS="$(ARCH_CFLAGS)" ARCH_CPUDEF="$(ARCH_CPUDEF)" \
@@ -181,34 +231,54 @@ _build_subsystems:
 	+$(MAKE) -C $(MFDIR)34_CAS CC="$(CC)" AR="$(AR)" \
 	    ARCH_CFLAGS="$(ARCH_CFLAGS)" ARCH_CPUDEF="$(ARCH_CPUDEF)" \
 	    $(_ARCH) 2>/dev/null || echo "[KIX] 34_CAS: skipped"
+	# 8. 50_UIX/12_ksign — kernel image signing / verification
+	+$(MAKE) -C $(UIXDIR)/12_ksign CC="$(CC)" AR="$(AR)" \
+	    ARCH_CFLAGS="$(ARCH_CFLAGS)" ARCH_CPUDEF="$(ARCH_CPUDEF)" \
+	    $(_ARCH) 2>/dev/null || echo "[KIX] 50_UIX/12_ksign: skipped"
+	# 9. 50_UIX/13_fboot — fast-boot timing milestones
+	+$(MAKE) -C $(UIXDIR)/13_fboot CC="$(CC)" AR="$(AR)" \
+	    ARCH_CFLAGS="$(ARCH_CFLAGS)" ARCH_CPUDEF="$(ARCH_CPUDEF)" \
+	    $(_ARCH) 2>/dev/null || echo "[KIX] 50_UIX/13_fboot: skipped"
+	# 10. 50_UIX/01_shell — first user shell
+	+$(MAKE) -C $(UIXDIR)/01_shell CC="$(CC)" AR="$(AR)" \
+	    ARCH_CFLAGS="$(ARCH_CFLAGS)" ARCH_CPUDEF="$(ARCH_CPUDEF)" \
+	    $(_ARCH) 2>/dev/null || echo "[KIX] 50_UIX/01_shell: skipped"
 
 .PHONY: _build_kernel_main
 _build_kernel_main:
 	@mkdir -p $(_BUILD_DIR)
 	$(CC) $(KERNEL_CFLAGS_BASE) $(ARCH_CFLAGS) $(ARCH_CPUDEF) \
-	    -I$(_ARCH_INC) \
-	    -c $(MFDIR)uiox_kernel_main.c \
+	    $(BSP_MODE_DEF)                                        \
+	    -I$(_ARCH_INC)                                         \
+	    -c $(MFDIR)uiox_kernel_main.c                          \
 	    -o $(_BUILD_DIR)/uiox_kernel_main.o
-	@echo "  [CC]  uiox_kernel_main.c"
+	@echo "  [CC]  uiox_kernel_main.c  (BSP_MODE=$(BSP_MODE))"
 
 .PHONY: _link_kernel
 _link_kernel:
-	@echo "[KIX] Linking $(_BUILD_DIR)/uiox_kernel.elf..."
-	$(LD) -m $(ARCH_LD_EMUL) \
-	    -T $(MFDIR)linker/kernel_$(_ARCH).ld \
-	    -Map=$(_BUILD_DIR)/uiox_kernel.map \
-	    --gc-sections \
-	    $(_BUILD_DIR)/uiox_kernel_main.o \
-	    $(wildcard $(FWHAL)/build/$(_ARCH)/*.a)              \
+	@echo "[KIX] Linking $(_BUILD_DIR)/uiox_kernel.elf  (BSP_MODE=$(BSP_MODE))..."
+	$(LD) -m $(ARCH_LD_EMUL)                                       \
+	    -T $(MFDIR)linker/kernel_$(_ARCH).ld                       \
+	    -Map=$(_BUILD_DIR)/uiox_kernel.map                         \
+	    --gc-sections                                              \
+	    $(_BUILD_DIR)/uiox_kernel_main.o                           \
+	    $(wildcard $(FWHAL)/build/$(_ARCH)/*.a)                    \
 	    $(wildcard $(MFDIR)20_DriverInterfaces/build/$(_ARCH)/*.a) \
 	    $(wildcard $(MFDIR)30_DeviceDrivers/build/$(_ARCH)/*.a)    \
 	    $(wildcard $(MFDIR)31_BufferCache/build/$(_ARCH)/*.a)      \
 	    $(wildcard $(MFDIR)32_FS/build/$(_ARCH)/*.a)               \
 	    $(wildcard $(MFDIR)33_PCS/build/$(_ARCH)/*.a)              \
 	    $(wildcard $(MFDIR)34_CAS/build/$(_ARCH)/*.a)              \
-	    $(BSP_LIB) \
+	    $(wildcard $(UIXDIR)/12_ksign/build/$(_ARCH)/*.a)          \
+	    $(wildcard $(UIXDIR)/13_fboot/build/$(_ARCH)/*.a)          \
+	    $(wildcard $(UIXDIR)/01_shell/build/$(_ARCH)/*.a)          \
+	    $(BSP_LIB_ARG)                                             \
 	    -o $(_BUILD_DIR)/uiox_kernel.elf
 	@echo "[KIX] Kernel ELF → $(_BUILD_DIR)/uiox_kernel.elf"
+ifeq ($(BSP_MODE),dynamic)
+	@echo "[KIX] Dynamic BSP binary → $(BSPDIR)/build/$(_ARCH)/uiox_bsp.bin"
+	@echo "[KIX] Flash layout: [0x48000000] uiox_bsp.bin  [0x40200000] uiox_kernel.elf"
+endif
 
 # =============================================================================
 # Convenience targets
@@ -218,7 +288,12 @@ _link_kernel:
 all: arm64 arm32 riscv64 x86_64
 	@echo "" && echo "[KIX] all builds complete"
 
-.PHONY: clean-arm64 clean-arm32 clean-riscv64 clean-x86_64 clean
+.PHONY: all-dynamic
+all-dynamic: kernel-dynamic-arm64 kernel-dynamic-arm32 \
+             kernel-dynamic-riscv64 kernel-dynamic-x86_64
+	@echo "" && echo "[KIX] all dynamic builds complete"
+
+.PHONY: clean-arm64 clean-arm32 clean-riscv64 clean-x86_64
 clean-arm64:   ; rm -rf $(MFDIR)build/arm64
 clean-arm32:   ; rm -rf $(MFDIR)build/arm32
 clean-riscv64: ; rm -rf $(MFDIR)build/riscv64
@@ -227,7 +302,8 @@ clean-x86_64:  ; rm -rf $(MFDIR)build/x86_64
 .PHONY: clean-subsys
 clean-subsys:
 	@for d in $(FWHAL) $(MFDIR)20_DriverInterfaces $(MFDIR)30_DeviceDrivers \
-	           $(MFDIR)31_BufferCache $(MFDIR)32_FS $(MFDIR)33_PCS $(MFDIR)34_CAS; do \
+	           $(MFDIR)31_BufferCache $(MFDIR)32_FS $(MFDIR)33_PCS $(MFDIR)34_CAS \
+	           $(UIXDIR)/12_ksign $(UIXDIR)/13_fboot $(UIXDIR)/01_shell; do \
 	    [ -f $$d/Makefile ] && $(MAKE) -C $$d clean || true; \
 	done
 
@@ -237,10 +313,10 @@ clean: clean-arm64 clean-arm32 clean-riscv64 clean-x86_64 clean-subsys
 
 .PHONY: info-arm64 info-arm32 info-riscv64 info-x86_64
 info-arm64:
-	@echo "HOST=$(UNAME_S)  ARCH=arm64    CC=$(ARM64_CC)  LINK=$(LINK)"
+	@echo "HOST=$(UNAME_S)  ARCH=arm64    CC=$(ARM64_CC)  BSP_MODE=$(BSP_MODE)  LINK=$(LINK)"
 info-arm32:
-	@echo "HOST=$(UNAME_S)  ARCH=arm32    CC=$(ARM32_CC)  LINK=$(LINK)"
+	@echo "HOST=$(UNAME_S)  ARCH=arm32    CC=$(ARM32_CC)  BSP_MODE=$(BSP_MODE)  LINK=$(LINK)"
 info-riscv64:
-	@echo "HOST=$(UNAME_S)  ARCH=riscv64  CC=$(RV64_CC)   LINK=$(LINK)"
+	@echo "HOST=$(UNAME_S)  ARCH=riscv64  CC=$(RV64_CC)   BSP_MODE=$(BSP_MODE)  LINK=$(LINK)"
 info-x86_64:
-	@echo "HOST=$(UNAME_S)  ARCH=x86_64   CC=$(X86_CC)    LINK=$(LINK)"
+	@echo "HOST=$(UNAME_S)  ARCH=x86_64   CC=$(X86_CC)    BSP_MODE=$(BSP_MODE)  LINK=$(LINK)"
