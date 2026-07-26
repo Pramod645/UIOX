@@ -1,5 +1,5 @@
 # =============================================================================
-# 30_KIX/Makefile  — v2.3.0
+# 30_KIX/Makefile  — v2.4.0
 #
 # UIOX Kernel Umbrella Makefile (Linux + macOS).
 #
@@ -9,12 +9,21 @@
 #   3. 30_DeviceDrivers      → kernel device drivers
 #   4. 31_BufferCache        → buffer cache
 #   5. 32_FS                 → file system
+#                               (includes 02_journal, 03_netfs)
 #   6. 33_PCS                → process control
-#   7. 34_CAS                → connected app services
-#   8. 50_UIX/12_ksign       → kernel image signing
-#   9. 50_UIX/13_fboot       → fast-boot milestones
-#  10. 50_UIX/01_shell       → first user shell
-#  11. uiox_kernel_main.c    → kernel entry point
+#                               (includes 03_ksign, 04_fboot,
+#                                         05_sec,   06_kpatch)
+#   7. 34_CAS                → kernel comms / IPC services
+#   8. 50_UIX/01_shell       → first user shell
+#   9. uiox_kernel_main.c    → kernel entry point
+#
+# Subsystems moved from 50_UIX into kernel:
+#   50_UIX/10_kpatch  → 33_PCS/06_kpatch   (live kernel patching)
+#   50_UIX/11_netfs   → 32_FS/03_netfs     (in-kernel NFS/RPC)
+#   50_UIX/12_ksign   → 33_PCS/03_ksign    (kernel signing + integrity)
+#   50_UIX/13_fboot   → 33_PCS/04_fboot    (fast-boot / snapshot)
+#   50_UIX/13_journal → 32_FS/02_journal   (filesystem journal)
+#   50_UIX/14_sec     → 33_PCS/05_sec      (ASLR + MAC security)
 #
 # Usage:
 #   make arm64 LINK=yes
@@ -28,8 +37,8 @@
 #   ENABLE_KBD ENABLE_MOUSE ENABLE_ALS ENABLE_THERMAL ENABLE_TOUCHPWD
 #   ENABLE_BMS ENABLE_CHG ENABLE_FAN ENABLE_PMIC ENABLE_RTC
 #   ENABLE_SPEAKER ENABLE_EMMC
-# reffe: make all-dynamic
-# @version 2.3.0  @date 2026-07-26
+#
+# @version 2.4.0  @date 2026-07-26
 # =============================================================================
 
 MFDIR     := $(dir $(abspath $(lastword $(MAKEFILE_LIST))))
@@ -92,7 +101,7 @@ DEVICE_DEFS = \
   $(if $(filter yes,$(ENABLE_SPEAKER)), -DUIOX_HAVE_SPEAKER,)  \
   $(if $(filter yes,$(ENABLE_EMMC)),    -DUIOX_HAVE_EMMC,)
 
-# All ENABLE_* vars forwarded as a single variable to sub-makes
+# All ENABLE_* vars forwarded as a single block to sub-makes
 ENABLE_FLAGS = \
   ENABLE_WIFI=$(ENABLE_WIFI)         ENABLE_BT=$(ENABLE_BT)             \
   ENABLE_ETH=$(ENABLE_ETH)           ENABLE_USB=$(ENABLE_USB)           \
@@ -142,18 +151,24 @@ SOCINC  = $(BSPDIR)/03_SoC/include
 UIXDIR  := $(abspath $(MFDIR)../50_UIX)
 
 # ── kernel_main compiler flags ────────────────────────────────────────────────
+# Note: 12_ksign and 13_fboot headers now come from 33_PCS/include
+#       (previously pointed at 50_UIX/12_ksign and 50_UIX/13_fboot)
 KERNEL_CFLAGS_BASE := \
-  -I$(COMMONDIR)                         \
-  -std=c11 -Wall -Wextra -Werror         \
+  -I$(COMMONDIR)                              \
+  -std=c11 -Wall -Wextra -Werror              \
   -ffreestanding -fno-builtin -fno-stack-protector \
   -ffunction-sections -fdata-sections -nostdinc -Os -g \
-  -I$(FWHAL)/include                     \
-  -I$(MFDIR)32_FS/include                \
-  -I$(MFDIR)33_PCS/include               \
-  -I$(SOCINC)                            \
-  -I$(MFDIR)../01_uBoot/include          \
-  -I$(MFDIR)../50_UIX/12_ksign/include   \
-  -I$(MFDIR)../50_UIX/13_fboot/include   \
+  -I$(FWHAL)/include                          \
+  -I$(MFDIR)32_FS/include                     \
+  -I$(MFDIR)32_FS/02_journal/include          \
+  -I$(MFDIR)32_FS/03_netfs/include            \
+  -I$(MFDIR)33_PCS/include                    \
+  -I$(MFDIR)33_PCS/03_ksign/include           \
+  -I$(MFDIR)33_PCS/04_fboot/include           \
+  -I$(MFDIR)33_PCS/05_sec/include             \
+  -I$(MFDIR)33_PCS/06_kpatch/include          \
+  -I$(SOCINC)                                 \
+  -I$(MFDIR)../01_uBoot/include               \
   -I$(BSPDIR)/include
 
 # =============================================================================
@@ -162,7 +177,7 @@ KERNEL_CFLAGS_BASE := \
 
 .PHONY: arm64
 arm64: _do_arm64
-	@echo "[KIX] arm64 done \u2192 build/arm64/"
+	@echo "[KIX] arm64 done → build/arm64/"
 
 .PHONY: _do_arm64
 _do_arm64:
@@ -176,7 +191,7 @@ _do_arm64:
 
 .PHONY: arm32
 arm32: _do_arm32
-	@echo "[KIX] arm32 done \u2192 build/arm32/"
+	@echo "[KIX] arm32 done → build/arm32/"
 
 .PHONY: _do_arm32
 _do_arm32:
@@ -190,7 +205,7 @@ _do_arm32:
 
 .PHONY: riscv64
 riscv64: _do_riscv64
-	@echo "[KIX] riscv64 done \u2192 build/riscv64/"
+	@echo "[KIX] riscv64 done → build/riscv64/"
 
 .PHONY: _do_riscv64
 _do_riscv64:
@@ -204,7 +219,7 @@ _do_riscv64:
 
 .PHONY: x86_64
 x86_64: _do_x86_64
-	@echo "[KIX] x86_64 done \u2192 build/x86_64/"
+	@echo "[KIX] x86_64 done → build/x86_64/"
 
 .PHONY: _do_x86_64
 _do_x86_64:
@@ -274,10 +289,10 @@ _build_subsystems:
 	+$(MAKE) -C $(MFDIR)31_BufferCache CC="$(CC)" AR="$(AR)" \
 	    ARCH_CFLAGS="$(ARCH_CFLAGS)" ARCH_CPUDEF="$(ARCH_CPUDEF)" \
 	    DEVICE_DEFS="$(DEVICE_DEFS)" $(ENABLE_FLAGS) $(_ARCH)
-	# 5. 32_FS
+	# 5. 32_FS  (includes 02_journal, 03_netfs — built by 32_FS/Makefile)
 	+$(MAKE) -C $(MFDIR)32_FS CC="$(CC)" AR="$(AR)" \
 	    ARCH_CFLAGS="$(ARCH_CFLAGS)" ARCH_CPUDEF="$(ARCH_CPUDEF)" $(_ARCH)
-	# 6. 33_PCS
+	# 6. 33_PCS  (includes 03_ksign, 04_fboot, 05_sec, 06_kpatch — built by 33_PCS/Makefile)
 	+$(MAKE) -C $(MFDIR)33_PCS CC="$(CC)" AR="$(AR)" \
 	    ARCH_CFLAGS="$(ARCH_CFLAGS)" ARCH_CPUDEF="$(ARCH_CPUDEF)" $(_ARCH)
 	# 7. 34_CAS
@@ -285,15 +300,7 @@ _build_subsystems:
 	    ARCH_CFLAGS="$(ARCH_CFLAGS)" ARCH_CPUDEF="$(ARCH_CPUDEF)" \
 	    DEVICE_DEFS="$(DEVICE_DEFS)" $(ENABLE_FLAGS) \
 	    $(_ARCH) 2>/dev/null || echo "[KIX] 34_CAS: skipped"
-	# 8. 50_UIX/12_ksign
-	+$(MAKE) -C $(UIXDIR)/12_ksign CC="$(CC)" AR="$(AR)" \
-	    ARCH_CFLAGS="$(ARCH_CFLAGS)" ARCH_CPUDEF="$(ARCH_CPUDEF)" \
-	    $(_ARCH) 2>/dev/null || echo "[KIX] 50_UIX/12_ksign: skipped"
-	# 9. 50_UIX/13_fboot
-	+$(MAKE) -C $(UIXDIR)/13_fboot CC="$(CC)" AR="$(AR)" \
-	    ARCH_CFLAGS="$(ARCH_CFLAGS)" ARCH_CPUDEF="$(ARCH_CPUDEF)" \
-	    $(_ARCH) 2>/dev/null || echo "[KIX] 50_UIX/13_fboot: skipped"
-	# 10. 50_UIX/01_shell
+	# 8. 50_UIX/01_shell  (only remaining 50_UIX build step)
 	+$(MAKE) -C $(UIXDIR)/01_shell CC="$(CC)" AR="$(AR)" \
 	    ARCH_CFLAGS="$(ARCH_CFLAGS)" ARCH_CPUDEF="$(ARCH_CPUDEF)" \
 	    $(_ARCH) 2>/dev/null || echo "[KIX] 50_UIX/01_shell: skipped"
@@ -324,14 +331,12 @@ _link_kernel:
 	    $(wildcard $(MFDIR)32_FS/build/$(_ARCH)/*.a)               \
 	    $(wildcard $(MFDIR)33_PCS/build/$(_ARCH)/*.a)              \
 	    $(wildcard $(MFDIR)34_CAS/build/$(_ARCH)/*.a)              \
-	    $(wildcard $(UIXDIR)/12_ksign/build/$(_ARCH)/*.a)          \
-	    $(wildcard $(UIXDIR)/13_fboot/build/$(_ARCH)/*.a)          \
 	    $(wildcard $(UIXDIR)/01_shell/build/$(_ARCH)/*.a)          \
 	    $(BSP_LIB_ARG)                                             \
 	    -o $(_BUILD_DIR)/uiox_kernel.elf
-	@echo "[KIX] Kernel ELF \u2192 $(_BUILD_DIR)/uiox_kernel.elf"
+	@echo "[KIX] Kernel ELF → $(_BUILD_DIR)/uiox_kernel.elf"
 ifeq ($(BSP_MODE),dynamic)
-	@echo "[KIX] Dynamic BSP \u2192 $(BSPDIR)/build/$(_ARCH)/uiox_bsp.bin"
+	@echo "[KIX] Dynamic BSP → $(BSPDIR)/build/$(_ARCH)/uiox_bsp.bin"
 endif
 
 # =============================================================================
@@ -356,8 +361,8 @@ clean-x86_64:  ; rm -rf $(MFDIR)build/x86_64
 .PHONY: clean-subsys
 clean-subsys:
 	@for d in $(FWHAL) $(MFDIR)20_DriverInterfaces $(MFDIR)30_DeviceDrivers \
-	           $(MFDIR)31_BufferCache $(MFDIR)32_FS $(MFDIR)33_PCS $(MFDIR)34_CAS \
-	           $(UIXDIR)/12_ksign $(UIXDIR)/13_fboot $(UIXDIR)/01_shell; do \
+	           $(MFDIR)31_BufferCache $(MFDIR)32_FS $(MFDIR)33_PCS \
+	           $(MFDIR)34_CAS $(UIXDIR)/01_shell; do \
 	    [ -f $$d/Makefile ] && $(MAKE) -C $$d clean || true; \
 	done
 

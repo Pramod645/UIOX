@@ -50,13 +50,25 @@
  *       ├─▶ stack_setup()                 — set kernel stack pointer
  *       ├─▶ [static only] arch_init()     — GIC/APIC/PLIC, cache, MMU on
  *       │       └─▶ uiox_soc_init()       — SoC detect + clock + PM
- *       ├─▶ uiox_ks_boot_entry()          — 12_ksign verify + PCR extend
- *       ├─▶ uiox_fb_shell_ready()         — 13_fboot timing milestone
- *       ├─▶ uiox_proc_init()              — 33_PCS scheduler + process table
- *       └─▶ uiox_shell_start()            — 50_UIX/01_shell first prompt
+ *       ├─▶ uiox_ks_boot_entry()          — 33_PCS/03_ksign: verify + PCR extend
+ *       ├─▶ uiox_fb_shell_ready()         — 33_PCS/04_fboot: timing milestone
+ *       ├─▶ uiox_proc_init()              — 33_PCS: scheduler + process table
+ *       │       ├─▶ uiox_sched_init()     — 33_PCS/01_schedular
+ *       │       ├─▶ uiox_timer_init()     — 33_PCS timer
+ *       │       ├─▶ uiox_kp_engine_init() — 33_PCS/06_kpatch: live patch engine
+ *       │       └─▶ uiox_sec_init()       — 33_PCS/05_sec: ASLR + MAC
+ *       └─▶ uiox_shell_start()            — 50_UIX/01_shell: first prompt
  *
- * @version 1.1.0
- * @date    2026-07-25
+ * Subsystems now in kernel (moved from 50_UIX):
+ *   33_PCS/03_ksign   — kernel image signing, verification, runtime integrity
+ *   33_PCS/04_fboot   — fast-boot snapshot + deferred-init scheduling
+ *   33_PCS/05_sec     — ASLR + MAC security policy
+ *   33_PCS/06_kpatch  — live kernel text patching engine
+ *   32_FS/02_journal  — filesystem journal (transaction, commit, checkpoint)
+ *   32_FS/03_netfs    — in-kernel NFS/RPC client
+ *
+ * @version 1.2.0
+ * @date    2026-07-26
  */
 
 /*
@@ -65,13 +77,14 @@
  * aliases in uiox_boot_types.h.  Everything else follows.
  *
  * NOTE: uiox_bsp.h is intentionally NOT included here.  It re-declares
- * types already defined by uiox_boot_handoff.h (uiox_mem_region_t,
- * uiox_mem_map_t, uiox_boot_args_t, UIOX_BOOT_ARGS_MAGIC) and uiox_fboot.h
- * (uiox_fb_mode_t, uiox_fb_master_ctx_t, uiox_fb_init, uiox_fb_shell_ready)
- * with conflicting struct layouts and return types, causing -Werror failures.
+ * types already defined by uiox_boot_handoff.h and uiox_fboot.h with
+ * conflicting struct layouts and return types, causing -Werror failures.
  * The two BSP symbols actually needed (uiox_bsp_config_t + uiox_bsp_init)
  * are forward-declared below so the static build can call uiox_bsp_init()
  * without pulling in the conflicting header.
+ *
+ * Headers for the moved subsystems come from 33_PCS/include and
+ * 32_FS/include — already in KERNEL_CFLAGS_BASE via the Makefile.
  */
 #include "uiox_soc.h"           /* pulls uiox_fw_types.h — primitive types  */
 #include "uiox_fw_uart.h"       /* PL011/UART macros — after uiox_soc.h     */
@@ -99,8 +112,8 @@ extern int uiox_bsp_init(const uiox_bsp_config_t *cfg);
 #endif
 
 /* ── Forward declarations of subsystem init functions ────────────────── */
-extern int  arch_init(void);               /* 10_Arch/<arch>/src/arch_init.c  */
-extern void uiox_proc_init(void);         /* 33_PCS                           */
+extern int  arch_init(void);          /* 10_Arch/<arch>/src/arch_init.c     */
+extern void uiox_proc_init(void);     /* 33_PCS — scheduler + process table */
 
 /* Forward declaration so weak stubs below can call early_puts()
  * before its static definition appears later in this file.        */
@@ -112,10 +125,12 @@ static void early_puts(const char *s);
  * __attribute__((weak)) — the linker replaces these automatically when the
  * real implementations appear in a linked library. No source changes needed.
  *
- * 50_UIX/12_ksign — kernel image signing / verification
- * 50_UIX/13_fboot — fast-boot timing milestones
- * 50_UIX/01_shell — first user shell
- * 33_PCS internal — scheduler and timer (33_PCS sub-Makefiles)
+ * 33_PCS/03_ksign  — kernel image signing / verification
+ * 33_PCS/04_fboot  — fast-boot timing milestones
+ * 33_PCS/05_sec    — ASLR + MAC security (init called from uiox_proc_init)
+ * 33_PCS/06_kpatch — live patch engine (init called from uiox_proc_init)
+ * 50_UIX/01_shell  — first user shell
+ * 33_PCS internal  — scheduler and timer sub-modules
  */
 __attribute__((weak))
 void uiox_ks_boot_entry(const void *image,
@@ -128,7 +143,7 @@ void uiox_ks_boot_entry(const void *image,
     (void)image; (void)image_size;
     (void)text_base; (void)text_size;
     (void)rodata_base; (void)rodata_size;
-    early_puts("[kernel]   uiox_ks_boot_entry: stub (12_ksign not built)\r\n");
+    early_puts("[kernel]   uiox_ks_boot_entry: stub (33_PCS/03_ksign not built)\r\n");
 }
 
 __attribute__((weak))
@@ -137,7 +152,7 @@ uiox_fb_err_t uiox_fb_init(uiox_fb_master_ctx_t *ctx,
                              uint64_t              budget_ns)
 {
     (void)ctx; (void)mode; (void)budget_ns;
-    early_puts("[kernel]   uiox_fb_init: stub (13_fboot not built)\r\n");
+    early_puts("[kernel]   uiox_fb_init: stub (33_PCS/04_fboot not built)\r\n");
     return 0;
 }
 
@@ -145,7 +160,7 @@ __attribute__((weak))
 uiox_fb_err_t uiox_fb_shell_ready(uiox_fb_master_ctx_t *ctx)
 {
     (void)ctx;
-    early_puts("[kernel]   uiox_fb_shell_ready: stub (13_fboot not built)\r\n");
+    early_puts("[kernel]   uiox_fb_shell_ready: stub (33_PCS/04_fboot not built)\r\n");
     return 0;
 }
 
@@ -153,13 +168,13 @@ __attribute__((weak))
 void uiox_fb_report(const uiox_fb_master_ctx_t *ctx)
 {
     (void)ctx;
-    early_puts("[kernel]   uiox_fb_report: stub (13_fboot not built)\r\n");
+    early_puts("[kernel]   uiox_fb_report: stub (33_PCS/04_fboot not built)\r\n");
 }
 
 __attribute__((weak))
 void uiox_shell_start(void)
 {
-    early_puts("[kernel]   uiox_shell_start: stub (01_shell not built)\r\n");
+    early_puts("[kernel]   uiox_shell_start: stub (50_UIX/01_shell not built)\r\n");
     early_puts("[kernel]   System halted — shell not available.\r\n");
     for (;;) {
 #if defined(__x86_64__)
@@ -180,6 +195,18 @@ __attribute__((weak))
 void uiox_timer_init(void)
 {
     early_puts("[kernel]   uiox_timer_init: stub (33_PCS timer not built)\r\n");
+}
+
+__attribute__((weak))
+void uiox_kp_engine_init(void)
+{
+    early_puts("[kernel]   uiox_kp_engine_init: stub (33_PCS/06_kpatch not built)\r\n");
+}
+
+__attribute__((weak))
+void uiox_sec_init(void)
+{
+    early_puts("[kernel]   uiox_sec_init: stub (33_PCS/05_sec not built)\r\n");
 }
 
 /* ── Kernel BSS / stack symbols (provided by the linker script) ───────── */
@@ -312,6 +339,7 @@ static void __attribute__((noreturn)) kernel_common_init(void)
         }
     }
 
+    /* 33_PCS/03_ksign — verify kernel image + extend PCR measurements */
     early_puts("[kernel] uiox_ks_boot_entry()...\r\n");
     uiox_ks_boot_entry(
         (const void *)(uintptr_t)g_boot_args->kernel_entry,
@@ -322,15 +350,18 @@ static void __attribute__((noreturn)) kernel_common_init(void)
         (size_t)(_rodata_end - _rodata_start)
     );
 
+    /* 33_PCS/04_fboot — fast-boot timing milestone */
     early_puts("[kernel] uiox_fb_shell_ready()...\r\n");
     uiox_fb_master_ctx_t fb_ctx;
     uiox_fb_init(&fb_ctx, UIOX_FB_MODE_COLD, 3000000u);
     uiox_fb_shell_ready(&fb_ctx);
     uiox_fb_report(&fb_ctx);
 
+    /* 33_PCS — scheduler, process table, security, live patching */
     early_puts("[kernel] uiox_proc_init()...\r\n");
     uiox_proc_init();
 
+    /* 50_UIX/01_shell — first user shell (only remaining 50_UIX entry) */
     early_puts("[kernel] uiox_shell_start()...\r\n");
     uiox_shell_start();
 
