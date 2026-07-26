@@ -279,3 +279,39 @@ Flash layout for dynamic mode:
 0x48000000  →  10BSP/build/arm64/uioxbsp.bin     (primary BL loads this)
 0x40200000  →  30KIX/build/arm64/uiox_kernel.elf  (BSP loads this from flash)
 ``
+------------------------------
+the defaults are all ?= yes, meaning every device is enabled unless you override it on the command line with no.
+
+You don't need to change anything in the file itself. Here's how it works:
+
+Default (all devices on) — just build normally:
+``bash
+make arm64 LINK=yes
+`
+
+Disable specific devices at build time — pass =no on the command line:
+`bash
+Disable Bluetooth and GPU
+make arm64 LINK=yes ENABLEBT=no ENABLEGPU=no
+
+Headless build — no display stack
+make arm64 LINK=yes ENABLEHDMI=no ENABLEMONITOR=no ENABLEGPU=no
+
+Minimal comms only — WiFi + Ethernet, everything else off
+make arm64 LINK=yes \
+  ENABLEBT=no ENABLEUSB=no ENABLEHDMI=no ENABLETB4=no \
+  ENABLEMONITOR=no ENABLEGPU=no ENABLECAMERA=no \
+  ENABLEMIC=no ENABLEKBD=no ENABLEMOUSE=no ENABLEALS=no \
+  ENABLETHERMAL=no ENABLETOUCHPWD=no ENABLEBMS=no \
+  ENABLECHG=no ENABLEFAN=no ENABLEPMIC=no ENABLERTC=no \
+  ENABLESPEAKER=no ENABLEEMMC=no
+`
+
+Same works for dynamic BSP builds:
+`bash
+make kernel-dynamic-arm64 ENABLEBT=no ENABLE_GPU=no
+`
+
+The ?= in the Makefile means the variable is only set if not already provided on the command line — so yes is the fallback default, and any =no` you pass overrides it for that build without touching the file. No edits needed.
+
+========================================================

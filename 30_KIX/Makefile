@@ -1,40 +1,35 @@
 # =============================================================================
-# 30_KIX/Makefile  — v2.2.0
+# 30_KIX/Makefile  — v2.3.0
 #
 # UIOX Kernel Umbrella Makefile (Linux + macOS).
 #
-# Build chain (dependency order, bottom-up hardware → top-level services):
-#   1. 02_FwHal              (repo root sibling)  → firmware HAL
-#   2. 20_DriverInterfaces                         → hardware abstraction
-#   3. 30_DeviceDrivers                            → kernel device drivers
-#   4. 31_BufferCache                              → buffer cache
-#   5. 32_FS                                       → file system
-#   6. 33_PCS                                      → process control
-#   7. 34_CAS                                      → connected app services
-#   8. 50_UIX/12_ksign                             → kernel image signing
-#   9. 50_UIX/13_fboot                             → fast-boot milestones
-#  10. 50_UIX/01_shell                             → first user shell
-#  11. uiox_kernel_main.c                          → kernel entry point
+# Build chain:
+#   1. 02_FwHal              → firmware HAL
+#   2. 20_DriverInterfaces   → hardware abstraction
+#   3. 30_DeviceDrivers      → kernel device drivers
+#   4. 31_BufferCache        → buffer cache
+#   5. 32_FS                 → file system
+#   6. 33_PCS                → process control
+#   7. 34_CAS                → connected app services
+#   8. 50_UIX/12_ksign       → kernel image signing
+#   9. 50_UIX/13_fboot       → fast-boot milestones
+#  10. 50_UIX/01_shell       → first user shell
+#  11. uiox_kernel_main.c    → kernel entry point
 #
 # Usage:
-#   make arm64 / arm32 / riscv64 / x86_64
-#   make all
-#   make arm64 LINK=yes                      # static BSP, link kernel ELF
-#   make arm64 LINK=yes BSP_MODE=dynamic     # dynamic BSP, link kernel ELF
-#   make bsp-dynamic-arm64                   # build BSP as standalone binary
-#   make kernel-dynamic-arm64                # bsp-dynamic + kernel (no BSP lib)
-#   make clean[-arm64|-arm32|-riscv64|-x86_64]
-#   make info[-arm64|-arm32|-riscv64|-x86_64]
+#   make arm64 LINK=yes
+#   make arm64 LINK=yes BSP_MODE=dynamic
+#   make arm64 LINK=yes ENABLE_BT=no ENABLE_GPU=no
+#   make kernel-dynamic-arm64 ENABLE_HDMI=no
 #
-# BSP_MODE:
-#   static  (default) — BSP is linked into the kernel as libbsp.a.
-#                       uiox_kernel_main() calls uiox_bsp_init().
-#   dynamic           — BSP is a standalone secondary-bootloader binary.
-#                       Kernel is loaded by the BSP; arch_init/soc_init
-#                       already done before uiox_kernel_main() runs.
-#                       Kernel does NOT link libbsp.a.
-#
-# @version 2.2.0  @date 2026-07-25
+# Device flags (default all=yes):
+#   ENABLE_WIFI ENABLE_BT ENABLE_ETH ENABLE_USB ENABLE_HDMI
+#   ENABLE_TB4 ENABLE_MONITOR ENABLE_GPU ENABLE_CAMERA ENABLE_MIC
+#   ENABLE_KBD ENABLE_MOUSE ENABLE_ALS ENABLE_THERMAL ENABLE_TOUCHPWD
+#   ENABLE_BMS ENABLE_CHG ENABLE_FAN ENABLE_PMIC ENABLE_RTC
+#   ENABLE_SPEAKER ENABLE_EMMC
+# reffe: make all-dynamic
+# @version 2.3.0  @date 2026-07-26
 # =============================================================================
 
 MFDIR     := $(dir $(abspath $(lastword $(MAKEFILE_LIST))))
@@ -42,20 +37,77 @@ COMMONDIR := $(MFDIR)common
 LINK      ?= no
 BSP_MODE  ?= static
 
-# ── BSP_MODE: resolve lib argument and compiler define ────────────────────────
-#   These variables are expanded lazily (=) so $(_ARCH) is correct when used
-#   inside _build_kernel_main / _link_kernel which run after _ARCH is set.
+# ── BSP_MODE ──────────────────────────────────────────────────────────────────
 BSP_LIB_ARG  = $(if $(filter dynamic,$(BSP_MODE)),,$(BSPDIR)/build/$(_ARCH)/libbsp.a)
 BSP_MODE_DEF = $(if $(filter dynamic,$(BSP_MODE)),-DUIOX_BSP_DYNAMIC_BOOT,)
 
+# =============================================================================
+# Device enable/disable flags
+# =============================================================================
+ENABLE_WIFI     ?= yes
+ENABLE_BT       ?= yes
+ENABLE_ETH      ?= yes
+ENABLE_USB      ?= yes
+ENABLE_HDMI     ?= yes
+ENABLE_TB4      ?= yes
+ENABLE_MONITOR  ?= yes
+ENABLE_GPU      ?= yes
+ENABLE_CAMERA   ?= yes
+ENABLE_MIC      ?= yes
+ENABLE_KBD      ?= yes
+ENABLE_MOUSE    ?= yes
+ENABLE_ALS      ?= yes
+ENABLE_THERMAL  ?= yes
+ENABLE_TOUCHPWD ?= yes
+ENABLE_BMS      ?= yes
+ENABLE_CHG      ?= yes
+ENABLE_FAN      ?= yes
+ENABLE_PMIC     ?= yes
+ENABLE_RTC      ?= yes
+ENABLE_SPEAKER  ?= yes
+ENABLE_EMMC     ?= yes
+
+# -DUIOX_HAVE_<DEVICE> defines — passed to every compiler invocation
+DEVICE_DEFS = \
+  $(if $(filter yes,$(ENABLE_WIFI)),    -DUIOX_HAVE_WIFI,)     \
+  $(if $(filter yes,$(ENABLE_BT)),      -DUIOX_HAVE_BT,)       \
+  $(if $(filter yes,$(ENABLE_ETH)),     -DUIOX_HAVE_ETH,)      \
+  $(if $(filter yes,$(ENABLE_USB)),     -DUIOX_HAVE_USB,)      \
+  $(if $(filter yes,$(ENABLE_HDMI)),    -DUIOX_HAVE_HDMI,)     \
+  $(if $(filter yes,$(ENABLE_TB4)),     -DUIOX_HAVE_TB4,)      \
+  $(if $(filter yes,$(ENABLE_MONITOR)), -DUIOX_HAVE_MONITOR,)  \
+  $(if $(filter yes,$(ENABLE_GPU)),     -DUIOX_HAVE_GPU,)      \
+  $(if $(filter yes,$(ENABLE_CAMERA)),  -DUIOX_HAVE_CAMERA,)   \
+  $(if $(filter yes,$(ENABLE_MIC)),     -DUIOX_HAVE_MIC,)      \
+  $(if $(filter yes,$(ENABLE_KBD)),     -DUIOX_HAVE_KBD,)      \
+  $(if $(filter yes,$(ENABLE_MOUSE)),   -DUIOX_HAVE_MOUSE,)    \
+  $(if $(filter yes,$(ENABLE_ALS)),     -DUIOX_HAVE_ALS,)      \
+  $(if $(filter yes,$(ENABLE_THERMAL)), -DUIOX_HAVE_THERMAL,)  \
+  $(if $(filter yes,$(ENABLE_TOUCHPWD)),-DUIOX_HAVE_TOUCHPWD,) \
+  $(if $(filter yes,$(ENABLE_BMS)),     -DUIOX_HAVE_BMS,)      \
+  $(if $(filter yes,$(ENABLE_CHG)),     -DUIOX_HAVE_CHG,)      \
+  $(if $(filter yes,$(ENABLE_FAN)),     -DUIOX_HAVE_FAN,)      \
+  $(if $(filter yes,$(ENABLE_PMIC)),    -DUIOX_HAVE_PMIC,)     \
+  $(if $(filter yes,$(ENABLE_RTC)),     -DUIOX_HAVE_RTC,)      \
+  $(if $(filter yes,$(ENABLE_SPEAKER)), -DUIOX_HAVE_SPEAKER,)  \
+  $(if $(filter yes,$(ENABLE_EMMC)),    -DUIOX_HAVE_EMMC,)
+
+# All ENABLE_* vars forwarded as a single variable to sub-makes
+ENABLE_FLAGS = \
+  ENABLE_WIFI=$(ENABLE_WIFI)         ENABLE_BT=$(ENABLE_BT)             \
+  ENABLE_ETH=$(ENABLE_ETH)           ENABLE_USB=$(ENABLE_USB)           \
+  ENABLE_HDMI=$(ENABLE_HDMI)         ENABLE_TB4=$(ENABLE_TB4)           \
+  ENABLE_MONITOR=$(ENABLE_MONITOR)   ENABLE_GPU=$(ENABLE_GPU)           \
+  ENABLE_CAMERA=$(ENABLE_CAMERA)     ENABLE_MIC=$(ENABLE_MIC)           \
+  ENABLE_KBD=$(ENABLE_KBD)           ENABLE_MOUSE=$(ENABLE_MOUSE)       \
+  ENABLE_ALS=$(ENABLE_ALS)           ENABLE_THERMAL=$(ENABLE_THERMAL)   \
+  ENABLE_TOUCHPWD=$(ENABLE_TOUCHPWD) ENABLE_BMS=$(ENABLE_BMS)           \
+  ENABLE_CHG=$(ENABLE_CHG)           ENABLE_FAN=$(ENABLE_FAN)           \
+  ENABLE_PMIC=$(ENABLE_PMIC)         ENABLE_RTC=$(ENABLE_RTC)           \
+  ENABLE_SPEAKER=$(ENABLE_SPEAKER)   ENABLE_EMMC=$(ENABLE_EMMC)
+
 UNAME_S := $(shell uname -s)
 ifeq ($(UNAME_S),Darwin)
-  LLVM_BIN := $(shell \
-    if command -v llvm-objcopy >/dev/null 2>&1; then \
-        dirname $(command -v llvm-objcopy); \
-    else \
-        echo $(brew --prefix llvm 2>/dev/null || echo /opt/homebrew/opt/llvm)/bin; \
-    fi)
   ARM64_CC := aarch64-elf-gcc
   ARM64_AR := aarch64-elf-ar
   ARM64_LD := aarch64-elf-ld
@@ -110,7 +162,7 @@ KERNEL_CFLAGS_BASE := \
 
 .PHONY: arm64
 arm64: _do_arm64
-	@echo "[KIX] arm64 done → build/arm64/"
+	@echo "[KIX] arm64 done \u2192 build/arm64/"
 
 .PHONY: _do_arm64
 _do_arm64:
@@ -120,11 +172,11 @@ _do_arm64:
 	    _ARCH=arm64 CC=$(ARM64_CC) AR=$(ARM64_AR) LD=$(ARM64_LD) \
 	    ARCH_CFLAGS="-march=armv8-a -mabi=lp64 -mlittle-endian" \
 	    ARCH_CPUDEF="-D__aarch64__" ARCH_LD_EMUL=aarch64elf \
-	    BSP_MODE=$(BSP_MODE)
+	    BSP_MODE=$(BSP_MODE) $(ENABLE_FLAGS)
 
 .PHONY: arm32
 arm32: _do_arm32
-	@echo "[KIX] arm32 done → build/arm32/"
+	@echo "[KIX] arm32 done \u2192 build/arm32/"
 
 .PHONY: _do_arm32
 _do_arm32:
@@ -134,11 +186,11 @@ _do_arm32:
 	    _ARCH=arm32 CC=$(ARM32_CC) AR=$(ARM32_AR) LD=$(ARM32_LD) \
 	    ARCH_CFLAGS="-march=armv7-a -marm -mfloat-abi=soft -mlittle-endian" \
 	    ARCH_CPUDEF="-D__arm__" ARCH_LD_EMUL=armelf \
-	    BSP_MODE=$(BSP_MODE)
+	    BSP_MODE=$(BSP_MODE) $(ENABLE_FLAGS)
 
 .PHONY: riscv64
 riscv64: _do_riscv64
-	@echo "[KIX] riscv64 done → build/riscv64/"
+	@echo "[KIX] riscv64 done \u2192 build/riscv64/"
 
 .PHONY: _do_riscv64
 _do_riscv64:
@@ -148,11 +200,11 @@ _do_riscv64:
 	    _ARCH=riscv64 CC=$(RV64_CC) AR=$(RV64_AR) LD=$(RV64_LD) \
 	    ARCH_CFLAGS="-march=rv64imafdc_zicsr_zifencei -mabi=lp64d -mcmodel=medany" \
 	    ARCH_CPUDEF="-D__riscv -D__riscv_xlen=64" ARCH_LD_EMUL=elf64lriscv \
-	    BSP_MODE=$(BSP_MODE)
+	    BSP_MODE=$(BSP_MODE) $(ENABLE_FLAGS)
 
 .PHONY: x86_64
 x86_64: _do_x86_64
-	@echo "[KIX] x86_64 done → build/x86_64/"
+	@echo "[KIX] x86_64 done \u2192 build/x86_64/"
 
 .PHONY: _do_x86_64
 _do_x86_64:
@@ -162,10 +214,10 @@ _do_x86_64:
 	    _ARCH=x86_64 CC=$(X86_CC) AR=$(X86_AR) LD=$(X86_LD)   \
 	    ARCH_CFLAGS="-m64 -mno-red-zone -mno-mmx -mno-sse -mno-sse2 -fno-pic -mcmodel=kernel" \
 	    ARCH_CPUDEF="-D__x86_64__" ARCH_LD_EMUL=elf_x86_64 \
-	    BSP_MODE=$(BSP_MODE)
+	    BSP_MODE=$(BSP_MODE) $(ENABLE_FLAGS)
 
 # =============================================================================
-# Dynamic BSP convenience targets — one per arch
+# Dynamic BSP convenience targets
 # =============================================================================
 
 .PHONY: bsp-dynamic-arm64 bsp-dynamic-arm32 bsp-dynamic-riscv64 bsp-dynamic-x86_64
@@ -180,16 +232,16 @@ bsp-dynamic-x86_64:
 
 .PHONY: kernel-dynamic-arm64 kernel-dynamic-arm32 kernel-dynamic-riscv64 kernel-dynamic-x86_64
 kernel-dynamic-arm64:  bsp-dynamic-arm64
-	$(MAKE) -f $(MFDIR)Makefile _do_arm64   BSP_MODE=dynamic LINK=yes
+	$(MAKE) -f $(MFDIR)Makefile _do_arm64   BSP_MODE=dynamic LINK=yes $(ENABLE_FLAGS)
 kernel-dynamic-arm32:  bsp-dynamic-arm32
-	$(MAKE) -f $(MFDIR)Makefile _do_arm32   BSP_MODE=dynamic LINK=yes
+	$(MAKE) -f $(MFDIR)Makefile _do_arm32   BSP_MODE=dynamic LINK=yes $(ENABLE_FLAGS)
 kernel-dynamic-riscv64: bsp-dynamic-riscv64
-	$(MAKE) -f $(MFDIR)Makefile _do_riscv64 BSP_MODE=dynamic LINK=yes
+	$(MAKE) -f $(MFDIR)Makefile _do_riscv64 BSP_MODE=dynamic LINK=yes $(ENABLE_FLAGS)
 kernel-dynamic-x86_64: bsp-dynamic-x86_64
-	$(MAKE) -f $(MFDIR)Makefile _do_x86_64  BSP_MODE=dynamic LINK=yes
+	$(MAKE) -f $(MFDIR)Makefile _do_x86_64  BSP_MODE=dynamic LINK=yes $(ENABLE_FLAGS)
 
 # =============================================================================
-# _build_all: invoke each subsystem in dependency order
+# _build_all
 # =============================================================================
 _BUILD_DIR = $(MFDIR)build/$(_ARCH)
 _ARCH_INC  = $(BSPDIR)/10_Arch/$(_ARCH)/include
@@ -203,43 +255,45 @@ endif
 .PHONY: _build_subsystems
 _build_subsystems:
 	@echo "[KIX] building subsystems for $(_ARCH) (BSP_MODE=$(BSP_MODE))..."
-	# 1. 02_FwHal — firmware HAL (repo root sibling)
+	@echo "[KIX] WIFI=$(ENABLE_WIFI) BT=$(ENABLE_BT) ETH=$(ENABLE_ETH) USB=$(ENABLE_USB) HDMI=$(ENABLE_HDMI) TB4=$(ENABLE_TB4) MON=$(ENABLE_MONITOR) GPU=$(ENABLE_GPU)"
+	@echo "[KIX] CAM=$(ENABLE_CAMERA) MIC=$(ENABLE_MIC) KBD=$(ENABLE_KBD) MOUSE=$(ENABLE_MOUSE) ALS=$(ENABLE_ALS) THERMAL=$(ENABLE_THERMAL) TPWD=$(ENABLE_TOUCHPWD)"
+	@echo "[KIX] BMS=$(ENABLE_BMS) CHG=$(ENABLE_CHG) FAN=$(ENABLE_FAN) PMIC=$(ENABLE_PMIC) RTC=$(ENABLE_RTC) SPK=$(ENABLE_SPEAKER) EMMC=$(ENABLE_EMMC)"
+	# 1. 02_FwHal
 	+$(MAKE) -C $(FWHAL) CC="$(CC)" AR="$(AR)" \
 	    ARCH_CFLAGS="$(ARCH_CFLAGS)" ARCH_CPUDEF="$(ARCH_CPUDEF)" \
 	    $(_ARCH) 2>/dev/null || echo "[KIX] 02_FwHal: no Makefile or skipped"
-	# 2. 20_DriverInterfaces — hardware abstraction
+	# 2. 20_DriverInterfaces
 	+$(MAKE) -C $(MFDIR)20_DriverInterfaces CC="$(CC)" AR="$(AR)" \
 	    ARCH_CFLAGS="$(ARCH_CFLAGS)" ARCH_CPUDEF="$(ARCH_CPUDEF)" \
-	    $(_ARCH)
-	# 3. 30_DeviceDrivers — kernel device drivers
+	    DEVICE_DEFS="$(DEVICE_DEFS)" $(ENABLE_FLAGS) $(_ARCH)
+	# 3. 30_DeviceDrivers
 	+$(MAKE) -C $(MFDIR)30_DeviceDrivers CC="$(CC)" AR="$(AR)" \
 	    ARCH_CFLAGS="$(ARCH_CFLAGS)" ARCH_CPUDEF="$(ARCH_CPUDEF)" \
-	    $(_ARCH)
-	# 4. 31_BufferCache — buffer cache
+	    DEVICE_DEFS="$(DEVICE_DEFS)" $(ENABLE_FLAGS) $(_ARCH)
+	# 4. 31_BufferCache
 	+$(MAKE) -C $(MFDIR)31_BufferCache CC="$(CC)" AR="$(AR)" \
 	    ARCH_CFLAGS="$(ARCH_CFLAGS)" ARCH_CPUDEF="$(ARCH_CPUDEF)" \
-	    $(_ARCH)
-	# 5. 32_FS — file system
+	    DEVICE_DEFS="$(DEVICE_DEFS)" $(ENABLE_FLAGS) $(_ARCH)
+	# 5. 32_FS
 	+$(MAKE) -C $(MFDIR)32_FS CC="$(CC)" AR="$(AR)" \
-	    ARCH_CFLAGS="$(ARCH_CFLAGS)" ARCH_CPUDEF="$(ARCH_CPUDEF)" \
-	    $(_ARCH)
-	# 6. 33_PCS — process control subsystem
+	    ARCH_CFLAGS="$(ARCH_CFLAGS)" ARCH_CPUDEF="$(ARCH_CPUDEF)" $(_ARCH)
+	# 6. 33_PCS
 	+$(MAKE) -C $(MFDIR)33_PCS CC="$(CC)" AR="$(AR)" \
-	    ARCH_CFLAGS="$(ARCH_CFLAGS)" ARCH_CPUDEF="$(ARCH_CPUDEF)" \
-	    $(_ARCH)
-	# 7. 34_CAS — connected application services
+	    ARCH_CFLAGS="$(ARCH_CFLAGS)" ARCH_CPUDEF="$(ARCH_CPUDEF)" $(_ARCH)
+	# 7. 34_CAS
 	+$(MAKE) -C $(MFDIR)34_CAS CC="$(CC)" AR="$(AR)" \
 	    ARCH_CFLAGS="$(ARCH_CFLAGS)" ARCH_CPUDEF="$(ARCH_CPUDEF)" \
+	    DEVICE_DEFS="$(DEVICE_DEFS)" $(ENABLE_FLAGS) \
 	    $(_ARCH) 2>/dev/null || echo "[KIX] 34_CAS: skipped"
-	# 8. 50_UIX/12_ksign — kernel image signing / verification
+	# 8. 50_UIX/12_ksign
 	+$(MAKE) -C $(UIXDIR)/12_ksign CC="$(CC)" AR="$(AR)" \
 	    ARCH_CFLAGS="$(ARCH_CFLAGS)" ARCH_CPUDEF="$(ARCH_CPUDEF)" \
 	    $(_ARCH) 2>/dev/null || echo "[KIX] 50_UIX/12_ksign: skipped"
-	# 9. 50_UIX/13_fboot — fast-boot timing milestones
+	# 9. 50_UIX/13_fboot
 	+$(MAKE) -C $(UIXDIR)/13_fboot CC="$(CC)" AR="$(AR)" \
 	    ARCH_CFLAGS="$(ARCH_CFLAGS)" ARCH_CPUDEF="$(ARCH_CPUDEF)" \
 	    $(_ARCH) 2>/dev/null || echo "[KIX] 50_UIX/13_fboot: skipped"
-	# 10. 50_UIX/01_shell — first user shell
+	# 10. 50_UIX/01_shell
 	+$(MAKE) -C $(UIXDIR)/01_shell CC="$(CC)" AR="$(AR)" \
 	    ARCH_CFLAGS="$(ARCH_CFLAGS)" ARCH_CPUDEF="$(ARCH_CPUDEF)" \
 	    $(_ARCH) 2>/dev/null || echo "[KIX] 50_UIX/01_shell: skipped"
@@ -249,6 +303,7 @@ _build_kernel_main:
 	@mkdir -p $(_BUILD_DIR)
 	$(CC) $(KERNEL_CFLAGS_BASE) $(ARCH_CFLAGS) $(ARCH_CPUDEF) \
 	    $(BSP_MODE_DEF)                                        \
+	    $(DEVICE_DEFS)                                         \
 	    -I$(_ARCH_INC)                                         \
 	    -c $(MFDIR)uiox_kernel_main.c                          \
 	    -o $(_BUILD_DIR)/uiox_kernel_main.o
@@ -274,10 +329,9 @@ _link_kernel:
 	    $(wildcard $(UIXDIR)/01_shell/build/$(_ARCH)/*.a)          \
 	    $(BSP_LIB_ARG)                                             \
 	    -o $(_BUILD_DIR)/uiox_kernel.elf
-	@echo "[KIX] Kernel ELF → $(_BUILD_DIR)/uiox_kernel.elf"
+	@echo "[KIX] Kernel ELF \u2192 $(_BUILD_DIR)/uiox_kernel.elf"
 ifeq ($(BSP_MODE),dynamic)
-	@echo "[KIX] Dynamic BSP binary → $(BSPDIR)/build/$(_ARCH)/uiox_bsp.bin"
-	@echo "[KIX] Flash layout: [0x48000000] uiox_bsp.bin  [0x40200000] uiox_kernel.elf"
+	@echo "[KIX] Dynamic BSP \u2192 $(BSPDIR)/build/$(_ARCH)/uiox_bsp.bin"
 endif
 
 # =============================================================================
@@ -314,9 +368,13 @@ clean: clean-arm64 clean-arm32 clean-riscv64 clean-x86_64 clean-subsys
 .PHONY: info-arm64 info-arm32 info-riscv64 info-x86_64
 info-arm64:
 	@echo "HOST=$(UNAME_S)  ARCH=arm64    CC=$(ARM64_CC)  BSP_MODE=$(BSP_MODE)  LINK=$(LINK)"
+	@echo "  WIFI=$(ENABLE_WIFI) BT=$(ENABLE_BT) ETH=$(ENABLE_ETH) USB=$(ENABLE_USB) HDMI=$(ENABLE_HDMI) GPU=$(ENABLE_GPU) EMMC=$(ENABLE_EMMC)"
 info-arm32:
 	@echo "HOST=$(UNAME_S)  ARCH=arm32    CC=$(ARM32_CC)  BSP_MODE=$(BSP_MODE)  LINK=$(LINK)"
+	@echo "  WIFI=$(ENABLE_WIFI) BT=$(ENABLE_BT) ETH=$(ENABLE_ETH) USB=$(ENABLE_USB) HDMI=$(ENABLE_HDMI) GPU=$(ENABLE_GPU) EMMC=$(ENABLE_EMMC)"
 info-riscv64:
 	@echo "HOST=$(UNAME_S)  ARCH=riscv64  CC=$(RV64_CC)   BSP_MODE=$(BSP_MODE)  LINK=$(LINK)"
+	@echo "  WIFI=$(ENABLE_WIFI) BT=$(ENABLE_BT) ETH=$(ENABLE_ETH) USB=$(ENABLE_USB) HDMI=$(ENABLE_HDMI) GPU=$(ENABLE_GPU) EMMC=$(ENABLE_EMMC)"
 info-x86_64:
 	@echo "HOST=$(UNAME_S)  ARCH=x86_64   CC=$(X86_CC)    BSP_MODE=$(BSP_MODE)  LINK=$(LINK)"
+	@echo "  WIFI=$(ENABLE_WIFI) BT=$(ENABLE_BT) ETH=$(ENABLE_ETH) USB=$(ENABLE_USB) HDMI=$(ENABLE_HDMI) GPU=$(ENABLE_GPU) EMMC=$(ENABLE_EMMC)"

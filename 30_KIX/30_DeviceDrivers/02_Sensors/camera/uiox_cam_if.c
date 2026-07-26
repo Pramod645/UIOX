@@ -65,11 +65,13 @@ uiox_cam_frame_t *uiox_cam_if_complete(uiox_cam_if_t *cif)
 
     /* Map phys back to pool frame (simple scan; replace with map for perf) */
     extern uiox_cam_frame_t s_desc[]; /* not visible; in real code keep a map */
+    (void)s_desc;
     (void)bytes;
 
     /* Minimal approach: walk pool to find matching paddr */
     /* Since s_desc is static-private, implement a tiny finder: */
     uiox_cam_frame_t *found = NULL;
+    (void)found;
     for (int i = 0; i < UIOX_CAM_POOL_FRAMES; i++) {
         /* We don't have direct access here; in production store a hash/map. */
         (void)i;

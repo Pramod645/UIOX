@@ -1,249 +1,200 @@
 # =============================================================================
-#  UIOX Firmware — Makefile
-#  Builds a static library per ISA from src/*.c + include/*.h only.
-#  No linker scripts. No assembly files. No arch/ subdirectory.
+# 02_FwHal/Makefile  — v1.2.0
 #
-#  Each target produces:
-#    build/arm64/libuiox_fw_arm64.a
-#    build/arm32/libuiox_fw_arm32.a
-#    build/x86_64/libuiox_fw_x86_64.a
-#    build/riscv64/libuiox_fw_riscv64.a
+# Builds only the device source files for enabled devices.
+# Always-on infrastructure (I2C, SPI, UART, GPIO, clock, timer, …) is
+# compiled unconditionally.  Device files are conditional on ENABLE_*.
 #
-#  Usage:
-#    make                  — build all four architectures
-#    make arm64            — ARM64 only
-#    make arm32            — ARM32 only
-#    make x86_64           — x86-64 only
-#    make riscv64          — RISC-V 64 only
-#    make V=1              — verbose output
-#    make clean
-#
-#  macOS setup:
-#    brew install aarch64-elf-gcc x86_64-elf-gcc riscv64-elf-gcc qemu
+# Outputs: build/<arch>/libuiox_fw_<arch>.a
+# @version 1.2.0  @date 2026-07-26
 # =============================================================================
 
-VERSION_MAJOR := 1
-VERSION_MINOR := 0
-VERSION_PATCH := 0
+MFDIR      := $(dir $(abspath $(lastword $(MAKEFILE_LIST))))
+BUILD_BASE  = $(MFDIR)build
+SRCDIR      = $(MFDIR)src
+INCDIR      = $(MFDIR)include
 
-V ?= 0
-ifeq ($(V),0)
-  Q        := @
-  LOGCC    := @echo "  CC    $<"
-  LOGAR    := @echo "  AR    $@"
-  LOGCLEAN := @echo "  CLEAN"
-else
-  Q        :=
-  LOGCC    :=
-  LOGAR    :=
-  LOGCLEAN :=
+CC          ?= gcc
+AR          ?= ar
+ARCH_CFLAGS ?=
+ARCH_CPUDEF ?=
+DEVICE_DEFS ?=
+_ARCH       ?= arm64
+
+ENABLE_WIFI     ?= yes
+ENABLE_BT       ?= yes
+ENABLE_ETH      ?= yes
+ENABLE_USB      ?= yes
+ENABLE_HDMI     ?= yes
+ENABLE_TB4      ?= yes
+ENABLE_MONITOR  ?= yes
+ENABLE_GPU      ?= yes
+ENABLE_CAMERA   ?= yes
+ENABLE_MIC      ?= yes
+ENABLE_KBD      ?= yes
+ENABLE_MOUSE    ?= yes
+ENABLE_ALS      ?= yes
+ENABLE_THERMAL  ?= yes
+ENABLE_TOUCHPWD ?= yes
+ENABLE_BMS      ?= yes
+ENABLE_CHG      ?= yes
+ENABLE_FAN      ?= yes
+ENABLE_PMIC     ?= yes
+ENABLE_RTC      ?= yes
+ENABLE_SPEAKER  ?= yes
+ENABLE_EMMC     ?= yes
+
+_BUILD_DIR  := $(BUILD_BASE)/$(_ARCH)
+
+COMMON_CFLAGS := \
+  -std=c11 -Wall -Wextra -Werror          \
+  -ffreestanding -fno-builtin             \
+  -fno-stack-protector                    \
+  -ffunction-sections -fdata-sections     \
+  -nostdinc -Os -g                        \
+  $(ARCH_CFLAGS) $(ARCH_CPUDEF)           \
+  $(DEVICE_DEFS)                          \
+  -I$(INCDIR)
+
+# ── Always-on infrastructure ──────────────────────────────────────────────────
+SRCS := \
+  $(SRCDIR)/uiox_fw_main.c    \
+  $(SRCDIR)/uiox_fw_hw.c      \
+  $(SRCDIR)/uiox_fw_clock.c   \
+  $(SRCDIR)/uiox_fw_gpio.c    \
+  $(SRCDIR)/uiox_fw_i2c.c     \
+  $(SRCDIR)/uiox_fw_spi.c     \
+  $(SRCDIR)/uiox_fw_uart.c    \
+  $(SRCDIR)/uiox_fw_timer.c   \
+  $(SRCDIR)/uiox_fw_devsw.c   \
+  $(SRCDIR)/uiox_fw_wdt.c     \
+  $(SRCDIR)/uiox_fw_pcie.c    \
+  $(SRCDIR)/uiox_fw_storage.c \
+  $(SRCDIR)/uiox_fw_ramrtc.c  \
+  $(SRCDIR)/uiox_fw_sensor.c
+
+# ── Device-conditional sources ────────────────────────────────────────────────
+ifeq ($(ENABLE_WIFI),yes)
+  SRCS += $(SRCDIR)/uiox_fw_wifi.c
+endif
+ifeq ($(ENABLE_BT),yes)
+  SRCS += $(SRCDIR)/uiox_fw_bt.c
+endif
+ifeq ($(ENABLE_ETH),yes)
+  SRCS += $(SRCDIR)/uiox_fw_eth.c
+endif
+ifeq ($(ENABLE_USB),yes)
+  SRCS += $(SRCDIR)/uiox_fw_usb.c
+endif
+ifeq ($(ENABLE_HDMI),yes)
+  SRCS += $(SRCDIR)/uiox_fw_hdmi.c
+endif
+ifeq ($(ENABLE_TB4),yes)
+  SRCS += $(SRCDIR)/uiox_fw_tb4.c
+endif
+ifeq ($(ENABLE_MONITOR),yes)
+  SRCS += $(SRCDIR)/uiox_fw_monitor.c
+endif
+ifeq ($(ENABLE_GPU),yes)
+  SRCS += $(SRCDIR)/uiox_fw_gpu.c
+endif
+ifeq ($(ENABLE_CAMERA),yes)
+  SRCS += $(SRCDIR)/uiox_fw_camera.c
+endif
+ifeq ($(ENABLE_MIC),yes)
+  SRCS += $(SRCDIR)/uiox_fw_mic.c
+endif
+ifeq ($(ENABLE_KBD),yes)
+  SRCS += $(SRCDIR)/uiox_fw_keyboard.c
+endif
+ifeq ($(ENABLE_MOUSE),yes)
+  SRCS += $(SRCDIR)/uiox_fw_mouse.c
+endif
+ifeq ($(ENABLE_ALS),yes)
+  SRCS += $(SRCDIR)/uiox_fw_als.c
+endif
+ifeq ($(ENABLE_THERMAL),yes)
+  SRCS += $(SRCDIR)/uiox_fw_thermal.c
+endif
+ifeq ($(ENABLE_TOUCHPWD),yes)
+  SRCS += $(SRCDIR)/uiox_fw_touchpwd.c
+endif
+ifeq ($(ENABLE_BMS),yes)
+  SRCS += $(SRCDIR)/uiox_fw_bms.c
+endif
+ifeq ($(ENABLE_CHG),yes)
+  SRCS += $(SRCDIR)/uiox_fw_charger.c
+endif
+ifeq ($(ENABLE_FAN),yes)
+  SRCS += $(SRCDIR)/uiox_fw_fan.c
+endif
+ifeq ($(ENABLE_PMIC),yes)
+  SRCS += $(SRCDIR)/uiox_fw_pmic.c
+endif
+ifeq ($(ENABLE_RTC),yes)
+  SRCS += $(SRCDIR)/uiox_fw_rtc.c
+endif
+ifeq ($(ENABLE_SPEAKER),yes)
+  SRCS += $(SRCDIR)/uiox_fw_speaker.c
+endif
+ifeq ($(ENABLE_EMMC),yes)
+  SRCS += $(SRCDIR)/uiox_fw_emmc.c
 endif
 
-SRCDIR   := src
-INCDIR   := include
-BUILDDIR := build
+SRCS := $(sort $(SRCS))
+OBJS := $(patsubst $(SRCDIR)/%.c,$(_BUILD_DIR)/%.o,$(SRCS))
+LIB  := $(_BUILD_DIR)/libuiox_fw_$(_ARCH).a
 
 # =============================================================================
-# Cross-toolchain  (auto-detect macOS vs Linux)
+# Arch entry points — re-invoke with _ARCH=$@ so $(_BUILD_DIR) is defined.
 # =============================================================================
-UNAME_S := $(shell uname -s)
-ifeq ($(UNAME_S),Darwin)
-  ARM64_CC  := aarch64-elf-gcc
-  ARM32_CC  := arm-none-eabi-gcc
-  X86_CC    := x86_64-elf-gcc
-  RV64_CC   := riscv64-elf-gcc
-else
-  ARM64_CC  := aarch64-linux-gnu-gcc
-  ARM32_CC  := arm-linux-gnueabihf-gcc
-  X86_CC    := x86_64-linux-gnu-gcc
-  RV64_CC   := riscv64-linux-gnu-gcc
-endif
+.PHONY: arm64 arm32 riscv64 x86_64
 
-DEPFLAGS = -MT $@ -MMD -MP -MF $(@:.o=.d)
+arm64 arm32 riscv64 x86_64:
+	$(MAKE) -f $(MFDIR)Makefile _build  \
+	    _ARCH=$@                        \
+	    CC="$(CC)" AR="$(AR)"           \
+	    ARCH_CFLAGS="$(ARCH_CFLAGS)"    \
+	    ARCH_CPUDEF="$(ARCH_CPUDEF)"    \
+	    DEVICE_DEFS="$(DEVICE_DEFS)"    \
+	    ENABLE_WIFI=$(ENABLE_WIFI)      \
+	    ENABLE_BT=$(ENABLE_BT)          \
+	    ENABLE_ETH=$(ENABLE_ETH)        \
+	    ENABLE_USB=$(ENABLE_USB)        \
+	    ENABLE_HDMI=$(ENABLE_HDMI)      \
+	    ENABLE_TB4=$(ENABLE_TB4)        \
+	    ENABLE_MONITOR=$(ENABLE_MONITOR)\
+	    ENABLE_GPU=$(ENABLE_GPU)        \
+	    ENABLE_CAMERA=$(ENABLE_CAMERA)  \
+	    ENABLE_MIC=$(ENABLE_MIC)        \
+	    ENABLE_KBD=$(ENABLE_KBD)        \
+	    ENABLE_MOUSE=$(ENABLE_MOUSE)    \
+	    ENABLE_ALS=$(ENABLE_ALS)        \
+	    ENABLE_THERMAL=$(ENABLE_THERMAL)\
+	    ENABLE_TOUCHPWD=$(ENABLE_TOUCHPWD)\
+	    ENABLE_BMS=$(ENABLE_BMS)        \
+	    ENABLE_CHG=$(ENABLE_CHG)        \
+	    ENABLE_FAN=$(ENABLE_FAN)        \
+	    ENABLE_PMIC=$(ENABLE_PMIC)      \
+	    ENABLE_RTC=$(ENABLE_RTC)        \
+	    ENABLE_SPEAKER=$(ENABLE_SPEAKER)\
+	    ENABLE_EMMC=$(ENABLE_EMMC)
 
-# =============================================================================
-# Common CFLAGS  (no linker flags needed — we are building .a, not .elf/.bin)
-# =============================================================================
-CFLAGS_COMMON := \
-    -std=c11 -Wall -Wextra \
-    -ffreestanding -fno-builtin \
-    -fno-stack-protector \
-    -ffunction-sections -fdata-sections \
-    -Os -g \
-    -I$(INCDIR) \
-    -DUIOX_VERSION_MAJOR=$(VERSION_MAJOR) \
-    -DUIOX_VERSION_MINOR=$(VERSION_MINOR) \
-    -DUIOX_VERSION_PATCH=$(VERSION_PATCH)
+.PHONY: _build
+_build: $(LIB)
+	@echo "[FwHal] $(_BUILD_DIR)/libuiox_fw_$(_ARCH).a  ($(words $(SRCS)) files)"
 
-# =============================================================================
-# HAL_SRCS — every .c file in src/  (no arch/ subdirectory, no .S files)
-# =============================================================================
-HAL_SRCS := \
-    $(SRCDIR)/uiox_fw_als.c       \
-    $(SRCDIR)/uiox_fw_bms.c       \
-    $(SRCDIR)/uiox_fw_bt.c        \
-    $(SRCDIR)/uiox_fw_camera.c    \
-    $(SRCDIR)/uiox_fw_charger.c   \
-    $(SRCDIR)/uiox_fw_clock.c     \
-    $(SRCDIR)/uiox_fw_devsw.c     \
-    $(SRCDIR)/uiox_fw_emmc.c      \
-    $(SRCDIR)/uiox_fw_eth.c       \
-    $(SRCDIR)/uiox_fw_fan.c       \
-    $(SRCDIR)/uiox_fw_gpio.c      \
-    $(SRCDIR)/uiox_fw_gpu.c       \
-    $(SRCDIR)/uiox_fw_hdmi.c      \
-    $(SRCDIR)/uiox_fw_hw.c        \
-    $(SRCDIR)/uiox_fw_i2c.c       \
-    $(SRCDIR)/uiox_fw_keyboard.c  \
-    $(SRCDIR)/uiox_fw_main.c      \
-    $(SRCDIR)/uiox_fw_mic.c       \
-    $(SRCDIR)/uiox_fw_monitor.c   \
-    $(SRCDIR)/uiox_fw_mouse.c     \
-    $(SRCDIR)/uiox_fw_net.c       \
-    $(SRCDIR)/uiox_fw_nvme.c      \
-    $(SRCDIR)/uiox_fw_pmic.c      \
-    $(SRCDIR)/uiox_fw_ramrtc.c    \
-    $(SRCDIR)/uiox_fw_sata.c      \
-    $(SRCDIR)/uiox_fw_sd.c        \
-    $(SRCDIR)/uiox_fw_sensor.c    \
-    $(SRCDIR)/uiox_fw_speaker.c   \
-    $(SRCDIR)/uiox_fw_spi.c       \
-    $(SRCDIR)/uiox_fw_storage.c   \
-    $(SRCDIR)/uiox_fw_tb4.c       \
-    $(SRCDIR)/uiox_fw_thermal.c   \
-    $(SRCDIR)/uiox_fw_timer.c     \
-    $(SRCDIR)/uiox_fw_touchpwd.c  \
-    $(SRCDIR)/uiox_fw_uart.c      \
-    $(SRCDIR)/uiox_fw_usb.c       \
-    $(SRCDIR)/uiox_fw_wdt.c       \
-    $(SRCDIR)/uiox_fw_wifi.c
+$(LIB): $(OBJS)
+	@mkdir -p $(dir $@)
+	$(AR) rcs $@ $^
 
-# =============================================================================
-# ARM64  (AArch64 — ARMv8-A)
-# =============================================================================
-ARM64_CFLAGS := $(CFLAGS_COMMON) -march=armv8-a -mstrict-align
-ARM64_OBJS   := $(patsubst $(SRCDIR)/%.c,$(BUILDDIR)/arm64/%.o,$(HAL_SRCS))
-ARM64_LIB    := $(BUILDDIR)/arm64/libuiox_fw_arm64.a
+$(_BUILD_DIR)/%.o: $(SRCDIR)/%.c
+	@mkdir -p $(dir $@)
+	@echo "  [CC]  $<"
+	$(CC) $(COMMON_CFLAGS) -MMD -MP -c $< -o $@
 
-.PHONY: arm64
-arm64: $(ARM64_LIB)
-	$(Q)echo "  OK  arm64  => $(ARM64_LIB)"
-
-$(ARM64_LIB): $(ARM64_OBJS) | $(BUILDDIR)/arm64
-	$(LOGAR)
-	$(Q)ar rcs $@ $^
-
-$(BUILDDIR)/arm64/%.o: $(SRCDIR)/%.c | $(BUILDDIR)/arm64
-	$(LOGCC)
-	$(Q)$(ARM64_CC) $(ARM64_CFLAGS) $(DEPFLAGS) -c $< -o $@
-
-$(BUILDDIR)/arm64:
-	$(Q)mkdir -p $@
-
-# =============================================================================
-# ARM32  (ARMv7-A — Thumb-2)
-# =============================================================================
-ARM32_CFLAGS := $(CFLAGS_COMMON) -march=armv7-a -mthumb -mfloat-abi=soft
-ARM32_OBJS   := $(patsubst $(SRCDIR)/%.c,$(BUILDDIR)/arm32/%.o,$(HAL_SRCS))
-ARM32_LIB    := $(BUILDDIR)/arm32/libuiox_fw_arm32.a
-
-.PHONY: arm32
-arm32: $(ARM32_LIB)
-	$(Q)echo "  OK  arm32  => $(ARM32_LIB)"
-
-$(ARM32_LIB): $(ARM32_OBJS) | $(BUILDDIR)/arm32
-	$(LOGAR)
-	$(Q)ar rcs $@ $^
-
-$(BUILDDIR)/arm32/%.o: $(SRCDIR)/%.c | $(BUILDDIR)/arm32
-	$(LOGCC)
-	$(Q)$(ARM32_CC) $(ARM32_CFLAGS) $(DEPFLAGS) -c $< -o $@
-
-$(BUILDDIR)/arm32:
-	$(Q)mkdir -p $@
-
-# =============================================================================
-# x86_64
-# =============================================================================
-X86_CFLAGS := $(CFLAGS_COMMON) -m64 -mno-red-zone -mno-mmx -mno-sse -mno-sse2
-X86_OBJS   := $(patsubst $(SRCDIR)/%.c,$(BUILDDIR)/x86_64/%.o,$(HAL_SRCS))
-X86_LIB    := $(BUILDDIR)/x86_64/libuiox_fw_x86_64.a
-
-.PHONY: x86_64
-x86_64: $(X86_LIB)
-	$(Q)echo "  OK  x86_64 => $(X86_LIB)"
-
-$(X86_LIB): $(X86_OBJS) | $(BUILDDIR)/x86_64
-	$(LOGAR)
-	$(Q)ar rcs $@ $^
-
-$(BUILDDIR)/x86_64/%.o: $(SRCDIR)/%.c | $(BUILDDIR)/x86_64
-	$(LOGCC)
-	$(Q)$(X86_CC) $(X86_CFLAGS) $(DEPFLAGS) -c $< -o $@
-
-$(BUILDDIR)/x86_64:
-	$(Q)mkdir -p $@
-
-# =============================================================================
-# RISC-V 64  (rv64imac, medany code model)
-# =============================================================================
-RV64_CFLAGS := $(CFLAGS_COMMON) -march=rv64imac -mabi=lp64 -mcmodel=medany
-RV64_OBJS   := $(patsubst $(SRCDIR)/%.c,$(BUILDDIR)/riscv64/%.o,$(HAL_SRCS))
-RV64_LIB    := $(BUILDDIR)/riscv64/libuiox_fw_riscv64.a
-
-.PHONY: riscv64
-riscv64: $(RV64_LIB)
-	$(Q)echo "  OK  riscv64 => $(RV64_LIB)"
-
-$(RV64_LIB): $(RV64_OBJS) | $(BUILDDIR)/riscv64
-	$(LOGAR)
-	$(Q)ar rcs $@ $^
-
-$(BUILDDIR)/riscv64/%.o: $(SRCDIR)/%.c | $(BUILDDIR)/riscv64
-	$(LOGCC)
-	$(Q)$(RV64_CC) $(RV64_CFLAGS) $(DEPFLAGS) -c $< -o $@
-
-$(BUILDDIR)/riscv64:
-	$(Q)mkdir -p $@
-
-# =============================================================================
-# Auto-generated dependency tracking
-# =============================================================================
--include $(ARM64_OBJS:.o=.d)
--include $(ARM32_OBJS:.o=.d)
--include $(X86_OBJS:.o=.d)
--include $(RV64_OBJS:.o=.d)
-
-# =============================================================================
-# Convenience targets
-# =============================================================================
-.PHONY: all
-all: arm64 arm32 x86_64 riscv64
-	$(Q)echo ""
-	$(Q)echo "  Built:"
-	$(Q)echo "    $(ARM64_LIB)"
-	$(Q)echo "    $(ARM32_LIB)"
-	$(Q)echo "    $(X86_LIB)"
-	$(Q)echo "    $(RV64_LIB)"
+-include $(wildcard $(_BUILD_DIR)/*.d)
 
 .PHONY: clean
 clean:
-	$(LOGCLEAN)
-	$(Q)rm -rf $(BUILDDIR)
-
-.PHONY: help
-help:
-	@echo ""
-	@echo "  UIOX Firmware HAL — build targets"
-	@echo ""
-	@echo "    make              build all four ISA targets"
-	@echo "    make arm64        build/arm64/libuiox_fw_arm64.a"
-	@echo "    make arm32        build/arm32/libuiox_fw_arm32.a"
-	@echo "    make x86_64       build/x86_64/libuiox_fw_x86_64.a"
-	@echo "    make riscv64      build/riscv64/libuiox_fw_riscv64.a"
-	@echo "    make clean        remove build/"
-	@echo "    make V=1          verbose compiler output"
-	@echo ""
-	@echo "  macOS setup:"
-	@echo "    brew install aarch64-elf-gcc x86_64-elf-gcc riscv64-elf-gcc"
-	@echo ""
+	rm -rf $(BUILD_BASE)

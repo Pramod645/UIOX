@@ -1,294 +1,186 @@
 # =============================================================================
-# 30_KIX/20_DriverInterfaces/Makefile  — v1.0.0
+# 30_KIX/20_DriverInterfaces/Makefile  — v1.2.1
 #
-# UIOX Hardware Driver Interfaces — master Makefile (Linux + macOS).
-# Builds libhw.a for the selected architecture.
-#
-# Usage (matches 33_PCS / 32_FS / 10_BSP pattern):
-#   make arm64 / arm32 / riscv64 / x86_64
-#   make all                     # all four architectures
-#   make clean[-arm64|-arm32|-riscv64|-x86_64]
-#   make info[-arm64|-arm32|-riscv64|-x86_64]
-#
-# Called by the 30_KIX umbrella Makefile with:
-#   make -C 20_DriverInterfaces CC=<cross> AR=<cross-ar> \
-#       ARCH_CFLAGS="<arch flags>" ARCH_CPUDEF="<-D flags>" <arch>
-#
-# Directory layout:
-#   20_DriverInterfaces/
-#   ├── include/          cpu.h  hw_types.h
-#   ├── src/              cpu.c
-#   ├── 01_Com/           bt  eth  hdmi  tb4
-#   ├── 02_Sensors/       WiFi  camera  mic  thermal  touchpwd
-#   └── 03_NonSecnsors/   bms  chg  emmc  fan  pmic  rtc  speaker
-#
-# All .c files in src/ and all peripheral subdirectories are compiled
-# automatically via wildcards — no Makefile edit needed when adding files.
-#
-# v1.1.0 changes:
-#   · HW_SRCS_C wildcards use $(abspath) — immune to CWD at invocation
-#   · Added "make list-sources" target to debug empty wildcards
-#   · _OBJS uses := (immediate) — evaluated once at parse time is safe
-#     since HW_SRCS_C is := and MFDIR is absolute
-# @version 1.1.0  @date 2026-07-25
+# Hardware Abstraction Layer — builds only subdirectories for enabled devices.
+# Outputs: build/<arch>/libhw.a
+# @version 1.2.1  @date 2026-07-26
 # =============================================================================
 
-# ── Makefile-relative base ────────────────────────────────────────────────────
-MFDIR    := $(dir $(abspath $(lastword $(MAKEFILE_LIST))))
-COMMONDIR := $(abspath $(MFDIR)../common)
+MFDIR      := $(dir $(abspath $(lastword $(MAKEFILE_LIST))))
+BUILD_BASE  = $(MFDIR)build
 
-# ── Host OS detection ─────────────────────────────────────────────────────────
-UNAME_S := $(shell uname -s)
+CC          ?= gcc
+AR          ?= ar
+ARCH_CFLAGS ?=
+ARCH_CPUDEF ?=
+DEVICE_DEFS ?=
+_ARCH       ?= arm64
 
-ifeq ($(UNAME_S),Darwin)
-  LLVM_BIN := $(shell \
-    if command -v llvm-objcopy >/dev/null 2>&1; then \
-        dirname $$(command -v llvm-objcopy); \
-    else \
-        echo $$(brew --prefix llvm 2>/dev/null || echo /opt/homebrew/opt/llvm)/bin; \
-    fi)
-  ARM64_CC := aarch64-elf-gcc
-  ARM64_AR := aarch64-elf-ar
-  ARM32_CC := arm-none-eabi-gcc
-  ARM32_AR := arm-none-eabi-ar
-  RV64_CC  := riscv64-elf-gcc
-  RV64_AR  := riscv64-elf-ar
-  X86_CC   := x86_64-elf-gcc
-  X86_AR   := x86_64-elf-ar
-else
-  ARM64_CC := aarch64-linux-gnu-gcc
-  ARM64_AR := aarch64-linux-gnu-ar
-  ARM32_CC := arm-linux-gnueabihf-gcc
-  ARM32_AR := arm-linux-gnueabihf-ar
-  RV64_CC  := riscv64-linux-gnu-gcc
-  RV64_AR  := riscv64-linux-gnu-ar
-  X86_CC   := x86_64-linux-gnu-gcc
-  X86_AR   := x86_64-linux-gnu-ar
+ENABLE_WIFI     ?= yes
+ENABLE_BT       ?= yes
+ENABLE_ETH      ?= yes
+ENABLE_USB      ?= yes
+ENABLE_HDMI     ?= yes
+ENABLE_TB4      ?= yes
+ENABLE_MONITOR  ?= yes
+ENABLE_GPU      ?= yes
+ENABLE_CAMERA   ?= yes
+ENABLE_MIC      ?= yes
+ENABLE_KBD      ?= yes
+ENABLE_MOUSE    ?= yes
+ENABLE_ALS      ?= yes
+ENABLE_THERMAL  ?= yes
+ENABLE_TOUCHPWD ?= yes
+ENABLE_BMS      ?= yes
+ENABLE_CHG      ?= yes
+ENABLE_FAN      ?= yes
+ENABLE_PMIC     ?= yes
+ENABLE_RTC      ?= yes
+ENABLE_SPEAKER  ?= yes
+ENABLE_EMMC     ?= yes
+
+_BUILD_DIR := $(BUILD_BASE)/$(_ARCH)
+INCDIR      = $(MFDIR)include
+
+COMMON_CFLAGS := \
+  -std=c11 -Wall -Wextra -Werror          \
+  -ffreestanding -fno-builtin             \
+  -fno-stack-protector                    \
+  -ffunction-sections -fdata-sections     \
+  -nostdinc -Os -g                        \
+  $(ARCH_CFLAGS) $(ARCH_CPUDEF)           \
+  $(DEVICE_DEFS)                          \
+  -I$(INCDIR)                             \
+  -I$(MFDIR)../02_FwHal/include           \
+  -I$(MFDIR)../common
+
+# ── Device-conditional subdirectories ────────────────────────────────────────
+SUBDIRS :=
+ifeq ($(ENABLE_WIFI),yes)
+  SUBDIRS += 02_Sensors/WiFi
+endif
+ifeq ($(ENABLE_BT),yes)
+  SUBDIRS += 01_Com/bt
+endif
+ifeq ($(ENABLE_ETH),yes)
+  SUBDIRS += 01_Com/eth
+endif
+ifeq ($(ENABLE_USB),yes)
+  SUBDIRS += 01_Com/usb
+endif
+ifeq ($(ENABLE_HDMI),yes)
+  SUBDIRS += 01_Com/hdmi
+endif
+ifeq ($(ENABLE_TB4),yes)
+  SUBDIRS += 01_Com/tb4
+endif
+ifeq ($(ENABLE_MONITOR),yes)
+  SUBDIRS += 01_Com/monitor
+endif
+ifeq ($(ENABLE_GPU),yes)
+  SUBDIRS += 01_Com/gpu
+endif
+ifeq ($(ENABLE_CAMERA),yes)
+  SUBDIRS += 02_Sensors/camera
+endif
+ifeq ($(ENABLE_MIC),yes)
+  SUBDIRS += 02_Sensors/mic
+endif
+ifeq ($(ENABLE_KBD),yes)
+  SUBDIRS += 02_Sensors/keyboard
+endif
+ifeq ($(ENABLE_MOUSE),yes)
+  SUBDIRS += 02_Sensors/mouse
+endif
+ifeq ($(ENABLE_ALS),yes)
+  SUBDIRS += 02_Sensors/als
+endif
+ifeq ($(ENABLE_THERMAL),yes)
+  SUBDIRS += 02_Sensors/thermal
+endif
+ifeq ($(ENABLE_TOUCHPWD),yes)
+  SUBDIRS += 02_Sensors/touchpwd
+endif
+ifeq ($(ENABLE_BMS),yes)
+  SUBDIRS += 03_NonSensors/bms
+endif
+ifeq ($(ENABLE_CHG),yes)
+  SUBDIRS += 03_NonSensors/chg
+endif
+ifeq ($(ENABLE_FAN),yes)
+  SUBDIRS += 03_NonSensors/fan
+endif
+ifeq ($(ENABLE_PMIC),yes)
+  SUBDIRS += 03_NonSensors/pmic
+endif
+ifeq ($(ENABLE_RTC),yes)
+  SUBDIRS += 03_NonSensors/rtc
+endif
+ifeq ($(ENABLE_SPEAKER),yes)
+  SUBDIRS += 03_NonSensors/speaker
+endif
+ifeq ($(ENABLE_EMMC),yes)
+  SUBDIRS += 03_NonSensors/emmc
 endif
 
-# ── BSP paths ─────────────────────────────────────────────────────────────────
-BSPDIR ?= $(abspath $(MFDIR)../../10_BSP)
-SOCINC  = $(BSPDIR)/03_SoC/include
-
-# ── HW include root ───────────────────────────────────────────────────────────
-HWINC := $(MFDIR)include
-
-# ── Common compiler flags ─────────────────────────────────────────────────────
-COMMON_CFLAGS := \
-  -std=c11              \
-  -Wall -Wextra -Werror \
-  -ffreestanding        \
-  -fno-builtin          \
-  -fno-stack-protector  \
-  -ffunction-sections   \
-  -fdata-sections       \
-  -nostdinc             \
-  -Os -g
-
-# ── Include paths ─────────────────────────────────────────────────────────────
-COMMON_INCLUDES := \
-  -I$(COMMONDIR)                           \
-  -I$(HWINC)                                    \
-  -I$(MFDIR)01_Com/eth                          \
-  -I$(MFDIR)01_Com/hdmi                         \
-  -I$(MFDIR)01_Com/tb4                          \
-  -I$(MFDIR)01_Com/bt                           \
-  -I$(MFDIR)02_Sensors/WiFi                     \
-  -I$(MFDIR)02_Sensors/camera                   \
-  -I$(MFDIR)02_Sensors/mic                      \
-  -I$(MFDIR)02_Sensors/thermal                  \
-  -I$(MFDIR)02_Sensors/touchpwd                 \
-  -I$(MFDIR)03_NonSensors/bms                  \
-  -I$(MFDIR)03_NonSensors/chg                  \
-  -I$(MFDIR)03_NonSensors/emmc                 \
-  -I$(MFDIR)03_NonSensors/fan                  \
-  -I$(MFDIR)03_NonSensors/pmic                 \
-  -I$(MFDIR)03_NonSensors/rtc                  \
-  -I$(MFDIR)03_NonScnsors/speaker              \
-  -I$(SOCINC)
-
-# ── Source files — wildcards pick up every .c in the tree ────────────────────
-HW_SRCS_C :=
-HW_SRCS_C += $(wildcard $(MFDIR)src/*.c)
-HW_SRCS_C += $(wildcard $(MFDIR)01_Com/bt/*.c)
-HW_SRCS_C += $(wildcard $(MFDIR)01_Com/eth/*.c)
-HW_SRCS_C += $(wildcard $(MFDIR)01_Com/hdmi/*.c)
-HW_SRCS_C += $(wildcard $(MFDIR)01_Com/tb4/*.c)
-HW_SRCS_C += $(wildcard $(MFDIR)02_Sensors/WiFi/*.c)
-HW_SRCS_C += $(wildcard $(MFDIR)02_Sensors/camera/*.c)
-HW_SRCS_C += $(wildcard $(MFDIR)02_Sensors/mic/*.c)
-HW_SRCS_C += $(wildcard $(MFDIR)02_Sensors/thermal/*.c)
-HW_SRCS_C += $(wildcard $(MFDIR)02_Sensors/touchpwd/*.c)
-HW_SRCS_C += $(wildcard $(MFDIR)03_NonSensors/bms/*.c)
-HW_SRCS_C += $(wildcard $(MFDIR)03_NonSensors/chg/*.c)
-HW_SRCS_C += $(wildcard $(MFDIR)03_NonSensors/emmc/*.c)
-HW_SRCS_C += $(wildcard $(MFDIR)03_NonSensors/fan/*.c)
-HW_SRCS_C += $(wildcard $(MFDIR)03_NonSensors/pmic/*.c)
-HW_SRCS_C += $(wildcard $(MFDIR)03_NonSensors/rtc/*.c)
-HW_SRCS_C += $(wildcard $(MFDIR)03_NonSensors/speaker/*.c)
-
-# ── vpath — sources found by basename ─────────────────────────────────────────
-vpath %.c \
-  $(MFDIR)src                       \
-  $(MFDIR)01_Com/bt                 \
-  $(MFDIR)01_Com/eth                \
-  $(MFDIR)01_Com/hdmi               \
-  $(MFDIR)01_Com/tb4                \
-  $(MFDIR)02_Sensors/WiFi           \
-  $(MFDIR)02_Sensors/camera         \
-  $(MFDIR)02_Sensors/mic            \
-  $(MFDIR)02_Sensors/thermal        \
-  $(MFDIR)02_Sensors/touchpwd       \
-  $(MFDIR)03_NonSensors/bms        \
-  $(MFDIR)03_NonSensors/chg        \
-  $(MFDIR)03_NonSensors/emmc       \
-  $(MFDIR)03_NonSensors/fan        \
-  $(MFDIR)03_NonSensors/pmic       \
-  $(MFDIR)03_NonSensors/rtc        \
-  $(MFDIR)03_NonSensors/speaker
-
-ARFLAGS := rcs
+SRCS := $(foreach d,$(SUBDIRS),$(wildcard $(MFDIR)$(d)/*.c))
+OBJS := $(patsubst $(MFDIR)%.c,$(_BUILD_DIR)/%.o,$(SRCS))
+LIB  := $(_BUILD_DIR)/libhw.a
 
 # =============================================================================
-# Per-architecture named targets  (same pattern as 10_BSP / 33_PCS / 32_FS)
+# Arch entry points — re-invoke with _ARCH=$@ so $(_BUILD_DIR) is defined.
 # =============================================================================
+.PHONY: arm64 arm32 riscv64 x86_64
 
-.PHONY: arm64
-arm64: _do_arm64
-	@echo "[HW] arm64 done → build/arm64/"
-
-.PHONY: _do_arm64
-_do_arm64:
-	@command -v $(ARM64_CC) >/dev/null 2>&1 || \
-	    { echo "ERROR: $(ARM64_CC) not found"; \
-	      echo "  Linux: sudo apt install gcc-aarch64-linux-gnu"; \
-	      echo "  macOS: brew install aarch64-elf-gcc"; exit 1; }
-	$(MAKE) -f $(MFDIR)Makefile _build              \
-	    _ARCH=arm64                                  \
-	    CC=$(ARM64_CC) AR=$(ARM64_AR)               \
-	    ARCH_CFLAGS="-march=armv8-a -mabi=lp64 -mlittle-endian" \
-	    ARCH_CPUDEF="-D__aarch64__"
-
-.PHONY: arm32
-arm32: _do_arm32
-	@echo "[HW] arm32 done → build/arm32/"
-
-.PHONY: _do_arm32
-_do_arm32:
-	@command -v $(ARM32_CC) >/dev/null 2>&1 || \
-	    { echo "ERROR: $(ARM32_CC) not found"; \
-	      echo "  Linux: sudo apt install gcc-arm-linux-gnueabihf"; \
-	      echo "  macOS: brew install arm-none-eabi-gcc"; exit 1; }
-	$(MAKE) -f $(MFDIR)Makefile _build                    \
-	    _ARCH=arm32                                        \
-	    CC=$(ARM32_CC) AR=$(ARM32_AR)                     \
-	    ARCH_CFLAGS="-march=armv7-a -marm -mfloat-abi=soft -mlittle-endian" \
-	    ARCH_CPUDEF="-D__arm__"
-
-.PHONY: riscv64
-riscv64: _do_riscv64
-	@echo "[HW] riscv64 done → build/riscv64/"
-
-.PHONY: _do_riscv64
-_do_riscv64:
-	@command -v $(RV64_CC) >/dev/null 2>&1 || \
-	    { echo "ERROR: $(RV64_CC) not found"; \
-	      echo "  Linux: sudo apt install gcc-riscv64-linux-gnu"; \
-	      echo "  macOS: brew install riscv64-elf-gcc"; exit 1; }
-	$(MAKE) -f $(MFDIR)Makefile _build                          \
-	    _ARCH=riscv64                                            \
-	    CC=$(RV64_CC) AR=$(RV64_AR)                             \
-	    ARCH_CFLAGS="-march=rv64imafdc_zicsr_zifencei -mabi=lp64d -mcmodel=medany" \
-	    ARCH_CPUDEF="-D__riscv -D__riscv_xlen=64"
-
-.PHONY: x86_64
-x86_64: _do_x86_64
-	@echo "[HW] x86_64 done → build/x86_64/"
-
-.PHONY: _do_x86_64
-_do_x86_64:
-	@command -v $(X86_CC) >/dev/null 2>&1 || \
-	    { echo "ERROR: $(X86_CC) not found"; \
-	      echo "  Linux: sudo apt install gcc-x86-64-linux-gnu"; \
-	      echo "  macOS: brew install x86_64-elf-gcc"; exit 1; }
-	$(MAKE) -f $(MFDIR)Makefile _build                               \
-	    _ARCH=x86_64                                                  \
-	    CC=$(X86_CC) AR=$(X86_AR)                                    \
-	    ARCH_CFLAGS="-m64 -mno-red-zone -mno-mmx -mno-sse -mno-sse2 -fno-pic -mcmodel=kernel" \
-	    ARCH_CPUDEF="-D__x86_64__"
-
-# =============================================================================
-# Internal _build target
-# =============================================================================
-_BUILD_DIR = $(MFDIR)build/$(_ARCH)
-_ARCH_INC  = $(BSPDIR)/10_Arch/$(_ARCH)/include
-
-_CFLAGS_ALL = $(COMMON_CFLAGS)   \
-              $(COMMON_INCLUDES)  \
-              -I$(_ARCH_INC)      \
-              $(ARCH_CFLAGS)      \
-              $(ARCH_CPUDEF)
-
-# _OBJS must stay recursive (=) because _BUILD_DIR depends on _ARCH
-# which is only known when _build is invoked.
-_OBJS    = $(patsubst $(MFDIR)%.c,$(_BUILD_DIR)/%.o,$(HW_SRCS_C))
-DEPFLAGS = -MMD -MP -MF $(@:.o=.d)
--include $(_OBJS:.o=.d)
+arm64 arm32 riscv64 x86_64:
+	$(MAKE) -f $(MFDIR)Makefile _build  \
+	    _ARCH=$@                        \
+	    CC="$(CC)" AR="$(AR)"           \
+	    ARCH_CFLAGS="$(ARCH_CFLAGS)"    \
+	    ARCH_CPUDEF="$(ARCH_CPUDEF)"    \
+	    DEVICE_DEFS="$(DEVICE_DEFS)"    \
+	    ENABLE_WIFI=$(ENABLE_WIFI)      \
+	    ENABLE_BT=$(ENABLE_BT)          \
+	    ENABLE_ETH=$(ENABLE_ETH)        \
+	    ENABLE_USB=$(ENABLE_USB)        \
+	    ENABLE_HDMI=$(ENABLE_HDMI)      \
+	    ENABLE_TB4=$(ENABLE_TB4)        \
+	    ENABLE_MONITOR=$(ENABLE_MONITOR)\
+	    ENABLE_GPU=$(ENABLE_GPU)        \
+	    ENABLE_CAMERA=$(ENABLE_CAMERA)  \
+	    ENABLE_MIC=$(ENABLE_MIC)        \
+	    ENABLE_KBD=$(ENABLE_KBD)        \
+	    ENABLE_MOUSE=$(ENABLE_MOUSE)    \
+	    ENABLE_ALS=$(ENABLE_ALS)        \
+	    ENABLE_THERMAL=$(ENABLE_THERMAL)\
+	    ENABLE_TOUCHPWD=$(ENABLE_TOUCHPWD)\
+	    ENABLE_BMS=$(ENABLE_BMS)        \
+	    ENABLE_CHG=$(ENABLE_CHG)        \
+	    ENABLE_FAN=$(ENABLE_FAN)        \
+	    ENABLE_PMIC=$(ENABLE_PMIC)      \
+	    ENABLE_RTC=$(ENABLE_RTC)        \
+	    ENABLE_SPEAKER=$(ENABLE_SPEAKER)\
+	    ENABLE_EMMC=$(ENABLE_EMMC)
 
 .PHONY: _build
-_build: $(_BUILD_DIR)/libhw.a
-	@echo "[HW] _build done: $(_ARCH)"
+_build: $(LIB)
+	@echo "[DI] $(_BUILD_DIR)/libhw.a  ($(words $(SUBDIRS)) subsystems)"
+	@echo "[DI]  $(SUBDIRS)"
 
-$(_BUILD_DIR)/libhw.a: $(_OBJS)
+$(LIB): $(OBJS)
 	@mkdir -p $(dir $@)
-	$(AR) $(ARFLAGS) $@ $^
-	@echo "  [AR]  $@"
+	$(AR) rcs $@ $^
 
 $(_BUILD_DIR)/%.o: $(MFDIR)%.c
 	@mkdir -p $(dir $@)
-	$(CC) $(_CFLAGS_ALL) $(DEPFLAGS) -c $< -o $@
 	@echo "  [CC]  $<"
+	$(CC) $(COMMON_CFLAGS) \
+	    -I$(MFDIR)$(dir $*) \
+	    -I$(MFDIR)../02_FwHal/$(dir $*) \
+	    -MMD -MP -c $< -o $@
 
-# =============================================================================
-# Debug targets — run these to verify wildcard expansion
-# =============================================================================
+-include $(wildcard $(BUILD_BASE)/$(_ARCH)/*.d)
 
-.PHONY: list-sources
-list-sources:
-	@echo "[HW] HW_SRCS_C ($(words $(HW_SRCS_C)) files):"
-	@for f in $(HW_SRCS_C); do echo "  $f"; done
-
-.PHONY: list-objs
-list-objs:
-	@$(MAKE) -f $(MFDIR)Makefile _list_objs _ARCH=arm64
-
-.PHONY: _list_objs
-_list_objs:
-	@echo "[HW] _OBJS for $(_ARCH) ($(words $(_OBJS)) files):"
-	@for f in $(_OBJS); do echo "  $f"; done
-
-# =============================================================================
-# Convenience targets
-# =============================================================================
-
-.PHONY: all
-all: arm64 arm32 riscv64 x86_64
-	@echo "" && echo "[HW] all builds complete"
-
-.PHONY: clean-arm64 clean-arm32 clean-riscv64 clean-x86_64 clean
-clean-arm64:   ; rm -rf $(MFDIR)build/arm64
-clean-arm32:   ; rm -rf $(MFDIR)build/arm32
-clean-riscv64: ; rm -rf $(MFDIR)build/riscv64
-clean-x86_64:  ; rm -rf $(MFDIR)build/x86_64
-clean: clean-arm64 clean-arm32 clean-riscv64 clean-x86_64
-	@echo "[CLN] all build outputs removed"
-
-.PHONY: info-arm64 info-arm32 info-riscv64 info-x86_64
-info-arm64:
-	@echo "HOST=$(UNAME_S) ARCH=arm64   CC=$(ARM64_CC)"
-info-arm32:
-	@echo "HOST=$(UNAME_S) ARCH=arm32   CC=$(ARM32_CC)"
-info-riscv64:
-	@echo "HOST=$(UNAME_S) ARCH=riscv64 CC=$(RV64_CC)"
-info-x86_64:
-	@echo "HOST=$(UNAME_S) ARCH=x86_64  CC=$(X86_CC)"
+.PHONY: clean
+clean:
+	rm -rf $(BUILD_BASE)
