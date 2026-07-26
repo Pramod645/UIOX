@@ -41,3 +41,11 @@ arch/uiox_kp_arch_x86.c	x86-64 — JMP rel32 / FF25 stubs, clflush	10_Arch/x86_6
 uiox_kp_patch.c	Engine — register/enable/disable, module load, stop_machine	34_CAS atomics, 33_ProcessCtrl quiesce
 uiox_kp_demo.c	Demo — two buggy functions patched live	Exercises full API
 uiox_kpatch.h	Umbrella — single include + state/error helpers	40_SystemCallInterface SYS_KPATCH_*
+==================================
+10_kpatch → 30_KIX/33_PCS/06_kpatch/
+Why 33_PCS: The docs are explicit — uiox_kp_engine_init() is called directly after sched_init(), wait_init(), and timer_tick_start() in the kernel init sequence. The layer map in the docs confirms:
+
+uiox_kp_mem.h/.c — executable memory bump allocator for trampolines → integrates with 33_PCS/02_MemMngnt/
+uiox_kp_arch_arm64.c / uiox_kp_arch_arm32.c — arch-specific trampoline opcodes, direct instruction patching of live kernel text — requires kernel write access to executable memory, impossible in userspace
+Syscalls SYS_KPATCH_* in 40_SystemCallInterface — kernel syscall table entries
+The trampoline allocator sits on top of mm.h from 33_PCS/02_MemMngnt/ directly

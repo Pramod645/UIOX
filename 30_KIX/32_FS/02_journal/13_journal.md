@@ -72,3 +72,12 @@ CHECKPOINT ← blocks written back to home location
    │
    ▼
 INACTIVE
+=======================================
+13_journal — Filesystem Journal
+Must be kernel — belongs in 32_FS, not 50_UIX.
+
+Implements filesystem journaling: mount/unmount, transaction state machine (INACTIVE → RUNNING → COMMIT → CHECKPOINT)
+Responds to syscalls SYS_SYNC (162), SYS_FSYNC (74), SYS_FDATASYNC (75), SYS_SYNCFS (306) — syscall handlers run in kernel space only
+uiox_jr_tick() is called from the scheduler tick — kernel context
+Has on-disk structures (superblock, descriptors) written directly — no libc, no POSIX layer
+Where it should move: out of 50_UIX and into 30_KIX/32_FS/ as a sub-module. It's a filesystem subsystem, not a UIX-layer concern. The 50_UIX numbering is misleading — this is purely 32_FS internals.

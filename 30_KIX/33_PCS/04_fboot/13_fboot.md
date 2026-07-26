@@ -29,3 +29,12 @@ Power-on
                                            │
                                  uiox_fb_report()   ← timing table
                                  uiox_fb_defer_run_all()  ← background
+------------------------------------------------------------------------
+13_fboot — Fast Boot Timing & Snapshot
+Must be kernel — no question.
+
+uiox_fb_init() is called at reset, latching a hardware timer — userspace doesn't exist yet
+Manages boot snapshots (hibernate-style fast resume) — requires direct memory/storage access with no filesystem or process model yet running
+uiox_fb_shell_ready() is a milestone marker called from kernel_main() — the call chain is entirely pre-userspace
+Deferred-init scheduling runs inside the kernel boot path
+Where it belongs: already correctly in 30_KIX build.

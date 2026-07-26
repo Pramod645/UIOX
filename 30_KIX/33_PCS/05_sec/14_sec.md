@@ -49,3 +49,13 @@ Syscall table (40_SystemCallInterface)
     ├─ SYS_GETPOLICY   (252)
     ├─ SYS_SETPOLICY   (253)
     └─ SYS_ASLR_STATUS (254)
+===============================
+14_sec — ASLR + MAC Security
+Must be kernel — and belongs in 33_PCS, not 50_UIX.
+
+uiox_sec_init() called from kernel_main() directly, seeds ASLR entropy from the TRNG (hardware)
+uiox_aslr_randomise_mm() runs inside exec() path — kernel memory management
+uiox_mac_vfs_open() runs inside 32_FS VFS open — kernel context, returns EACCES
+uiox_aslr_kstack() randomises kernel stack pointers per thread — explicitly kernel-only
+Syscalls SYS_GETLABEL (250) through SYS_ASLR_STATUS (254) are kernel syscall table entries
+Where it should move: into 30_KIX/33_PCS/ as a security sub-module. The docs even say 33_ProcessControlSubsystem/14_sec/ in their own path — it was placed under 50_UIX by mistake.

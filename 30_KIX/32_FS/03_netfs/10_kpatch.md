@@ -41,3 +41,12 @@ arch/uiox_kp_arch_x86.c	x86-64 — JMP rel32 / FF25 stubs, clflush	10_Arch/x86_6
 uiox_kp_patch.c	Engine — register/enable/disable, module load, stop_machine	34_CAS atomics, 33_ProcessCtrl quiesce
 uiox_kp_demo.c	Demo — two buggy functions patched live	Exercises full API
 uiox_kpatch.h	Umbrella — single include + state/error helpers	40_SystemCallInterface SYS_KPATCH_*
+=================================================================
+
+11_netfs → 30_KIX/32_FS/03_netfs/
+Why 32_FS: The layer map in the docs confirms:
+
+uiox_nfs_rpc.h/.c — ONC RPC/XDR encode/decode with no libc — freestanding kernel code, not a userspace network library
+Integrates directly with the VFS layer in 32_FS — mounts as a filesystem type alongside 01_fsa/ and 10_scfs/
+No userspace process model needed — the RPC transport runs inside the kernel, same as Linux's in-kernel NFS client (fs/nfs/)
+Uses the kernel's own network stack (from 34_CAS) not a userspace socket API

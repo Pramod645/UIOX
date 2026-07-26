@@ -41,3 +41,14 @@ Syscall table (40_SystemCallInterface)
     ├─ SYS_KERNEL_VERIFY (220)
     ├─ SYS_KSIGN_STATUS  (221)
     └─ SYS_KSIGN_QUOTE   (222)
+-------------------------
+
+12_ksign — Kernel Image Signing & Verification
+Must be kernel — no question.
+
+Called directly from uiox_kernel_main() as uiox_ks_boot_entry() before any userspace exists
+Seeds keystore from OTP (hardware register access — only possible in kernel/privileged mode)
+Performs SHA-256/SHA-384 + RSA-2048/ECDSA-256 signature verification of the kernel itself
+Extends PCR measurements (TPM-style — requires privileged hardware access)
+Has a scheduler tick hook uiox_ks_scheduler_tick() → re-hashes kernel text/rodata regions at runtime — this is a kernel integrity monitor, completely incompatible with userspace
+Where it belongs: already correctly in 30_KIX build, linked into the kernel ELF.
