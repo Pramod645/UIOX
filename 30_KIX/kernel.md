@@ -342,3 +342,12 @@ make arm64 LINK=yes \
 Same works for dynamic BSP builds:
 make kernel-dynamic-arm64 ENABLE_BT=no ENABLE_GPU=no
 
+===========================================
+Complete picture — all six misplaced subsystems
+Subsystem	Current (wrong)	Correct location	Key reason
+10_kpatch	50_UIX/10_kpatch	30_KIX/33_PCS/06_kpatch/	Live kernel text patching via mm.h; called after sched_init()
+11_netfs	50_UIX/11_netfs	30_KIX/32_FS/03_netfs/	In-kernel NFS/RPC, no libc, mounts via VFS
+12_ksign	50_UIX/12_ksign	30_KIX/33_PCS/03_ksign/	Scheduler-driven runtime integrity monitor
+13_fboot	50_UIX/13_fboot	30_KIX/33_PCS/04_fboot/	Boot snapshot + deferred-init scheduling
+13_journal	50_UIX/13_journal	30_KIX/32_FS/02_journal/	FS journal — docs say 32_FileSystem/13_jrnl/
+14_sec	50_UIX/14_sec	30_KIX/33_PCS/05_sec/	ASLR + MAC — docs say 33_ProcessControlSubsystem/14_sec/

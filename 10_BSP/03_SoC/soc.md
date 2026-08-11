@@ -333,4 +333,88 @@ X86_QEMU_I440	uiox_soc_x86.c	✅ covered (same code path)
 X86_GENERIC	uiox_soc_x86.c	✅ covered (default path)
 QEMU_VIRT_RV64	uiox_soc_riscv64.c	✅ existing
 SIFIVE_U74	uiox_soc_riscv64.c	✅ existing
-TH1520	uiox_soc_th1520.c	✅ new
+TH1520	uiox_soc_th1520.c	✅ 
+
+=============================================
+uiox_soc_init() is boot-only setup — but the SoC layer runs continuously at runtime
+The difference from the arch layer is that the SoC layer has far more runtime surface because it owns clocks, power, DMA, IRQ routing, PSCI, TrustZone, and PCIe — all of which are needed throughout the kernel's lifetime.
+Boot-only (one-time init sequence)
+soc.png
+
+Runtime usage — what the SoC layer does continuously
+Just like the arch layer, most of 03_SoC runs throughout the kernel's entire lifetime:
+
+Clock layer (uiox_soc_clk.c) — called on every device open/frequency change
+32_FS open() / 30_DeviceDrivers probe()
+    → uiox_clk_enable(CLK_UART0)
+    → uiox_clk_get_hz(CLK_CPU)      ← timer recalibration
+    → uiox_clk_disable(CLK_CAM)     ← power saving when idle
+
+
+DMA layer (uiox_soc_dma.c) — called on every buffer transfer
+31_BufferCache / WiFi / USB / eMMC TX/RX
+    → uiox_fw_dma_transfer(ch, src_pa, dst_pa, len)
+        → programs PL080/PL330 channel registers
+        → fires DMA IRQ on completion
+    → irq_ack() → completion callback → buffer ready
+
+
+IRQ layer (uiox_soc_irq.c) — on every interrupt
+Any device IRQ fires
+    → uiox_soc_irq_ack(irq_nr)     ← GIC EOI write
+    → dispatch to registered handler
+    → uiox_soc_irq_enable/disable() ← dynamic masking
+
+
+Power layer (uiox_soc_power.c + uiox_soc_psci.c) — on every CPU idle / sleep
+33_PCS scheduler — no runnable processes
+    → uiox_fw_power_cpu_suspend()
+        → PSCI CPU_SUSPEND via SMC
+        → CPU enters WFI / retention state
+
+System shutdown / reboot
+    → uiox_fw_power_shutdown()  → PSCI SYSTEM_OFF  via SMC
+    → uiox_fw_power_reset()     → PSCI SYSTEM_RESET via SMC
+
+SMP — bring up secondary cores (33_PCS/01_schedular)
+    → uiox_fw_power_cpu_on(mpidr, entry_pa)
+        → PSCI CPU_ON via SMC
+        → secondary core starts at entry_pa
+
+
+TrustZone (uiox_soc_tz.c) — on every secure operation
+33_PCS/03_ksign — PCR extend / key access
+    → uiox_soc_tz_smc(fn_id, args)
+        → EL1 → EL3 SMC call
+        → secure world executes
+        → returns to normal world
+
+33_PCS/05_sec — MAC policy enforcement
+    → uiox_soc_tz_mem_protect(pa, size)
+        → locks secure memory regions via TrustZone controller
+
+
+
+Kernel loader (uiox_kernel_loader.c) — dynamic BSP mode
+BSP_MODE=dynamic:
+    uiox_kernel_loader_jump(kernel_pa, dtb_pa, args_pa)
+        → flushes D-cache
+        → disables MMU
+        → branches to kernel entry point
+
+
+Summary — boot vs runtime split:
+Module	                Boot (one-time)	        Runtime (continuous)
+uiox_soc_arm64_init.c	SoC detect + chip init	❌ never again
+uiox_soc_post.c	        Power-on self test	    ❌ never again
+uiox_soc_clk.c	        PLL + clock tree init	✅ every device open/close/freq change
+uiox_soc_irq.c	        IRQ controller init	    ✅ every interrupt — ack, enable, disable
+uiox_soc_dma.c	        DMA controller init	    ✅ every buffer transfer (WiFi, USB, eMMC…)
+uiox_soc_power.c	    PM context init	        ✅ every CPU idle, suspend, shutdown, reboot
+uiox_soc_psci.c	        SMC handler install	    ✅ every PSCI call (CPU_ON/OFF, SYSTEM_RESET)
+uiox_soc_tz.c	        Secure world split	    ✅ every secure/ksign/MAC operation
+uiox_soc_hw.c	        18-op vtable register	✅ every driver vtable call
+uiox_soc_pcie.c	        PCIe enumeration	    ✅ every PCIe DMA transaction
+uiox_soc_mem.c	        DDR region build	    ✅ every physical page alloc (33_PCS/02_MemMngnt)
+uiox_kernel_loader.c	Dynamic BSP jump	    ❌ boot only
+====================================================================================================
