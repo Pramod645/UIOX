@@ -315,3 +315,30 @@ make kernel-dynamic-arm64 ENABLEBT=no ENABLE_GPU=no
 The ?= in the Makefile means the variable is only set if not already provided on the command line — so yes is the fallback default, and any =no` you pass overrides it for that build without touching the file. No edits needed.
 
 ========================================================
+===============KERNEL BUILD SYSTEM =======================
+
+Default (all devices on) — just build normally:
+make arm64 LINK=yes
+
+
+Disable specific devices at build time — pass =no on the command line:
+# Disable Bluetooth and GPU
+make arm64 LINK=yes ENABLE_BT=no ENABLE_GPU=no
+
+# Headless build — no display stack
+make arm64 LINK=yes ENABLE_HDMI=no ENABLE_MONITOR=no ENABLE_GPU=no
+
+# Minimal comms only — WiFi + Ethernet, everything else off
+make arm64 LINK=yes \
+  ENABLE_BT=no ENABLE_USB=no ENABLE_HDMI=no ENABLE_TB4=no \
+  ENABLE_MONITOR=no ENABLE_GPU=no ENABLE_CAMERA=no \
+  ENABLE_MIC=no ENABLE_KBD=no ENABLE_MOUSE=no ENABLE_ALS=no \
+  ENABLE_THERMAL=no ENABLE_TOUCHPWD=no ENABLE_BMS=no \
+  ENABLE_CHG=no ENABLE_FAN=no ENABLE_PMIC=no ENABLE_RTC=no \
+  ENABLE_SPEAKER=no ENABLE_EMMC=no
+
+
+
+Same works for dynamic BSP builds:
+make kernel-dynamic-arm64 ENABLE_BT=no ENABLE_GPU=no
+
