@@ -144,3 +144,26 @@ Every syscall	SVC → EL0→EL1 transition → vector table → dispatch
 Every page fault	Data/instruction abort → ESR_EL1/FAR_EL1 → demand paging
 Every exec()	TTBR0_EL1 swap, TLBI, ASLR entropy from TRNG
 Every kpatch	DC CVAU, IC IVAU, DSB/ISB cache maintenance
+
+
+================================
+Summary — all four architectures side by side
+┌────────────────┬─────────────┬──────────────┬────────────────────────┐
+│ Arch           │ Instruction │ NR register  │ UIOX C entry           │
+├────────────────┼─────────────┼──────────────┼────────────────────────┤
+│ ARM64          │ SVC #0      │ x8           │ arch_syscall_entry()   │
+│                │ EL0→EL1     │ args: x0–x5  │ wired via VBAR_EL1     │
+├────────────────┼─────────────┼──────────────┼────────────────────────┤
+│ ARM32          │ SVC #0      │ r7           │ arch_syscall_entry()   │
+│                │ USR→SVC     │ args: r0–r5  │ wired via vector table │
+├────────────────┼─────────────┼──────────────┼────────────────────────┤
+│ RISC-V 64      │ ECALL       │ a7           │ arch_syscall_entry()   │
+│                │ U→S mode    │ args: a0–a5  │ wired via stvec CSR    │
+├────────────────┼─────────────┼──────────────┼────────────────────────┤
+│ x86-64         │ SYSCALL     │ rax          │ arch_syscall_entry()   │
+│                │ Ring3→Ring0 │ args:        │ wired via LSTAR MSR    │
+│                │             │ rdi,rsi,rdx, │                        │
+│                │             │ r10,r8,r9    │                        │
+└────────────────┴─────────────┴──────────────┴────────────────────────┘
+
+All four call:  uiox_syscall_dispatch(&frame)  →  33_PCS/src/uiox_syscall.c

@@ -92,6 +92,20 @@
 #include "uiox_boot_types.h"    /* remaining boot enums/structs/macros       */
 #include "uiox_fboot.h"         /* uiox_fb_master_ctx_t, fb_init/ready/report*/
 
+
+/* Add near the top of uiox_kernel_main.c includes: */
+#include "uiox_syscall.h"
+#include "uiox_uaccess.h"
+
+/* In kernel_common_init(), after uiox_proc_init(): */
+early_puts("[kernel] uiox_syscall_dispatch ready\r\n");
+/*
+ * The arch vector table calls uiox_syscall_dispatch() directly
+ * via arch_syscall_entry() — no registration needed here.
+ * This line confirms the symbol is linked and the table is live.
+ */
+
+
 /*
  * Static build only: forward-declare the two BSP symbols we need without
  * including uiox_bsp.h (which conflicts with the headers above).

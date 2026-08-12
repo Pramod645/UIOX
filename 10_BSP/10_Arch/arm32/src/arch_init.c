@@ -30,6 +30,72 @@
 #include "cpu.h"
  #include "../../../03_SoC/include/uiox_soc_stdio.h"    /* no <stdio.h>   */
  #include "../../../03_SoC/include/uiox_soc_string.h"   /* no <string.h>  */
+
+
+
+ /*
+ * arch_syscall_entry — ARM32 (ARMv7-A)
+ *
+ * Called from the SVC vector table entry (software interrupt).
+ *
+ * ARM32 syscall convention (EABI):
+ *   r7  = syscall number
+ *   r0  = arg 0
+ *   r1  = arg 1
+ *   r2  = arg 2
+ *   r3  = arg 3
+ *   r4  = arg 4  (caller-saved, pushed by vector stub)
+ *   r5  = arg 5  (caller-saved, pushed by vector stub)
+ *
+ * The SVC vector stub saves r0–r12, lr_svc, spsr_svc on the
+ * kernel stack, then calls this function with the frame pointer.
+ *
+ * Returns: value placed back in r0 before MOVS PC, LR to USR mode.
+ *
+ * Entry in vector table (assembly stub in vectors.S):
+ *   svc_entry:
+ *     push    {r0-r12, lr}
+ *     mrs     r12, spsr
+ *     push    {r12}
+ *     bl      arch_syscall_entry
+ *     pop     {r12}
+ *     msr     spsr_cxsf, r12
+ *     ldm     sp!, {r0-r12, pc}^    @ restore + MOVS PC restores CPSR
+ */
+
+#include "uiox_syscall.h"   /* uiox_syscall_dispatch, uiox_syscall_frame_t */
+
+long arch_syscall_entry(unsigned long r0, unsigned long r1,
+                        unsigned long r2, unsigned long r3,
+                        unsigned long r4, unsigned long r5,
+                        unsigned long nr)
+{
+    /*
+     * On ARM32 EABI, syscall number is in r7.
+     * The vector stub extracts r7 and passes it as the
+     * last argument here (nr) so we get a clean C signature.
+     */
+    uiox_syscall_frame_t frame = {
+        .nr = nr,
+        .a0 = r0,
+        .a1 = r1,
+        .a2 = r2,
+        .a3 = r3,
+        .a4 = r4,
+        .a5 = r5,
+    };
+    return (long)uiox_syscall_dispatch(&frame);
+}
+
+/*
+ * arch_fini addition — mask SVC before teardown.
+ * Add to existing arch_fini() body:
+ *
+ *   __asm__ volatile("msr daifset, #2" ::: "memory");
+ */
+
+
+
  
  /* ── Forward declarations of IRQ handlers ────────────────────────────
   * The handlers themselves live in the driver layer (20_DriverInterfaces)

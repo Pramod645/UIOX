@@ -1904,3 +1904,713 @@ sys_read() and sys_write() are in 33_PCS/uiox_syscall.c but they call into 32_FS
         ├── file->ops->read(file, kbuf)   ← 32_FS provides this vtable
         │       reads from journal/inode
         └── uiox_copy_to_user(ubuf, kbuf) ← 33_PCS copies to user
+======================================================================
+The complete gap analysis — syscall by syscall
+┌─────────────────────────────────────────────────────────────────────────────┐
+│  SYSCALL        │  Algorithm exists?  │  Freestanding?  │  Wired to arch?   │
+├─────────────────┼─────────────────────┼─────────────────┼───────────────────┤
+│  PROCESS LIFECYCLE                                                           │
+├─────────────────┼─────────────────────┼─────────────────┼───────────────────┤
+│  sys_fork       │  ✅ 50_scps/fork.c  │  ❌ uses libc   │  ❌ not wired     │
+│  sys_exec       │  ✅ 50_scps/exec.c  │  ❌ uses libc   │  ❌ not wired     │
+│  sys_exit       │  ✅ 50_scps/exit.c  │  ❌ uses libc   │  ❌ not wired     │
+│  sys_wait       │  ✅ 50_scps/wait.c  │  ❌ uses libc   │  ❌ not wired     │
+│  sys_getpid     │  ⚠️  stub only      │  ✅             │  ❌ not wired     │
+│  sys_getppid    │  ❌ missing         │  —              │  —                │
+│  sys_kill       │  ✅ 50_scps/signal.c│  ❌ uses libc   │  ❌ not wired     │
+│  sys_signal     │  ✅ 50_scps/signal.c│  ❌ uses libc   │  ❌ not wired     │
+├─────────────────┼─────────────────────┼─────────────────┼───────────────────┤
+│  SCHEDULING                                                                  │
+├─────────────────┼─────────────────────┼─────────────────┼───────────────────┤
+│  sys_sched_yield│  ✅ 01_schedular    │  ❌ uses libc   │  ❌ not wired     │
+│  sys_setpriority│  ⚠️  partial        │  ❌             │  ❌               │
+│  sys_getpriority│  ⚠️  partial        │  ❌             │  ❌               │
+│  sys_nanosleep  │  ❌ missing         │  —              │  —                │
+│  sys_clock_get  │  ❌ missing         │  —              │  —                │
+├─────────────────┼─────────────────────┼─────────────────┼───────────────────┤
+│  MEMORY                                                                      │
+├─────────────────┼─────────────────────┼─────────────────┼───────────────────┤
+│  sys_brk        │  ⚠️  stub — hardcoded 0x10000        │  ❌ no page tables │
+│  sys_mmap       │  ⚠️  stub — returns addr, no PTEs    │  ❌               │
+│  sys_munmap     │  ❌ missing         │  —              │  —                │
+│  sys_mprotect   │  ❌ missing         │  —              │  —                │
+│  page_fault     │  ✅ COW + demand-zero│ ❌ uses calloc  │  ❌ static table  │
+├─────────────────┼─────────────────────┼─────────────────┼───────────────────┤
+│  IPC                                                                         │
+├─────────────────┼─────────────────────┼─────────────────┼───────────────────┤
+│  sys_msgget     │  ✅ 00_IPC/msg.c    │  ❌ uses libc   │  ❌ not wired     │
+│  sys_msgsnd     │  ✅ 00_IPC/msg.c    │  ❌ uses libc   │  ❌ not wired     │
+│  sys_msgrcv     │  ✅ 00_IPC/msg.c    │  ❌ uses libc   │  ❌ not wired     │
+│  sys_msgctl     │  ✅ 00_IPC/msg.c    │  ❌ uses libc   │  ❌ not wired     │
+│  sys_shmget     │  ✅ 00_IPC/shm.c    │  ❌ uses libc   │  ❌ not wired     │
+│  sys_shmat      │  ✅ 00_IPC/shm.c    │  ❌ uses libc   │  ❌ not wired     │
+│  sys_shmdt      │  ✅ 00_IPC/shm.c    │  ❌ uses libc   │  ❌ not wired     │
+│  sys_shmctl     │  ✅ 00_IPC/shm.c    │  ❌ uses libc   │  ❌ not wired     │
+│  sys_semget     │  ✅ 00_IPC/sem.c    │  ❌ uses libc   │  ❌ not wired     │
+│  sys_semop      │  ✅ 00_IPC/sem.c    │  ❌ uses libc   │  ❌ not wired     │
+│  sys_semctl     │  ✅ 00_IPC/sem.c    │  ❌ uses libc   │  ❌ not wired     │
+├─────────────────┼─────────────────────┼─────────────────┼───────────────────┤
+│  SECURITY                                                                    │
+├─────────────────┼─────────────────────┼─────────────────┼───────────────────┤
+│  sys_getlabel   │  ✅ 05_sec          │  ✅             │  ❌ not wired     │
+│  sys_setlabel   │  ✅ 05_sec          │  ✅             │  ❌ not wired     │
+│  sys_getpolicy  │  ✅ 05_sec          │  ✅             │  ❌ not wired     │
+│  sys_setpolicy  │  ✅ 05_sec          │  ✅             │  ❌ not wired     │
+│  sys_aslr_status│  ✅ 05_sec          │  ✅             │  ❌ not wired     │
+├─────────────────┼─────────────────────┼─────────────────┼───────────────────┤
+│  MISSING ENTIRELY — not in repo at all                                       │
+├─────────────────┼─────────────────────┼─────────────────┼───────────────────┤
+│  sys_read       │  ❌                 │  —              │  —                │
+│  sys_write      │  ❌                 │  —              │  —                │
+│  sys_open       │  ❌                 │  —              │  —                │
+│  sys_close      │  ❌                 │  —              │  —                │
+│  sys_ioctl      │  ❌                 │  —              │  —                │
+│  sys_pipe       │  ❌                 │  —              │  —                │
+│  sys_dup/dup2   │  ❌                 │  —              │  —                │
+│  sys_poll/select│  ❌                 │  —              │  —                │
+│  copy_to_user   │  ❌                 │  —              │  —                │
+│  copy_from_user │  ❌                 │  —              │  —                │
+│  uiox_sys_call_init│  ❌ called but not found in repo  │  —                │
+└─────────────────┴─────────────────────┴─────────────────┴───────────────────┘
+=======================================
+
+data from kernel space/ DRAM/RAm Region space can be copied to user space
+
+Part 1 — Current state of 32_FS
+32_FS/
+├── src/uiox_fs_init.c    ✅ Clean skeleton — correct weak stub pattern
+│                            calls vfs_init(), scfs_init(), vfs_mount_root()
+│                            uses printf() ← needs replacing with early_puts
+├── 01_fsa/               ❌ Empty — no VFS layer at all
+├── 10_scfs/              ❌ Empty — no filesystem implementation
+├── 02_journal/           ❌ Empty — no journal (moved from 50_UIX but not written)
+├── 03_netfs/             ❌ Empty — no NFS client (moved from 50_UIX but not written)
+└── include/              ❓ Not fetched — likely empty
+
+
+Part 2 — How DRAM/kernel data reaches userspace through the FS path
+DRAM (physical pages)
+│
+│  33_PCS/02_MemMngnt owns physical pages
+│  32_FS/01_fsa owns the page cache (file data in DRAM)
+│
+▼
+┌─────────────────────────────────────────────────────────┐
+│  Page cache  (32_FS/01_fsa)                             │
+│  Physical DRAM pages backing file content               │
+│  inode → block map → physical pages in DRAM             │
+└──────────────────────┬──────────────────────────────────┘
+                       │
+        Three paths to userspace
+                       │
+    ┌──────────────────┼───────────────┐
+    ▼                  ▼               ▼
+[read()]          [mmap()]        [sendfile()]
+copy_to_user      map PA into     kernel→kernel
+kernel page       user PTE        zero-copy
+→ user buffer     zero copy       (future)
+
+
+Part 3 — Complete gap analysis
+┌──────────────────────┬─────────────────┬──────────────┬────────────────┐
+│ Component            │ Exists?         │ Freestanding?│ Wired?         │
+├──────────────────────┼─────────────────┼──────────────┼────────────────┤
+│ VFS layer            │ ❌ missing      │ —            │ —              │
+│ inode / dentry cache │ ❌ missing      │ —            │ —              │
+│ file descriptor table│ ❌ missing      │ —            │ —              │
+│ vfs_open/read/write  │ ❌ missing      │ —            │ —              │
+│ vfs_mount_root       │ ⚠️  stub only   │ ✅ (stub)    │ ❌             │
+│ SCFS implementation  │ ❌ missing      │ —            │ —              │
+│ Journal              │ ❌ missing      │ —            │ —              │
+│ NetFS/NFS            │ ❌ missing      │ —            │ —              │
+│ page cache           │ ❌ missing      │ —            │ —              │
+│ sys_read → FS        │ ❌ not wired    │ —            │ —              │
+│ sys_write → FS       │ ❌ not wired    │ —            │ —              │
+│ sys_open → FS        │ ❌ not wired    │ —            │ —              │
+│ sys_close → FS       │ ❌ not wired    │ —            │ —              │
+│ copy_to_user in FS   │ ❌ missing      │ —            │ —              │
+│ printf() in init     │ ⚠️  libc banned │ ❌           │ —              │
+└──────────────────────┴─────────────────┴──────────────┴────────────────┘
+
+
+Part 4 — All files to create or update, with full source
+File 1 — 32_FS/include/uiox_vfs.h (new)
+.....
+
+
+===========
+┌──────────────────────────────────────────────────────────────────────────┐
+│  Files to CREATE                                                          │
+├──────────────────────────────────────────────────────────────────────────┤
+│  32_FS/include/uiox_vfs.h          VFS types + public API               │
+│  32_FS/01_fsa/vfs.c                VFS implementation (path_lookup,      │
+│                                     open/close/read/write/stat/readdir)  │
+│  32_FS/10_scfs/scfs.c              SCFS implementation (page cache,      │
+│                                     block read, mmap_page zero-copy)     │
+│  33_PCS/src/uiox_sys_fd.c          sys_read/write/open/close/stat/       │
+│                                     lseek/getdents — the crossing point  │
+│  33_PCS/src/uiox_sys_call_init.c   uiox_sys_call_init() body             │
+├──────────────────────────────────────────────────────────────────────────┤
+│  Files to UPDATE                                                          │
+├──────────────────────────────────────────────────────────────────────────┤
+│  32_FS/src/uiox_fs_init.c          Replace printf → early_puts,         │
+│                                     add uiox_jr_init() call              │
+│  33_PCS/src/uiox_syscall.c         Wire FS syscalls to dispatch table    │
+│  33_PCS/Makefile                   Add uiox_sys_fd.c,                    │
+│                                     uiox_sys_call_init.c to SRCS         │
+│  32_FS/Makefile                    Add 01_fsa/vfs.c,                     │
+│                                     10_scfs/scfs.c to SRCS               │
+└──────────────────────────────────────────────────────────────────────────┘
+
+Data path — DRAM to userspace in one line per function:
+
+  DRAM page  →  scfs_get_page()  →  scfs_read() memcpy  →  kbuf
+  kbuf       →  vfs_read()       →  sys_read()
+  kbuf       →  uiox_copy_to_user(ubuf, kbuf, n)  ←  CROSSING POINT
+  ubuf       →  user process  ← data arrives
+
+Zero-copy path (mmap):
+
+  DRAM page  →  scfs_mmap_page() returns PA
+  PA         →  uiox_mm_map_user_phys() inserts PTE
+  user VA    →  user reads directly  ← no copy at all
+============================================
+┌────────────────────────────────────────────────────────────────────┐
+│  DRAM  (physical pages)                                             │
+│  ├─ Kernel image    (.text/.data/.bss — static, never copied)      │
+│  ├─ Page cache      (32_FS/10_scfs — file data blocks)             │
+│  ├─ Journal log     (32_FS/02_journal — write-ahead log)           │
+│  └─ Anonymous pages (33_PCS/02_MemMngnt — heap/stack/mmap)         │
+└───────────────────────────┬────────────────────────────────────────┘
+                            │
+             Three paths to userspace
+                            │
+    ┌───────────────────────┼─────────────────────┐
+    ▼                       ▼                      ▼
+[Path 1: read()]      [Path 2: mmap()]       [Path 3: ioctl()]
+scfs_get_page()       vfs_mmap_page()        driver reads SoC
+→ kbuf (kernel)       → PA of DRAM page     → kbuf (kernel)
+→ vfs_read()          → uiox_mm_map         → uiox_copy_to
+→ sys_read()            _user_phys()           _user()
+→ copy_to_user()      → PTE in user PT      → user buffer
+→ user buffer         → user reads VA       no copy needed
+  (memcpy cross)        (zero copy)         for mmap
+    │                       │                      │
+    ▼                       ▼                      ▼
+  EFAULT if           Page fault if          EFAULT if
+  bad user ptr        bad PA/prot            bad user ptr
+
+[Write path: write()]
+user buffer
+→ copy_from_user()    ← CROSSING POINT
+→ kbuf (kernel)
+→ vfs_write()
+→ uiox_jr_start()     ← begin transaction
+→ modify page cache   ← DRAM write
+→ uiox_jr_stop()      ← end transaction
+→ [SYS_SYNC]
+→ uiox_jr_force_commit() → journal durable
+→ uiox_jr_checkpoint()   → data durable
+
+
+===========================================
+Page cache files as mentioned above are written here https://github.com/Pramod645/UIOX/tree/main/30_KIX/31_BufferCache/00_FileBuff, is not the currect or what is the gap for page cache or even for cache implmenetetion ?
+
+
+What 00_FileBuff actually is — and what it is NOT
+The 00_FileBuff implementation is a classic Unix buffer cache (the getblk/bread/bwrite/brelse algorithm from Bach's "The Design of the Unix Operating System"). It is not a page cache. These are two different things and UIOX needs both.
+
+
+┌─────────────────────────────────────────────────────────────────────┐
+│  What 00_FileBuff HAS (Block Buffer Cache — ✅ well implemented)    │
+├─────────────────────────────────────────────────────────────────────┤
+│  Unit:     512-byte disk BLOCK (BLOCK_SIZE = 512)                   │
+│  Identity: (dev, blkno) — which device, which disk block            │
+│  Lookup:   hash table  (blkno % NUM_HASH_QUEUES)                    │
+│  Eviction: LRU free list with dummy head sentinel                   │
+│  Algorithms:                                                        │
+│    getblk  — all 5 scenarios (lock, wait, delayed-write flush)      │
+│    brelse  — release + LRU requeue                                  │
+│    bread   — read block (cache hit = immediate, miss = I/O + sleep) │
+│    breada  — read + read-ahead                                      │
+│    bwrite  — write (sync / async / delayed)                         │
+│    bdwrite — mark delayed-write + release                           │
+│    bflush  — flush all delayed-write buffers (called by SYS_SYNC)  │
+│  Stats:    hits, misses, delayed_writes, free_waits, busy_waits     │
+├─────────────────────────────────────────────────────────────────────┤
+│  What 00_FileBuff DOES NOT HAVE (Page Cache — ❌ missing entirely)  │
+├─────────────────────────────────────────────────────────────────────┤
+│  Unit:     4096-byte PAGE (not 512-byte block)                      │
+│  Identity: (inode, file_offset) — not (dev, blkno)                 │
+│  mmap:     no PA→VA zero-copy mapping support                       │
+│  VFS link: no connection to inode / uiox_file_t                    │
+│  readpage: no "fill page from block device" operation               │
+│  writeback: no dirty page writeback to block device                 │
+│  truncate: no page eviction on file truncation                      │
+│  User mmap:no physical page address exposed for PTE insertion       │
+└─────────────────────────────────────────────────────────────────────┘
+
+
+
+
+The conceptual difference — block cache vs page cache
+BLOCK BUFFER CACHE (00_FileBuff — what exists)
+═══════════════════════════════════════════════
+  Disk block 7 of device 0
+  ┌───────────────────────────┐
+  │  BufHdr                   │
+  │  dev   = 0                │
+  │  blkno = 7                │ ← identity is (dev, blkno)
+  │  status = BUF_VALID       │
+  │  data[512]                │ ← 512 bytes, not a page
+  └───────────────────────────┘
+  Used by: filesystem code that knows disk layout
+  Not used by: mmap(), VFS read/write, userspace
+
+PAGE CACHE (missing — what is needed)
+══════════════════════════════════════
+  Page 2 of file /etc/config (inode 42)
+  ┌───────────────────────────────────┐
+  │  page_cache_entry                 │
+  │  inode  = 42                      │
+  │  offset = 8192  (page 2 × 4096)  │ ← identity is (inode, offset)
+  │  pa     = 0x44010000              │ ← physical DRAM address
+  │  data[4096]                       │ ← 4096 bytes = one page
+  │  dirty  = 0                       │
+  │  uptodate = 1                     │
+  └───────────────────────────────────┘
+  Used by: vfs_read(), vfs_write(), sys_mmap() zero-copy
+  Exposed via: mmap_page() → PA → PTE insertion
+
+
+The gap analysis — exactly what is missing
+┌──────────────────────────┬─────────────────┬──────────────────────────────┐
+│ Feature                  │ 00_FileBuff      │ Page Cache (needed)          │
+├──────────────────────────┼─────────────────┼──────────────────────────────┤
+│ Block read from device   │ ✅ bread()       │ needs readpage() wrapper     │
+│ Block write to device    │ ✅ bwrite()      │ needs writepage() wrapper    │
+│ Delayed write / sync     │ ✅ bdwrite/flush │ needs writeback_page()       │
+│ LRU eviction             │ ✅ free list     │ needs page reclaim           │
+│ Read-ahead               │ ✅ breada()      │ needs readahead_pages()      │
+│ Page-sized unit (4096)   │ ❌ 512 bytes     │ needs page_cache_entry       │
+│ Inode-based identity     │ ❌ (dev,blkno)   │ needs (inode, offset)        │
+│ Physical address exposed │ ❌ no PA         │ needs pa field for mmap      │
+│ VFS inode link           │ ❌ no inode ptr  │ needs inode→page_cache       │
+│ mmap zero-copy           │ ❌ impossible    │ needs mmap_page() → PA       │
+│ Dirty page tracking      │ ⚠️ BUF_DELWRITE  │ needs per-page dirty bit    │
+│ Truncation eviction      │ ❌ missing       │ needs truncate_page_cache()  │
+│ Freestanding (no libc)   │ ❓ unknown       │ must be -ffreestanding       │
+│ BLOCK_SIZE               │ 512 bytes        │ must be 4096 (PAGE_SIZE)     │
+│ NUM_BUFFERS              │ 16 (too small)   │ needs ~128+ for real use     │
+│ NUM_DISK_BLOCKS          │ 64 (simulated)   │ needs real device size       │
+└──────────────────────────┴─────────────────┴──────────────────────────────┘
+
+
+
+The correct architecture — how both layers work together
+┌─────────────────────────────────────────────────────────────────────────┐
+│  32_FS / VFS                                                             │
+│  vfs_read(file, kbuf, n)  →  needs page at (inode, offset)              │
+└──────────────────────────────────┬──────────────────────────────────────┘
+                                   │  calls
+                                   ▼
+┌─────────────────────────────────────────────────────────────────────────┐
+│  PAGE CACHE  (to be added to 31_BufferCache/00_FileBuff)                │
+│                                                                          │
+│  uiox_page_cache_read(inode, offset, kbuf, len)                         │
+│    → lookup (inode, offset) in page cache                               │
+│    → HIT:  memcpy from cached page → kbuf  (DRAM→kbuf)                 │
+│    → MISS: call readpage(inode, offset)                                  │
+│              → translate offset → (dev, blkno)                          │
+│              → call bread(dev, blkno)  ← 00_FileBuff block cache        │
+│              → assemble 4096-byte page from 8 × 512-byte blocks         │
+│              → store in page cache                                       │
+│              → memcpy to kbuf                                            │
+│    → return kbuf to vfs_read()                                          │
+└──────────────────────────────────┬──────────────────────────────────────┘
+                                   │  calls
+                                   ▼
+┌─────────────────────────────────────────────────────────────────────────┐
+│  BLOCK BUFFER CACHE  (00_FileBuff — already exists ✅)                  │
+│                                                                          │
+│  bread(dev, blkno) → BufHdr with 512 bytes of disk data                │
+│  bwrite(buf)       → write 512 bytes to disk                            │
+│  bflush(dev)       → flush all delayed writes (SYS_SYNC)               │
+└─────────────────────────────────────────────────────────────────────────┘
+                                   │  calls
+                                   ▼
+┌─────────────────────────────────────────────────────────────────────────┐
+│  BLOCK DEVICE  (30_DeviceDrivers/03_NonSensors/emmc or 31_BufferCache)  │
+│  Physical read/write to eMMC / SSD / virtual disk in DRAM               │
+└─────────────────────────────────────────────────────────────────────────┘
+
+
+
+What needs to be fixed in 00_FileBuff first
+Before adding the page cache, two things in 00_FileBuff need fixing:
+
+Fix 1 — BLOCK_SIZE must be configurable
+
+/* bcache_types.h — current (wrong for page-cache use): */
+#define BLOCK_SIZE  512
+
+/* Needs to become: */
+#define BCACHE_BLOCK_SIZE   512u    /* physical sector size — never change */
+#define BCACHE_PAGE_SIZE    4096u   /* logical page size = 8 blocks        */
+#define BCACHE_BLOCKS_PER_PAGE  (BCACHE_PAGE_SIZE / BCACHE_BLOCK_SIZE)  /* = 8 */
+
+
+
+Fix 2 — NUM_BUFFERS is too small
+/* current: */
+#define NUM_BUFFERS  16    /* only 16 × 512 = 8 KB total — useless         */
+
+/* needs to be: */
+#define NUM_BUFFERS  256   /* 256 × 512 = 128 KB — reasonable for boot      */
+                           /* 1024 × 512 = 512 KB — good for general use    */
+
+
+
+Fix 3 — src/ directory is empty
+The 00_FileBuff/src/ directory returned an empty listing. The implementation of getblk, bread, bwrite, brelse, bflush exists only as declarations in the header — the .c file is missing. It needs to be written.
+
+
+
+Files to create or update
+File 1 — 31_BufferCache/00_FileBuff/include/bcache_types.h (update)
+
+File 2 — 31_BufferCache/00_FileBuff/src/bcache.c (new — implements the missing .c)
+File 3 — 31_BufferCache/00_FileBuff/include/uiox_page_cache.h (new)
+File 4 — 31_BufferCache/00_FileBuff/src/uiox_page_cache.c (new)
+File 5 — Update 32_FS/10_scfs/scfs.c — replace private page cache with uiox_pc_*
+File 6 — Update 32_FS/src/uiox_fs_init.c — init page cache
+File 7 — Update 31_BufferCache/Makefile
+# Add to 31_BufferCache/Makefile SRCS:
+SRCS += $(MFDIR)00_FileBuff/src/bcache.c
+SRCS += $(MFDIR)00_FileBuff/src/uiox_page_cache.c
+
+# Add to COMMON_CFLAGS include paths:
+COMMON_CFLAGS += -I$(MFDIR)00_FileBuff/include
+
+
+Complete architecture — all layers in one diagram
+
+┌────────────────────────────────────────────────────────────────────────┐
+│  USER SPACE                                                             │
+│  read(fd, ubuf, n)  /  mmap(fd, ...)  /  write(fd, ubuf, n)           │
+└──────────────────────────────┬─────────────────────────────────────────┘
+                               │  SVC / ECALL / SYSCALL
+                               ▼
+┌────────────────────────────────────────────────────────────────────────┐
+│  33_PCS  (process control — privilege crossing)                        │
+│                                                                         │
+│  sys_read()  →  copy_to_user(ubuf, kbuf, n)   ← crossing point        │
+│  sys_write() →  copy_from_user(kbuf, ubuf, n) ← crossing point        │
+│  sys_mmap()  →  uiox_pc_get_page_pa()          ← zero copy PA         │
+│               →  uiox_mm_map_user_phys()        ← PTE insert           │
+└──────────────────────────────┬─────────────────────────────────────────┘
+                               │
+                               ▼
+┌────────────────────────────────────────────────────────────────────────┐
+│  32_FS  (filesystem)                                                   │
+│                                                                         │
+│  vfs_read(file, kbuf, n)   →  file->f_ops->read()                     │
+│  vfs_write(file, kbuf, n)  →  file->f_ops->write()                    │
+│  vfs_mmap_page(file, off)  →  file->f_ops->mmap_page()                │
+│  scfs_read()  /  scfs_write()  /  scfs_mmap_page()                    │
+└──────────────────────────────┬─────────────────────────────────────────┘
+                               │
+                               ▼
+┌────────────────────────────────────────────────────────────────────────┐
+│  31_BufferCache/00_FileBuff  — PAGE CACHE  (new)                       │
+│                                                                         │
+│  uiox_pc_read(ino, offset, kbuf, len)                                  │
+│    HIT:  memcpy page->data → kbuf  (DRAM → kernel buf, no device I/O) │
+│    MISS: readpage() → bread() × 8 → fill page, then memcpy            │
+│                                                                         │
+│  uiox_pc_get_page_pa(ino, offset)                                      │
+│    → ensure uptodate → return PA  (for zero-copy mmap)                │
+│                                                                         │
+│  uiox_pc_write(ino, offset, kbuf, len)                                 │
+│    → copy kbuf → page->data, mark dirty                               │
+│    → writeback on SYS_SYNC / SYS_FSYNC / pressure                     │
+└──────────────────────────────┬─────────────────────────────────────────┘
+                               │  on cache miss / writeback
+                               ▼
+┌────────────────────────────────────────────────────────────────────────┐
+│  31_BufferCache/00_FileBuff  — BLOCK BUFFER CACHE  (existing ✅)       │
+│                                                                         │
+│  bread(dev, blkno)   → 512-byte sector from device / cache             │
+│  bwrite(buf)         → write 512-byte sector to device                 │
+│  bflush(dev)         → flush all delayed writes  (SYS_SYNC)           │
+│  breada(dev, blkno, ra) → read + read-ahead                            │
+└──────────────────────────────┬─────────────────────────────────────────┘
+                               │
+                               ▼
+┌────────────────────────────────────────────────────────────────────────┐
+│  Physical block device  (DRAM region / eMMC / SSD)                     │
+│  plat_read_block() / plat_write_block()                                │
+│  → override from 10_BSP for real hardware                              │
+└────────────────────────────────────────────────────────────────────────┘
+
+
+
+
+
+Complete file summary
+┌─────────────────────────────────────────────────────────────────────────┐
+│  FILES CREATED                                                           │
+├─────────────────────────────────────────────────────────────────────────┤
+│  31_BufferCache/00_FileBuff/src/bcache.c                                │
+│    Implements getblk/brelse/bread/breada/bwrite/bdwrite/bflush          │
+│    — the missing .c file for the existing header                        │
+│                                                                          │
+│  31_BufferCache/00_FileBuff/include/uiox_page_cache.h                   │
+│    Page cache types + public API                                         │
+│    (inode,offset) keyed, 4096-byte pages, PA exposure for mmap          │
+│                                                                          │
+│  31_BufferCache/00_FileBuff/src/uiox_page_cache.c                       │
+│    Page cache implementation — LRU eviction, readpage (8×bread),        │
+│    writepage (8×bwrite), get_page_pa for zero-copy mmap                 │
+├─────────────────────────────────────────────────────────────────────────┤
+│  FILES UPDATED                                                           │
+├─────────────────────────────────────────────────────────────────────────┤
+│  31_BufferCache/00_FileBuff/include/bcache_types.h                      │
+│    BLOCK_SIZE → BCACHE_SECTOR_SIZE + BCACHE_PAGE_SIZE                   │
+│    NUM_BUFFERS 16 → 256                                                  │
+│    NUM_HASH_QUEUES 4 → 64                                                │
+│                                                                          │
+│  32_FS/10_scfs/scfs.c                                                   │
+│    Replace private page cache with uiox_pc_read/write/get_page_pa       │
+│    Add scfs_map_block() callback registered at mount                    │
+│                                                                          │
+│  32_FS/src/uiox_fs_init.c                                               │
+│    Add uiox_pc_init() as step 0 (before vfs_init)                       │
+│                                                                          │
+│  31_BufferCache/Makefile                                                 │
+│    Add bcache.c + uiox_page_cache.c to SRCS                             │
+│    Add 00_FileBuff/include to COMMON_CFLAGS                             │
+└─────────────────────────────────────────────────────────────────────────┘
+
+Gap summary — what 00_FileBuff had vs what was needed:
+
+  00_FileBuff (block buffer cache)    Page cache (now added)
+  ──────────────────────────────      ──────────────────────────────
+  ✅ getblk / brelse / bread          ✅ uiox_pc_read  (DRAM→kbuf)
+  ✅ bwrite / bdwrite / bflush        ✅ uiox_pc_write (kbuf→DRAM)
+  ✅ LRU free list + hash table       ✅ LRU eviction + hash table
+  ✅ delayed write / BUF_DELWRITE     ✅ dirty page + writeback
+  ✅ read-ahead (breada)              ✅ readpage (8×bread per page)
+  ❌ .c file was missing              ✅ bcache.c now written
+  ❌ 512-byte unit (not 4096)         ✅ 4096-byte page unit
+  ❌ (dev,blkno) identity             ✅ (inode,offset) identity
+  ❌ no PA exposure                   ✅ get_page_pa → zero-copy mmap
+  ❌ not connected to VFS             ✅ scfs_read/write use uiox_pc_*
+  ❌ NUM_BUFFERS=16 (too small)       ✅ NUM_BUFFERS=256
+
+
+File 8 — 31_BufferCache/00_FileBuff/src/uiox_page_cache_sync.c (new — SYS_SYNC integration)
+File 9 — 31_BufferCache/00_FileBuff/include/uiox_page_cache.h (add sync API)
+File 10 — 33_PCS/src/uiox_syscall.c (update SYS_SYNC handlers)
+File 11 — 33_PCS/01_schedular/src/sched.c (update — wire journal tick)
+Add uiox_jr_tick() and uiox_pc_writeback_pressure() to the scheduler tick so the journal commits automatically every 5 seconds under load:
+File 12 — 32_FS/10_scfs/scfs.c (update — wire close to page cache invalidate)
+Add uiox_pc_invalidate() to the SCFS close path so pages are evicted when the last reference to a file is dropped:
+
+
+
+
+Complete end-to-end data flow — every path from DRAM to userspace
+PHYSICAL DRAM
+│
+│  Regions:
+│  ├─ Kernel image    0x4020_0000  (.text/.data/.bss)
+│  ├─ Block cache     0x46000000   (bcache — 256 × 512 B = 128 KB)
+│  ├─ Page cache      0x00_FileBuff/s_pages[]  (128 × 4096 B = 512 KB)
+│  ├─ Journal log     0x45000000   (256 × 4096 B = 1 MB)
+│  └─ SCFS data       0x44000000   (flat filesystem image)
+│
+├─────────────────────────────────────────────────────────────────┐
+│  PATH 1 — sys_read()  (copy — kbuf intermediate)                │
+│                                                                  │
+│  User:    read(fd, ubuf, 4096)                                   │
+│             ↓ SVC/ECALL/SYSCALL                                  │
+│  33_PCS:  sys_read(fd, ubuf, 4096)                              │
+│             → uiox_uaccess_ok(ubuf, 4096)  ✓                    │
+│             → fd_lookup(fd)  → file                             │
+│             → vfs_read(file, kbuf, 4096)                        │
+│                 → scfs_read()                                    │
+│                     → uiox_pc_read(ino, pos, kbuf, 4096)       │
+│                         HIT:  memcpy page->data → kbuf          │
+│                         MISS: readpage()                         │
+│                               → bread() × 8                     │
+│                               → memcpy sectors → page->data     │
+│                               → memcpy page->data → kbuf        │
+│             → uiox_copy_to_user(ubuf, kbuf, n)  ← CROSSING     │
+│             → return n                                           │
+│             ↑ ERET/SRET/SYSRET                                   │
+│  User:    ubuf now contains file data from DRAM                  │
+└──────────────────────────────────────────────────────────────────┘
+
+├─────────────────────────────────────────────────────────────────┐
+│  PATH 2 — sys_mmap()  (zero copy — no kbuf at all)              │
+│                                                                  │
+│  User:    ptr = mmap(NULL, 4096, PROT_READ, MAP_SHARED, fd, 0)  │
+│             ↓ SVC/ECALL/SYSCALL                                  │
+│  33_PCS:  sys_mmap(NULL, 4096, PROT_READ, MAP_SHARED, fd, 0)   │
+│             → fd_lookup(fd) → file                              │
+│             → vfs_mmap_page(file, 0)                            │
+│                 → scfs_mmap_page()                               │
+│                     → uiox_pc_get_page_pa(ino, 0)               │
+│                         ensure uptodate (readpage if needed)     │
+│                         → return page->pa  (DRAM physical addr) │
+│             → uiox_mm_map_user_phys(proc, 0, PA, 4096, RO)      │
+│                 → insert PTE: user_VA → PA  (same DRAM page)    │
+│             → return user_VA                                     │
+│             ↑ ERET/SRET/SYSRET                                   │
+│  User:    *ptr reads directly from DRAM — NO copy at all         │
+└──────────────────────────────────────────────────────────────────┘
+
+├─────────────────────────────────────────────────────────────────┐
+│  PATH 3 — sys_write()  (copy — kbuf intermediate)               │
+│                                                                  │
+│  User:    write(fd, ubuf, 4096)                                  │
+│             ↓ SVC/ECALL/SYSCALL                                  │
+│  33_PCS:  sys_write(fd, ubuf, 4096)                             │
+│             → uiox_uaccess_ok(ubuf, 4096)  ✓                    │
+│             → copy_from_user(kbuf, ubuf, 4096)  ← CROSSING      │
+│             → vfs_write(file, kbuf, 4096)                       │
+│                 → scfs_write()  (or journal-aware write)         │
+│                     → uiox_jr_start(1)  ← begin transaction     │
+│                     → uiox_jr_get_write_access(h, blk)          │
+│                     → uiox_pc_write(ino, pos, kbuf, 4096)       │
+│                         memcpy kbuf → page->data  (DRAM write)  │
+│                         page marked dirty                        │
+│                     → uiox_jr_stop(h)   ← end transaction       │
+│             → return n                                           │
+│             ↑ ERET/SRET/SYSRET                                   │
+│  [later] SYS_SYNC / timer tick:                                  │
+│             → uiox_pc_sync_all()                                 │
+│                 → uiox_pc_writeback_all()                        │
+│                     → writepage() → bwrite() × 8                │
+│                 → uiox_jr_force_commit()  (journal durable)      │
+│                 → uiox_jr_checkpoint()    (data durable)         │
+└──────────────────────────────────────────────────────────────────┘
+
+├─────────────────────────────────────────────────────────────────┐
+│  PATH 4 — SYS_SYNC / SYS_FSYNC                                  │
+│                                                                  │
+│  User:    sync() / fsync(fd)                                     │
+│             ↓ SVC/ECALL/SYSCALL                                  │
+│  33_PCS:  _sys_sync() / _sys_fsync()                            │
+│             → uiox_pc_sync_all() / uiox_pc_sync_inode()         │
+│                 → uiox_pc_writeback_all()                        │
+│                     → writepage() → bwrite() → bflush()         │
+│                 → uiox_jr_force_commit()                         │
+│                 → uiox_jr_checkpoint()                           │
+│             → return 0                                           │
+│             ↑ ERET/SRET/SYSRET                                   │
+│  All dirty data now durable on device                            │
+└──────────────────────────────────────────────────────────────────┘
+
+
+
+The one-line explanation for every gap that was found and fixed
+WHAT WAS THERE          WHAT WAS MISSING          WHAT WAS ADDED
+──────────────────────  ─────────────────────────  ──────────────────────────
+00_FileBuff header      bcache.c (.c was missing)  bcache.c — all 5 getblk
+  getblk/bread/bwrite     ← linker error without     scenarios, brelse,
+  algorithm declared       this                       bread, breada, bwrite,
+  but NOT implemented                                 bdwrite, bflush
+
+00_FileBuff             Page cache                 uiox_page_cache.c
+  512-byte block cache    (inode, offset) keyed       (inode,offset) LRU
+  (dev, blkno) keyed      4096-byte pages             readpage → 8×bread
+  no PA exposure          PA exposed for mmap          get_page_pa → PA
+  no VFS connection       dirty tracking               writeback → 8×bwrite
+                          writeback on sync
+
+SCFS private cache      Proper page cache use      scfs_read → pc_read
+  flat array in scfs.c    connected to VFS           scfs_mmap → pc_get_pa
+  not reusable            + block cache              scfs_map_block callback
+
+VFS                     Entire VFS layer missing   uiox_vfs.h + vfs.c
+  uiox_fs_init.c stubs    path_lookup, open/close    open/close/read/write
+                          read/write/stat/readdir     stat/mkdir/readdir
+                          mmap_page                   mmap_page vtable
+
+Journal                 Missing (moved from        uiox_journal.c
+  50_UIX moved to         50_UIX but never written)  WAL, commit, checkpoint
+  32_FS but no .c                                     recovery, auto-tick
+
+Syscall dispatch        uiox_sys_call_init()       uiox_sys_call_init.c
+  called but not written  never implemented           fd_init + fs_init
+
+copy_to/from_user       Entirely missing           uiox_uaccess.c
+  no crossing primitive   no VA validation            uiox_uaccess_ok()
+                          no safe copy                copy_to/from_user
+
+sys_read/write          Missing entirely           uiox_sys_fd.c
+  sys_open/close          no FS syscall path          copy_from_user
+  not written             no fd table                 → vfs_write
+                                                      vfs_read
+                                                      → copy_to_user
+
+sys_mmap                Missing entirely           uiox_sys_mmap.c
+  no zero-copy path       no PTE insertion            vfs_mmap_page → PA
+                          no file-backed mmap         → mm_map_user_phys
+
+SYS_SYNC → page cache   Not connected              uiox_page_cache_sync.c
+  bflush existed but       journal not called          sync_all:
+  page cache writeback     page writeback missing       pc_writeback_all
+  not wired to sync                                     jr_force_commit
+                                                        jr_checkpoint
+
+Arch syscall entry      arch_syscall_entry()       Added to all 4 arches
+  VBAR/stvec/LSTAR set    never called               arm64: SVC/EL0→EL1
+  but vector stub          uiox_syscall_dispatch       arm32: SVC/USR→SVC
+  did not call dispatch    never reached               riscv64: ECALL/stvec
+                                                       x86_64: SYSCALL/LSTAR
+
+libc in algorithms      -ffreestanding violation   Fix all 11 files:
+  00_IPC, 50_scps,        won't compile under         #include <string.h>
+  01_schedular,           kernel build flags           → uiox_soc_string.h
+  02_MemMngnt all use                                  malloc → uiox_kmalloc
+  malloc/free/memcpy                                   free   → uiox_kfree
+
+
+Build order dependency — which must compile before which
+Compile order (bottom → top):
+
+  1. 02_FwHal          → libuioxfwarm64.a
+  2. 10_BSP            → libbsp.a
+  3. 20_DriverInterfaces → libhw.a
+  4. 30_DeviceDrivers  → libdev.a
+  5. 31_BufferCache    → libbcache.a
+       00_FileBuff/bcache.c
+       00_FileBuff/uiox_page_cache.c
+       00_FileBuff/uiox_page_cache_sync.c
+       01_DrvBuff/*.c
+  6. 32_FS             → libfs.a
+       src/uiox_fs_init.c
+       01_fsa/vfs.c
+       10_scfs/scfs.c      ← needs uiox_page_cache.h from step 5
+       02_journal/uiox_journal.c
+  7. 33_PCS            → libpcs.a
+       src/uiox_uaccess.c
+       src/uiox_syscall.c
+       src/uiox_sys_fd.c   ← needs uiox_vfs.h from step 6
+       src/uiox_sys_mmap.c ← needs uiox_page_cache.h from step 5
+       src/uiox_ioctl_soc.c
+       src/uiox_sys_call_init.c ← calls uiox_fs_init from step 6
+       02_MemMngnt/mm.c
+       01_schedular/sched.c ← calls uiox_jr_tick from step 6
+       00_IPC/*.c
+       50_scps/*.c
+       03_ksign/uiox_ksign.c
+       04_fboot/uiox_fboot.c
+       05_sec/uiox_sec.c
+       06_kpatch/uiox_kpatch.c
+  8. 34_CAS            → libcas.a
+  9. 50_UIX/01_shell   → libshell.a
+  10. uiox_kernel_main.c → uiox_kernel.elf

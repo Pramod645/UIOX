@@ -27,6 +27,134 @@
  #include "cpu.h"
  #include "../../../03_SoC/include/uiox_soc_stdio.h"
  #include "../../../03_SoC/include/uiox_soc_string.h"
+
+
+
+/*
+ * arch_syscall_entry — x86-64 (AMD64)
+ *
+ * Called via the SYSCALL instruction — the fastest x86-64
+ * syscall path. SYSCALL loads RIP from LSTAR MSR and
+ * switches to Ring 0 without going through the IDT.
+ *
+ * x86-64 SysV syscall convention:
+ *   rax = syscall number
+ *   rdi = arg 0
+ *   rsi = arg 1
+ *   rdx = arg 2
+ *   r10 = arg 3   (NOT rcx — rcx is clobbered by SYSCALL)
+ *   r8  = arg 4
+ *   r9  = arg 5
+ *
+ * SYSCALL hardware behaviour:
+ *   rcx ← rip  (return address — saved by CPU)
+ *   r11 ← rflags
+ *   rflags &= ~FMASK  (from SFMASK MSR — clears IF, DF etc.)
+ *   cs  ← STAR[47:32]
+ *   ss  ← STAR[47:32] + 8
+ *   rip ← LSTAR
+ *
+ * The assembly stub sets up rsp (kernel stack), saves registers,
+ * then calls this C function.
+ *
+ * Returns: value placed in rax before SYSRETQ to Ring 3.
+ */
+
+ #include "uiox_syscall.h"
+
+ /* MSR addresses */
+ #define MSR_EFER       0xC0000080UL
+ #define MSR_STAR       0xC0000081UL   /* segment selectors for SYSCALL */
+ #define MSR_LSTAR      0xC0000082UL   /* 64-bit SYSCALL entry RIP      */
+ #define MSR_SFMASK     0xC0000084UL   /* RFLAGS mask on SYSCALL        */
+ #define EFER_SCE       (1UL << 0)     /* syscall enable bit in EFER    */
+ 
+ /* Kernel/user segment selectors (must match GDT layout) */
+ #define UIOX_KERNEL_CS 0x08UL         /* GDT entry 1 — kernel code     */
+ #define UIOX_USER_CS   0x18UL         /* GDT entry 3 — user code       */
+ 
+ /* RFLAGS bits to mask on SYSCALL entry */
+ #define SYSCALL_RFLAGS_MASK  0x200UL  /* clear IF (interrupts) on entry*/
+ 
+ static void wrmsr(uint32_t msr, uint64_t val)
+ {
+     uint32_t lo = (uint32_t)(val & 0xFFFFFFFFUL);
+     uint32_t hi = (uint32_t)(val >> 32);
+     __asm__ volatile("wrmsr" :: "c"(msr), "a"(lo), "d"(hi) : "memory");
+ }
+ 
+ static uint64_t rdmsr(uint32_t msr)
+ {
+     uint32_t lo, hi;
+     __asm__ volatile("rdmsr" : "=a"(lo), "=d"(hi) : "c"(msr));
+     return ((uint64_t)hi << 32) | lo;
+ }
+ 
+ /* Forward declaration — assembly stub defined below */
+ extern void syscall_entry_stub(void);
+ 
+ /*
+  * arch_syscall_setup — call this from arch_init() to enable
+  * SYSCALL/SYSRET and point LSTAR at the entry stub.
+  */
+ static void arch_syscall_setup(void)
+ {
+     /* 1 — Enable SYSCALL/SYSRET in EFER */
+     uint64_t efer = rdmsr(MSR_EFER);
+     efer |= EFER_SCE;
+     wrmsr(MSR_EFER, efer);
+ 
+     /*
+      * 2 — STAR MSR layout:
+      *   [63:48] = user CS - 16  (SYSRET sets cs=this+16, ss=this+8)
+      *   [47:32] = kernel CS     (SYSCALL sets cs=this, ss=this+8)
+      *   [31:0]  = reserved (0)
+      */
+     uint64_t star = ((uint64_t)(UIOX_USER_CS - 16) << 48) |
+                     ((uint64_t)UIOX_KERNEL_CS       << 32);
+     wrmsr(MSR_STAR, star);
+ 
+     /* 3 — LSTAR = RIP of our assembly entry stub */
+     wrmsr(MSR_LSTAR, (uint64_t)(uintptr_t)syscall_entry_stub);
+ 
+     /* 4 — SFMASK = RFLAGS bits to clear on SYSCALL entry */
+     wrmsr(MSR_SFMASK, SYSCALL_RFLAGS_MASK);
+ }
+ 
+ /*
+  * arch_syscall_entry — C handler, called from syscall_entry_stub.
+  *
+  * Arguments arrive already in the correct C registers
+  * (rdi, rsi, rdx, r10→rcx_saved, r8, r9) because the
+  * stub remaps r10 → rcx before the call.
+  */
+ long arch_syscall_entry(unsigned long nr,   /* rax — moved to rdi by stub */
+                         unsigned long a0,   /* rdi */
+                         unsigned long a1,   /* rsi */
+                         unsigned long a2,   /* rdx */
+                         unsigned long a3,   /* r10 → passed via stack/reg  */
+                         unsigned long a4,   /* r8  */
+                         unsigned long a5)   /* r9  */
+ {
+     uiox_syscall_frame_t frame = {
+         .nr = nr,
+         .a0 = a0,
+         .a1 = a1,
+         .a2 = a2,
+         .a3 = a3,
+         .a4 = a4,
+         .a5 = a5,
+     };
+     return (long)uiox_syscall_dispatch(&frame);
+ }
+ 
+
+
+/* Add inside arch_init() after IDT/LAPIC setup */
+arch_syscall_setup();
+printf("[arch_init] SYSCALL/SYSRET enabled — LSTAR → syscall_entry_stub\n");
+
+
  
  /* ── Forward declarations for IRQ handlers ─────────────────────────── */
  extern void uart_irq_handler (int irq, hw_context_t *ctx, void *id);

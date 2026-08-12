@@ -80,3 +80,19 @@ uix_pid_t sched_next(void)
     }
     return -1;
 }
+
+
+
+
+/*
+ * Add to the existing uiox_sched_tick() function in sched.c.
+ * Called 100 times per second from arch timer IRQ handler.
+ */
+
+ extern void uiox_jr_tick(void);   /* 32_FS/02_journal */
+
+ /* Add inside uiox_sched_tick(), after scheduling decision: */
+ 
+ /* Journal auto-commit every 5 s (500 ticks) */
+ uiox_jr_tick();
+ 

@@ -1489,3 +1489,478 @@ SoC BootROM (primary)
 `
 
 The uioxsocmain.c 9-stage pipeline you built is essentially a secondary bootloader — it runs after the SoC's built-in primary bootloader has set up basic clocks and DRAM, performs the full hardware initialisation (GIC, UART, timer, PCIe, POST, secure boot), and then calls uioxkernelmain()`.
+
+
+===================================================================
+======================
+=========================================================================
+_uBoot needs to improve?
+
+What currently exists — honest state
+01_uBoot/
+├── src/
+│   ├── uiox_boot_main.c     ✅ 7-stage pipeline — well structured
+│   ├── uiox_boot_verify.c   ✅ SHA-256 (RFC 6234) — fully implemented
+│   ├── uiox_boot_handoff.c  ✅ ELF64 loader + kernel jump — implemented
+│   ├── uiox_boot_hw.c       ✅ Hardware vtable pattern
+│   ├── uiox_boot_mem.c      ✅ DTB/E820 memory probe
+│   ├── uiox_boot_console.c  ✅ UART console
+│   ├── uiox_boot_fs.c       ⚠️  FAT32 BPB parse — simulation skips
+│   └── arch/
+│       ├── arm64/           ✅ entry stub + hw init
+│       ├── arm32/           ✅ entry stub + hw init
+│       └── x86_64/          ✅ entry stub + hw init
+│       └── riscv64/         ⚠️  added in md but status unclear
+├── include/                 ✅ 8 headers — complete type system
+└── linker/                  ✅ 4 linker scripts — all arches
+
+
+Gap analysis — every improvement needed
+Gap 1 — Storage / filesystem is a stub (uiox_boot_fs.c)
+The code says "No storage — simulation mode" and "No kernel file — QEMU simulation handoff" across Stages 3, 4, and 5. This means the bootloader never actually reads a kernel from a real device. It only works in QEMU because the kernel is loaded by QEMU's -kernel flag before the bootloader even runs.
+
+What needs to be built:
+uiox_boot_fs.c needs:
+  ├── FAT32 BPB parser (partially started)
+  │     → read BPB from sector 0
+  │     → compute cluster size, FAT offset, root dir offset
+  │     → walk directory entries to find kernel file
+  │
+  ├── Raw block read from device
+  │     → eMMC: SDMMC controller MMIO read
+  │     → SD card: same SDMMC, different speed
+  │     → UART XMODEM: receive kernel over serial (useful for dev)
+  │     → PXE stub: TFTP over ethernet (useful for CI/CD)
+  │
+  └── File load into DRAM
+        → read file chunks into UIOX_KERN_LOAD_PA
+        → track bytes loaded for SHA-256 verification
+
+
+Gap 2 — RISC-V 64 arch entry is incomplete
+The uBoot.md shows RISC-V was added but the src/arch/ directory only listed arm64/, arm32/, and x86_64/. RISC-V entry stub and hw init are either missing or not committed.
+
+What needs to be added:
+src/arch/riscv64/
+├── uiox_boot_entry_riscv64.S   — entry in M-mode
+│     → set mtvec, mstatus
+│     → set up stack pointer
+│     → call uiox_boot_main(a0=dtb_pa, a1=0, a2=0)
+│
+└── uiox_boot_hw_riscv64.c      — RISC-V hardware init
+      → NS16550A UART @ 0x10000000
+      → CLINT timer @ 0x02000000
+      → PLIC @ 0x0C000000
+      → uiox_boot_hw_riscv64_register() vtable
+
+
+Gap 3 — ELF64 only — no ELF32 support
+uiox_boot_handoff.c implements ELF64 loading. ARM32 kernels use ELF32. If you ever build a real ARM32 kernel ELF, the loader rejects it.
+
+What needs to be added:
+/* In uiox_boot_handoff.c — add ELF32 path: */
+
+#define ELF32_MAGIC  0x464C457FUL
+
+typedef struct {
+    uint8_t  e_ident[16];
+    uint16_t e_type;
+    uint16_t e_machine;
+    uint32_t e_version;
+    uint32_t e_entry;      /* 32-bit entry point */
+    uint32_t e_phoff;
+    uint32_t e_shoff;
+    uint32_t e_flags;
+    uint16_t e_ehsize;
+    uint16_t e_phentsize;
+    uint16_t e_phnum;
+    /* ... */
+} elf32_ehdr_t;
+
+/* Load function detects 32 vs 64 from e_ident[EI_CLASS]:
+ *   ELFCLASS32 = 1  → use ELF32 loader
+ *   ELFCLASS64 = 2  → use ELF64 loader (existing)
+ */
+
+
+Gap 4 — No signature verification (only hash)
+Stage 5 does SHA-256 integrity check — but this is not signature verification. It checks the image wasn't corrupted, but does not prove the image was signed by a trusted key. Anyone can replace the kernel and recompute the SHA-256.
+
+What needs to be added:
+uiox_boot_verify.c needs:
+  ├── RSA-2048 or ECDSA-256 signature check
+  │     → public key baked into bootloader image (OTP or ROM)
+  │     → signature embedded in uiox_image_hdr_t
+  │     → verify signature over SHA-256 hash
+  │
+  ├── Anti-rollback version check
+  │     → uiox_image_hdr_t.version field
+  │     → compare against minimum version in OTP/fuses
+  │     → reject if kernel version < minimum allowed
+  │
+  └── Certificate chain (optional, for production)
+        → bootloader trusts root CA public key
+        → kernel image signed with intermediate key
+        → chain: root → intermediate → kernel
+
+
+Gap 5 — No fallback / recovery boot path
+If the primary kernel fails SHA-256 or fails to load, the bootloader currently halts. A real system needs:
+Current:  load fails → halt forever
+
+Needed:
+  Primary slot (slot A):  kernel at SCFS partition 0
+      → load → verify → boot
+      ↓ fails
+  Fallback slot (slot B): known-good kernel at partition 1
+      → load → verify → boot
+      ↓ fails
+  Recovery mode:
+      → minimal shell over UART
+      → accept kernel via XMODEM/TFTP
+      → write to slot A → reboot
+
+  Boot counter (in NVRAM / scratch register):
+      → increment on each boot attempt
+      → kernel clears counter on successful init
+      → if counter > 3 → force fallback slot
+
+
+
+Gap 6 — No device tree (DTB) generation
+The bootloader receives dtb_pa from QEMU but never generates a DTB itself. On real hardware without a firmware-provided DTB, the bootloader must build one.
+
+What needs to be added:
+/* uiox_boot_dtb.c — new file */
+
+void uiox_boot_dtb_build(uintptr_t dtb_pa,
+                          uint32_t  dram_base,
+                          uint32_t  dram_size,
+                          uint32_t  uart_base,
+                          uint32_t  uart_irq)
+{
+    /*
+     * Build a minimal flattened device tree (FDT) at dtb_pa.
+     * Enough for the kernel to find:
+     *   - memory node (base + size)
+     *   - chosen node (bootargs, stdout-path)
+     *   - serial node (uart base, clock, irq)
+     *
+     * Uses libfdt-style in-place construction — no malloc.
+     */
+}
+
+
+Gap 7 — printf in boot code uses %lld / %llx
+The uiox_boot_printf uses unsigned long long formatting. On some freestanding toolchains this requires __int128 support or triggers -Wformat warnings. Should use PRIx64 / PRIu64 from a freestanding uiox_boot_types.h inttypes replacement.
+
+Gap 8 — No watchdog timer management
+If the bootloader hangs during storage I/O or verification, the system freezes. A watchdog timer should be started at Stage 1 and petted at each stage completion. If not petted within the timeout, the SoC resets automatically.
+/* Add to Stage 1 (after HW init): */
+uiox_boot_wdt_start(10000u);   /* 10 second watchdog */
+
+/* Add to each stage completion: */
+uiox_boot_wdt_pet();           /* reset watchdog counter */
+
+/* kernel jump clears the watchdog before ERET */
+
+
+
+Gap 9 — No boot timing / measurement
+There is no record of how long each boot stage takes. This makes it impossible to optimise boot time or detect regressions. The 13_fboot subsystem in 33_PCS does this for the kernel — the bootloader needs the same measurement at its level.
+/* Add to uiox_boot_main.c: */
+uint64_t t_start = uiox_boot_timer_read_us();
+
+/* After each stage: */
+uint64_t t_stage1 = uiox_boot_timer_read_us();
+BOOT_LOG(1, "HW init %u us", (uint32_t)(t_stage1 - t_start));
+
+/* Write timing into uiox_boot_args_t for kernel to read: */
+args->boot_timing[0] = t_stage1 - t_start;   /* stage 1 us */
+args->boot_timing[1] = t_stage2 - t_stage1;  /* stage 2 us */
+/* etc. */
+
+
+Summary table — all improvements prioritised
+#	Gap	Priority	Effort	Impact
+1	FAT32 storage + real block read	P1	3–5 days	System can't boot from real hardware without this
+2	RISC-V 64 arch entry + hw init	P1	1 day	RISC-V build broken without entry stub
+3	ELF32 loader for ARM32	P2	1 day	ARM32 kernel ELF rejected
+4	RSA/ECDSA signature verify + anti-rollback	P2	3–4 days	SHA-256 alone not secure boot
+5	A/B slot fallback + recovery mode	P2	3–4 days	No recovery from bad kernel
+6	DTB generation (real hardware)	P3	2 days	Required for hardware without firmware DTB
+7	Fix %lld/%llx printf format	P3	1 hour	Toolchain warning fix
+8	Watchdog timer management	P3	1 day	Prevents boot hangs on hardware
+9	Boot timing measurement	P4	half day	Enables boot time optimisation
+
+
+Recommended implementation order
+Week 1 — get it booting on real hardware
+  Day 1–2:  RISC-V arch entry (P1 — quick win, ~100 lines)
+  Day 3–5:  FAT32 storage read + eMMC block driver (P1 — critical path)
+
+Week 2 — make it secure
+  Day 1–2:  ELF32 loader for ARM32 (P2)
+  Day 3–5:  RSA-2048 signature verify + anti-rollback version check (P2)
+             (reuse 33_PCS/03_ksign crypto primitives — same SHA-256 already there)
+
+Week 3 — make it robust
+  Day 1–3:  A/B slot fallback + boot counter + UART recovery (P2)
+  Day 4:    Watchdog timer (P3)
+  Day 5:    Boot timing + DTB generation stub (P3/P4)
+
+
+==================
+ceate the better file system then FAT32
+Why FAT32 is wrong for UIOX specifically
+FAT32 limitation	Why it hurts UIOX
+Max file size 4 GB	Kernel images + coredumps can exceed this
+No permissions (uid/gid/chmod)	33_PCS/05_sec MAC policy has nothing to enforce on
+No journaling	Power loss during write = silent corruption, no recovery
+No inodes	Can't implement hard links, symlinks properly
+255-char filename max	Fine, but no extended attributes for MAC labels
+No timestamps below 2-second resolution	Breaks make dependency tracking
+Max volume 2 TB	Fine now, but limits future growth
+No checksums on metadata	Silent metadata corruption undetectable
+
+
+
+Option 1 — Use ext2 now (immediate, no journaling needed for boot)
+For the bootloader (01_uBoot) specifically, ext2 is the right pragmatic choice:
+
+Simpler than ext4 (no journal to replay at boot time)
+Read-only access in bootloader is straightforward to implement
+Widely understood, well-documented on-disk format
+Already used by countless embedded bootloaders
+Supports permissions, inodes, symlinks — kernel can use them
+4 KB blocks align perfectly with UIOX page cache (BCACHE_PAGE_SIZE = 4096)
+The bootloader only needs to read — ext2 read is about 400 lines of C:
+/* Bootloader ext2 read — what needs implementing */
+ext2_read_superblock()      /* block 1 — magic 0xEF53, block size, inode count */
+ext2_read_block_group()     /* group descriptor table */
+ext2_read_inode()           /* inode table lookup by inode number */
+ext2_read_dir()             /* directory entry walk to find kernel filename */
+ext2_read_file()            /* follow direct/indirect block pointers → DRAM */
+
+
+
+Option 2 — Use ext4 for the kernel filesystem (32_FS)
+For the running kernel filesystem, ext4 (or a UIOX-native equivalent) is the right target:
+ext4 feature	UIOX benefit
+Journaling (already in 32_FS/02_journal)	Power-loss safe — your journal already implements this
+Extents (contiguous block ranges)	Faster than FAT32 cluster chains for large files
+64-bit block addresses	Volumes up to 1 EB
+Extended attributes (xattr)	Store MAC labels from 33_PCS/05_sec directly on files
+Nanosecond timestamps	Correct make dependency tracking
+Checksums on metadata	Detects silent corruption
+Inline data for tiny files	Small config files stored in inode itself
+
+
+Option 3 — Design UIOX Native Filesystem (UNFS) — long-term
+Since UIOX is a purpose-built OS, you can design a filesystem specifically for its constraints. Here is a concrete design:
+
+UNFS — UIOX Native Filesystem
+On-disk layout (4 KB blocks):
+
+Block 0:    Superblock
+Block 1:    Journal superblock  (uiox_jr_sb_disk_t — already defined)
+Block 2..J: Journal log area    (256 blocks = 1 MB)
+Block J+1:  Block group 0 descriptor
+Block J+2:  Block bitmap (group 0)
+Block J+3:  Inode bitmap (group 0)
+Block J+4:  Inode table  (group 0)
+Block J+N:  Data blocks  (group 0)
+...         (repeat groups for large volumes)
+
+Key design decisions that make UNFS better than FAT32
+1 — Extent-based block map (not cluster chains)
+typedef struct {
+    uint32_t logical_start;   /* first logical block in file        */
+    uint32_t physical_start;  /* first physical block on device     */
+    uint16_t length;          /* number of contiguous blocks        */
+    uint16_t flags;
+} unfs_extent_t;
+
+/* Each inode holds 4 inline extents (covers ~256 KB per extent)
+ * Overflow goes to an extent tree in a separate block — same as ext4 */
+
+2 — Security labels in inode (native MAC support)
+typedef struct {
+    /* Standard fields */
+    uint32_t  mode;
+    uint32_t  uid;
+    uint32_t  gid;
+    uint64_t  size;
+    uint64_t  atime_ns;    /* nanosecond timestamps */
+    uint64_t  mtime_ns;
+    uint64_t  ctime_ns;
+
+    /* UIOX-specific — 33_PCS/05_sec MAC label embedded in inode */
+    uint8_t   mac_label[16];   /* security label for MAC policy       */
+    uint32_t  mac_flags;       /* UIOX_MAC_* flags                    */
+
+    /* Extents */
+    unfs_extent_t extents[4];  /* inline extent tree                  */
+    uint32_t  extent_tree_blk; /* overflow extent tree block          */
+
+    /* Checksum */
+    uint32_t  inode_checksum;  /* CRC32C of inode content             */
+} unfs_inode_t;
+
+3 — Copy-on-Write (COW) for snapshots
+/*
+ * Instead of modifying blocks in place, UNFS writes new versions
+ * to fresh blocks and updates the extent map atomically.
+ * Old blocks are freed after journal checkpoint.
+ *
+ * Benefit: instant snapshots (save old extent map)
+ *          atomic updates (no partial write corruption)
+ *          works perfectly with existing 32_FS/02_journal
+ */
+
+4 — Block-level checksums
+/* Every data block carries a CRC32C checksum stored in the block group
+ * descriptor. Read verifies checksum — detects DRAM/eMMC silent errors. */
+uint32_t unfs_block_checksum(const void *block, uint32_t size);
+
+Comparison — all options against UIOX requirements
+Feature	            FAT32	      ext2	      ext4	            UNFS (proposed)
+Journaling	            ❌	      ❌	      ✅	          ✅ (uses 02_journal)
+Permissions (uid/gid)	❌	      ✅	      ✅	          ✅
+MAC label storage	      ❌	      xattr only	xattr only       ✅ native in inode
+Extent-based map	      ❌ clusters	❌ block list✅	          ✅
+Nanosecond timestamps	❌ 2s	      ❌ 1s	      ✅	          ✅
+Block checksums	      ❌	      ❌          ✅ metadata	    ✅ data + metadata
+COW snapshots	      ❌	      ❌          ❌	          ✅
+Bootloader readable	✅	      ✅	      ✅ (no journal)  ✅ (no journal)
+Implementation effort	existing	~400 lines	~2000 lines	      ~1500 lines
+UIOX journal reuse	❌	      ❌	      partial	     ✅ full reuse
+=============================
+UNFS fils systesm:
+All seven UNFS files are ready across all three layers:
+01_uBoot — Bootloader read-only client
+30_KIX/32_FS — Kernel VFS integration
+50_UIX — Userspace library + shell tools
+Where each file goes in the repo
+
+01_uBoot/
+├── include/unfs.h              ← unfs_boot_unfs.h
+└── src/unfs.c                  ← unfs_boot_unfs.c
+
+30_KIX/32_FS/
+├── include/unfs_disk.h         ← unfs_kix_unfs_disk.h  (shared with 01_uBoot)
+├── include/unfs_fs.h           ← unfs_kix_unfs_fs.h
+└── 10_unfs/unfs_vfs.c          ← unfs_kix_unfs_vfs.c
+
+50_UIX/
+├── include/unfs_user.h         ← unfs_uix_unfs_user.h
+├── src/unfs_lib.c              ← unfs_uix_unfs_lib.c
+└── src/unfs_shell.c            ← unfs_uix_unfs_shell.c
+
+
+What each layer does
+Layer	Role	Key operations
+01_uBoot	Read-only bootloader client	unfs_mount, unfs_lookup, unfs_read_file — reads kernel ELF from UNFS partition at boot
+30_KIX/32_FS	Full kernel VFS integration	Read/write via page cache + block cache, COW, snapshot, block/inode allocator, journal integration, MAC label enforcement
+50_UIX	Userspace library + shell tools	Snapshot create/list/delete, xattr get/set, MAC label, fsinfo, mkfs (format device), fsck (check/repair)
+
+unfs_disk.h is the shared on-disk layout header — identical content in both 01_uBoot/include/ and 32_FS/include/. The bootloader and kernel see exactly the same on-disk structures with no translation needed.
+
+1st level
+unfs_boot_unfs.h
+unfs_boot_unfs.c
+unfs_kix_unfs_disk.h
+unfs_kix_unfs_fs.h
+unfs_kix_unfs_vfs.c
+unfs_uix_unfs_user.h
+unfs_uix_unfs_lib.c
+unfs_uix_unfs_shell.c
+
+2nd level
+01_uBoot — Bootloader
+30_KIX/32_FS — Kernel VFS integration
+50_UIX — Userspace library + shell
+Makefile + placement guide
+Complete file summary
+01_uBoot/
+├── include/unfs.h                  ← unfs_boot_unfs.h
+│                                     types + read-only API
+├── src/unfs.c                      ← unfs_boot_unfs.c
+│                                     mount/lookup/read_file/CRC32C
+└── src/unfs_boot_bridge.c          ← unfs_extra_unfs_boot_bridge.c
+                                      Stage 3/4 pipeline integration
+                                      replaces FAT32 simulation
+
+30_KIX/32_FS/
+├── include/unfs_disk.h             ← unfs_kix_unfs_disk.h
+│                                     SHARED with 01_uBoot (symlink or copy)
+├── include/unfs_fs.h               ← unfs_kix_unfs_fs.h
+│                                     kernel-only types, alloc, snap, xattr API
+└── 10_unfs/
+    ├── unfs_vfs.c                  ← unfs_kix_unfs_vfs.c
+    │                                 VFS ops, mount, block/inode alloc, COW
+    ├── unfs_xattr.c                ← unfs_extra_unfs_xattr.c
+    │                                 get/set/list extended attributes
+    │                                 including security.mac_label
+    └── unfs_snap.c                 ← unfs_extra_unfs_snap.c
+                                      snapshot create/delete/list + COW
+
+50_UIX/
+├── include/unfs_user.h             ← unfs_uix_unfs_user.h
+│                                     ioctl commands, stat/dirent structs
+│                                     mkfs params, userspace API
+├── src/unfs_lib.c                  ← unfs_uix_unfs_lib.c
+│                                     snapshot helpers, xattr helpers
+│                                     MAC label wrappers, mkfs, fsck
+└── src/unfs_shell.c                ← unfs_uix_unfs_shell.c
+                                      8 built-in shell commands:
+                                      unfs-info, unfs-snap-*, unfs-mkfs,
+                                      unfs-fsck, unfs-getlabel, unfs-setlabel
+
+
+All 13 UNFS files have been delivered across all three layers. Here is the complete summary of everything that was built:
+
+Complete UNFS Implementation — What Was Built
+Architecture overview
+┌─────────────────────────────────────────────────────────────────────┐
+│  50_UIX/src/unfs_shell.c    — 8 shell commands (snap/mkfs/fsck/MAC)│
+│  50_UIX/src/unfs_lib.c      — userspace API wrappers               │
+│  50_UIX/include/unfs_user.h — ioctl commands + userspace types     │
+└──────────────────────┬──────────────────────────────────────────────┘
+                       │  syscalls: open/read/write/ioctl/mmap
+                       ▼
+┌─────────────────────────────────────────────────────────────────────┐
+│  32_FS/10_unfs/unfs_vfs.c   — VFS ops + block/inode alloc + COW   │
+│  32_FS/10_unfs/unfs_xattr.c — extended attributes + MAC labels     │
+│  32_FS/10_unfs/unfs_snap.c  — snapshot + COW management            │
+│  32_FS/include/unfs_fs.h    — kernel types + public API            │
+│  32_FS/include/unfs_disk.h  — on-disk structs (shared)             │
+└──────────────────────┬──────────────────────────────────────────────┘
+                       │  bread/bwrite (31_BufferCache)
+                       │  uiox_pc_read/write (page cache)
+                       │  uiox_jr_* (journal)
+                       ▼
+┌─────────────────────────────────────────────────────────────────────┐
+│  01_uBoot/src/unfs.c              — read-only client                │
+│  01_uBoot/src/unfs_boot_bridge.c  — Stage 3/4 pipeline wire-up     │
+│  01_uBoot/include/unfs.h          — bootloader types + API         │
+└─────────────────────────────────────────────────────────────────────┘
+
+
+What UNFS has that FAT32 does not
+Feature	      FAT32	UNFS
+Journaling	      ❌	✅ WAL via uiox_jr_*
+Extent-based map	❌ cluster chains	✅ 4 inline + overflow tree
+Block checksums (CRC32C)	❌	✅ superblock + inode + groups
+Copy-on-write snapshots	❌	✅ unfs_snap_create/delete/list
+Native MAC security labels	❌	✅ i_mac_label[16] in every inode
+Extended attributes	❌	✅ unfs_xattr_get/set/list
+Nanosecond timestamps	❌ 2s resolution	✅ i_atime_ns / i_mtime_ns / i_ctime_ns
+Zero-copy mmap	❌	✅ unfs_vfs_mmap_page → get_page_pa → PTE
+Permissions (uid/gid)	❌	✅ i_uid / i_gid / i_mode
+Hard links	❌	✅ i_nlink
+Page cache integration	❌	✅ uiox_pc_read/write
+mkfs / fsck tools	❌	✅ unfs_mkfs / unfs_fsck
+
+
+=================================================================

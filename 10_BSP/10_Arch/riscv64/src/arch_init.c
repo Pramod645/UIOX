@@ -39,7 +39,72 @@
  #include "cpu.h"
  #include "../../../03_SoC/include/uiox_soc_stdio.h"   /* replaces <stdio.h>  */
  #include "../../../03_SoC/include/uiox_soc_string.h"  /* replaces <string.h> */
+
+
+
+/*
+ * arch_syscall_entry — RISC-V 64 (RV64IMAFDC, S-mode)
+ *
+ * Called from the stvec trap handler when scause indicates
+ * an environment call from U-mode (scause = 8).
+ *
+ * RISC-V syscall convention:
+ *   a7  = syscall number
+ *   a0  = arg 0   (also holds return value on exit)
+ *   a1  = arg 1
+ *   a2  = arg 2
+ *   a3  = arg 3
+ *   a4  = arg 4
+ *   a5  = arg 5
+ *
+ * The stvec trap stub saves all caller-saved registers,
+ * reads a7 as the syscall number, and calls this function.
+ *
+ * Returns: value placed back in a0 before SRET to U-mode.
+ *
+ * Entry in trap handler (assembly stub in trap.S):
+ *   ecall_entry:
+ *     csrr  t0, sepc
+ *     addi  t0, t0, 4          # advance sepc past ecall instruction
+ *     csrw  sepc, t0
+ *     call  arch_syscall_entry  # a0-a5 already in place, a7 = nr
+ *     # return value in a0
+ *     sret
+ */
+
+ #include "uiox_syscall.h"
+
+ long arch_syscall_entry(unsigned long a0, unsigned long a1,
+                         unsigned long a2, unsigned long a3,
+                         unsigned long a4, unsigned long a5,
+                         unsigned long a6_unused,
+                         unsigned long nr /* a7 */)
+ {
+     /*
+      * RISC-V passes syscall number in a7.
+      * The trap stub moves a7 into the 8th argument position
+      * so we receive it cleanly as 'nr' here.
+      */
+     uiox_syscall_frame_t frame = {
+         .nr = nr,
+         .a0 = a0,
+         .a1 = a1,
+         .a2 = a2,
+         .a3 = a3,
+         .a4 = a4,
+         .a5 = a5,
+     };
+     return (long)uiox_syscall_dispatch(&frame);
+ }
  
+
+
+ /* Add inside arch_init() after GIC/PLIC setup — install trap vector */
+extern void trap_entry(void);
+__asm__ volatile("csrw stvec, %0" :: "r"(trap_entry) : "memory");
+
+
+
  /* ── Forward declarations of IRQ handlers ────────────────────────────
   * Implementations live in 20_DriverInterfaces or 03_SoC.
   * ──────────────────────────────────────────────────────────────────── */

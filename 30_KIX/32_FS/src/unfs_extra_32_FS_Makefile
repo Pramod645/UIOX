@@ -1,0 +1,75 @@
+# =============================================================================
+# 30_KIX/32_FS/Makefile  — v1.3.0
+#
+# Builds the UIOX filesystem subsystem:
+#   01_fsa/  — VFS layer (vfs.c)
+#   10_unfs/ — UNFS kernel integration (replaces 10_scfs/ for UNFS volumes)
+#   02_journal/ — write-ahead journal
+#   src/     — uiox_fs_init.c
+#
+# Output: build/<arch>/libfs.a
+# @version 1.3.0  @date 2026-07-29
+# =============================================================================
+
+MFDIR      := $(dir $(abspath $(lastword $(MAKEFILE_LIST))))
+BUILD_BASE  = $(MFDIR)build
+
+CC          ?= gcc
+AR          ?= ar
+ARCH_CFLAGS ?=
+ARCH_CPUDEF ?=
+_ARCH       ?= arm64
+
+_BUILD_DIR := $(BUILD_BASE)/$(_ARCH)
+
+COMMON_CFLAGS := \
+  -std=c11 -Wall -Wextra -Werror          \
+  -ffreestanding -fno-builtin             \
+  -fno-stack-protector                    \
+  -ffunction-sections -fdata-sections     \
+  -nostdinc -Os -g                        \
+  $(ARCH_CFLAGS) $(ARCH_CPUDEF)           \
+  -I$(MFDIR)include                       \
+  -I$(MFDIR)../common                     \
+  -I$(MFDIR)../33_PCS/include             \
+  -I$(MFDIR)../31_BufferCache/00_FileBuff/include \
+  -I$(MFDIR)02_journal                    \
+  -I$(MFDIR)../02_FwHal/include
+
+SRCS := \
+  $(MFDIR)src/uiox_fs_init.c             \
+  $(MFDIR)01_fsa/vfs.c                   \
+  $(MFDIR)10_unfs/unfs_vfs.c             \
+  $(MFDIR)10_unfs/unfs_xattr.c           \
+  $(MFDIR)10_unfs/unfs_snap.c            \
+  $(MFDIR)02_journal/uiox_journal.c
+
+OBJS := $(patsubst $(MFDIR)%.c,$(_BUILD_DIR)/%.o,$(SRCS))
+LIB  := $(_BUILD_DIR)/libfs.a
+
+.PHONY: arm64 arm32 riscv64 x86_64
+arm64 arm32 riscv64 x86_64:
+\t$(MAKE) -f $(MFDIR)Makefile _build \
+\t    _ARCH=$@                       \
+\t    CC="$(CC)" AR="$(AR)"          \
+\t    ARCH_CFLAGS="$(ARCH_CFLAGS)"   \
+\t    ARCH_CPUDEF="$(ARCH_CPUDEF)"
+
+.PHONY: _build
+_build: $(LIB)
+\t@echo "[FS] $(_BUILD_DIR)/libfs.a"
+
+$(LIB): $(OBJS)
+\t@mkdir -p $(dir $@)
+\t$(AR) rcs $@ $^
+
+$(_BUILD_DIR)/%.o: $(MFDIR)%.c
+\t@mkdir -p $(dir $@)
+\t@echo "  [CC]  $<"
+\t$(CC) $(COMMON_CFLAGS) -I$(dir $<) -MMD -MP -c $< -o $@
+
+-include $(wildcard $(BUILD_BASE)/$(_ARCH)/*.d)
+
+.PHONY: clean
+clean:
+\trm -rf $(BUILD_BASE)

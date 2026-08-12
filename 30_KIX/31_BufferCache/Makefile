@@ -204,3 +204,21 @@ $(_BUILD_DIR)/%.o: $(MFDIR)%.c
 .PHONY: clean
 clean:
 	rm -rf $(BUILD_BASE)
+
+
+
+# =============================================================================
+# 30_KIX/31_BufferCache/Makefile  — v1.4.0
+# Added: 00_FileBuff block cache + page cache
+# =============================================================================
+
+# Add to COMMON_CFLAGS include paths:
+COMMON_CFLAGS += \
+  -I$(MFDIR)00_FileBuff/include \
+  -I$(MFDIR)../32_FS/include    \
+  -I$(MFDIR)../32_FS/02_journal
+
+# Add to SRCS (alongside existing 01_DrvBuff device buffer files):
+SRCS += $(MFDIR)00_FileBuff/src/bcache.c
+SRCS += $(MFDIR)00_FileBuff/src/uiox_page_cache.c
+SRCS += $(MFDIR)00_FileBuff/src/uiox_page_cache_sync.c
