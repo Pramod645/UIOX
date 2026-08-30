@@ -88,3 +88,56 @@ dtc -I dts -O dtb -o uiox-riscv64.dtb uiox-riscv64.dts
 `
 
 A .dtb is a machine-generated binary — it must be compiled by dtc on your host rather than pre-shipped, since the exact binary format depends on your dtc version and target endianness. The .dts` sources in the zip are the authoritative input.
+
+
+---------------------------
+https://devicetree-specification.readthedocs.io/en/stable/flattened-format.html
+
+To decompile a DTB back to a readable DTS text file:
+
+dtc -I dtb -O dts -o output_hardware_profile.dts input_file.dtb
+
+
+To compile a DTS file into a DTB binary:
+
+dtc -I dts -O dtb -o new_board_profile.dtb input_file.dts
+
+
+examples:
+/dts-v1/;
+
+/ {
+    model = "My Board Name";
+    compatible = "vendor,board-model";
+
+    cpus {
+        #address-cells = <1>;
+        #size-cells = <0>;
+
+        cpu@0 {
+            device_type = "cpu";
+            compatible = "arm,cortex-a9";
+            reg = <0>;
+        };
+    };
+
+    memory {
+        device_type = "memory";
+        reg = <0x80000000 0x40000000>; /* 1GB RAM at 0x80000000 */
+    };
+};
+
+Structure Elements
+    Root Node (/): The single starting point containing all other hardware nodes.
+    Nodes (node_name@address): Represent physical devices, buses, or sub-blocks.
+    Properties (name = value): Key-value pairs defining characteristics like interrupts, compatible strings, and memory addresses (reg).
+    Labels (label:): Unique identifiers used to reference or override nodes inside included files.
+
+    https://docs.kernel.org/devicetree/bindings/dts-coding-style.html
+
+Compilation Workflow
+    Source to Blob: Text files (.dts/.dtsi) are compiled by the Device Tree Compiler (DTC) into a binary file called a DTB (Device Tree Blob) (.dtb).
+    Runtime Execution: Bootloaders (such as U-Boot) load the .dtb into memory and pass it directly to the kernel at system startup so it can initialize device drivers dynamically.
+
+    https://devicetree-specification.readthedocs.io/en/v0.3/source-language.html
+

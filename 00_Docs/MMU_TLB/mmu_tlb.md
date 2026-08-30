@@ -642,3 +642,7 @@ UIOX Boot Code Locations
 | 02FwHal/src/uioxfwriscv.c | rvcacheenable() → FENCE.I, rvtlbflush() → SFENCE.VMA |
 | 10Arch/arm64/src/uioxsocarm64init.c | arm64cacheflushall() — dsb sy + ic iallu + isb |
 | 10Arch/arm32/src/uioxsocarm32init.c | arm32l2c310init()` — invalidate all L2 ways before enable |
+
+=====================================================================
+https://en.wikipedia.org/wiki/Translation_lookaside_buffer
+https://isu-rathnayaka.medium.com/develop-your-own-x86-operating-system-os-5-27743b500fab

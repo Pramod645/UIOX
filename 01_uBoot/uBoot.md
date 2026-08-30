@@ -1948,19 +1948,19 @@ Architecture overview
 
 
 What UNFS has that FAT32 does not
-Feature	      FAT32	UNFS
-Journaling	      ❌	✅ WAL via uiox_jr_*
-Extent-based map	❌ cluster chains	✅ 4 inline + overflow tree
-Block checksums (CRC32C)	❌	✅ superblock + inode + groups
-Copy-on-write snapshots	❌	✅ unfs_snap_create/delete/list
-Native MAC security labels	❌	✅ i_mac_label[16] in every inode
-Extended attributes	❌	✅ unfs_xattr_get/set/list
-Nanosecond timestamps	❌ 2s resolution	✅ i_atime_ns / i_mtime_ns / i_ctime_ns
-Zero-copy mmap	❌	✅ unfs_vfs_mmap_page → get_page_pa → PTE
-Permissions (uid/gid)	❌	✅ i_uid / i_gid / i_mode
-Hard links	❌	✅ i_nlink
-Page cache integration	❌	✅ uiox_pc_read/write
-mkfs / fsck tools	❌	✅ unfs_mkfs / unfs_fsck
+Feature	                    FAT32	            UNFS
+Journaling	                ❌	                ✅ WAL via uiox_jr_*
+Extent-based map	          ❌ cluster chains	✅ 4 inline + overflow tree
+Block checksums (CRC32C)	  ❌	                ✅ superblock + inode + groups
+Copy-on-write snapshots	    ❌	                ✅ unfs_snap_create/delete/list
+Native MAC security labels	❌	                ✅ i_mac_label[16] in every inode
+Extended attributes	        ❌	                ✅ unfs_xattr_get/set/list
+Nanosecond timestamps	      ❌ 2s resolution	  ✅ i_atime_ns / i_mtime_ns / i_ctime_ns
+Zero-copy mmap	            ❌	                ✅ unfs_vfs_mmap_page → get_page_pa → PTE
+Permissions (uid/gid)	      ❌	                ✅ i_uid / i_gid / i_mode
+Hard links	                ❌	                ✅ i_nlink
+Page cache integration	    ❌	                ✅ uiox_pc_read/write
+mkfs / fsck tools	          ❌	                ✅ unfs_mkfs / unfs_fsck
 
 
 =================================================================
