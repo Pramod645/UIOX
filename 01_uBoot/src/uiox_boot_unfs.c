@@ -1,5 +1,5 @@
 /*
- * 01_uBoot/src/unfs.c
+ * 01_uBoot/src/uiox_boot_unfs.c
  *
  * UIOX Native Filesystem (UNFS) — bootloader read-only client.
  *
@@ -18,7 +18,7 @@
  * @version 1.0.0  @date 2026-07-29
  */
 
- #include "unfs.h"
+ #include "uiox_boot_unfs.h"
 
  /* ─── Block read callback (set at mount time) ───────────────────────── */
  static unfs_read_blk_fn s_read_blk;

@@ -1,5 +1,5 @@
 /*
- * 01_uBoot/include/unfs.h
+ * 01_uBoot/include/uiox_boot_unfs.h
  *
  * UIOX Native Filesystem (UNFS) — bootloader read-only client.
  * Umbrella include for the 01_uBoot UNFS reader.
@@ -21,8 +21,8 @@
  * @version 1.0.0  @date 2026-07-29
  */
 
- #ifndef UNFS_H
- #define UNFS_H
+ #ifndef UIOX_BOOT_UNFS_H
+ #define UIOX_BOOT_UNFS_H
  
  #include "uiox_boot_types.h"
  
@@ -236,5 +236,5 @@
  /* CRC32C checksum */
  uint32_t unfs_crc32c(const void *data, uint32_t len);
  
- #endif /* UNFS_H */
+ #endif /* UIOX_BOOT_UNFS_H */
  

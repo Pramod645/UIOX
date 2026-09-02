@@ -1,4 +1,13 @@
-/* * linker/uiox_boot_x86_64.ld * uiox bootloader — x86_64 linker script. * * target : qemu q35 / bare-metal x86_64 via multiboot2 * load addr : 0x00100000 (1 mb — standard multiboot2 load address) * stack : 0x00090000 (below 1 mb, set up in 64-bit entry) * * mirrors uiox_x86_64.ld kernel region. */ 
+/* 
+ * linker/uiox_boot_x86_64.ld 
+ * uiox bootloader — x86_64 linker script. 
+ * 
+ * target : qemu q35 / bare-metal x86_64 via multiboot2 
+ * load addr : 0x00100000 (1 mb — standard multiboot2 load address) 
+ * stack : 0x00090000 (below 1 mb, set up in 64-bit entry) 
+ * 
+ * mirrors uiox_x86_64.ld kernel region. 
+ */ 
 
 OUTPUT_FORMAT("elf64-x86-64") 
 OUTPUT_ARCH(i386:x86-64) 

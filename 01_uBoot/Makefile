@@ -78,7 +78,7 @@ COMMON_SRCS := \
     $(SRCDIR)/uiox_boot_hw.c      \
     $(SRCDIR)/uiox_boot_console.c \
     $(SRCDIR)/uiox_boot_mem.c     \
-    $(SRCDIR)/uiox_boot_fs.c      \
+    $(SRCDIR)/uiox_boot_unfs.c    \
     $(SRCDIR)/uiox_boot_verify.c  \
     $(SRCDIR)/uiox_boot_handoff.c \
     $(SRCDIR)/uiox_boot_main.c

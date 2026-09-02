@@ -2,15 +2,6 @@
  * linker/uiox_boot_riscv64.ld
  * UIOX Bootloader — RISC-V RV64GC linker script.
  *
- * Fixed (2026-07-12):
- *   W8: "LOAD segment with RWX permissions"
- *       Added explicit PHDRS to split code (RX) from data/BSS/stack (RW).
- *       This gives two LOAD segments:
- *         PT_LOAD [RX]: .boot + .text + .rodata  (no W → not writable)
- *         PT_LOAD [RW]: .data + .bss + .stack    (no X → not executable)
- *       The linker no longer needs to merge all permissions into one RWX
- *       segment.
- *
  * Target    : QEMU -machine virt (riscv64), OpenSBI FW_JUMP
  * Boot base : 0x80200000  (OpenSBI jumps here in S-mode)
  * Kernel    : 0x80280000  (512 KiB offset)

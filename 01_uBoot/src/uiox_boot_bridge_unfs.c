@@ -1,5 +1,5 @@
 /*
- * 01_uBoot/src/unfs_boot_bridge.c
+ * 01_uBoot/src/uiox_boot_bridge_unfs.c
  *
  * Wires the UNFS reader (unfs.c) into the bootloader pipeline.
  * Replaces the FAT32 simulation in uiox_boot_fs.c Stage 3/4/5.
@@ -18,7 +18,7 @@
  */
 
  #include "uiox_boot.h"
- #include "unfs.h"
+ #include "uiox_boot_unfs.h"
  
  /* ── Arch block-read callback — provided by hw layer ────────────────── */
  extern int uiox_boot_hw_read_block(uint32_t blkno, void *buf);
