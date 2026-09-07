@@ -20,6 +20,18 @@
 
  #include "uiox_boot_unfs.h"
 
+ static uint32_t udiv32_softp(uint32_t n, uint32_t d, uint32_t *rem_out)
+ {
+     uint32_t q = 0u, r = 0u;
+     if (d == 0u) { if (rem_out) *rem_out = 0u; return 0u; }
+     for (int i = 31; i >= 0; i--) {
+         r = (r << 1u) | ((n >> (uint32_t)i) & 1u);
+         if (r >= d) { r -= d; q |= (1u << (uint32_t)i); }
+     }
+     if (rem_out) *rem_out = r;
+     return q;
+ }
+
  /* ─── Block read callback (set at mount time) ───────────────────────── */
  static unfs_read_blk_fn s_read_blk;
  
@@ -67,12 +79,19 @@
  {
      if (ino < 1u || ino > mnt->sb.s_inode_count)
          return UNFS_EINVAL;
- 
+     #if defined(__arm__)
+     uint32_t ino0       = ino - 1u;
+     uint32_t grp        = udiv32_softp(ino0, mnt->sb.s_inodes_per_group,0);
+     uint32_t local_idx  = udiv32_softp(ino0,  mnt->sb.s_inodes_per_group,0);
+     uint32_t blk_offset = udiv32_softp(local_idx,  UNFS_INODES_PER_BLOCK,0);
+     uint32_t blk_local  = udiv32_softp(local_idx, UNFS_INODES_PER_BLOCK,0);
+     #else
      uint32_t ino0       = ino - 1u;
      uint32_t grp        = ino0 / mnt->sb.s_inodes_per_group;
      uint32_t local_idx  = ino0 % mnt->sb.s_inodes_per_group;
      uint32_t blk_offset = local_idx / UNFS_INODES_PER_BLOCK;
      uint32_t blk_local  = local_idx % UNFS_INODES_PER_BLOCK;
+     #endif
  
      if (grp >= mnt->n_groups) return UNFS_EINVAL;
  

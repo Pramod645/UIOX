@@ -26,9 +26,9 @@
      UIOX_MEM_USABLE     = 0,
      UIOX_MEM_RESERVED   = 1,
      UIOX_MEM_FIRMWARE   = 2,
-     UIOX_MEM_MMIO       = 3,
-     UIOX_MEM_ACPI       = 4,
-     UIOX_MEM_BAD        = 5,
+     UIOX_MEM_MMIO       = 3, //Memory-mapped I/O (MMIO) memory usage refers to the practice of assigning specific physical memory address ranges to hardware peripheral registers and device memory instead of regular system RAM
+     UIOX_MEM_ACPI       = 4, // this small amount of system RAM allocated to store ACPI (Advanced Configuration and Power Interface) tables and firmware communication data
+     UIOX_MEM_BAD        = 5, // when computer runs out of fast physical memory (RAM) and slows down because it is forced to use slower storage drives instead
  } uiox_mem_type_t;
  
  #define UIOX_MEM_MAX_REGIONS    32u

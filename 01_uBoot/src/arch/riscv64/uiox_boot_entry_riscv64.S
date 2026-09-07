@@ -1,4 +1,44 @@
 /*
+ *Extension Description
+ *M         Integer multiplication and division
+ *A         Atomic instructions
+ *F         Single-precision floating-point
+ *D         Double-precision floating-point
+ *Q         Quad-precision floating-point
+ *C         16-bit compressed instructions
+ *B         Bit manipulation
+ *J         Extension for dynamically translated languages
+ *P         Packed Single instruction, multiple data (SIMD) instructions
+ *V         Vector operations
+ *H         Hypervisor extension
+ *Zicsr     Control and status register instructions
+ *Zifencei  Instruction fetch-fence
+ *G         Abbreviation for IMAFD, Zicsr, and Zifencei extensions
+ *
+ *
+ *Number of levels      Supported Modes     Intended Usage
+ *1                     M                   Simple embedded systems
+ *2                     M, U                Secure embedded systems
+ *3                     M, S, U             Systems running Unix-like operating systems
+ *
+ *S-->supervisor mode
+ *M-->machine-mode
+ *U-->user mode
+ *
+ *RISC-V ISA is divided into two parts, non-privileged and privileged ISAs.
+ *Non-privileged ISA defines the base integer instruction set, and most of the
+ *CSRs and extensions. Privileged ISA has its own extensions such as Hypervisor
+ *extension, and defines the CSRs needed for the different privilege modes.
+ *
+ *RISC-V privileged ISA is divided in three different levels as seen above.
+ *Different levels have different supported privilege modes. M-mode stands for
+ *machine-mode, S-mode for supervisor mode and U-mode for user mode.
+ *M-mode has the highest privileges and is the only mandatory privilege mode
+ *for a RISC-V processor. As it has the lowest level access, only trusted
+ *code should be run in M-mode. U-mode is the least privileged mode. Every end
+ *user has U-mode privileges, so no low-level code should be allowed to run in
+ *U-mode. S-mode interacts between the user and lower level system resources.
+ *----------------------------------------------------------------------------*
  * uiox_boot_entry_riscv64.S
  * UIOX Bootloader — RISC-V RV64GC entry point.
  *
@@ -15,7 +55,7 @@
  *   2. Disable all interrupts in mstatus / sstatus
  *   3. Set up early stack (8-byte aligned, grows down)
  *   4. Zero .bss
- *   5. Call uiox_boot_hw_riscv64_register()   [sets up UART, CLINT, PLIC]
+ *   5. Call uiox_boot_hw_riscv64_register()   [sets up UART, CLINT, PLIC], its diabled from here as called from boot main
  *   6. Call uiox_boot_main(dtb_pa)
  *   7. Spin on return (should never happen)
  *
@@ -35,12 +75,15 @@ _start:
     /* ------------------------------------------------------------------ */
     csrr    t0, mhartid          /* read hardware thread ID               */
     bnez    t0, .Lhang           /* hart != 0  → spin forever             */
-
+    /* csrr instruction used to read the value of a Control and Status Register 
+    (CSR) into a general-purpose integer register                         
+    *The mhartid is a read-only Control and Status Register (CSR) in RISC-V that 
+    holds the integer ID of the hardware thread (hart) currently running the code. */
     /* ------------------------------------------------------------------ */
     /* 2. Disable all machine-mode interrupts                              */
     /*    mstatus.MIE = 0  (bit 3)                                         */
     /* ------------------------------------------------------------------ */
-    csrci   mstatus, (1 << 3)   /* clear MIE                             */
+    csrci   mstatus, (1 << 3)   /* clear MIE: Machine Interrupt Enable     */
     csrwi   mie, 0              /* disable all interrupt enables         */
 
     /* ------------------------------------------------------------------ */
@@ -71,7 +114,7 @@ _start:
     /* 5. Register RISC-V hw ops (SiFive UART16550, CLINT timer, PLIC)    */
     /*    Mirrors uiox_boot_hw_arm64_register() call pattern.             */
     /* ------------------------------------------------------------------ */
-    call    uiox_boot_hw_riscv64_register
+    /*call    uiox_boot_hw_riscv64_register       disabled from here, called from boot main file */ 
 
     /* ------------------------------------------------------------------ */
     /* 6. Call C bootloader main(dtb_pa)                                  */

@@ -22,47 +22,12 @@
  */
 #include "uiox_boot.h"
 
-/* =========================================================================
- * RISC-V QEMU virt MMIO addresses
- * Consistent with uiox_cpu_hw.h and uiox-riscv64.dts
- * ====================================================================== */
-
-/* NS16550A UART — QEMU virt serial0
- * (SiFive UART16550 @ 0x10000000, matches DTB uart0 node)           */
-#define UIOX_RV_UART_BASE       0x10000000UL
-
-/* NS16550 register offsets (byte-stride) */
-#define NS16550_RBR             0x00u   /* Receive Buffer (read)          */
-#define NS16550_THR             0x00u   /* Transmit Holding (write)       */
-#define NS16550_IER             0x01u   /* Interrupt Enable               */
-#define NS16550_FCR             0x02u   /* FIFO Control (write)           */
-#define NS16550_LCR             0x03u   /* Line Control                   */
-#define NS16550_MCR             0x04u   /* Modem Control                  */
-#define NS16550_LSR             0x05u   /* Line Status                    */
-#define NS16550_DLL             0x00u   /* Divisor Latch Low  (DLAB=1)   */
-#define NS16550_DLM             0x01u   /* Divisor Latch High (DLAB=1)   */
-
-#define NS16550_LSR_THRE        (1u << 5) /* Transmit Holding Reg Empty  */
-#define NS16550_LSR_DR          (1u << 0) /* Data Ready                  */
-
-/* CLINT — Core-Local Interruptor
- * uiox_cpu_hw.h: clint_base field; mtime @ 0x0200BFF8                */
-#define UIOX_RV_CLINT_BASE      0x02000000UL
-#define UIOX_RV_CLINT_MTIME     (UIOX_RV_CLINT_BASE + 0xBFF8UL)
-#define UIOX_RV_CLINT_MTIMECMP0 (UIOX_RV_CLINT_BASE + 0x4000UL)
-
-/* PLIC — Platform-Level Interrupt Controller
- * uiox_cpu_hw.h: gic_base used for PLIC on RV64
- * 0x0C000000 matches uiox-riscv64.dts plic node                     */
-#define UIOX_RV_PLIC_BASE       0x0C000000UL
-#define UIOX_RV_PLIC_PRIO(n)    (UIOX_RV_PLIC_BASE + ((n) * 4UL))
-#define UIOX_RV_PLIC_THRESH_S   (UIOX_RV_PLIC_BASE + 0x201000UL) /* S-mode ctx0 */
-
-/* QEMU virt Test Finisher — used for reset/poweroff in simulation    */
-#define UIOX_RV_TEST_BASE       0x00100000UL
-#define UIOX_RV_TEST_PASS       0x5555u     /* write → QEMU exit(0)   */
-#define UIOX_RV_TEST_FAIL       0x3333u     /* write → QEMU exit(1)   */
-#define UIOX_RV_TEST_RESET      0x7777u     /* write → QEMU reset     */
+int uiox_boot_hw_read_block(uint32_t blkno, void *buf) {
+    /* Read from eMMC SDMMC at SOC_EMMC_BASE */
+    uintptr_t addr = /*SOC_EMMC_BASE*/0 + (uintptr_t)blkno * 4096u; //SOC_EMMC_BASE = 0, its need to be chaneged according to the platform 
+    uiox_boot_memcpy(buf, (const void *)addr, 4096u);
+    return 0;
+}
 
 /* =========================================================================
  * UART helpers — 8-bit register access (NS16550 is byte-stride)
@@ -180,13 +145,19 @@ static void __attribute__((noreturn)) riscv64_reset(void)
         __asm__ volatile("wfi");
 }
 
+static void riscv64_hw_init(void)
+{
+    plic_init();
+    ns16550_init();
+}
+
 /* =========================================================================
  * Ops vtable — matches uiox_boot_hw_ops_t in uiox_boot_hw.h exactly.
  * Field order: init, uart_putc, dcache_flush, icache_inv,
  *              get_ticks, udelay, reset, barrier
  * ====================================================================== */
 static const uiox_boot_hw_ops_t riscv64_ops = {
-    .init         = ns16550_init,
+    .init         = riscv64_hw_init,
     .uart_putc    = ns16550_putc,
     .dcache_flush = riscv64_dcache_flush,
     .icache_inv   = riscv64_icache_inv,
@@ -205,7 +176,6 @@ static const uiox_boot_hw_ops_t riscv64_ops = {
  * ====================================================================== */
 void uiox_boot_hw_riscv64_register(void)
 {
-    plic_init();
     uiox_boot_hw_register(&riscv64_ops);
     /* ns16550_init() is called inside uiox_boot_hw_register()
      * via ops->init(), so the UART is live after this call returns.  */

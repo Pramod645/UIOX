@@ -6,6 +6,13 @@
 
  #include "uiox_boot.h"
 
+ int uiox_boot_hw_read_block(uint32_t blkno, void *buf) {
+    /* Read from eMMC SDMMC at SOC_EMMC_BASE */
+    uintptr_t addr = /*SOC_EMMC_BASE*/0 + (uintptr_t)blkno * 4096u; //SOC_EMMC_BASE = 0, its need to be chaneged according to the platform 
+    uiox_boot_memcpy(buf, (const void *)addr, 4096u);
+    return 0;
+ } 
+ 
  /* PL011 on QEMU versatilepb: base 0x101F1000, 24 MHz, 115200 baud */
  static void pl011_arm32_init(void)
  {
@@ -72,8 +79,14 @@
      for (;;) __asm__ volatile("wfi");
  }
  
+ static void arm32_hw_init(void)
+ {
+     //gic_init();
+     pl011_arm32_init();
+ }
+
  static const uiox_boot_hw_ops_t arm32_ops = {
-     .init         = pl011_arm32_init,
+     .init         = arm32_hw_init,
      .uart_putc    = pl011_arm32_putc,
      .dcache_flush = arm32_dcache_flush,
      .icache_inv   = arm32_icache_inv,

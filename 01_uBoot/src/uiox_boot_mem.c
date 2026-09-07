@@ -48,6 +48,15 @@
   * JEDEC reference: [github.com](https://github.com/devicetree-org/devicetree-specification)
   *
   * We only need /memory nodes (reg property).
+  * FDT stands for Flattened Device Tree (also called Flat Device Tree). It is a data structure 
+  * loaded into a system's physical memory that describes the hardware layout of a board 
+  * (such as CPUs, memory regions, and peripheral addresses) so that an operating system or 
+  * bootloader can understand and use the hardware without hardcoded configurations. 
+  * [1] (https://docs.u-boot.org/en/v2025.04/usage/cmd/fdt.html), 
+  * [2] (https://paths.grasp.study/public-modules/ead94402-9269-490c-affe-a92c4e10b185/lessons/ddce2afd-cd45-446a-94a0-a64ee3540537), 
+  * [3] (https://medium.com/@askarawale/understanding-the-fdt-8eb11846ddaa), 
+  * [4] (https://blog.cerbero.io/fdt-format-package/), 
+  * [5] (https://stackoverflow.com/questions/21808984/what-is-the-use-of-flattened-device-tree-linux-kernel)
   * ====================================================================== */
  
  #define FDT_BEGIN_NODE  0x00000001u

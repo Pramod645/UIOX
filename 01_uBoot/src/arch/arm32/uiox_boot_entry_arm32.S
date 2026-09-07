@@ -22,6 +22,18 @@ _start:
     bic     r4, r4, #0x1F        /* clear mode bits                      */
     orr     r4, r4, #0x13        /* SVC mode                             */
     msr     cpsr_c, r4
+    /*
+    *The CPSID (Change Processor State IDentifier/Disable) instruction does not exist 
+    in the AArch64 (64-bit ARM) instruction set.
+
+    *AArch32 (A32/T32): Instructions like cpsid i or cpsid f are used to change processor state and 
+    disable specific interrupt mask bits (like IRQ or FIQ) in the old CPSR/PSTATE.
+    *AArch64: The CPSID and CPSIE mnemonics are invalid. AArch64 uses explicit system register 
+    access instructions to modify the DAIF (Debug, A, I, F) interrupt mask flags.
+
+    *AArch64 does not have a single Current Program Status Register (CPSR) like 32-bit ARM architectures; 
+    instead, it uses an abstraction called PSTATE (Process State).
+    */
 
     /* ------------------------------------------------------------------ */
     /* 2. Disable MMU / D-cache / I-cache in SCTLR                        */
@@ -37,7 +49,12 @@ _start:
     mcr     p15, 0, r4, c8, c7, 0
     dsb
     isb
-
+    /*
+    *MRC (Move to ARM Register from Coprocessor) becomes MRS (Move System Register to Register) 
+    to read a system value into a general-purpose register.
+    *MCR (Move to Coprocessor from ARM Register) becomes MSR (Move Register to System Register) to 
+    write a general-purpose register value into a system register.
+    */
     /* ------------------------------------------------------------------ */
     /* 3. Set up early stack (grows down from _boot_stack_top)            */
     /* ------------------------------------------------------------------ */

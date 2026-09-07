@@ -18,6 +18,6 @@
  
  #define UIOX_BOOT_VERSION_STR   "UIOX Bootloader v1.0"
  #define UIOX_BOOT_URL           "github.com/Pramod645/UIOX"
- 
+
  #endif /* UIOX_BOOT_H */
  

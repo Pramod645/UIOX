@@ -7,6 +7,12 @@
 
  #include "uiox_boot.h"
 
+ int uiox_boot_hw_read_block(uint32_t blkno, void *buf) {
+    /* Read from eMMC SDMMC at SOC_EMMC_BASE */
+    uintptr_t addr = /*SOC_EMMC_BASE*/0 + (uintptr_t)blkno * 4096u; //SOC_EMMC_BASE = 0, its need to be chaneged according to the platform 
+    uiox_boot_memcpy(buf, (const void *)addr, 4096u);
+    return 0;
+}
  /* =========================================================================
   * PL011 UART — QEMU virt: base 0x09000000, 24 MHz clock, 115200 baud
   * IBRD = 24000000 / (16 × 115200) = 13  FBRD = 1
@@ -105,13 +111,17 @@
      __asm__ volatile("hvc #0" :: "r"(x0));
      for (;;) __asm__ volatile("wfi");
  }
- 
+ static void arm64_hw_init(void)
+ {
+     gic_init();
+     pl011_init();
+ }
  /* =========================================================================
   * Ops table registration
   * ====================================================================== */
  
  static const uiox_boot_hw_ops_t arm64_ops = {
-     .init         = pl011_init,
+     .init         = arm64_hw_init,
      .uart_putc    = pl011_putc,
      .dcache_flush = arm64_dcache_flush,
      .icache_inv   = arm64_icache_inv,
@@ -128,7 +138,6 @@
   */
  void uiox_boot_hw_arm64_register(void)
  {
-     gic_init();
      uiox_boot_hw_register(&arm64_ops);
  }
  

@@ -6,6 +6,13 @@
 
  #include "uiox_boot.h"
 
+ int uiox_boot_hw_read_block(uint32_t blkno, void *buf) {
+    /* Read from eMMC SDMMC at SOC_EMMC_BASE */
+    uintptr_t addr = /*SOC_EMMC_BASE*/0 + (uintptr_t)blkno * 4096u; //SOC_EMMC_BASE = 0, its need to be chaneged according to the platform 
+    uiox_boot_memcpy(buf, (const void *)addr, 4096u);
+    return 0;
+}
+
  /* =========================================================================
   * x86 port I/O
   * ====================================================================== */
@@ -148,5 +155,6 @@
  void uiox_boot_hw_x86_register(void)
  {
      uiox_boot_hw_register(&x86_ops);
+     
  }
  

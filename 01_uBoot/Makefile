@@ -5,11 +5,11 @@
 #   brew install aarch64-elf-gcc       # ARM64 cross-compiler
 #   brew install x86_64-elf-gcc        # x86-64 cross-compiler
 #   brew install arm-linux-gnueabihf   # ARM32 cross-compiler (optional tap)
-#   brew install riscv64-elf-gcc       # RISC-V cross-compiler  <<< NEW
+#   brew install riscv64-elf-gcc       # RISC-V cross-compiler
 #   brew install qemu                  # QEMU for 'make run'
 #   Ubuntu/Debian:
 #     sudo apt install gcc-aarch64-linux-gnu gcc-arm-linux-gnueabihf \
-#                      gcc gcc-riscv64-linux-gnu binutils \           <<< NEW
+#                      gcc gcc-riscv64-linux-gnu binutils \
 #                      qemu-system-arm qemu-system-x86 \
 #                      qemu-system-misc   
 #
@@ -79,6 +79,7 @@ COMMON_SRCS := \
     $(SRCDIR)/uiox_boot_console.c \
     $(SRCDIR)/uiox_boot_mem.c     \
     $(SRCDIR)/uiox_boot_unfs.c    \
+	$(SRCDIR)/uiox_boot_bridge_unfs.c \
     $(SRCDIR)/uiox_boot_verify.c  \
     $(SRCDIR)/uiox_boot_handoff.c \
     $(SRCDIR)/uiox_boot_main.c

@@ -43,10 +43,22 @@
 _start:
     /* Save Multiboot2 info pointer (ebx) */
     movl    %ebx, %edi
+    /*
+    *%ebx: The 32-bit lower portion of the 64-bit %rbx register (Extended Base Register), typically 
+    used to store base addresses or general data.
+    *%edi: The 32-bit lower portion of the 64-bit %rdi register (Extended Destination Index), 
+    commonly used as a destination pointer or for passing function arguments.
 
+    *Data Transfer: It moves (copies) the 32-bit value inside %ebx to %edi.
+    *Zero-Extension Side Effect: In x86_64 architecture, writing a 32-bit value to a 32-bit 
+    sub-register (like %edi) automatically clears (zero-extends) the upper 32 bits of the corresponding 
+    64-bit parent register (%rdi) to 0.
+    */
     /* ------------------------------------------------------------------ */
     /* 1. Build a minimal identity-mapped 4-level page table in BSS       */
     /*    PML4[0] → PDPT → PD → 2 MB pages (0–4 GB identity)             */
+    /*In x86_64 architecture paging, PML4[0] points to a Page Directory Pointer */
+    /*Table (PDPT). The entry inside the PDPT then points to a Page Directory (PD).*/
     /* ------------------------------------------------------------------ */
     movl    $pml4_table, %eax
     /* Zero all four tables (4 × 4096 bytes) */
@@ -83,7 +95,17 @@ _start:
     movl    %cr4, %eax
     orl     $(1 << 5), %eax     /* CR4.PAE */
     movl    %eax, %cr4
+    /*
+    *not need to enable PAE (Physical Address Extension) on an x86_64 (64-bit) system.
+    *On x86_64 architecture, PAE mode is already permanently enabled by default and required by 
+    the processor to enter 64-bit long mode.
 
+    *Mandatory requirement: The x86_64 architecture built upon the 32-bit PAE page table structure.
+    *Long mode: To transition into 64-bit sub-modes, the CPU forces the PAE bit 
+    (PAE in Control Register 4) to be set to 1.
+    *Hardware enforcement: If you attempt to disable PAE while in 64-bit mode, the processor will 
+    trigger a general protection fault (#GP).
+    */
     /* ------------------------------------------------------------------ */
     /* 3. Set IA32_EFER.LME (Long Mode Enable)                           */
     /* ------------------------------------------------------------------ */
@@ -91,7 +113,11 @@ _start:
     rdmsr
     orl     $(1 << 8), %eax     /* LME */
     wrmsr
-
+    /*
+    *rdmsr and wrmsr are low-level x86_64 assembly instructions used to read and write Model-Specific 
+    Registers (MSRs), which control critical CPU features like performance counters, power management, 
+    and memory modes
+    */
     /* ------------------------------------------------------------------ */
     /* 4. Enable paging → activates long mode (CR0.PG | CR0.PE)          */
     /* ------------------------------------------------------------------ */

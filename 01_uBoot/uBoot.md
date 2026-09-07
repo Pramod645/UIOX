@@ -1,10 +1,11 @@
-90_uBoot/
+01_uBoot/
 ├── include/
 │   ├── uiox_boot_types.h
+│   ├── uiox_boot_common.h
 │   ├── uiox_boot_hw.h
 │   ├── uiox_boot_mem.h
 │   ├── uiox_boot_console.h
-│   ├── uiox_boot_fs.h
+│   ├── uiox_boot_unfs.h
 │   ├── uiox_boot_verify.h
 │   ├── uiox_boot_handoff.h
 │   └── uiox_boot.h
@@ -16,40 +17,49 @@
 │   │   ├── arm32/
 │   │   │   ├── uiox_boot_entry_arm32.S
 │   │   │   └── uiox_boot_hw_arm32.c
-│   │   └── x86_64/
-│   │       ├── uiox_boot_entry_x86.S
-│   │       └── uiox_boot_hw_x86.c
+│   │   ├── x86_64/
+│   │   │    ├── uiox_boot_entry_x86.S
+│   │   │    └── uiox_boot_hw_x86.c
+│   │   └── riscv64/
+│   │       ├── uiox_boot_entry_riscv64.S
+│   │       └── uiox_boot_hw_riscv64.c
 │   ├── uiox_boot_mem.c
+│   ├── uiox_boot_bridge_unfs.c
+│   ├── uiox_boot_common.c
 │   ├── uiox_boot_console.c
-│   ├── uiox_boot_fs.c
+│   ├── uiox_boot_unfs.c
 │   ├── uiox_boot_verify.c
 │   ├── uiox_boot_handoff.c
 │   └── uiox_boot_main.c
 ├── linker/
 │   ├── uiox_boot_arm64.ld
 │   ├── uiox_boot_arm32.ld
+│   ├── uiox_boot_x86_64.ld
 │   └── uiox_boot_x86_64.ld
-└── Makefile
+├── Makefile
+├── uBoot.md
+└── bootSequence.png
 
-==================================================================================
-Layer	File	Purpose
-Types	uiox_boot_types.h	Base integer types, magic numbers, error codes, arch enum
+====================================================================================================================
+Layer	      File	                              Purpose
+Types	      uiox_boot_types.h	                  Base integer types, magic numbers, error codes, arch enum
 HW HAL	uiox_boot_hw.h + arch hw.c × 3	Ops vtable, MMIO helpers, GIC/PIC init, cache ops, reset
-Memory	uiox_boot_mem.h/c	DTB/ATAG/E820 probe, region table, bump allocator
-Console	uiox_boot_console.h/c	PL011 / 16550 / SiFive UART, uboot_printf
-Storage	uiox_boot_fs.h/c	FAT32 BPB parse, cluster walk, file load by 8.3 name
-Verify	uiox_boot_verify.h/c	Full RFC 6234 SHA-256, UIOX image header check
-Handoff	uiox_boot_handoff.h/c	ELF64 segment loader, boot args struct, arch-specific kernel jump
-Master	uiox_boot.h	Single include for all bootloader APIs
-Entry	entry_arm64.S	EL2→EL1 drop, SCTLR disable, TLB flush, BSS zero, C call
-Entry	entry_arm32.S	SVC mode, SCTLR, TLB flush, BSS zero, C call
-Entry	entry_x86.S	Multiboot2 header, 32→64-bit mode, page tables, C call
-Main	uiox_boot_main.c	7-stage pipeline: memory → storage → load → verify → ELF → args → jump
-Linker	*.ld × 3	Per-arch memory layout (ARM64@0x40000000, ARM32@0x100000, x86@0x100000)
-Build	Makefile	make all builds all 3; make ARCH=arm64/arm32/x86_64 for single
-====================================================================================================
+Memory	uiox_boot_mem.h/c	                  DTB/ATAG/E820 probe, region table, bump allocator
+Console	uiox_boot_console.h/c	            PL011 / 16550 / SiFive UART, uboot_printf
+Storage	uiox_boot_fs.h/c	                  FAT32 BPB parse, cluster walk, file load by 8.3 name
+Verify	uiox_boot_verify.h/c	            Full RFC 6234 SHA-256, UIOX image header check
+Handoff	uiox_boot_handoff.h/c	            ELF64 segment loader, boot args struct, arch-specific kernel jump
+Master	uiox_boot.h	                        Single include for all bootloader APIs
+Entry	      entry_arm64.S	                  EL2→EL1 drop, SCTLR disable, TLB flush, BSS zero, C call
+Entry	      entry_arm32.S	                  SVC mode, SCTLR, TLB flush, BSS zero, C call
+Entry	      entry_x86.S	                        Multiboot2 header, 32→64-bit mode, page tables, C call
+Entry	      entry_riscv64.S
+Main	      uiox_boot_main.c	                  7-stage pipeline: memory → storage → load → verify → ELF → args → jump
+Linker	*.ld × 4	                        Per-arch memory layout (ARM64@0x40000000, ARM32@0x100000, x86@0x100000, RISCV64@0x80200000)
+Build	      Makefile	                        make all builds all 4; make ARCH=arm64/arm32/x86_64/RISCV64 for single
+====================================================================================================================
 
-===============================================
+====================================================================================================================
 Quick start:
 # Install toolchains (Ubuntu/Debian)
 sudo apt install gcc-aarch64-linux-gnu gcc-arm-linux-gnueabihf \
@@ -63,7 +73,8 @@ make all
 make run_arm64   # PL011 UART output on terminal
 make run_arm32
 make run_x86
-=============================================================================================
+make run_riscv
+====================================================================================================================
 Expected Console Output:
 
 UIOX Bootloader v1.0 (ARM64) [github.com/Pramod645/UIOX]
@@ -91,7 +102,7 @@ dtb=0000000040000000
 cmd: root=/dev/mmcblk0p2 rw quiet console=ttyAMA0
 [BOOT] Jumping to kernel...
 
-======================================================================================================
+====================================================================================================================
 ╔══════════════════════════════════════════════════════════════════════════╗
 ║                    UIOX COMPLETE BOOT EXECUTION FLOW                    ║
 ║           Power-On → SoC Init → Arch Init → Peripheral Init             ║
@@ -272,7 +283,7 @@ Power-On Reset
       │
       ├─ uiox_soc_init()            full SoC reinit with MMU context
       │       └─▶ uiox_
-======================================================================================
+====================================================================================================================
 Rule of Thumb — 3 Questions to Decide
 Ask these three questions for any init function:
 
@@ -288,7 +299,7 @@ Ask these three questions for any init function:
 3. Is it the full driver or a minimal bring-up stub?
    Minimal bring-up → Bootloader
    Full driver      → Kernel
-====================================================================================
+====================================================================================================================
 Power-On Reset
       │
       ▼
@@ -319,7 +330,7 @@ Power-On Reset
       ├─ Stage 6: uiox_boot_elf64_load()           ← copy ELF to RAM
       │
       └─ Stage 7: uiox_boot_arch_jump(entry, dtb, args)   ← JUMP TO KERNEL
-========================================================================================
+====================================================================================================================
 
 SoC Hardware Init vs Peripheral Init
 The One-Line Difference
@@ -539,8 +550,8 @@ Summary in One Sentence Each
 
 SoC Hardware Init = "Turn the chip on and make the silicon work" — clocks, power, DDR, reset, interrupt fabric. Without it the CPU cannot run, RAM cannot be accessed, and nothing else can start.
 
-Peripheral Init = "Configure one attached device to do its job" — set baud rate, clock polarity, IRQ number, pin direction. Without it that specific device doesn't work, but everything else is unaffected.====
-=========================================================================================
+Peripheral Init = "Configure one attached device to do its job" — set baud rate, clock polarity, IRQ number, pin direction. Without it that specific device doesn't work, but everything else is unaffected.
+====================================================================================================================
 Three Types of Initialization — Defined:
 
 | Type | What it initialises | Level | UIOX Location |
@@ -784,7 +795,7 @@ SoC Hardware Init — "Power on the chip so RAM works and clocks run."
 Architecture Init — "Configure the CPU core so it runs in the right mode with MMU, cache, and interrupts set up correctly."
 
 Peripheral Init — "Configure one attached device so it can send/receive data."*
-============================================================================================
+====================================================================================================================
 
 SoC vs Architecture — The Core Difference:
 
@@ -977,7 +988,7 @@ Summary in One Table
 | What IRQ number is the UART? | Architecture defines IRQ model; actual number is SoC | 33 (QEMU virt), 153 (BCM2711) |
 | How many privilege levels? | 4 (EL0–EL3 for ARM64) — architecture defines this | N/A |
 | Can two chips share arch init code? | Yes — all ARMv8-A chips use the same archinit.c | No — BCM2711 and RK3588 need different uioxsoc*.c` |
-=================================================================================================
+====================================================================================================================
 A primary bootloader and a secondary bootloader are two distinct stages in the boot sequence, each with a different job:
 
 Primary Bootloader (Stage 1)
@@ -1035,7 +1046,7 @@ SoC BootROM (primary)
 The uioxsocmain.c 9-stage pipeline you built is essentially a secondary bootloader — it runs after the SoC's built-in primary bootloader has set up basic clocks and DRAM, performs the full hardware initialisation (GIC, UART, timer, PCIe, POST, secure boot), and then calls uioxkernelmain()`.
 
 
-==================================================================================================
+====================================================================================================================
 
 Recommended implementation order
 
@@ -1054,7 +1065,7 @@ Week 3 — make it robust
   Day 5:    Boot timing + DTB generation stub (P3/P4)
 
 
-===============================================================================================
+====================================================================================================================
 UNFS — UIOX Native Filesystem
 On-disk layout (4 KB blocks):
 
@@ -1095,18 +1106,18 @@ uint32_t unfs_block_checksum(const void *block, uint32_t size);
 
 Comparison — all options against UIOX requirements:
 
-Feature	                FAT32	      ext2          ext4	            UNFS
-Journaling	            ❌	          ❌            ✅	              ✅ (uses 02_journal)
-Permissions (uid/gid)	  ❌	          ✅            ✅                ✅
-MAC label storage	      ❌	          xattr only    xattr only       ✅ native in inode
-Extent-based map	      ❌ clusters	❌ block list ✅	              ✅
-Nanosecond timestamps	  ❌ 2s	      ❌ 1s         ✅	              ✅
-Block checksums	        ❌	          ❌            ✅ metadata	      ✅ data + metadata
-COW snapshots	          ❌	          ❌            ❌	              ✅
-Bootloader readable	    ✅	          ✅	           ✅ (no journal)   ✅ (no journal)
-Implementation effort	  existing    ~400 lines    ~2000 lines	      ~1500 lines
-UIOX journal reuse	    ❌	          ❌	           partial	        ✅ full reuse
-===========================================================================================
+Feature	                FAT32	            ext2          ext4	      UNFS
+Journaling	                  ❌	            ❌            ✅              ✅ (uses 02_journal)
+Permissions (uid/gid)	      ❌	            ✅            ✅              ✅
+MAC label storage	            ❌	            xattr only    xattr only      ✅ native in inode
+Extent-based map	            ❌ clusters	      ❌ block list ✅	          ✅
+Nanosecond timestamps	      ❌ 2s	            ❌ 1s         ✅	          ✅
+Block checksums	            ❌	            ❌            ✅ metadata	    ✅ data + metadata
+COW snapshots	            ❌	            ❌            ❌	          ✅
+Bootloader readable	      ✅	            ✅	       ✅ (no journal) ✅ (no journal)
+Implementation effort	      existing          ~400 lines    ~2000 lines	~1500 lines
+UIOX journal reuse	      ❌	            ❌	       partial	     ✅ full reuse
+====================================================================================================================
 UNFS fils systesm:
 
 What each layer does?
@@ -1184,19 +1195,19 @@ Architecture overview
 
 
 What UNFS has that FAT32 does not
-Feature	                    FAT32	            UNFS
-Journaling	                ❌	                ✅ WAL via uiox_jr_*
-Extent-based map	          ❌ cluster chains	✅ 4 inline + overflow tree
-Block checksums (CRC32C)	  ❌	                ✅ superblock + inode + groups
-Copy-on-write snapshots	    ❌	                ✅ unfs_snap_create/delete/list
-Native MAC security labels	❌	                ✅ i_mac_label[16] in every inode
-Extended attributes	        ❌	                ✅ unfs_xattr_get/set/list
-Nanosecond timestamps	      ❌ 2s resolution	  ✅ i_atime_ns / i_mtime_ns / i_ctime_ns
-Zero-copy mmap	            ❌	                ✅ unfs_vfs_mmap_page → get_page_pa → PTE
-Permissions (uid/gid)	      ❌	                ✅ i_uid / i_gid / i_mode
-Hard links	                ❌	                ✅ i_nlink
-Page cache integration	    ❌	                ✅ uiox_pc_read/write
-mkfs / fsck tools	          ❌	                ✅ unfs_mkfs / unfs_fsck
-
-
-===============================================================================================
+Feature	                  FAT32	                  UNFS
+Journaling	                  ❌	                  ✅ WAL via uiox_jr_*
+Extent-based map	            ❌ cluster chains	      ✅ 4 inline + overflow tree
+Block checksums (CRC32C)      ❌	                  ✅ superblock + inode + groups
+Copy-on-write snapshots	      ❌	                  ✅ unfs_snap_create/delete/list
+Native MAC security labels	❌	                  ✅ i_mac_label[16] in every inode
+Extended attributes	      ❌	                  ✅ unfs_xattr_get/set/list
+Nanosecond timestamps	      ❌ 2s resolution	      ✅ i_atime_ns / i_mtime_ns / i_ctime_ns
+Zero-copy mmap	            ❌	                  ✅ unfs_vfs_mmap_page → get_page_pa → PTE
+Permissions (uid/gid)	      ❌	                  ✅ i_uid / i_gid / i_mode
+Hard links	                  ❌	                  ✅ i_nlink
+Page cache integration	      ❌	                  ✅ uiox_pc_read/write
+mkfs / fsck tools	            ❌	                  ✅ unfs_mkfs / unfs_fsck
+====================================================================================================================
+================================================= END HERE =========================================================
+====================================================================================================================

@@ -21,7 +21,7 @@
  #include "uiox_boot_unfs.h"
  
  /* ── Arch block-read callback — provided by hw layer ────────────────── */
- extern int uiox_boot_hw_read_block(uint32_t blkno, void *buf);
+ extern int uiox_boot_hw_read_block(uint32_t blkno, void *buf); // this defination in arch/arm64/uiox_boot_hw_arm64.c, arch/arm32/uiox_boot_hw_arm32.c, arch/riscv/uiox_boot_hw_riscv.c, arch/x86_64/uiox_boot_hw_x86_64.c
  
  /* ── UNFS mount context (static — no heap in bootloader) ────────────── */
  static unfs_mount_t s_mnt;

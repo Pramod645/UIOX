@@ -30,13 +30,28 @@ _start:
     mov     x10, #(1 << 31)         /* HCR_EL2.RW = 1 (EL1 is AArch64) */
     msr     hcr_el2, x10
 
+    /*
+    *EL (Exception Level): The general architectural term for privilege tiers in AArch64.
+    *EL0 (Unprivileged / User tier): Lowest privilege level. Used for normal user-space applications and tasks.
+    *EL1 (Privileged / Kernel tier): Medium-high privilege level. Used by Rich Operating System kernels 
+        like Linux or Windows.
+    *EL2 (Hypervisor tier): High privilege level reserved for virtualization monitors (Hypervisors 
+        like KVM, Xen, or Type-1 hypervisors) that manage virtual machines. EL2 is optional in hardware.
+    *(Reference) EL3 (Firmware tier): Highest privilege level, used for Secure Monitors, 
+        low-level platform firmware, and TrustZone security state switching.
+
+    *https://krinkinmu.github.io/2021/01/04/aarch64-exception-levels.html  
+    */
+
     /* Set SPSR_EL2 so eret drops to EL1h with IRQs/FIQs masked */
     mov     x10, #0x3C5             /* EL1h, DAIF all masked             */
     msr     spsr_el2, x10
     adr     x10, .Lat_el1
     msr     elr_el2, x10
     eret
-
+    /* 
+    https://support.arm.com/documentation/ihi0048/b/Interrupt-Handling-and-Prioritization/Example-GIC-usage-models/Using-IRQs-and-FIQs-to-provide-Non-secure-and-Secure-interrupts 
+    */
 .Lat_el1:
     /* ------------------------------------------------------------------ */
     /* 2. Disable MMU, D-cache, I-cache via SCTLR_EL1                     */
@@ -47,11 +62,35 @@ _start:
     bic     x10, x10, #(1 << 12)   /* I   = 0 disable I-cache           */
     msr     sctlr_el1, x10
     isb
+    /*
+    *SCTLR_EL1 (System Control Register EL1) is a 64-bit AArch64 system register that provides 
+    top-level control of the system's core and memory system at Exception Level 1 (EL1) and 
+    Exception Level 0 (EL0).
+
+    *Enables or disables the MMU (Memory Management Unit) for EL1/EL0 (M and C bits).
+    *Caches: Controls instruction and data caching behaviors.
+    *Endianness: Sets execution endianness for data and instructions at EL1 (EE) and EL0 (E0E).
+    *Fault Handling: Configures alignment fault checking (A bit).
+    */
 
     /* Invalidate TLBs */
     tlbi    vmalle1
     dsb     sy
     isb
+    /*
+    *TLBI VMALLE1 in AArch64 is an Arm system instruction that invalidates cached Translation Lookaside 
+    Buffer (TLB) entries for all stage 1 translations at Exception Level 1 (EL1) that match the current 
+    Virtual Machine Identifier (VMID)
+
+    *A dsb sy followed by an isb on AArch64 is a sequence of ARM barrier instructions used to guarantee 
+    complete memory visibility and pipeline synchronization before program execution continues.
+    *DSB (Data Synchronization Barrier - sy for Full System): Stops all instructions after the barrier 
+    from executing until all explicit memory accesses (loads and stores) before the barrier are fully 
+    complete across the system.
+    *ISB (Instruction Synchronization Barrier): Flushes the processor pipeline, throwing away any 
+    prefetched instructions so that subsequent instructions are fetched and executed using the newest 
+    system context or configuration.
+    */
 
     /* ------------------------------------------------------------------ */
     /* 3. Set up early stack (8-byte aligned, grows down from _boot_stack) */
@@ -62,6 +101,10 @@ _start:
 
     /* Save DTB pointer (x0 = DTB PA from QEMU) */
     mov     x20, x0
+    /*
+    *The ADRP (Address Page Relative) instruction in AArch64 calculates the 4KB page address of a program 
+    label relative to the current Program Counter (PC) and stores it in a destination register.
+    */
 
     /* ------------------------------------------------------------------ */
     /* 4. Zero .bss                                                        */
@@ -85,7 +128,7 @@ _start:
 
     /* Should never return — if it does, spin */
 .Lhang:
-    wfe
+    wfe /* wait for event */
     b       .Lhang
 
     .size _start, . - _start

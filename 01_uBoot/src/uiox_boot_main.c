@@ -58,9 +58,9 @@
  
  /* Physical addresses — must match linker scripts */
  #if defined(__aarch64__)
-   #define UIOX_KERN_LOAD_PA   0x40080000ULL
-   #define UIOX_ARGS_PA        0x40070000ULL
-   #define UIOX_DTB_FALLBACK   0x40000000ULL
+   #define UIOX_KERN_LOAD_PA   0x40080000ULL // kernel load base address
+   #define UIOX_ARGS_PA        0x40070000ULL // boot-args base address
+   #define UIOX_DTB_FALLBACK   0x40000000ULL // its boot base address
    #define UIOX_ARCH_ID        UIOX_ARCH_ARM64
    #define UIOX_ARCH_STR       "ARM64"
  #elif defined(__arm__)
@@ -69,6 +69,12 @@
    #define UIOX_DTB_FALLBACK   0x00010000ULL
    #define UIOX_ARCH_ID        UIOX_ARCH_ARM32
    #define UIOX_ARCH_STR       "ARM32"
+   #elif defined(__riscv)
+   #define UIOX_KERN_LOAD_PA   0x80280000ULL
+   #define UIOX_ARGS_PA        0x80270000ULL
+   #define UIOX_DTB_FALLBACK   0x80200000ULL
+   #define UIOX_ARCH_ID        UIOX_ARCH_RV64
+   #define UIOX_ARCH_STR       "RISC-V"   
  #else
    #define UIOX_KERN_LOAD_PA   0x00200000ULL
    #define UIOX_ARGS_PA        0x00180000ULL
@@ -132,7 +138,7 @@
      UIOX_UNUSED(x2);
  
      /* ================================================================== */
-     /* Stage 1: Hardware init , basically uiox_boot_hw_register call      */
+     /* Stage 1: Hardware init , basically uiox_boot_hw_register call,hw.c */
      /* ================================================================== */
  
      UIOX_HW_REGISTER();        /* registers vtable + calls ops->init()   */
@@ -143,7 +149,7 @@
      BOOT_OK();
  
      /* ================================================================== */
-     /* Stage 2: Memory                                                     */
+     /* Stage 2: Memory       , uiox_boot_mem.c                            */
      /* ================================================================== */
  
      BOOT_LOG(2, "Memory");
@@ -166,24 +172,25 @@
      BOOT_OK();
  
      /* ================================================================== */
-     /* Stage 3: Storage                                                    */
+     /* Stage 3: Storage     bridge.c and unfs.c                           */
      /* ================================================================== */
  
      BOOT_LOG(3, "Storage");
  
-     uiox_fat32_ctx_t fs;
+     //uiox_fat32_ctx_t fs;
      bool storage_ok = false;
  
-     rc = uiox_boot_fs_init(&fs, sim_blk_read, NULL);
+     //rc = uiox_boot_fs_init(&fs, sim_blk_read, NULL);
+     rc = unfs_boot_probe();
      if (rc == UIOX_BOOT_OK) {
          storage_ok = true;
-         uiox_boot_puts("FAT32 mounted\n");
+         uiox_boot_puts("UNFS mounted\n");
      } else {
          uiox_boot_puts("No storage — simulation mode\n");
      }
  
      /* ================================================================== */
-     /* Stage 4: Load kernel                                                */
+     /* Stage 4: Load kernel              bridge.c and unfs.c              */
      /* ================================================================== */
  
      BOOT_LOG(4, "Load kernel");
@@ -198,10 +205,15 @@
      bool     has_header = false;
      bool     is_elf     = false;
      uint64_t entry_pa   = UIOX_KERN_LOAD_PA;
+     uiox_image_hdr_t img_hdr;
+     uint64_t bytes_loaded = 0;
  
      if (storage_ok) {
-         rc = uiox_boot_fs_load(&fs, UIOX_KERNEL_FNAME,
-                                 load_buf, UIOX_KERN_MAX_SIZE, &loaded);
+         uiox_boot_puts("  Loading kernel from UNFS...\n");
+         /*rc = uiox_boot_fs_load(&fs, UIOX_KERNEL_FNAME,
+                                    load_buf, UIOX_KERN_MAX_SIZE, &loaded);*/
+         rc = unfs_boot_load(UIOX_KERN_LOAD_PA, 64*1024*1024,
+                                &bytes_loaded, &img_hdr); // not sure why bytes_loaded is used here, but it seems to be for tracking the number of bytes read from the file system.
          if (rc == UIOX_BOOT_OK &&
              loaded >= sizeof(uiox_image_hdr_t)) {
              uiox_boot_printf("  Loaded %lu bytes from %s\n",
@@ -215,7 +227,7 @@
      }
  
      /* ================================================================== */
-     /* Stage 5: Verify                                                     */
+     /* Stage 5: Verify                      verify.c                      */
      /* ================================================================== */
  
      BOOT_LOG(5, "Verify");
@@ -248,7 +260,7 @@
      }
  
      /* ================================================================== */
-     /* Stage 6: ELF load / flat binary load                                */
+     /* Stage 6: ELF load / flat binary load              handoff.c        */
      /* ================================================================== */
  
      BOOT_LOG(6, "ELF");
@@ -286,7 +298,7 @@
      BOOT_OK();
  
      /* ================================================================== */
-     /* Stage 7: Handoff                                                    */
+     /* Stage 7: Handoff                       handoff.c                   */
      /* ================================================================== */
  
      BOOT_LOG(7, "Handoff");

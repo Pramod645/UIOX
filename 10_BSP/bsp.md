@@ -1,7 +1,7 @@
 the secondary bootloader lives entirely inside 10_BSP.
 
 10_BSP/soc/src/uiox_soc_main.c already is the secondary bootloader. Its 9-stage init pipeline is exactly what a secondary bootloader does.
-====================================================================================
+=====================================================================================================================
 Primary bootloader (SoC BootROM — NOT in your repo)
     └── loads → secondary bootloader → jumps to it
                         │
@@ -17,7 +17,7 @@ Boot pipeline sequencing — orchestrate all stages in the correct order	soc/src
 Kernel hand-off — load kernel image, pass DTB, jump to entry point	uiox_arch_main.c + uiox_soc_main.c	Neither arch nor soc individually transfer control to the kernel
 Boot-time verification — POST, secure boot chain, PCR extension	soc/src/uiox_soc_post.c, uiox_soc_secboot.c	These exist in soc/ but are orchestrated by the pipeline
 
-================
+=====================================================================================================================
 The complete secondary bootloader pipeline already in 10_BSP:
 uiox_kernel_main(dtb_pa)         ← kernel calls this
     │
@@ -50,7 +50,7 @@ uiox_kernel_main(dtb_pa)         ← kernel calls this
                     ├── Stage 6:  Storage (ramdisk / eMMC)
                     ├── Stage 7:  Device switch table
                     └── Stage 8:  Hand-off → kernel
----------------------------------------------------------
+=====================================================================================================================
 What a traditional secondary bootloader (e.g. U-Boot) adds that UIOX does NOT need
 
 
@@ -79,7 +79,7 @@ The secondary bootloader is not a separate directory — it is the combination o
 10_BSP/arch/<arch>/src/arch_init.c — ISA bring-up
 10_BSP/soc/src/uiox_soc_main.c — full 9-stage boot pipeline
 Everything a secondary bootloader needs to do is already covered. No new directory is required.
-======================================================
+=====================================================================================================================
 if the kernel and BSP are not compiled together, UIOX needs a dynamic kernel loader. Here is exactly what changes and what new code is required.
 
 The two models compared
@@ -106,7 +106,7 @@ Five new components are needed:
     └── src/
         └── uiox_kernel_loader.c    ← NEW
 
-==========================================================
+=====================================================================================================================
 Static kernel (BSP + kernel compiled together)
 One binary image containing both 10_BSP and the kernel.
 
@@ -131,7 +131,7 @@ Binary grows with both layers	BSP init code that runs once is permanently in fla
 Harder to share BSP across products	Same BSP image cannot run a different OS or kernel variant
 Cannot update kernel OTA independently	Over-the-air update must replace the entire image — higher risk, more data
 
-=============================================
+=====================================================================================================================
 Dynamic kernel (BSP loads kernel at runtime)
 Two separate binaries — BSP loads the kernel from storage and jumps to it.
 
@@ -158,23 +158,23 @@ Additional flash partitions	Flash layout needs separate BSP partition + kernel p
 Harder to debug	Two separate ELF files — GDB needs both symbol tables loaded
 More attack surface	Loader code + signature verification code = more code that can have bugs
 Memory layout complexity	Load address, entry point, DTB address must all be coordinated at build time
-===================================
-Criterion	Static	Dynamic
-Boot speed	✅ Fastest	⚠️ Slower (storage read)
-Update granularity	❌ Full image	✅ Kernel only
-OTA support	❌ Hard	✅ Natural fit
-A/B slot support	❌ Not possible	✅ Built-in
-Code complexity	✅ Simple	❌ More code
-Debug simplicity	✅ One image	❌ Two images
-BSP reuse across kernels	❌ No	✅ Yes
-Storage driver needed at BSP stage	✅ No	❌ Yes
-ABI contract needed	✅ No	❌ Yes
-Signature verification	⚠️ Optional	✅ Natural integration
-Flash partition complexity	✅ Simple	❌ Needs layout planning
-LTO / cross-layer optimization	✅ Possible	❌ Not possible
-Production update risk	❌ High (full reflash)	✅ Low (kernel only)
+=====================================================================================================================
+Criterion	                        Static                  Dynamic
+Boot speed	                        ✅ Fastest	            ⚠️ Slower (storage read)
+Update granularity	                ❌ Full image	        ✅ Kernel only
+OTA support	                        ❌ Hard	                ✅ Natural fit
+A/B slot support	                ❌ Not possible	        ✅ Built-in
+Code complexity	                    ✅ Simple	            ❌ More code
+Debug simplicity	                ✅ One image	            ❌ Two images
+BSP reuse across kernels            ❌ No	                ✅ Yes
+Storage driver needed at BSP stage	✅ No	                ❌ Yes
+ABI contract needed	                ✅ No	                ❌ Yes
+Signature verification	            ⚠️ Optional	             ✅ Natural integration
+Flash partition complexity	        ✅ Simple	            ❌ Needs layout planning
+LTO / cross-layer optimization	    ✅ Possible	            ❌ Not possible
+Production update risk	            ❌ High (full reflash)	✅ Low (kernel only)
 
------------------------------------
+=====================================================================================================================
 
 Recommendation for UIOX
 Phase	Recommendation
@@ -183,7 +183,7 @@ Product / field deployment	    Use dynamic — OTA updates, A/B slots, independe
 Both supported simultaneously	Use the #ifdef UIOX_DYNAMIC_KERNEL_LOAD flag already in uiox_soc_main.c — same codebase, different build flag
 
 The cleanest approach for UIOX is exactly what was implemented: the #ifdef switch in Stage 8 of uiox_soc_main.c that selects static or dynamic at compile time — zero runtime cost for static builds, full loader capability for dynamic builds, from the same source tree.
-========================
+=====================================================================================================================
 Change 1 — 10_BSP/soc/Makefile — produce an ELF not just .a
 
 Makefile
@@ -280,7 +280,7 @@ How it works
 
 make ARCH=arm64                           → static  (default)
 make ARCH=arm64 DYNAMIC_KERNEL=1          → dynamic loader
-============================================================
+=====================================================================================================================
 How the #ifdef switch works — zero overhead summary
 
 
@@ -295,7 +295,7 @@ Dynamic build (DYNAMIC_KERNEL=1):
   Stage 8: uiox_kernel_load() → verify() → jump()
   Result: full loader present, kernel loaded from storage
 
-  ////////////////////////////
+=====================================================================================================================
 
   File	Purpose
 10_BSP/include/uiox_bsp.h	Public API — both build modes, all return codes, config struct
@@ -305,7 +305,7 @@ Dynamic build (DYNAMIC_KERNEL=1):
 10_BSP/linker/bsp_dynamic.ld	Full standalone LD script for secondary-bootloader binary
 10_BSP/Makefile	Master Makefile — all 4 arches, both modes, all-arches target
 10_BSP/BSP_integration_notes.md	Integration guide + call chains + build commands
-=========================
+=====================================================================================================================
 Two call chains at a glance:
 
 Static build (BSP linked into kernel):
@@ -322,7 +322,7 @@ uiox_boot_arch_jump()  →  bsp_entry.S  →  uiox_bsp_entry_c()
                                                ├─ load_kernel_elf()
                                                └─ uiox_bsp_jump_to_kernel()
                                                         └─ uiox_kernel_main()
-===============================================================================
+=====================================================================================================================
 # UIOX BSP Integration Notes
 **Date:** 2026-07-21  
 **Version:** 1.0.0
@@ -430,3 +430,6 @@ make -C 10_BSP all-arches BUILD=dynamic
     └── src/
         └── uiox_soc_main.c
 ```
+=====================================================================================================================
+=================================================== END HERE ========================================================
+=====================================================================================================================

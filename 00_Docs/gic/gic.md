@@ -1,0 +1,1 @@
+https://support.arm.com/documentation/ihi0048/b/GIC-Partitioning/About-GIC-partitioning?lang=en

@@ -206,7 +206,7 @@
      uint32_t          n_groups;
      uint8_t           mounted;
  };
- 
+
  /* ─────────────────────────────────────────────────────────────────────
   * Block device read callback — provided by arch hw layer
   * ───────────────────────────────────────────────────────────────────── */
@@ -235,6 +235,13 @@
  
  /* CRC32C checksum */
  uint32_t unfs_crc32c(const void *data, uint32_t len);
+
  
+ int unfs_boot_probe(void); // this is the function that will be called to probe and mount the UNFS filesystem during boot. from the file 01_uBoot/src/uiox_boot_bridge_unfs.c
+
+ int unfs_boot_load(uintptr_t load_pa, uint64_t max_bytes,
+    uint64_t *bytes_out,
+    uiox_image_hdr_t *hdr_out); // this is the function that will be called to load the kernel image from the UNFS filesystem during boot. from the file 01_uBoot/src/uiox_boot_bridge_unfs.c
+
  #endif /* UIOX_BOOT_UNFS_H */
  
