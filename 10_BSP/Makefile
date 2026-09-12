@@ -320,7 +320,8 @@ clean-arm64:   ; rm -rf $(BSP_DIR)/build/arm64
 clean-arm32:   ; rm -rf $(BSP_DIR)/build/arm32
 clean-riscv64: ; rm -rf $(BSP_DIR)/build/riscv64
 clean-x86_64:  ; rm -rf $(BSP_DIR)/build/x86_64
-clean: clean-arm64 clean-arm32 clean-riscv64 clean-x86_64
+clean-dir:         ; rm -rf $(BSP_DIR)/build
+clean: clean-arm64 clean-arm32 clean-riscv64 clean-x86_64 clean-dir
 	@echo "[CLN] all build outputs removed"
 
 .PHONY: info-arm64 info-arm32 info-riscv64 info-x86_64

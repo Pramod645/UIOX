@@ -39,7 +39,7 @@
 
 /* Add to arch_init.c — after irq_enable(UART0_IRQ) */
 
-#include "uiox_syscall.h"   /* uiox_syscall_dispatch, uiox_syscall_frame_t */
+//#include "uiox_syscall.h"   /* uiox_syscall_dispatch, uiox_syscall_frame_t */
 
 /*
  * arch_syscall_entry — called from the EL0 sync exception vector
