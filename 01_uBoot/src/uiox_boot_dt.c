@@ -1,5 +1,5 @@
 /*
- * 01_uBoot/src/boot_dt/uiox_boot_dt.c
+ * 01_uBoot/src/uiox_boot_dt.c
  * Device-tree runtime extraction:
  *   /chosen -> bootargs          (replaces UIOX_CMDLINE)
  *   /soc/  -> peripheral bases  (overlays uiox_soc_map.h)

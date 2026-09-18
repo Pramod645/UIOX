@@ -1,6 +1,8 @@
 /*
  * 01_uBoot/src/boot_media/uiox_boot_media.c
  * Boot-media dispatcher: registration + selection only.
+ * No device protocol lives here — each driver (virtio, none, …)
+ * defines its own ops table and its own constructor.
  */
 #include "uiox_boot.h"
 #include "uiox_boot_media.h"

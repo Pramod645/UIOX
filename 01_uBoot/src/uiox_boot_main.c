@@ -93,7 +93,7 @@
   * Stub block-device read
   * Returns -1 → signals "no real storage" → simulation path taken.
   * ====================================================================== */
- 
+ /*
  static int sim_blk_read(uint64_t lba, uint32_t count,
                           void *buf, void *priv)
  {
@@ -103,7 +103,7 @@
      UIOX_UNUSED(priv);
      return -1;
  }
- 
+ */
  /* =========================================================================
   * Arch HW registration
   * ====================================================================== */
