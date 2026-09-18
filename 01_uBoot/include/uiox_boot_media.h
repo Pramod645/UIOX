@@ -40,7 +40,8 @@ uiox_boot_err_t uiox_boot_media_read_block(uint32_t blk, uint32_t nblocks, void 
 uiox_boot_media_kind_t uiox_boot_media_active(void);
 const char *uiox_boot_media_active_name(void);
 
-/* Driver constructors (defined in boot_media/*.c) */
+/* Driver constructors (defined in boot_media sources) */
+
 const uiox_boot_media_ops_t *uiox_boot_media_fwstor(void);
 
 #ifdef __cplusplus

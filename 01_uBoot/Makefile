@@ -48,6 +48,13 @@ INCDIR   := include
 LDDIR    := linker
 BUILDDIR := build
 
+# ── Cross-tree include roots ──────────────────────────────────────────────────
+# MFDIR anchors to THIS Makefile's directory, so the paths below work whether
+# you run `make`, `make -C 01_uBoot`, or build from the repo root.
+MFDIR   := $(dir $(abspath $(lastword $(MAKEFILE_LIST))))
+SOCDIR  := $(MFDIR)../10_BSP/03_SoC/include
+FWDIR   := $(MFDIR)../02_FwHal/include
+
 # ── Detect host OS → choose correct cross-toolchain prefix ───────────────────
 UNAME_S := $(shell uname -s)
 
@@ -83,7 +90,6 @@ COMMON_SRCS := \
     $(SRCDIR)/uiox_boot_verify.c  \
     $(SRCDIR)/uiox_boot_handoff.c \
 	$(SRCDIR)/uiox_boot_media.c \
-    $(SRCDIR)/uiox_boot_media_fwstor.c  \
     $(SRCDIR)/uiox_boot_dt.c \
 	$(SRCDIR)/uiox_boot_media_none.c \
 	$(SRCDIR)/uiox_boot_media_virtio.c \
@@ -158,6 +164,7 @@ CFLAGS_COMMON := \
     -Os \
     -g \
     -I$(INCDIR) \
+	-I$(SOCDIR) \
     -DUIOX_VERSION_MAJOR=$(VERSION_MAJOR) \
     -DUIOX_VERSION_MINOR=$(VERSION_MINOR) \
     -DUIOX_VERSION_PATCH=$(VERSION_PATCH)
