@@ -55,6 +55,25 @@
      uintptr_t limit;  /**< Hard limit (end of arena)                      */
  } uiox_bump_alloc_t;
  
+
+ /* ── Runtime SoC map — populated from the device tree ───────────── */
+typedef struct {
+    uint64_t uart0_base;
+    uint64_t gic_dist_base;
+    uint64_t gic_cpu_base;
+    uint64_t vic_base;
+    uint64_t plic_base;
+    uint64_t clint_base;
+    uint64_t timer_base;
+    uint64_t virtio_base;
+    uint64_t virtio_stride;
+    uint64_t ahci_base;
+    uint64_t storage_base;
+    uint32_t uart_irq;
+    uint32_t timer_irq;
+    uint8_t  sourced_from_dt;
+} uiox_soc_runtime_t;
+
  /* =========================================================================
   * API
   * ====================================================================== */
@@ -81,6 +100,13 @@
  
  /** Minimal strlen. */
  size_t uiox_boot_strlen(const char *s);
+
+ /* Device-tree runtime extraction */
+ uiox_boot_err_t uiox_boot_dt_chosen(const void *fdt, char *bootargs_out,
+     uint32_t max_len);
+ uiox_boot_err_t uiox_boot_dt_soc(const void *fdt, uiox_soc_runtime_t *out);
+ uiox_boot_err_t uiox_boot_dt_apply(uint64_t dtb_pa, char *bootargs_out,
+    uint32_t max_len, uiox_soc_runtime_t *out);
  
  #ifdef __cplusplus
  }

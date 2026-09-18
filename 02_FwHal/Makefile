@@ -71,6 +71,8 @@ SRCS := \
   $(SRCDIR)/uiox_fw_pcie.c    \
   $(SRCDIR)/uiox_fw_storage.c \
   $(SRCDIR)/uiox_fw_ramrtc.c  \
+  $(SRCDIR)/uiox_fw_virtio.c  \
+  $(SRCDIR)/uiox_fw_none.c  \
   $(SRCDIR)/uiox_fw_sensor.c
 
 # ── Device-conditional sources ────────────────────────────────────────────────

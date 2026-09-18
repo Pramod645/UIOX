@@ -52,6 +52,7 @@
  *
  * Returns: value placed back in x0 before ERET to EL0.
  */
+/*
 long arch_syscall_entry(unsigned long nr,
                         unsigned long a0, unsigned long a1,
                         unsigned long a2, unsigned long a3,
@@ -63,7 +64,7 @@ long arch_syscall_entry(unsigned long nr,
         .a3 = a3, .a4 = a4, .a5 = a5,
     };
     return (long)uiox_syscall_dispatch(&frame);
-}
+}*/
 /*
 The same arch_syscall_entry() pattern applies to the other three arch files 
 (arch_init.c for arm32, riscv64, x86_64) — only the register names differ 

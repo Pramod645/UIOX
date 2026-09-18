@@ -82,6 +82,11 @@ COMMON_SRCS := \
 	$(SRCDIR)/uiox_boot_bridge_unfs.c \
     $(SRCDIR)/uiox_boot_verify.c  \
     $(SRCDIR)/uiox_boot_handoff.c \
+	$(SRCDIR)/uiox_boot_media.c \
+    $(SRCDIR)/uiox_boot_media_fwstor.c  \
+    $(SRCDIR)/uiox_boot_dt.c \
+	$(SRCDIR)/uiox_boot_media_none.c \
+	$(SRCDIR)/uiox_boot_media_virtio.c \
     $(SRCDIR)/uiox_boot_main.c
 
 # ── ARM64 ─────────────────────────────────────────────────────────────────────

@@ -39,7 +39,8 @@ STATIC   := $(LIBDIR)/libarch_$(ARCH).a
 
 # Boot-path sources only — simulator files excluded
 BOOT_SRCS := \
-  $(SRCDIR)/arch_init.c      \
+  $(SRCDIR)/arch_init.c
+  #$(SRCDIR)/arch_init.c      \
   $(SRCDIR)/arm_exceptions.c
 
 BOOT_OBJS := $(patsubst $(SRCDIR)/%.c,$(OBJDIR)/%.o,$(BOOT_SRCS))

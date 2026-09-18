@@ -49,7 +49,8 @@ RUNTIME_STATIC  := $(LIBDIR)/libarch_$(ARCH)_runtime.a
 # arch_init.c — GIC, cache enable, VBAR_EL1, generic timer
 # arm64_exceptions.c — exception handler stubs
 BOOT_SRCS := \
-  $(SRCDIR)/arch_init.c         \
+  $(SRCDIR)/arch_init.c 
+  #$(SRCDIR)/arch_init.c         \
   $(SRCDIR)/arm64_exceptions.c
 
 BOOT_OBJS := $(patsubst $(SRCDIR)/%.c,$(OBJDIR)/%.o,$(BOOT_SRCS))

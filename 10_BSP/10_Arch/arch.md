@@ -13,35 +13,25 @@
 ├── arm32/   (same structure)
 ├── x86_64/  (same structure)
 └── riscv64/ (same structure)
------------------
-/* 50_UIX/kernel/uiox_kernel_main.c */
+=====================================================================================================================
+arch_init:
+Sequance diagram here: arch-init.png
 
-#include "../../10_Arch/src/uiox_arch_main.h"
-#include "../../33_ProcessControlSubsystem/include/proc.h"
-#include "../../50_UIX/01_shell/shell.h"
-
-void uiox_kernel_main(unsigned long dtb_pa)
-{
-    /* Step 1: arch_init() + uiox_soc_init() — single call */
-    if (uiox_arch_main(dtb_pa) != 0)
-        for (;;) ;   /* fatal — no recovery possible */
-
-    /* Step 2: kernel subsystems */
-    uiox_ks_boot_entry();   /* 12_ksign  */
-    uiox_proc_init();        /* 33_PCS   */
-    uiox_shell_start();      /* 50_UIX   */
-}
-===========================================================
-What each step does
-Step	Function	ISA / HW touched	Purpose
-1	arm64_cpu_identify()	MIDR_EL1, MPIDR_EL1	Read CPU part number and core affinity
-2	arm64_cache_enable()	SCTLR_EL1, IC IALLU, TLBI VMALLE1	Turn on D/I-cache, flush stale TLB and I-cache
-3	arm64_gic_init()	GIC-400 MMIO (GICD_*, GICC_*)	Enable interrupt distributor, set priorities to 0xA0, unmask CPU interface
-4	arm64_vbar_install()	VBAR_EL1, ISB	Point exception vector base at _vector_table linker symbol
-5	arm64_timer_init()	CNTFRQ_EL0, CNTP_TVAL_EL0, CNTP_CTL_EL0	Start ARMv8 generic timer at 100 Hz
-6	mmio_init() / irq_init()	20_DriverInterfaces	Initialise MMIO accessor and IRQ dispatch table
-7	irq_register() / irq_enable()	GIC MMIO	Wire timer IRQ and UART0 IRQ to their handlers
-8	DAIFCLR #2	DAIF PSTATE bits	Globally unmask IRQs at the CPU level
+What each step does?
+Step	Function	                    ISA / HW touched	                    Purpose
+1	    arm64_cpu_identify()	        MIDR_EL1, MPIDR_EL1	                    Read CPU part number and core affinity
+2	    arm64_cache_enable()	        SCTLR_EL1, IC IALLU, TLBI VMALLE1	    Turn on D/I-cache, 
+                                                                                flush stale TLB and  I-cache
+3	    arm64_gic_init()	            GIC-400 MMIO (GICD_*, GICC_*)	        Enable interrupt distributor, 
+                                                                                set priorities to 0xA0, unmask CPU interface
+4	    arm64_vbar_install()	        VBAR_EL1, ISB	                        Point exception vector base 
+                                                                                at  _vector_table linker symbol
+5	    arm64_timer_init()	            CNTFRQ_EL0, CNTP_TVAL_EL0, CNTP_CTL_EL0	Start ARMv8 generic timer at 100 Hz
+6	    mmio_init() / irq_init()	    20_DriverInterfaces	                    Initialise MMIO accessor and IRQ
+                                                                                dispatch table
+7	    irq_register() / irq_enable()	GIC MMIO	                            Wire timer IRQ and UART0 IRQ to their 
+                                                                                handlers
+8	    DAIFCLR #2	                    DAIF PSTATE bits	                    Globally unmask IRQs at the CPU level
 
 
 Layer boundaries:
@@ -55,7 +45,11 @@ uiox_kernel_main()
 └── uiox_soc_init()      ← NEXT (03_SoC)
       SoC-specific: clocks, power management,
       peripheral MMIO map (uiox_soc_map.h)
-===============================================
+
+The key architectural split: 
+                            arch_init() only touches ISA-defined registers and architecture-defined peripherals (GIC, generic timer). 
+                            Anything chip-specific — clocks, UART config, power domains — is explicitly deferred to uiox_soc_init() in 03_SoC.      
+=====================================================================================================================
 
  ARCH INIT and ARCH needed during intilization, is arch or ISA not needed during runtime?
  No — arch_init() is only the one-time setup call. The ISA and arch layer are used continuously at runtime through a completely different set of paths. 
@@ -133,7 +127,7 @@ kpatch apply:
     → DC CVAU (clean data cache by VA)
     → IC IVAU (invalidate I-cache by VA)
     → DSB ISH + ISB  (barriers — ISA)
-    → patched function now jumps to replacement
+    → patched function now jumps to replacement 
 
 
 Bottom line
@@ -146,7 +140,7 @@ Every exec()	TTBR0_EL1 swap, TLBI, ASLR entropy from TRNG
 Every kpatch	DC CVAU, IC IVAU, DSB/ISB cache maintenance
 
 
-================================
+=====================================================================================================================
 Summary — all four architectures side by side
 ┌────────────────┬─────────────┬──────────────┬────────────────────────┐
 │ Arch           │ Instruction │ NR register  │ UIOX C entry           │

@@ -62,7 +62,7 @@
  *     msr     spsr_cxsf, r12
  *     ldm     sp!, {r0-r12, pc}^    @ restore + MOVS PC restores CPSR
  */
-
+#if 0
 #include "uiox_syscall.h"   /* uiox_syscall_dispatch, uiox_syscall_frame_t */
 
 long arch_syscall_entry(unsigned long r0, unsigned long r1,
@@ -86,7 +86,7 @@ long arch_syscall_entry(unsigned long r0, unsigned long r1,
     };
     return (long)uiox_syscall_dispatch(&frame);
 }
-
+#endif
 /*
  * arch_fini addition — mask SVC before teardown.
  * Add to existing arch_fini() body:

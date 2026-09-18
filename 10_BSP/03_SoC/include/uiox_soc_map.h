@@ -60,6 +60,11 @@ extern "C" {
 /* ── SMMU (ARM IOMMU) ────────────────────────────────────────────────── */
 #  define SOC_SMMU_BASE         0x09050000UL
 
+/* ── VIRTIO (ARM IOMMU) ────────────────────────────────────────────────── */
+#  define SOC_VIRTIO_BASE      0x0A000000UL
+#  define SOC_VIRTIO_STRIDE    0x1000u
+#  define SOC_VIRTIO_IRQ       48u
+
 /* =========================================================================
  * ARM32 (QEMU versatilepb / virt) MMIO map
  * ====================================================================== */
@@ -84,6 +89,10 @@ extern "C" {
 
 #  define SOC_VIRTIO_BASE       0x0A000000UL
 #  define SOC_VIRTIO_IRQ        48u
+
+#  define SOC_VIRTIO_BASE      0x0A000000UL
+#  define SOC_VIRTIO_STRIDE    0x1000u
+#  define SOC_VIRTIO_IRQ       48u
 
 /* =========================================================================
  * x86-64 (QEMU Q35 / generic PC) I/O and MMIO map
@@ -122,6 +131,11 @@ extern "C" {
 #  define SOC_RTC_PORT_DAT      0x71u
 #  define SOC_RTC_IRQ           8u
 
+
+#  define SOC_VIRTIO_BASE      0x10001000UL
+#  define SOC_VIRTIO_STRIDE    0x1000u
+#  define SOC_VIRTIO_IRQ       1u
+
 /* =========================================================================
  * RISC-V 64 (QEMU virt / SiFive) MMIO map
  * ====================================================================== */
@@ -155,6 +169,9 @@ extern "C" {
 #  define SOC_VIRTIO_BASE       0x10001000UL
 #  define SOC_VIRTIO_IRQ        1u
 #  define SOC_VIRTIO_STRIDE     0x1000u        /* 8 slots × 0x1000         */
+
+#  define SOC_TEST_BASE        0x00100000UL
+#  define SOC_TEST_RESET       0x00005555UL
 
 #else
 #  error "uiox_soc_map.h: unsupported architecture — \

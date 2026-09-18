@@ -1,7 +1,6 @@
-I already have the full file list from the earlier fetches in this session. Here is the complete segregation:
-
 02FwHal/include/ — SoC vs Peripheral
-SoC Files (chip-wide infrastructure)
+
+SoC Files (chip-wide infrastructure):
 
 These define the silicon fabric — clocks, power domains, MMIO address map, reset controller, and the master SoC descriptor. Nothing runs without these.
 
@@ -25,7 +24,8 @@ These define the silicon fabric — clocks, power domains, MMIO address map, res
 | uioxfwsecboot.h | SoC | Secure boot chain of trust: RoT key, FVC certificate, SHA-256, RSA/ECDSA signature verify, anti-rollback, uioxsecbootctxt |
 | uioxfw.h | SoC | Master firmware include — pulls in all FwHal headers, defines FWLOG(), uioxfwprintf() |
 
-Peripheral Files (individual device drivers)
+
+Peripheral Files (individual device drivers):
 
 These configure one specific device at a time. They depend on SoC init being complete first.
 
@@ -115,16 +115,18 @@ One-Line Rule
 
 > SoC file = affects the whole chip, must run before any device can be touched.
 > Peripheral file = configures exactly one device, requires SoC init to have run first.
-=====================================
-	SoC	Architecture
+=======================================================================================================================
+SoC	Architecture
+
 What it is	A specific chip product	An instruction set + CPU design rules
 Who defines it	The chip manufacturer (Broadcom, NXP, SiFive, Intel)	The ISA owner (ARM Ltd, RISC-V International, Intel/AMD)
 Examples	BCM2711, RK3588, i.MX8, SiFive U74, Intel Q35	ARMv8-A (AArch64), ARMv7-A, AMD64, RV64IMAFDC
 Scope	One specific product — peripherals, memory map, clock tree	All chips that implement the ISA
 Changes per chip	UART base address, PLL divisors, IRQ numbers, DDR config	Never — the ISA is fixed across all chips that use it
 UIOX module	02_FwHal/src/uiox_soc_*.c	10_Arch/<arch>/src/arch_init.c
-================
-Great question. Here is the complete, precise difference between SoC and Architecture in the context of UIOX and embedded systems generally.
+=======================================================================================================================
+
+Here is the complete, precise difference between SoC and Architecture in the context of UIOX and embedded systems generally.
 
 SoC vs Architecture — The Core Difference
 
@@ -151,7 +153,6 @@ SoC           =  Architecture + everything else on the chip
 
 Think of it this way:
 
-`
 Architecture (ARMv8-A)
       │
       │  defines:  A64 instruction set, EL0-EL3 privilege levels,
@@ -317,7 +318,7 @@ Summary in One Table
 | What IRQ number is the UART? | Architecture defines IRQ model; actual number is SoC | 33 (QEMU virt), 153 (BCM2711) |
 | How many privilege levels? | 4 (EL0–EL3 for ARM64) — architecture defines this | N/A |
 | Can two chips share arch init code? | Yes — all ARMv8-A chips use the same archinit.c | No — BCM2711 and RK3588 need different uioxsoc*.c` |
-=========================================
+=======================================================================================================================
 SoC	File	Status
 QEMU_VIRT_A64	uiox_soc_arm64.c	✅ existing
 BCM2711	uiox_soc_arm64.c	✅ existing
@@ -335,7 +336,9 @@ QEMU_VIRT_RV64	uiox_soc_riscv64.c	✅ existing
 SIFIVE_U74	uiox_soc_riscv64.c	✅ existing
 TH1520	uiox_soc_th1520.c	✅ 
 
-=============================================
+=======================================================================================================================
+SOC INit:
+
 uiox_soc_init() is boot-only setup — but the SoC layer runs continuously at runtime
 The difference from the arch layer is that the SoC layer has far more runtime surface because it owns clocks, power, DMA, IRQ routing, PSCI, TrustZone, and PCIe — all of which are needed throughout the kernel's lifetime.
 Boot-only (one-time init sequence)

@@ -71,7 +71,7 @@
  *     # return value in a0
  *     sret
  */
-
+#if 0
  #include "uiox_syscall.h"
 
  long arch_syscall_entry(unsigned long a0, unsigned long a1,
@@ -102,7 +102,7 @@
  /* Add inside arch_init() after GIC/PLIC setup — install trap vector */
 extern void trap_entry(void);
 __asm__ volatile("csrw stvec, %0" :: "r"(trap_entry) : "memory");
-
+#endif
 
 
  /* ── Forward declarations of IRQ handlers ────────────────────────────

@@ -7,6 +7,9 @@
 /*
 3.0x80_64
 */
+/*
+4.RISC-V64
+*/
 
 Boot time        arch_init()     ← already done
                       │
@@ -37,7 +40,7 @@ Runtime          ─────┼───────────────
               arch_atomic_add()    ← LDXR/STXR / LOCK XADD / AMOADD
               arch_spinlock_*()    ← LDAXR/STLXR / WFE
 
-========================================
+====================================================================================================================
 Aspect	ARM32	ARM64	x86_64	RISC-V64
 Context switch asm	stm/ldm r4-r11,lr,sp	stp/ldp x19-x30,sp + system regs	push/pop rbx-r15,rsp + CR3	sd/ld s0-s11,ra,sp + CSRs
 IRQ entry	SRSDB + CPS + PUSH	STP all regs + MRS/MSR	PUSH all regs + stubs	SAVE_ALL macro + scause

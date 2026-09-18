@@ -114,6 +114,17 @@
  } __attribute__((packed));
  
  /* Superblock — block 0 */
+ /* Superblock fields before _pad total exactly 152 bytes:
+ *   4+2+2+4+4 = 16    (magic..inode_size)
+ *   8+8       = 16    (block_count, free_blocks)
+ *   4×5       = 20    (inode_count..jr_size)
+ *   8+8       = 16    (mount/write time)
+ *   4+4       =  8    (mount_count, max_mount_count)
+ *   1×4       =  4    (clean, cow, csum, compress)
+ *   64+16     = 80    (volume_name, uuid)
+ *   4         =  4    (sb_checksum)
+ *   -------------------- 152
+ * So the pad is 4096-152 = 3944, not 4096-148.                       */
  struct unfs_sb {
      uint32_t  s_magic;          /* UNFS_MAGIC = 0x554E4653              */
      uint16_t  s_version_major;
@@ -140,8 +151,11 @@
      uint8_t   s_volume_name[64];
      uint8_t   s_uuid[16];       /* volume UUID                          */
      uint32_t  s_sb_checksum;    /* CRC32C of bytes 0..s_sb_size-4       */
-     uint8_t   _pad[UNFS_BLOCK_SIZE - 148u];
+     uint8_t   _pad[UNFS_BLOCK_SIZE - 152u];
  } __attribute__((packed));
+ 
+ typedef char unfs_sb_size_assert[
+    (sizeof(unfs_sb_t) == UNFS_BLOCK_SIZE) ? 1 : -1];
  
  /* Block group descriptor */
  struct unfs_group_desc {
