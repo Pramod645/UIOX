@@ -27,6 +27,25 @@
 #   make V=1 ARCH=arm64         verbose
 #   make run ARCH=arm64         build + QEMU
 #   make clean
+#
+#	make                          # all four architectures, BOARD=qemu
+# 	make ARCH=arm64               # one architecture
+# 	make ARCH=arm32
+#	make ARCH=x86_64
+#	make ARCH=riscv64
+#
+#	make BOARD=qemu ARCH=arm64        # -> board/uiox_board_qemu_arm64.c
+#	make BOARD=generic ARCH=arm64     # -> board/uiox_board_generic_arm64.c
+#	make BOARD=qemu-riscv64 ARCH=riscv64   # explicit name also works
+#
+#	make V=1 ARCH=arm64               # verbose — shows every command
+#	make BOARD=qemu ARCH=arm64        # build one target
+#	make clean                        # remove build/
+#	make help                         # built-in summary
+#
+#	make BOARD=qemu ARCH=arm64
+#	make BOARD=generic ARCH=riscv64
+#
 # =============================================================================
 
 VERSION_MAJOR := 1
@@ -86,15 +105,19 @@ endif
 
 # ── Common sources — FLAT src/ ────────────────────────────────────────────────
 COMMON_SRCS := \
-    $(SRCDIR)/uiox_boot_hw.c          \
-    $(SRCDIR)/uiox_boot_console.c     \
-    $(SRCDIR)/uiox_boot_mem.c         \
-    $(SRCDIR)/uiox_boot_unfs.c        \
-    $(SRCDIR)/uiox_boot_bridge_unfs.c \
-    $(SRCDIR)/uiox_boot_verify.c      \
-    $(SRCDIR)/uiox_boot_handoff.c     \
-	$(SRCDIR)/uiox_boot_media.c \
-    $(SRCDIR)/uiox_boot_main.c
+    $(SRCDIR)/uiox_boot_hw.c              \
+    $(SRCDIR)/uiox_boot_console.c         \
+    $(SRCDIR)/uiox_boot_mem.c             \
+    $(SRCDIR)/uiox_boot_unfs.c            \
+    $(SRCDIR)/uiox_boot_bridge_unfs.c     \
+    $(SRCDIR)/uiox_boot_verify.c          \
+    $(SRCDIR)/uiox_boot_handoff.c         \
+    $(SRCDIR)/uiox_boot_main.c            \
+    $(SRCDIR)/uiox_boot_media.c           \
+    $(SRCDIR)/uiox_boot_media_virtio.c    \
+    $(SRCDIR)/uiox_boot_media_sdmmc.c     \
+    $(SRCDIR)/uiox_boot_media_none.c      \
+    $(SRCDIR)/uiox_boot_dt.c
 
 BOARD ?= qemu
 ARCH  ?=

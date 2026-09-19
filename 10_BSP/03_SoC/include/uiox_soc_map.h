@@ -12,6 +12,11 @@
  *
  * This header is the SINGLE SOURCE OF TRUTH for hardware addresses.
  * Board descriptors and drivers reference SOC_* macros — never literals.
+ *
+ * EVERY board block defines SOC_CLK_BASE and SOC_STORAGE_BASE (0 = TODO),
+ * so a board descriptor can reference them regardless of which board is
+ * selected — that is what keeps the generic boards compilable under the
+ * QEMU selection too.
  */
 #ifndef UIOX_SOC_MAP_H
 #define UIOX_SOC_MAP_H
@@ -24,7 +29,6 @@ extern "C" {
 
 /* =====================================================================
  * Board selection — normalise the user's choice to one macro per board.
- * Define exactly one on the command line (the Makefile does this).
  * ===================================================================== */
 #if !defined(UIOX_BOARD_QEMU_ARM64)  && !defined(UIOX_BOARD_QEMU_ARM32)   && \
     !defined(UIOX_BOARD_QEMU_RISCV64)&& !defined(UIOX_BOARD_QEMU_X86_64)  && \
@@ -63,6 +67,8 @@ extern "C" {
 #    define SOC_VIRTIO_BASE      0x0A000000UL
 #    define SOC_VIRTIO_STRIDE    0x1000u
 #    define SOC_VIRTIO_IRQ       48u
+#    define SOC_CLK_BASE         0x00000000UL   /* no PLL ctrl on QEMU */
+#    define SOC_STORAGE_BASE     0x00000000UL   /* virtio is the medium */
 #    define UIOX_BOARD_STR       "qemu-virt-arm64"
 
 #  elif defined(UIOX_BOARD_GENERIC_ARM64)
@@ -117,6 +123,8 @@ extern "C" {
 #    define SOC_VIRTIO_BASE      0x0A000000UL
 #    define SOC_VIRTIO_STRIDE    0x1000u
 #    define SOC_VIRTIO_IRQ       48u
+#    define SOC_CLK_BASE         0x00000000UL   /* no PLL ctrl on QEMU */
+#    define SOC_STORAGE_BASE     0x00000000UL   /* virtio is the medium */
 #    define UIOX_BOARD_STR       "qemu-versatilepb-arm32"
 
 #  elif defined(UIOX_BOARD_GENERIC_ARM32)
@@ -159,6 +167,12 @@ extern "C" {
 #    define SOC_VIRTIO_BASE      0x10001000UL
 #    define SOC_VIRTIO_STRIDE    0x1000u
 #    define SOC_VIRTIO_IRQ       1u
+#    ifndef SOC_CLK_BASE
+#      define SOC_CLK_BASE       0x00000000UL   /* TODO: chipset ctl */
+#    endif
+#    ifndef SOC_STORAGE_BASE
+#      define SOC_STORAGE_BASE   0x00000000UL   /* TODO: AHCI ABAR   */
+#    endif
 #    define UIOX_BOARD_STR       "x86_64"
 #  else
 #    error "no x86_64 board selected"
@@ -184,6 +198,8 @@ extern "C" {
 #    define SOC_VIRTIO_BASE      0x10001000UL
 #    define SOC_VIRTIO_STRIDE    0x1000u
 #    define SOC_VIRTIO_IRQ       1u
+#    define SOC_CLK_BASE         SOC_CLINT_BASE /* CLINT holds mtime */
+#    define SOC_STORAGE_BASE     0x00000000UL   /* virtio is the medium */
 #    define UIOX_BOARD_STR       "qemu-virt-riscv64"
 
 #  elif defined(UIOX_BOARD_GENERIC_RISCV64)
@@ -201,6 +217,9 @@ extern "C" {
 #    endif
 #    ifndef SOC_STORAGE_BASE
 #      define SOC_STORAGE_BASE   0x00000000UL   /* TODO */
+#    endif
+#    ifndef SOC_CLK_BASE
+#      define SOC_CLK_BASE       SOC_CLINT_BASE /* CLINT holds mtime */
 #    endif
 #    define UIOX_BOARD_STR      "generic-riscv64"
 #  else
