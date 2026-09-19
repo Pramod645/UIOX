@@ -1211,3 +1211,110 @@ mkfs / fsck tools	            ❌	                  ✅ unfs_mkfs / unfs_fsck
 ====================================================================================================================
 ================================================= END HERE =========================================================
 ====================================================================================================================
+
+can this https://github.com/Pramod645/UIOX/tree/main/01_uBoot run on real silicon and if yes then can you draw the sequence diagram and explain how this boot is goig to work?
+
+
+Short answer: no — not as it stands. The 01uBoot bootloader builds and links for all four architectures, and it's correct for QEMU virt machines, but it has nothing that would let it run on a physical board. It would either hang immediately or read garbage. Let me be precise about why, then draw the sequence diagram for how it would boot once the missing pieces exist.
+
+Can it run on real silicon?
+
+No. Four hard blockers, in order of how early they'd kill it:
+
+The very first instruction assumes a firmware handoff that real hardware doesn't give. The entry code expects to be launched by something — U-Boot, TF-A, a ROM bootloader — with a device-tree pointer in a register. On a bare SoC powering up, nothing has set up DRAM, nothing has passed a DTB, and there is no stack. The bootloader would fault before uioxbootmain() runs.
+
+Clock, power, and pin-mux init don't exist. QEMU has the UART already running. A real SoC has it gated off — the clock PLL isn't locked, the peripheral's clock enable bit is clear, the reset line is asserted, and the pins aren't muxed to the UART. pl011init() sets a baud divisor on a UART that isn't clocked, so no console output at all. The bootloader would appear completely dead.
+
+Storage is a placeholder. uioxboothwreadblock() in every arch file reads from physical address 0:
+
+``c
+uintptrt addr = /SOCEMMCBASE/0 + (uintptrt)blkno  4096u;
+uioxbootmemcpy(buf, (const void )addr, 4096u);
+`
+
+Even the VirtIO path only works because QEMU provides a VirtIO device — real boards expose SDHCI/eMMC, SPI-NOR, or NVMe, none of which is implemented. And as we found, even the FwHal SD driver's sdhread is a stub that validates the LBA and returns without reading anything.
+
+Memory map is hardcoded to QEMU. uioxbootmemprobe() falls back to 0x40000000 / 64 MB — QEMU virt's layout. Real boards have different DRAM bases and sizes, discovered from the DTB. The DTB parser now exists (uioxbootdt.c), but on real hardware the DTB has to come from somewhere the bootloader can reach — flash or a prior stage — and that path isn't wired.
+
+There's also no secure-boot root (OTP/fuse read), no flash write, and no board files. So: it's a correct QEMU bring-up vehicle, not a physical-hardware bootloader.
+
+How the boot works (the design, as built)
+
+Here's the sequence the code implements today. This is what runs on QEMU, and what real hardware would run once the four blockers above are filled:
+
+`mermaid
+sequenceDiagram
+    participant FW as Firmware / ROM<br/>(U-Boot, TF-A, or QEMU)
+    participant BL as 01uBoot
+    participant HW as HW HAL<br/>(arch hw file)
+    participant MEDIA as bootmedia<br/>layer
+    participant UNFS as UNFS reader
+    participant K as UIOX kernel
+
+    FW->>BL: jump to entry, DTB ptr in reg
+    Note over BL: entry .S sets stack,<br/>registers hw ops vtable
+
+    BL->>HW: uioxboothwregister(ops)
+    HW->>HW: uartinit (baud on live clock)
+    HW->>HW: gic/plicinit
+    BL->>BL: BOOTBANNER
+
+    BL->>BL: Stage 2 — memprobe(dtbpa)
+    alt DTB valid
+        BL->>BL: parse /memory reg → region table
+    else no DTB
+        BL->>BL: fallback: hardcoded QEMU map
+    end
+
+    BL->>BL: Stage 2.5 — dtapply(dtbpa)
+    BL->>BL: extract /chosen bootargs
+    BL->>BL: extract /soc peripheral bases
+    Note over BL: runtime SoC map overlays<br/>compile-time #defines
+
+    BL->>MEDIA: register drivers (virtio, …)
+    BL->>MEDIA: mediaselect()
+    MEDIA->>MEDIA: probe each: present? init ok?
+    MEDIA-->>BL: active media (or NONE)
+
+    BL->>MEDIA: Stage 3/4 — read kernel blocks
+    MEDIA->>UNFS: readblock(n)
+    UNFS->>UNFS: read superblock, verify CRC32C
+    UNFS->>UNFS: read group descriptors
+    UNFS->>UNFS: lookup /boot/uioxkernel.elf
+    UNFS->>UNFS: walk extent tree → blocks
+    UNFS-->>BL: kernel image in DRAM
+
+    BL->>BL: Stage 5 — verify SHA-256 vs image header
+    BL->>BL: Stage 6 — ELF64 load or flat copy
+    BL->>BL: Stage 7 — build bootargs (cmdline from DT)
+    BL->>K: jump to entrypoint
+`
+
+And the staged breakdown in words:
+
+Stage 1 — Hardware init. The entry assembly establishes a stack and registers the architecture's uioxboothwopst vtable, whose init() brings up the UART and interrupt controller. On QEMU this succeeds because the console is already live; on real silicon this is the stage that needs clock/power/pinmux work inserted.
+
+Stage 2 — Memory probe. uioxbootmemprobe(dtbpa, &map) parses /memory nodes from the device tree into a region table; if there's no DTB it falls back to a hardcoded layout. This is what tells the bump allocator where usable RAM is.
+
+Stage 2.5 — Device-tree extraction (the piece we added). uioxbootdtapply() pulls two things the code used to hardcode: the kernel command line from /chosen (bootargs), and peripheral base addresses from /soc — UART, GIC/PLIC, timer, VirtIO. Those populate uioxsocruntimet, which overlays the compile-time #defines in uioxsocmap.h. QEMU keeps working from the defines; a board whose peripherals sit elsewhere is discovered at runtime.
+
+Stage 3 — Storage selection. The boot-media layer probes registered drivers in priority order (VirtIO → eMMC → NVMe → AHCI → SPI-NOR → USB), takes the first present one that inits cleanly, and prints [media] selected: <name>.
+
+Stage 4 — Kernel load. The UNFS reader mounts the volume (superblock, CRC32C check, group descriptors), resolves /boot/uioxkernel.elf by walking directories and the extent tree, and copies the image to its load address.
+
+Stage 5 — Verify. SHA-256 of the image is compared against the hash in the uioximagehdrt header. Note this proves integrity, not authenticity — a real root of trust needs an OTP-fused key, which is the missing piece I flagged.
+
+Stage 6/7 — ELF load and handoff. ELF64 segments are copied to their physical addresses (or a flat binary is relocated), the boot-args structure is built with the DTB cmdline, and control jumps to the kernel entry.
+
+What "real silicon" would actually require
+
+To turn this from QEMU-only into board-capable, four things get added — none of which exists yet:
+
+A board bring-up layer — clockinit(), powerdomainon(), pinctrlinit() per SoC, run at the very top of Stage 1, before the UART.
+Real storage drivers — SDHCI/eMMC, SPI-NOR, or NVMe behind the boot-media interface. The interface is ready; the drivers aren't (and the FwHal SD one is a stub).
+A way to place the DTB and the bootloader in flash — a flash layout plus an image format, so the ROM can find and load them.
+A root of trust — reading the fused public-key hash and verifying the signature, not just the hash.
+
+The honest framing: the bootloader is a correctly-structured QEMU bring-up tool with the architecture of a real bootloader — staged pipeline, hardware abstraction, media abstraction, device-tree-driven configuration. What's missing is the board-specific layer beneath it, which is a separate project, not a patch.
+
+If it's useful, I can draw the real-silicon target sequence too — the full chain from ROM → TF-A/U-Boot → 01uBoot` → kernel, showing where each missing piece slots in. That's the diagram that maps the gap concretely.

@@ -1,5 +1,5 @@
 /*
- * 01_uBoot/src/boot_media_none.c
+ * 01_uBoot/src/boot_media/boot_media_none.c
  * Template media driver — copy to add a controller. Always absent.
  */
 #include "uiox_boot.h"
