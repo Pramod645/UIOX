@@ -8,18 +8,6 @@
 #include "uiox_boot.h"
 #include "uiox_boot_board.h"
 
-/* PL011 */
-#define PL011_DR    0x00u
-#define PL011_FR    0x18u
-#define PL011_IBRD  0x24u
-#define PL011_FBRD  0x28u
-#define PL011_LCR_H 0x2Cu
-#define PL011_CR    0x30u
-#define PL011_FR_TXFF   (1u << 5)
-#define PL011_CR_UARTEN (1u << 0)
-#define PL011_CR_TXE    (1u << 8)
-#define PL011_CR_RXE    (1u << 9)
-
 static inline void wr(uint64_t b, uint32_t o, uint32_t v)
 { *((volatile uint32_t *)(uintptr_t)(b + o)) = v; }
 static inline uint32_t rd(uint64_t b, uint32_t o)

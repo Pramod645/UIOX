@@ -13,6 +13,7 @@ static const uiox_boot_media_ops_t *s_drivers[UIOX_MEDIA_MAX_DRIVERS];
 static uint32_t s_driver_count;
 static const uiox_boot_media_ops_t *s_active;
 
+
 void uiox_boot_media_register(const uiox_boot_media_ops_t *ops)
 {
     if (!ops || s_driver_count >= UIOX_MEDIA_MAX_DRIVERS) return;

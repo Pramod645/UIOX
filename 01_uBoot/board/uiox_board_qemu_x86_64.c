@@ -9,7 +9,12 @@
 extern char _kern_load_base[];
 extern char _args_base[];
 
-static uiox_boot_err_t qemu_bringup(void) { return UIOX_BOOT_OK; }
+/* was: static uiox_boot_err_t qemu_bringup(void) */
+uiox_boot_err_t uiox_board_bringup(void)
+{
+    return UIOX_BOOT_OK;   /* QEMU: already up */
+}
+
 
 static const uiox_board_t s_board = {
     .name          = UIOX_BOARD_STR,
@@ -26,7 +31,7 @@ static const uiox_board_t s_board = {
     .dtb_pa          = 0,
     .dram_base       = SOC_DRAM_BASE,
     .dram_size       = 0,
-    .bringup       = qemu_bringup,
+    .bringup       = uiox_board_bringup,
 };
 
 const uiox_board_t *uiox_board_get(void) { return &s_board; }

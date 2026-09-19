@@ -1,24 +1,31 @@
 # =============================================================================
-# UIOX Bootloader — Makefile  (macOS + Linux compatible)
+# UIOX Bootloader — Makefile  (macOS + Linux)
 #
-# macOS prerequisites (Homebrew):
-#   brew install aarch64-elf-gcc       # ARM64 cross-compiler
-#   brew install x86_64-elf-gcc        # x86-64 cross-compiler
-#   brew install arm-linux-gnueabihf   # ARM32 cross-compiler (optional tap)
-#   brew install riscv64-elf-gcc       # RISC-V cross-compiler
-#   brew install qemu                  # QEMU for 'make run'
-#   Ubuntu/Debian:
-#     sudo apt install gcc-aarch64-linux-gnu gcc-arm-linux-gnueabihf \
-#                      gcc gcc-riscv64-linux-gnu binutils \
-#                      qemu-system-arm qemu-system-x86 \
-#                      qemu-system-misc   
+#   make                        build all four architectures
+#   make ARCH=arm64             one architecture only
+#   make BOARD=qemu             board variant: qemu | generic
+#   make BOARD=qemu-arm64       explicit board name
+#   make V=1 ARCH=arm64         verbose
+#   make run ARCH=arm64         build + QEMU
+#   make clean
 #
-# Usage:
-#   make all                — build all three architectures
-#   make ARCH=arm64         — ARM64 only
-#   make ARCH=arm32         — ARM32 only
-#   make ARCH=x86_64        — x86-64 only
-#   make run ARCH=arm64     — build + QEMU run
+# Layout it targets:
+#   src/        shared sources, FLAT (8 files) + src/arch/<arch>/
+#   board/      uiox_board_<variant>_<arch>.c   (one per build)
+#   include/    uiox_boot_*.h
+#   linker/     uiox_boot_<arch>.ld
+#
+# NOTE ON STYLE: every variable assignment is on its own line. Makefile
+# assignments cannot be ";"-separated — a ";" starts a shell command.
+# =============================================================================
+# =============================================================================
+# UIOX Bootloader — Makefile  (macOS + Linux)
+#
+#   make                        build all four architectures
+#   make ARCH=arm64             one architecture only
+#   make BOARD=qemu             board variant: qemu | generic
+#   make V=1 ARCH=arm64         verbose
+#   make run ARCH=arm64         build + QEMU
 #   make clean
 # =============================================================================
 
@@ -27,13 +34,16 @@ VERSION_MINOR := 0
 VERSION_PATCH := 0
 VERSION       := $(VERSION_MAJOR).$(VERSION_MINOR).$(VERSION_PATCH)
 
+# ── Verbosity ─────────────────────────────────────────────────────────────────
+# NOTE: $(Q) must be the FIRST character of a recipe line. After a ";"
+# make no longer strips "@" — it becomes a literal the shell tries to run.
 V ?= 0
 ifeq ($(V),0)
   Q        := @
-  LOGCC    := @echo "  CC    $<"
-  LOGAS    := @echo "  AS    $<"
-  LOGLD    := @echo "  LD    $@"
-  LOGCLEAN := @echo "  CLEAN"
+  LOGCC    = @echo "  CC    $<"
+  LOGAS    = @echo "  AS    $<"
+  LOGLD    = @echo "  LD    $@"
+  LOGCLEAN = @echo "  CLEAN"
 else
   Q        :=
   LOGCC    :=
@@ -46,20 +56,15 @@ endif
 SRCDIR   := src
 INCDIR   := include
 LDDIR    := linker
+BOARDDIR := board
 BUILDDIR := build
 
-# ── Cross-tree include roots ──────────────────────────────────────────────────
-# MFDIR anchors to THIS Makefile's directory, so the paths below work whether
-# you run `make`, `make -C 01_uBoot`, or build from the repo root.
-MFDIR   := $(dir $(abspath $(lastword $(MAKEFILE_LIST))))
-SOCDIR  := $(MFDIR)../10_BSP/03_SoC/include
-FWDIR   := $(MFDIR)../02_FwHal/include
+MFDIR  := $(dir $(abspath $(lastword $(MAKEFILE_LIST))))
+SOCDIR := $(MFDIR)../10_BSP/03_SoC/include
 
-# ── Detect host OS → choose correct cross-toolchain prefix ───────────────────
+# ── Toolchains ────────────────────────────────────────────────────────────────
 UNAME_S := $(shell uname -s)
-
 ifeq ($(UNAME_S),Darwin)
-  # macOS: Homebrew bare-metal toolchains (no OS suffix on target)
   ARM64_CC      := aarch64-elf-gcc
   ARM64_OBJCOPY := aarch64-elf-objcopy
   ARM32_CC      := arm-none-eabi-gcc
@@ -69,7 +74,6 @@ ifeq ($(UNAME_S),Darwin)
   RISCV_CC      := riscv64-elf-gcc
   RISCV_OBJCOPY := riscv64-elf-objcopy
 else
-  # Linux: standard GNU cross-compilers
   ARM64_CC      := aarch64-linux-gnu-gcc
   ARM64_OBJCOPY := aarch64-linux-gnu-objcopy
   ARM32_CC      := arm-linux-gnueabihf-gcc
@@ -80,33 +84,32 @@ else
   RISCV_OBJCOPY := riscv64-linux-gnu-objcopy
 endif
 
-# ── Common source files (arch-independent) ────────────────────────────────────
+# ── Common sources — FLAT src/ ────────────────────────────────────────────────
 COMMON_SRCS := \
-    $(SRCDIR)/uiox_boot_hw.c      \
-    $(SRCDIR)/uiox_boot_console.c \
-    $(SRCDIR)/uiox_boot_mem.c     \
-    $(SRCDIR)/uiox_boot_unfs.c    \
-	$(SRCDIR)/uiox_boot_bridge_unfs.c \
-    $(SRCDIR)/uiox_boot_verify.c  \
-    $(SRCDIR)/uiox_boot_handoff.c \
+    $(SRCDIR)/uiox_boot_hw.c          \
+    $(SRCDIR)/uiox_boot_console.c     \
+    $(SRCDIR)/uiox_boot_mem.c         \
+    $(SRCDIR)/uiox_boot_unfs.c        \
+    $(SRCDIR)/uiox_boot_bridge_unfs.c \
+    $(SRCDIR)/uiox_boot_verify.c      \
+    $(SRCDIR)/uiox_boot_handoff.c     \
 	$(SRCDIR)/uiox_boot_media.c \
-    $(SRCDIR)/uiox_boot_dt.c \
-	$(SRCDIR)/uiox_boot_media_none.c \
-	$(SRCDIR)/uiox_boot_media_virtio.c \
     $(SRCDIR)/uiox_boot_main.c
 
-# ── ARM64 ─────────────────────────────────────────────────────────────────────
-ARM64_ARCH  := -march=armv8-a
+BOARD ?= qemu
+ARCH  ?=
+
+# ── Per-arch configuration ────────────────────────────────────────────────────
+ARM64_ARCH  := -march=armv8-a -mstrict-align
 ARM64_ASRCS := $(SRCDIR)/arch/arm64/uiox_boot_entry_arm64.S
 ARM64_CSRCS := $(SRCDIR)/arch/arm64/uiox_boot_hw_arm64.c
 ARM64_LD    := $(LDDIR)/uiox_boot_arm64.ld
 ARM64_ELF   := $(BUILDDIR)/arm64/uiox_boot_arm64.elf
 ARM64_BIN   := $(BUILDDIR)/arm64/uiox_boot_arm64.bin
 ARM64_MAP   := $(BUILDDIR)/arm64/uiox_boot_arm64.map
-ARM64_QEMU  := qemu-system-aarch64 -M virt -cpu cortex-a57 \
-               -nographic -kernel $(ARM64_BIN)
+ARM64_DEF   := -DARCH_ARM64
+ARM64_QEMU  := qemu-system-aarch64 -M virt -cpu cortex-a57 -nographic -kernel $(ARM64_BIN)
 
-# ── ARM32 ─────────────────────────────────────────────────────────────────────
 ARM32_ARCH  := -march=armv7-a -mthumb -mfpu=vfpv3 -mfloat-abi=hard
 ARM32_ASRCS := $(SRCDIR)/arch/arm32/uiox_boot_entry_arm32.S
 ARM32_CSRCS := $(SRCDIR)/arch/arm32/uiox_boot_hw_arm32.c
@@ -114,33 +117,19 @@ ARM32_LD    := $(LDDIR)/uiox_boot_arm32.ld
 ARM32_ELF   := $(BUILDDIR)/arm32/uiox_boot_arm32.elf
 ARM32_BIN   := $(BUILDDIR)/arm32/uiox_boot_arm32.bin
 ARM32_MAP   := $(BUILDDIR)/arm32/uiox_boot_arm32.map
-ARM32_QEMU  := qemu-system-arm -M versatilepb -cpu cortex-a9 \
-               -nographic -kernel $(ARM32_BIN)
+ARM32_DEF	:= -DARCH_ARM32
+ARM32_QEMU  := qemu-system-arm -M versatilepb -cpu cortex-a9 -nographic -kernel $(ARM32_BIN)
 
-# ── x86_64 ────────────────────────────────────────────────────────────────────
-X86_ARCH  := -m64 -march=x86-64
+X86_ARCH  := -m64 -march=x86-64 -mno-red-zone -mcmodel=kernel
 X86_ASRCS := $(SRCDIR)/arch/x86_64/uiox_boot_entry_x86.S
 X86_CSRCS := $(SRCDIR)/arch/x86_64/uiox_boot_hw_x86.c
 X86_LD    := $(LDDIR)/uiox_boot_x86_64.ld
 X86_ELF   := $(BUILDDIR)/x86_64/uiox_boot_x86_64.elf
 X86_BIN   := $(BUILDDIR)/x86_64/uiox_boot_x86_64.bin
 X86_MAP   := $(BUILDDIR)/x86_64/uiox_boot_x86_64.map
+X86_DEF   := -DARCH_X86_64
 X86_QEMU  := qemu-system-x86_64 -M q35 -nographic -kernel $(X86_BIN)
 
-
-# ── RISC-V RV64GC ─────────────────────────────────────────────────────────────
-# <<< NEW — mirrors the ARM64/ARM32/x86 blocks exactly >>>
-#
-# Compiler flags:
-#   -march=rv64gc       RV64 base + G (IMAFD) + C (compressed) extensions
-#   -mabi=lp64d         64-bit int/ptr, double-precision FP regs
-#   -mcmodel=medany     +/-2 GB PC-relative addressing (needed for > 2 GB PA)
-#   -mno-relax          disable linker relaxation (safer at boot stage)
-#
-# QEMU flags:
-#   -machine virt       Standard RISC-V virtual machine
-#   -bios default       Load OpenSBI (M-mode FW) automatically
-#   -kernel             Our ELF is the S-mode payload
 RISCV_ARCH  := -march=rv64gc -mabi=lp64d -mcmodel=medany -mno-relax
 RISCV_ASRCS := $(SRCDIR)/arch/riscv64/uiox_boot_entry_riscv64.S
 RISCV_CSRCS := $(SRCDIR)/arch/riscv64/uiox_boot_hw_riscv64.c
@@ -148,140 +137,115 @@ RISCV_LD    := $(LDDIR)/uiox_boot_riscv64.ld
 RISCV_ELF   := $(BUILDDIR)/riscv64/uiox_boot_riscv64.elf
 RISCV_BIN   := $(BUILDDIR)/riscv64/uiox_boot_riscv64.bin
 RISCV_MAP   := $(BUILDDIR)/riscv64/uiox_boot_riscv64.map
-RISCV_QEMU  := qemu-system-riscv64 \
-               -machine virt \
-               -bios default \
-               -nographic \
-               -kernel $(RISCV_BIN)
-# ── Common compiler flags ─────────────────────────────────────────────────────
+RISCV_DEF   := -DARCH_RISCV64
+RISCV_QEMU  := qemu-system-riscv64 -machine virt -bios default -nographic -kernel $(RISCV_BIN)
+
+# ── Flags ─────────────────────────────────────────────────────────────────────
+INCLUDES := -I$(INCDIR) -I$(SOCDIR) -I$(BOARDDIR)
+
 CFLAGS_COMMON := \
-    -std=c11 -Wall -Wextra -Wpedantic \
-    -ffreestanding \
-    -fno-builtin \
-    -fno-stack-protector \
-    -ffunction-sections \
-    -fdata-sections \
-    -Os \
-    -g \
-    -I$(INCDIR) \
-	-I$(SOCDIR) \
-    -DUIOX_VERSION_MAJOR=$(VERSION_MAJOR) \
-    -DUIOX_VERSION_MINOR=$(VERSION_MINOR) \
+    -std=c11 -Wall -Wextra -Wpedantic                 \
+    -ffreestanding -fno-builtin -fno-stack-protector  \
+    -ffunction-sections -fdata-sections               \
+    -Os -g                                            \
+    $(INCLUDES)                                       \
+    -DUIOX_VERSION_MAJOR=$(VERSION_MAJOR)             \
+    -DUIOX_VERSION_MINOR=$(VERSION_MINOR)             \
     -DUIOX_VERSION_PATCH=$(VERSION_PATCH)
 
-# ─────────────────────────────────────────────────────────────────────────────
-# KEY FIX: The original Makefile used  LDFLAGS_COMMON := -nostdlib -nostartfiles --gc-sections
-# and then expanded them as  $(LDFLAGS_COMMON:%=-Wl,%)
-# which turned -nostdlib → -Wl,-nostdlib  (OK)
-# but also     --gc-sections → -Wl,--gc-sections  (OK)
-# AND          -nostartfiles → -Wl,-nostartfiles  (WRONG for aarch64-elf-ld)
-#
-# The correct split:
-#   • -nostdlib and -nostartfiles are GCC driver flags → pass them BARE
-#   • --gc-sections is a raw linker flag → pass via -Wl,
-# ─────────────────────────────────────────────────────────────────────────────
-GCC_LD_FLAGS  := -nostdlib -nostartfiles          # GCC driver flags — bare
+GCC_LD_FLAGS := -nostdlib -nostartfiles
+LINKER_FLAGS := -Wl,--gc-sections
+DEPFLAGS     = -MT $@ -MMD -MP -MF $(@:.o=.d)
 
-LINKER_FLAGS  := -Wl,--gc-sections               # Raw ld flags — via -Wl,
 
-DEPFLAGS = -MT $@ -MMD -MP -MF $(@:.o=.d)
-
-# ── Default target ────────────────────────────────────────────────────────────
 .PHONY: all clean arm64 arm32 x86_64 riscv64 run help
 
-ifndef ARCH
+ifeq ($(ARCH),)
 all: arm64 arm32 x86_64 riscv64
 	$(Q)echo ""
-	$(Q)echo "  ✓  All bootloaders built"
-	$(Q)echo "     ARM64 : $(ARM64_BIN)"
-	$(Q)echo "     ARM32 : $(ARM32_BIN)"
-	$(Q)echo "     x86_64: $(X86_BIN)"
-	$(Q)echo "     riscv64: $(RISCV_BIN)"
-else ifeq ($(ARCH),arm64)
-all: arm64
-else ifeq ($(ARCH),arm32)
-all: arm32
-else ifeq ($(ARCH),x86_64)
-all: x86_64
-else ifeq ($(ARCH),riscv64)
-all: riscv64
+	$(Q)echo "  ✓  All bootloaders built  (BOARD=$(BOARD))"
+else
+all: $(ARCH)
 endif
 
-# ── ARM64 build ───────────────────────────────────────────────────────────────
-ARM64_CFLAGS := $(CFLAGS_COMMON) $(ARM64_ARCH) -D__aarch64__
+# =============================================================================
+# ARM64
+# =============================================================================
+ARM64_BOARD_SRC := $(BOARDDIR)/uiox_board_$(BOARD)_arm64.c
+ARM64_CFLAGS    := $(CFLAGS_COMMON) $(ARM64_ARCH) $(ARM64_DEF)
 
-# Object file lists — arch sources go into arch-specific subdirectory
-ARM64_ARCH_OBJS := \
+ARM64_OBJS := \
     $(BUILDDIR)/arm64/arch/arm64/uiox_boot_entry_arm64.o \
-    $(BUILDDIR)/arm64/arch/arm64/uiox_boot_hw_arm64.o
-ARM64_COMMON_OBJS := \
+    $(BUILDDIR)/arm64/arch/arm64/uiox_boot_hw_arm64.o    \
     $(patsubst $(SRCDIR)/%.c,$(BUILDDIR)/arm64/%.o,$(COMMON_SRCS))
-ARM64_OBJS := $(ARM64_ARCH_OBJS) $(ARM64_COMMON_OBJS)
+
+ifneq ($(wildcard $(ARM64_BOARD_SRC)),)
+ARM64_OBJS += $(BUILDDIR)/arm64/board/$(notdir $(ARM64_BOARD_SRC:.c=.o))
+endif
 
 arm64: $(ARM64_BIN)
-	$(Q)echo "  ✓  ARM64: $(ARM64_BIN)"
 
 $(ARM64_BIN): $(ARM64_ELF)
 	$(Q)$(ARM64_OBJCOPY) -O binary $< $@
+	@echo "  ✓  ARM64: $(ARM64_BIN)"
 
-# Link: all flags go through GCC frontend — no raw ld invocation
 $(ARM64_ELF): $(ARM64_OBJS) $(ARM64_LD) | $(BUILDDIR)/arm64/arch/arm64
 	$(LOGLD)
-	$(Q)$(ARM64_CC) $(ARM64_CFLAGS) \
-	    -T$(ARM64_LD) \
-	    $(GCC_LD_FLAGS) \
-	    $(LINKER_FLAGS) \
-	    -Wl,-Map=$(ARM64_MAP) \
-	    $(ARM64_OBJS) -o $@
+	$(Q)$(ARM64_CC) $(ARM64_CFLAGS) -T$(ARM64_LD) $(GCC_LD_FLAGS) $(LINKER_FLAGS) \
+	    -Wl,-Map=$(ARM64_MAP) $(ARM64_OBJS) -o $@
 
-# Compile arch-specific .S and .c files
-$(BUILDDIR)/arm64/arch/arm64/%.o: $(SRCDIR)/arch/arm64/%.S \
-        | $(BUILDDIR)/arm64/arch/arm64
+$(BUILDDIR)/arm64/arch/arm64/%.o: $(SRCDIR)/arch/arm64/%.S | $(BUILDDIR)/arm64/arch/arm64
 	$(LOGAS)
-	$(Q)$(ARM64_CC) $(ARM64_CFLAGS) $(DEPFLAGS) -c $< -o $@
+	$(Q)$(ARM64_CC) $(ARM64_CFLAGS) -c $< -o $@
 
-$(BUILDDIR)/arm64/arch/arm64/%.o: $(SRCDIR)/arch/arm64/%.c \
-        | $(BUILDDIR)/arm64/arch/arm64
+$(BUILDDIR)/arm64/arch/arm64/%.o: $(SRCDIR)/arch/arm64/%.c | $(BUILDDIR)/arm64/arch/arm64
 	$(LOGCC)
 	$(Q)$(ARM64_CC) $(ARM64_CFLAGS) $(DEPFLAGS) -c $< -o $@
 
-# Compile common .c files
 $(BUILDDIR)/arm64/%.o: $(SRCDIR)/%.c | $(BUILDDIR)/arm64/arch/arm64
 	$(LOGCC)
 	$(Q)$(ARM64_CC) $(ARM64_CFLAGS) $(DEPFLAGS) -c $< -o $@
 
-# ── ARM32 build ───────────────────────────────────────────────────────────────
-ARM32_CFLAGS := $(CFLAGS_COMMON) $(ARM32_ARCH) -D__arm__
+$(BUILDDIR)/arm64/board/%.o: $(BOARDDIR)/%.c | $(BUILDDIR)/arm64/board
+	$(LOGCC)
+	$(Q)$(ARM64_CC) $(ARM64_CFLAGS) $(DEPFLAGS) -c $< -o $@
 
-ARM32_ARCH_OBJS := \
+$(BUILDDIR)/arm64/board:
+	$(Q)mkdir -p $@
+
+-include $(ARM64_OBJS:.o=.d)
+
+# =============================================================================
+# ARM32
+# =============================================================================
+ARM32_BOARD_SRC := $(BOARDDIR)/uiox_board_$(BOARD)_arm32.c
+ARM32_CFLAGS    := $(CFLAGS_COMMON) $(ARM32_ARCH) $(ARM32_DEF)
+
+ARM32_OBJS := \
     $(BUILDDIR)/arm32/arch/arm32/uiox_boot_entry_arm32.o \
-    $(BUILDDIR)/arm32/arch/arm32/uiox_boot_hw_arm32.o
-ARM32_COMMON_OBJS := \
+    $(BUILDDIR)/arm32/arch/arm32/uiox_boot_hw_arm32.o    \
     $(patsubst $(SRCDIR)/%.c,$(BUILDDIR)/arm32/%.o,$(COMMON_SRCS))
-ARM32_OBJS := $(ARM32_ARCH_OBJS) $(ARM32_COMMON_OBJS)
+
+ifneq ($(wildcard $(ARM32_BOARD_SRC)),)
+ARM32_OBJS += $(BUILDDIR)/arm32/board/$(notdir $(ARM32_BOARD_SRC:.c=.o))
+endif
 
 arm32: $(ARM32_BIN)
-	$(Q)echo "  ✓  ARM32: $(ARM32_BIN)"
 
 $(ARM32_BIN): $(ARM32_ELF)
 	$(Q)$(ARM32_OBJCOPY) -O binary $< $@
+	@echo "  ✓  ARM32: $(ARM32_BIN)"
 
 $(ARM32_ELF): $(ARM32_OBJS) $(ARM32_LD) | $(BUILDDIR)/arm32/arch/arm32
 	$(LOGLD)
-	$(Q)$(ARM32_CC) $(ARM32_CFLAGS) \
-	    -T$(ARM32_LD) \
-	    $(GCC_LD_FLAGS) \
-	    $(LINKER_FLAGS) \
-	    -Wl,-Map=$(ARM32_MAP) \
-	    $(ARM32_OBJS) -o $@
+	$(Q)$(ARM32_CC) $(ARM32_CFLAGS) -T$(ARM32_LD) $(GCC_LD_FLAGS) $(LINKER_FLAGS) \
+	    -Wl,-Map=$(ARM32_MAP) $(ARM32_OBJS) -o $@
 
-$(BUILDDIR)/arm32/arch/arm32/%.o: $(SRCDIR)/arch/arm32/%.S \
-        | $(BUILDDIR)/arm32/arch/arm32
+$(BUILDDIR)/arm32/arch/arm32/%.o: $(SRCDIR)/arch/arm32/%.S | $(BUILDDIR)/arm32/arch/arm32
 	$(LOGAS)
-	$(Q)$(ARM32_CC) $(ARM32_CFLAGS) $(DEPFLAGS) -c $< -o $@
+	$(Q)$(ARM32_CC) $(ARM32_CFLAGS) -c $< -o $@
 
-$(BUILDDIR)/arm32/arch/arm32/%.o: $(SRCDIR)/arch/arm32/%.c \
-        | $(BUILDDIR)/arm32/arch/arm32
+$(BUILDDIR)/arm32/arch/arm32/%.o: $(SRCDIR)/arch/arm32/%.c | $(BUILDDIR)/arm32/arch/arm32
 	$(LOGCC)
 	$(Q)$(ARM32_CC) $(ARM32_CFLAGS) $(DEPFLAGS) -c $< -o $@
 
@@ -289,40 +253,46 @@ $(BUILDDIR)/arm32/%.o: $(SRCDIR)/%.c | $(BUILDDIR)/arm32/arch/arm32
 	$(LOGCC)
 	$(Q)$(ARM32_CC) $(ARM32_CFLAGS) $(DEPFLAGS) -c $< -o $@
 
-# ── x86_64 build ──────────────────────────────────────────────────────────────
-X86_CFLAGS := $(CFLAGS_COMMON) $(X86_ARCH) \
-              -mno-red-zone -mcmodel=kernel \
-              -D__x86_64__
+$(BUILDDIR)/arm32/board/%.o: $(BOARDDIR)/%.c | $(BUILDDIR)/arm32/board
+	$(LOGCC)
+	$(Q)$(ARM32_CC) $(ARM32_CFLAGS) $(DEPFLAGS) -c $< -o $@
 
-X86_ARCH_OBJS := \
+$(BUILDDIR)/arm32/board:
+	$(Q)mkdir -p $@
+
+-include $(ARM32_OBJS:.o=.d)
+
+# =============================================================================
+# x86_64
+# =============================================================================
+X86_BOARD_SRC := $(BOARDDIR)/uiox_board_$(BOARD)_x86_64.c
+X86_CFLAGS    := $(CFLAGS_COMMON) $(X86_ARCH) $(X86_DEF)
+
+X86_OBJS := \
     $(BUILDDIR)/x86_64/arch/x86_64/uiox_boot_entry_x86.o \
-    $(BUILDDIR)/x86_64/arch/x86_64/uiox_boot_hw_x86.o
-X86_COMMON_OBJS := \
+    $(BUILDDIR)/x86_64/arch/x86_64/uiox_boot_hw_x86.o    \
     $(patsubst $(SRCDIR)/%.c,$(BUILDDIR)/x86_64/%.o,$(COMMON_SRCS))
-X86_OBJS := $(X86_ARCH_OBJS) $(X86_COMMON_OBJS)
+
+ifneq ($(wildcard $(X86_BOARD_SRC)),)
+X86_OBJS += $(BUILDDIR)/x86_64/board/$(notdir $(X86_BOARD_SRC:.c=.o))
+endif
 
 x86_64: $(X86_BIN)
-	$(Q)echo "  ✓  x86_64: $(X86_BIN)"
 
 $(X86_BIN): $(X86_ELF)
 	$(Q)$(X86_OBJCOPY) -O binary $< $@
+	@echo "  ✓  x86_64: $(X86_BIN)"
 
 $(X86_ELF): $(X86_OBJS) $(X86_LD) | $(BUILDDIR)/x86_64/arch/x86_64
 	$(LOGLD)
-	$(Q)$(X86_CC) $(X86_CFLAGS) \
-	    -T$(X86_LD) \
-	    $(GCC_LD_FLAGS) \
-	    $(LINKER_FLAGS) \
-	    -Wl,-Map=$(X86_MAP) \
-	    $(X86_OBJS) -o $@
+	$(Q)$(X86_CC) $(X86_CFLAGS) -T$(X86_LD) $(GCC_LD_FLAGS) $(LINKER_FLAGS) \
+	    -Wl,-Map=$(X86_MAP) $(X86_OBJS) -o $@
 
-$(BUILDDIR)/x86_64/arch/x86_64/%.o: $(SRCDIR)/arch/x86_64/%.S \
-        | $(BUILDDIR)/x86_64/arch/x86_64
+$(BUILDDIR)/x86_64/arch/x86_64/%.o: $(SRCDIR)/arch/x86_64/%.S | $(BUILDDIR)/x86_64/arch/x86_64
 	$(LOGAS)
-	$(Q)$(X86_CC) $(X86_CFLAGS) $(DEPFLAGS) -c $< -o $@
+	$(Q)$(X86_CC) $(X86_CFLAGS) -c $< -o $@
 
-$(BUILDDIR)/x86_64/arch/x86_64/%.o: $(SRCDIR)/arch/x86_64/%.c \
-        | $(BUILDDIR)/x86_64/arch/x86_64
+$(BUILDDIR)/x86_64/arch/x86_64/%.o: $(SRCDIR)/arch/x86_64/%.c | $(BUILDDIR)/x86_64/arch/x86_64
 	$(LOGCC)
 	$(Q)$(X86_CC) $(X86_CFLAGS) $(DEPFLAGS) -c $< -o $@
 
@@ -330,41 +300,46 @@ $(BUILDDIR)/x86_64/%.o: $(SRCDIR)/%.c | $(BUILDDIR)/x86_64/arch/x86_64
 	$(LOGCC)
 	$(Q)$(X86_CC) $(X86_CFLAGS) $(DEPFLAGS) -c $< -o $@
 
-# =============================================================================
-# ── RISC-V RV64GC build ───────────────────────────────────────────────────────
-# <<< NEW — mirrors the ARM64/ARM32/x86 blocks exactly >>>
-# =============================================================================
-RISCV_CFLAGS := $(CFLAGS_COMMON) $(RISCV_ARCH) -D__riscv -D__riscv_xlen=64
+$(BUILDDIR)/x86_64/board/%.o: $(BOARDDIR)/%.c | $(BUILDDIR)/x86_64/board
+	$(LOGCC)
+	$(Q)$(X86_CC) $(X86_CFLAGS) $(DEPFLAGS) -c $< -o $@
 
-RISCV_ARCH_OBJS := \
+$(BUILDDIR)/x86_64/board:
+	$(Q)mkdir -p $@
+
+-include $(X86_OBJS:.o=.d)
+
+# =============================================================================
+# RISC-V 64
+# =============================================================================
+RISCV_BOARD_SRC := $(BOARDDIR)/uiox_board_$(BOARD)_riscv64.c
+RISCV_CFLAGS    := $(CFLAGS_COMMON) $(RISCV_ARCH) $(RISCV_DEF) -D__riscv_xlen=64
+
+RISCV_OBJS := \
     $(BUILDDIR)/riscv64/arch/riscv64/uiox_boot_entry_riscv64.o \
-    $(BUILDDIR)/riscv64/arch/riscv64/uiox_boot_hw_riscv64.o
-RISCV_COMMON_OBJS := \
+    $(BUILDDIR)/riscv64/arch/riscv64/uiox_boot_hw_riscv64.o    \
     $(patsubst $(SRCDIR)/%.c,$(BUILDDIR)/riscv64/%.o,$(COMMON_SRCS))
-RISCV_OBJS := $(RISCV_ARCH_OBJS) $(RISCV_COMMON_OBJS)
+
+ifneq ($(wildcard $(RISCV_BOARD_SRC)),)
+RISCV_OBJS += $(BUILDDIR)/riscv64/board/$(notdir $(RISCV_BOARD_SRC:.c=.o))
+endif
 
 riscv64: $(RISCV_BIN)
-	$(Q)echo "  ✓  RISC-V RV64GC: $(RISCV_BIN)"
 
 $(RISCV_BIN): $(RISCV_ELF)
 	$(Q)$(RISCV_OBJCOPY) -O binary $< $@
+	@echo "  ✓  RISC-V RV64GC: $(RISCV_BIN)"
 
 $(RISCV_ELF): $(RISCV_OBJS) $(RISCV_LD) | $(BUILDDIR)/riscv64/arch/riscv64
 	$(LOGLD)
-	$(Q)$(RISCV_CC) $(RISCV_CFLAGS) \
-	    -T$(RISCV_LD) \
-	    $(GCC_LD_FLAGS) \
-	    $(LINKER_FLAGS) \
-	    -Wl,-Map=$(RISCV_MAP) \
-	    $(RISCV_OBJS) -o $@
+	$(Q)$(RISCV_CC) $(RISCV_CFLAGS) -T$(RISCV_LD) $(GCC_LD_FLAGS) $(LINKER_FLAGS) \
+	    -Wl,-Map=$(RISCV_MAP) $(RISCV_OBJS) -o $@
 
-$(BUILDDIR)/riscv64/arch/riscv64/%.o: $(SRCDIR)/arch/riscv64/%.S \
-        | $(BUILDDIR)/riscv64/arch/riscv64
+$(BUILDDIR)/riscv64/arch/riscv64/%.o: $(SRCDIR)/arch/riscv64/%.S | $(BUILDDIR)/riscv64/arch/riscv64
 	$(LOGAS)
-	$(Q)$(RISCV_CC) $(RISCV_CFLAGS) $(DEPFLAGS) -c $< -o $@
+	$(Q)$(RISCV_CC) $(RISCV_CFLAGS) -c $< -o $@
 
-$(BUILDDIR)/riscv64/arch/riscv64/%.o: $(SRCDIR)/arch/riscv64/%.c \
-        | $(BUILDDIR)/riscv64/arch/riscv64
+$(BUILDDIR)/riscv64/arch/riscv64/%.o: $(SRCDIR)/arch/riscv64/%.c | $(BUILDDIR)/riscv64/arch/riscv64
 	$(LOGCC)
 	$(Q)$(RISCV_CC) $(RISCV_CFLAGS) $(DEPFLAGS) -c $< -o $@
 
@@ -372,7 +347,16 @@ $(BUILDDIR)/riscv64/%.o: $(SRCDIR)/%.c | $(BUILDDIR)/riscv64/arch/riscv64
 	$(LOGCC)
 	$(Q)$(RISCV_CC) $(RISCV_CFLAGS) $(DEPFLAGS) -c $< -o $@
 
-# ── Directory creation (order-only prerequisites) ─────────────────────────────
+$(BUILDDIR)/riscv64/board/%.o: $(BOARDDIR)/%.c | $(BUILDDIR)/riscv64/board
+	$(LOGCC)
+	$(Q)$(RISCV_CC) $(RISCV_CFLAGS) $(DEPFLAGS) -c $< -o $@
+
+$(BUILDDIR)/riscv64/board:
+	$(Q)mkdir -p $@
+
+-include $(RISCV_OBJS:.o=.d)
+
+# ── Directory creation ────────────────────────────────────────────────────────
 $(BUILDDIR)/arm64/arch/arm64:
 	$(Q)mkdir -p $@
 
@@ -382,47 +366,32 @@ $(BUILDDIR)/arm32/arch/arm32:
 $(BUILDDIR)/x86_64/arch/x86_64:
 	$(Q)mkdir -p $@
 
-$(BUILDDIR)/riscv64/arch/riscv64:           # <<< NEW
+$(BUILDDIR)/riscv64/arch/riscv64:
 	$(Q)mkdir -p $@
-# ── Dependency auto-include ───────────────────────────────────────────────────
--include $(ARM64_OBJS:.o=.d)
--include $(ARM32_OBJS:.o=.d)
--include $(X86_OBJS:.o=.d)
--include $(RISCV_OBJS:.o=.d)               # <<< NEW
 
 # ── QEMU run ──────────────────────────────────────────────────────────────────
 run:
 ifeq ($(ARCH),arm64)
-	$(ARM64_QEMU)
+	$(Q)$(ARM64_QEMU)
 else ifeq ($(ARCH),arm32)
-	$(ARM32_QEMU)
+	$(Q)$(ARM32_QEMU)
 else ifeq ($(ARCH),x86_64)
-	$(X86_QEMU)
+	$(Q)$(X86_QEMU)
 else ifeq ($(ARCH),riscv64)
-	$(RISCV_QEMU)
+	$(Q)$(RISCV_QEMU)
 else
-	@echo "Usage: make run ARCH=arm64|arm32|x86_64|riscv64"
-	@exit 1
+	$(Q)echo "Usage: make run ARCH=arm64|arm32|x86_64|riscv64"
+	$(Q)exit 1
 endif
 
-# ── Help ──────────────────────────────────────────────────────────────────────
 help:
 	@echo "UIOX Bootloader Build System"
-	@echo ""
-	@echo "Targets:"
-	@echo "  make all                 Build all three architectures"
-	@echo "  make ARCH=arm64          Build ARM64 only"
-	@echo "  make ARCH=arm32          Build ARM32 only"
-	@echo "  make ARCH=x86_64         Build x86-64 only"
-	@echo "  make ARCH=riscv64        Build riscv64 only"
-	@echo "  make run ARCH=arm64      Build + QEMU run (arm64/arm32/x86_64/riscv64)"
-	@echo "  make clean               Remove build directory"
-	@echo "  make V=1 ARCH=arm64      Verbose build"
-	@echo ""
-	@echo "macOS Homebrew setup:"
-	@echo "  brew install aarch64-elf-gcc x86_64-elf-gcc qemu"
+	@echo "  make                       build all four architectures"
+	@echo "  make ARCH=arm64            build ARM64 only"
+	@echo "  make BOARD=qemu            board variant (qemu | generic)"
+	@echo "  make run ARCH=arm64        build + QEMU"
+	@echo "  make clean                 remove build/"
 
-# ── Clean ─────────────────────────────────────────────────────────────────────
 clean:
 	$(LOGCLEAN)
 	$(Q)rm -rf $(BUILDDIR)
