@@ -1318,3 +1318,304 @@ A root of trust — reading the fused public-key hash and verifying the signatur
 The honest framing: the bootloader is a correctly-structured QEMU bring-up tool with the architecture of a real bootloader — staged pipeline, hardware abstraction, media abstraction, device-tree-driven configuration. What's missing is the board-specific layer beneath it, which is a separate project, not a patch.
 
 If it's useful, I can draw the real-silicon target sequence too — the full chain from ROM → TF-A/U-Boot → 01uBoot` → kernel, showing where each missing piece slots in. That's the diagram that maps the gap concretely.
+
+
+
+================
+FIRMWARE / PRIOR STAGE
+  └─ passes DTB pointer, hands control to the entry symbol
+       │
+       ▼
+src/arch/<arch>/uiox_boot_entry_<arch>.S
+  ├─ set up stack
+  ├─ zero .bss
+  ├─ uiox_boot_hw_<arch>_register()      [src/arch/<arch>/uiox_boot_hw_<arch>.c]
+  │     └─ uiox_boot_hw_register(&ops)   [src/uiox_boot_hw.c]
+  │           └─ ops->init()             → uiox_board_bringup()
+  │                                        [board/uiox_board_<variant>_<arch>.c]
+  │              then uart_init(), gic/plic/vic_init()
+  └─ uiox_boot_main(dtb_pa, x1, x2)      [src/uiox_boot_main.c]
+       │
+       ├─ STAGE 1  HW init
+       │    ├─ BOOT_BANNER()                        [src/uiox_boot_console.c]
+       │    └─ (UART/GIC already live from ops->init above)
+       │
+       ├─ STAGE 2  Memory probe
+       │    └─ uiox_boot_mem_probe(dtb_pa, &map)    [src/uiox_boot_mem.c]
+       │          ├─ fdt_parse_memory()   → walks /memory "reg"
+       │          └─ probe_fallback()     → hardcoded map if no DTB
+       │
+       ├─ STAGE 2.5  Device-tree runtime extraction
+       │    └─ uiox_boot_dt_apply(dtb_pa, cmdline, &soc)   [src/uiox_boot_dt.c]
+       │          ├─ uiox_boot_dt_chosen()  → /chosen "bootargs"
+       │          └─ uiox_boot_dt_soc()     → /soc peripheral bases
+       │
+       ├─ STAGE 3  Storage
+       │    ├─ uiox_boot_media_register(virtio)     [src/uiox_boot_media*.c]
+       │    ├─ uiox_boot_media_register(sdmmc)
+       │    └─ uiox_boot_media_select()
+       │          ├─ probe each driver: present()?
+       │          └─ first present + init()==OK  →  s_active
+       │
+       ├─ STAGE 4  Load kernel
+       │    └─ unfs_boot_probe() / unfs_boot_load()  [src/uiox_boot_bridge_unfs.c]
+       │          └─ unfs_mount()             [src/uiox_boot_unfs.c]
+       │                ├─ read superblock, verify CRC32C
+       │                ├─ read group descriptors
+       │                ├─ unfs_lookup("/boot/uiox_kernel.elf")
+       │                │     ├─ read_inode()  → directory walk
+       │                │     ├─ dir_lookup()
+       │                │     │     └─ extent_lookup()  → physical block
+       │                │     └─ read_block()
+       │                │           └─ uiox_boot_media_read_block()
+       │                │                 └─ media driver (virtio | sdmmc)
+       │                └─ unfs_read_file()  → copy to kernel load PA
+       │
+       ├─ STAGE 5  Verify
+       │    └─ uiox_boot_verify_image()       [src/uiox_boot_verify.c]
+       │          └─ SHA-256 of image  vs  image-header hash
+       │
+       ├─ STAGE 6  ELF load
+       │    └─ uiox_boot_elf64_load()         [src/uiox_boot_handoff.c]
+       │          ├─ walk PT_LOAD segments → copy to p_paddr
+       │          ├─ zero BSS tail (p_memsz > p_filesz)
+       │          └─ uiox_boot_hw_dcache_flush() / icache_inv()
+       │
+       └─ STAGE 7  Handoff
+            └─ uiox_boot_handoff(entry, dtb, args_pa, mem_map, cmdline)
+                 ├─ build_args()  → fills uiox_boot_args_t at args_pa
+                 │    (magic, dtb_pa, mem_map, cmdline, arch)
+                 ├─ uiox_boot_hw_barrier()   → drain console
+                 └─ uiox_boot_arch_jump(entry, dtb, args)
+                      ├─ STATIC  → kernel entry
+                      │     └─ uiox_kernel_main()
+                      │           └─ uiox_bsp_init()      [10_BSP]
+                      │                 ├─ arch_init()
+                      │                 └─ uiox_soc_init()
+                      └─ DYNAMIC → uiox_bsp_entry()       [10_BSP]
+                            ├─ uiox_bsp_init()
+                            ├─ load_kernel_elf()
+                            └─ uiox_bsp_jump_to_kernel()
+                                  └─ uiox_kernel_main()
+
+
+---
+The arch-jump ABI (per architecture)
+uiox_boot_arch_jump(entry, dtb_pa, args_pa) places values in the arch's boot registers:
+
+Arch	Register convention
+ARM64	x0 = dtb_pa, x1 = args_pa, x2/x3 = 0, br entry
+ARM32	r2 = dtb_pa, r3 = args_pa, r0/r1 = 0, bx entry
+RISC-V	a0 = dtb_pa, a1 = args_pa, jr entry
+x86_64	rdi = args_pa, rsi = dtb_pa, rdx = 0, jmp entry
+
+------
+Two compile-time couplings (not calls)
+
+uiox_soc_map.h  ──SOC_* macros──▶  board/*.c  ──addresses──▶  arch hw file
+     (10_BSP)                      (01_uBoot board/)            (HAL impl)
+
+linker/*.ld  ──_kern_load_base──▶ _args_base, _boot_stack_top
+             (load layout symbols used by handoff + board)
+These aren't function calls — they're how a board's addresses reach the HAL and the linker's layout reaches the handoff.
+
+
+Ownership summary
+Concern	Owner
+Pipeline / orchestration	uiox_boot_main.c
+Hardware (UART, GIC, cache, timer)	src/arch/*/uiox_boot_hw_*.c
+Board addresses + bring-up	board/uiox_board_*.c
+Storage device	src/uiox_boot_media_*.c
+Filesystem	src/uiox_boot_unfs.c
+Integrity	src/uiox_boot_verify.c
+Kernel entry	src/uiox_boot_handoff.c
+================================================================================================
+# 01_uBoot — Call Flow
+
+**Document:** `00_Docs/01_uBoot_CALLFLOW.md`
+**Companion:** `00_Docs/01_uBoot_PORTABILITY.md` (file-by-file target classification)
+**Last reviewed:** 2026-09-19
+**Status:** Baseline — update on any structural change to the boot pipeline
+
+---
+
+## Purpose
+
+This is the function-level call flow of the `01_uBoot` primary bootloader, from
+the firmware handoff to the kernel entry. It answers "what calls what, in what
+order" — the chart the portability matrix does not carry.
+
+All paths are relative to `01_uBoot/`.
+
+---
+
+## The flow, in full
+
+```
+FIRMWARE / PRIOR STAGE
+  └─ places a DTB pointer in the boot register, transfers control to entry
+       │
+       ▼
+src/arch/<arch>/uiox_boot_entry_<arch>.S
+  ├─ set up stack
+  ├─ zero .bss
+  ├─ uiox_boot_hw_<arch>_register()        [src/arch/<arch>/uiox_boot_hw_<arch>.c]
+  │     └─ uiox_boot_hw_register(&ops)     [src/uiox_boot_hw.c]
+  │           └─ ops->init()
+  │                 ├─ uiox_board_bringup()  [board/uiox_board_<variant>_<arch>.c]
+  │                 └─ uart / gic|plic|vic init
+  └─ uiox_boot_main(dtb_pa, x1, x2)        [src/uiox_boot_main.c]
+       │
+       ├─ STAGE 1  HW init
+       │     └─ BOOT_BANNER()              [src/uiox_boot_console.c]
+       │        (UART/GIC already live from ops->init above)
+       │
+       ├─ STAGE 2  Memory probe
+       │     └─ uiox_boot_mem_probe(dtb_pa, &map)   [src/uiox_boot_mem.c]
+       │           ├─ fdt_parse_memory()   → walks /memory "reg"
+       │           └─ probe_fallback()     → hardcoded map if no DTB
+       │
+       ├─ STAGE 2.5  Device-tree runtime extraction
+       │     └─ uiox_boot_dt_apply(dtb_pa, cmdline, &soc)  [src/uiox_boot_dt.c]
+       │           ├─ uiox_boot_dt_chosen()  → /chosen "bootargs"
+       │           └─ uiox_boot_dt_soc()     → /soc peripheral bases
+       │
+       ├─ STAGE 3  Storage
+       │     ├─ uiox_boot_media_register(virtio)   [src/uiox_boot_media*.c]
+       │     ├─ uiox_boot_media_register(sdmmc)
+       │     └─ uiox_boot_media_select()
+       │           ├─ probe each driver: present()?
+       │           └─ first present + init()==OK  →  s_active
+       │
+       ├─ STAGE 4  Load kernel
+       │     └─ unfs_boot_probe() / unfs_boot_load()  [src/uiox_boot_bridge_unfs.c]
+       │           └─ unfs_mount()                    [src/uiox_boot_unfs.c]
+       │                 ├─ read superblock, verify CRC32C
+       │                 ├─ read group descriptors
+       │                 ├─ unfs_lookup("/boot/uiox_kernel.elf")
+       │                 │     ├─ read_inode()
+       │                 │     ├─ dir_lookup()
+       │                 │     │     └─ extent_lookup()  → physical block
+       │                 │     └─ read_block()
+       │                 │           └─ uiox_boot_media_read_block()
+       │                 │                 └─ media driver (virtio | sdmmc)
+       │                 └─ unfs_read_file()  → copy to kernel load PA
+       │
+       ├─ STAGE 5  Verify
+       │     └─ uiox_boot_verify_image()      [src/uiox_boot_verify.c]
+       │           └─ SHA-256 of image  vs  image-header hash
+       │
+       ├─ STAGE 6  ELF load
+       │     └─ uiox_boot_elf64_load()        [src/uiox_boot_handoff.c]
+       │           ├─ walk PT_LOAD segments → copy to p_paddr
+       │           ├─ zero BSS tail (p_memsz > p_filesz)
+       │           └─ uiox_boot_hw_dcache_flush() / icache_inv()
+       │
+       └─ STAGE 7  Handoff
+             └─ uiox_boot_handoff(entry, dtb, args_pa, mem_map, cmdline)
+                  ├─ build_args()  → fills uiox_boot_args_t at args_pa
+                  │    (magic, version, dtb_pa, args_pa, mem_map, cmdline, arch)
+                  ├─ uiox_boot_hw_barrier()   → drain console
+                  └─ uiox_boot_arch_jump(entry, dtb, args)
+                       │
+                       ├─ STATIC build → kernel entry
+                       │     └─ uiox_kernel_main()            [30_KIX]
+                       │           └─ uiox_bsp_init()         [10_BSP]
+                       │                 ├─ arch_init()       [10_BSP/10_Arch]
+                       │                 └─ uiox_soc_init()   [10_BSP/03_SoC]
+                       │
+                       └─ DYNAMIC build → BSP entry
+                             └─ uiox_bsp_entry()              [10_BSP]
+                                   ├─ uiox_bsp_init()
+                                   ├─ load_kernel_elf()       (BSP reads storage)
+                                   └─ uiox_bsp_jump_to_kernel()
+                                         └─ uiox_kernel_main()
+```
+
+---
+
+## The arch-jump ABI
+
+`uiox_boot_arch_jump(entry, dtb_pa, args_pa)` places values in each
+architecture's boot convention registers before branching:
+
+| Arch | Register convention |
+|------|---------------------|
+| ARM64 | `x0 = dtb_pa`, `x1 = args_pa`, `x2/x3 = 0`, branch to `entry` |
+| ARM32 | `r0/r1 = 0`, `r2 = dtb_pa`, `r3 = args_pa`, branch to `entry` |
+| RISC-V 64 | `a0 = dtb_pa`, `a1 = args_pa`, jump to `entry` |
+| x86_64 | `rdi = args_pa`, `rsi = dtb_pa`, `rdx = 0`, jump to `entry` |
+
+This is the one place the four architectures differ in the boot contract.
+Everything before the jump is architecture-neutral C.
+
+---
+
+## Two compile-time couplings (not calls)
+
+These are not function calls — they are how addresses reach the code:
+
+```
+10_BSP/03_SoC/include/uiox_soc_map.h
+    ── SOC_* macros ──▶  board/uiox_board_<variant>_<arch>.c
+                              ── descriptor ──▶  src/arch/<arch>/uiox_boot_hw_<arch>.c
+
+01_uBoot/linker/uiox_boot_<arch>.ld
+    ── _boot_load_base / _kern_load_base / _args_base / _boot_stack_top ──▶
+        src/uiox_boot_handoff.c  (and the board descriptor)
+```
+
+The SoC map supplies **hardware** addresses; the linker script supplies the
+**image layout**. Neither is a runtime call.
+
+---
+
+## Ownership summary
+
+| Concern | Owner |
+|---------|-------|
+| Pipeline / orchestration | `src/uiox_boot_main.c` |
+| Hardware (UART, GIC/PLIC/VIC, cache, timer) | `src/arch/<arch>/uiox_boot_hw_<arch>.c` |
+| Board addresses + bring-up | `board/uiox_board_<variant>_<arch>.c` |
+| Storage device | `src/uiox_boot_media*.c` |
+| Filesystem | `src/uiox_boot_unfs.c` |
+| Integrity | `src/uiox_boot_verify.c` |
+| Kernel entry / handoff | `src/uiox_boot_handoff.c` |
+| Memory map + DT parse | `src/uiox_boot_mem.c` |
+| DT runtime extraction | `src/uiox_boot_dt.c` |
+
+---
+
+## The seven stages, one line each
+
+1. **HW init** — board bring-up runs first (clock/PLL, power, pin-mux), then
+   UART and interrupt controller.
+2. **Memory probe** — parse `/memory` from the DTB into a region table.
+3. **DT apply** — pull `bootargs` from `/chosen` and peripheral bases from `/soc`.
+4. **Storage** — probe media drivers, select the first present one.
+5. **Load** — mount UNFS, resolve the kernel path, copy the image to DRAM.
+6. **Verify** — SHA-256 against the image header.
+7. **Handoff** — build `uiox_boot_args_t`, jump to the kernel or the BSP entry.
+
+---
+
+## Dual-target note
+
+The same flow serves **QEMU and real silicon**. The only differences are
+compile-time selections:
+
+| Layer | QEMU | Real silicon |
+|-------|------|--------------|
+| Board descriptor | `uiox_board_qemu_*` | `uiox_board_generic_*` |
+| Media driver | `boot_media_virtio.c` | `boot_media_sdmmc.c` |
+| HAL bases | virt-machine | SoC datasheet values |
+| Board bring-up | no-op | PLL / power / pin-mux |
+
+Selected at build time by `make BOARD=qemu` vs `make BOARD=generic`.
+The pipeline itself is identical — see `01_uBoot_PORTABILITY.md` for the
+per-file classification.
+
+---
+
+*This document is the call-flow companion to the portability matrix. When the
+pipeline changes, update both.*
