@@ -35,7 +35,7 @@
 /**
  * @file    uiox_soc_clk.c
  * @brief   UIOX SoC — Clock / PLL management.
- * @version 2.0.1  (fixed: missing includes, removed duplicate fw wrappers)
+ * @version 2.1.0  (added PLL MMIO commit path; model-only fallback)
  * @date    2026-07-18
  */
 
@@ -51,6 +51,29 @@
  */
 #include "uiox_soc_clk.h"
 #include "uiox_soc.h"       /* uiox_soc_memset, uiox_soc_printf, SOC_LOG */
+
+/* ── PLL MMIO binding ────────────────────────────────────────────────────────
+ * SOC_CLK_BASE is the board's clock-controller register window, defined in
+ * 10_BSP/03_SoC/include/uiox_soc_map.h.  It is 0x00000000UL on every QEMU
+ * board (no PLL controller exists) and on the generic-* TODO boards, and it
+ * aliases SOC_CLINT_BASE on RISC-V (the CLINT holds mtime, not a PLL).
+ *
+ * Guard contract: UIOX_SOC_CLK_MMIO_ENABLE is defined by the build system
+ * ONLY for a board whose clock block is real and whose register offsets are
+ * known.  When it is not defined the write path compiles to a no-op that
+ * logs once — the previous behaviour, now explicit instead of silent.
+ *
+ * SOC_CLK_BASE is treated as "usable" only when it is a nonzero literal OR
+ * the board explicitly opts in; a base of 0 would write to address 0.
+ * ─────────────────────────────────────────────────────────────────────────── */
+#if defined(UIOX_SOC_CLK_MMIO_ENABLE)
+#  ifndef SOC_CLK_BASE
+#    error "UIOX_SOC_CLK_MMIO_ENABLE set but SOC_CLK_BASE is undefined — include uiox_soc_map.h"
+#  endif
+#  define UIOX_SOC_CLK_MMIO_ACTIVE  1
+#else
+#  define UIOX_SOC_CLK_MMIO_ACTIVE  0
+#endif
 
 /* =========================================================================
  * Default clock frequencies per platform
@@ -166,6 +189,107 @@ static void clock_table_init(void)
 #endif
 
 /* =========================================================================
+ * PLL / clock-controller MMIO
+ *
+ * Register layout assumed (typical CMU/CCF window).  A board that defines
+ * UIOX_SOC_CLK_MMIO_ENABLE must supply these offsets — override any of them
+ * before including this file if the SoC's layout differs.
+ * ====================================================================== */
+#ifndef SOC_CLK_PLL_SYS_CTRL
+#  define SOC_CLK_PLL_SYS_CTRL   0x0000u   /* system PLL: [mul:div:en:lock] */
+#endif
+#ifndef SOC_CLK_PLL_CPU_CTRL
+#  define SOC_CLK_PLL_CPU_CTRL   0x0004u   /* CPU PLL                        */
+#endif
+#ifndef SOC_CLK_PLL_DIV_DONE
+#  define SOC_CLK_PLL_DIV_DONE   0x0008u   /* divider settle/status          */
+#endif
+
+/* Control-word field layout: [31:24] mul | [15:8] div | [1] enable | [0] lock */
+#define UIOX_SOC_CLK_PLL_MUL_SHIFT   24u
+#define UIOX_SOC_CLK_PLL_DIV_SHIFT    8u
+#define UIOX_SOC_CLK_PLL_EN          (1u << 1u)
+#define UIOX_SOC_CLK_PLL_LOCK        (1u << 0u)
+
+#define UIOX_SOC_CLK_PLL_MUL_FIELD(m)  (((uiox_uint32_t)(m) & 0xFFu) << UIOX_SOC_CLK_PLL_MUL_SHIFT)
+#define UIOX_SOC_CLK_PLL_DIV_FIELD(d)  (((uiox_uint32_t)(d) & 0xFFu) << UIOX_SOC_CLK_PLL_DIV_SHIFT)
+
+#if UIOX_SOC_CLK_MMIO_ACTIVE
+
+static volatile uiox_uint32_t *clk_reg(uiox_uint32_t off)
+{
+    return (volatile uiox_uint32_t *)(uiox_uintptr_t)(SOC_CLK_BASE + off);
+}
+
+/* Program one PLL and poll its lock bit.  Returns UIOX_SOC_OK on lock. */
+static uiox_soc_err_t clk_pll_program(uiox_uint32_t ctrl_off,
+                                      uiox_uint32_t mul,
+                                      uiox_uint32_t div)
+{
+    uiox_uint32_t word = UIOX_SOC_CLK_PLL_EN
+                       | UIOX_SOC_CLK_PLL_MUL_FIELD(mul)
+                       | UIOX_SOC_CLK_PLL_DIV_FIELD(div ? div : 1u);
+
+    *clk_reg(ctrl_off) = word;
+
+    /* Bound the wait so a dead controller cannot hang bring-up forever. */
+    for (uiox_uint32_t spin = 0u; spin < 100000u; spin++) {
+        if (*clk_reg(ctrl_off) & UIOX_SOC_CLK_PLL_LOCK)
+            return UIOX_SOC_OK;
+    }
+    return UIOX_SOC_ERR_IO;
+}
+
+/* Apply both PLLs from the context's computed values. */
+static uiox_soc_err_t clk_pll_commit(uiox_clk_ctx_t *ctx,
+                                     const uiox_soc_desc_t *soc)
+{
+    uiox_soc_err_t rc;
+
+    /* Only touch hardware for a board that actually has a clock controller. */
+    if (soc && soc->clk_base == 0u) {
+        ctx->pll_sys.locked = true;
+        ctx->pll_cpu.locked = true;
+        SOC_LOG("CLK", "pll: no controller on this board — model only");
+        return UIOX_SOC_OK;
+    }
+
+    rc = clk_pll_program(SOC_CLK_PLL_SYS_CTRL,
+                         ctx->pll_sys.mul, ctx->pll_sys.div);
+    if (rc != UIOX_SOC_OK) {
+        ctx->pll_sys.locked = false;
+        SOC_LOG("CLK", "pll_sys FAILED: no lock (ctrl=0x%x)", SOC_CLK_PLL_SYS_CTRL);
+        return rc;
+    }
+    ctx->pll_sys.locked = true;
+
+    rc = clk_pll_program(SOC_CLK_PLL_CPU_CTRL,
+                         ctx->pll_cpu.mul, ctx->pll_cpu.div);
+    if (rc != UIOX_SOC_OK) {
+        ctx->pll_cpu.locked = false;
+        SOC_LOG("CLK", "pll_cpu FAILED: no lock (ctrl=0x%x)", SOC_CLK_PLL_CPU_CTRL);
+        return rc;
+    }
+    ctx->pll_cpu.locked = true;
+    return UIOX_SOC_OK;
+}
+
+#else  /* !UIOX_SOC_CLK_MMIO_ACTIVE — model-only board (all QEMU targets) */
+
+static uiox_soc_err_t clk_pll_commit(uiox_clk_ctx_t *ctx,
+                                     const uiox_soc_desc_t *soc)
+{
+    (void)soc;
+    /* Values were computed in uiox_soc_clk_init().  Nothing to write. */
+    ctx->pll_sys.locked = true;
+    ctx->pll_cpu.locked = true;
+    SOC_LOG("CLK", "pll: MMIO not wired on this board — model only");
+    return UIOX_SOC_OK;
+}
+
+#endif /* UIOX_SOC_CLK_MMIO_ACTIVE */
+
+/* =========================================================================
  * Stateless API — uiox_soc_clock_*
  * ====================================================================== */
 
@@ -250,7 +374,6 @@ uiox_soc_err_t uiox_soc_clk_init(uiox_clk_ctx_t        *ctx,
                             UIOX_SOC_CLK_REF_24MHZ : 1u;
     ctx->pll_sys.div    = 1u;
     ctx->pll_sys.out_hz = ctx->freq_hz[UIOX_SOC_CLK_BUS];
-    ctx->pll_sys.locked = true;
 
     ctx->pll_cpu.ref_hz = UIOX_SOC_CLK_REF_24MHZ;
     ctx->pll_cpu.mul    = (ctx->freq_hz[UIOX_SOC_CLK_CPU0] > 0u)
@@ -258,7 +381,16 @@ uiox_soc_err_t uiox_soc_clk_init(uiox_clk_ctx_t        *ctx,
                             UIOX_SOC_CLK_REF_24MHZ : 1u;
     ctx->pll_cpu.div    = 1u;
     ctx->pll_cpu.out_hz = ctx->freq_hz[UIOX_SOC_CLK_CPU0];
-    ctx->pll_cpu.locked = true;
+
+    /* Program the PLLs.  On a model-only board this is a no-op; on a real
+     * board it writes the CMU/CCF window and waits for the lock bit. */
+    {
+        uiox_soc_err_t prc = clk_pll_commit(ctx, soc);
+        if (prc != UIOX_SOC_OK) {
+            ctx->initialized = false;
+            return prc;
+        }
+    }
 
     ctx->initialized = true;
 

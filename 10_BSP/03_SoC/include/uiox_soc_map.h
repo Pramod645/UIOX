@@ -225,12 +225,10 @@ extern "C" {
 #    define SOC_MMIO_BASE        0xFEC00000UL
 #    define SOC_LAPIC_BASE       0xFEE00000UL
 #    define SOC_IOAPIC_BASE      0xFEC00000UL
-#    define SOC_PIT_BASE         0x0040UL      /* PIT channel 0 port */
-//#    define SOC_COM1_BASE        0x03F8UL      /* 16550 COM1 port    */
-#    define SOC_PIT_PORT         0x0040UL      /* PIT ch0 I/O port   (== SOC_PIT_BASE) */
-#    define SOC_PIT_BASE         0x0040UL      /* PIT as MMIO alias                    */
-#    define SOC_UART0_PORT       0x03F8UL      /* COM1 I/O port      (== SOC_COM1_BASE)*/
-#    define SOC_COM1_BASE        0x03F8UL      /* COM1 as MMIO alias                   */
+#    define SOC_PIT_PORT         0x0040UL      /* PIT ch0 I/O port                     */
+#    define SOC_PIT_BASE         0x0040UL      /* alias: legacy port, not MMIO         */
+#    define SOC_UART0_PORT       0x03F8UL      /* COM1 I/O port                        */
+#    define SOC_COM1_BASE        0x03F8UL      /* alias: legacy port, not MMIO         */
 #    define SOC_UART_IRQ         4u            /* COM1 legacy IRQ line                 */
 #    define SOC_HPET_BASE        0xFED00000UL  /* HPET MMIO window                     */
 #    define SOC_IOAPIC_IRQ_BASE  0x10UL        /* first routed APIC vector             */
