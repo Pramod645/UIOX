@@ -351,3 +351,4 @@ Subsystem	Current (wrong)	Correct location	Key reason
 13_fboot	50_UIX/13_fboot	30_KIX/33_PCS/04_fboot/	Boot snapshot + deferred-init scheduling
 13_journal	50_UIX/13_journal	30_KIX/32_FS/02_journal/	FS journal — docs say 32_FileSystem/13_jrnl/
 14_sec	50_UIX/14_sec	30_KIX/33_PCS/05_sec/	ASLR + MAC — docs say 33_ProcessControlSubsystem/14_sec/
+===================
