@@ -1,13 +1,10 @@
 /*
  * 01_uBoot/src/arch/arm32/uiox_boot_hw_arm32.c
- *
- * ARM32 (ARMv7-A) hardware ops, driven by the board descriptor.
- * The QEMU-only read_block(address 0) is replaced by the media layer,
- * and all bases come from uiox_board_get().
+ * ARM32 (ARMv7-A) hardware ops. PL011 offsets from uiox_boot_hw.h.
  */
 #include "uiox_boot.h"
 #include "uiox_boot_board.h"
-
+#include "uiox_boot_media.h"
 
 static inline void wr(uint64_t b, uint32_t o, uint32_t v)
 { *((volatile uint32_t *)(uintptr_t)(b + o)) = v; }
@@ -20,7 +17,7 @@ static void pl011_init(uint64_t base, uint32_t uart_clk_hz)
     wr(base, PL011_CR, 0u);
     wr(base, PL011_IBRD, div);
     wr(base, PL011_FBRD, 0u);
-    wr(base, PL011_LCR_H, (3u << 5) | (1u << 4));  /* 8N1, FIFO */
+    wr(base, PL011_LCR_H, (3u << 5) | (1u << 4));
     wr(base, PL011_CR, PL011_CR_UARTEN | PL011_CR_TXE | PL011_CR_RXE);
 }
 
@@ -33,26 +30,18 @@ static void pl011_putc(char c)
 
 static void arm32_hw_init(void)
 {
-    /* Board bring-up FIRST: clocks, PLLs, pin-mux. */
     (void)uiox_board_bringup();
     pl011_init(uiox_board_get()->uart_base, 24000000u);
 }
-
-/* --- Real storage: forward to the boot-media layer ----------------- */
-uiox_boot_err_t uiox_boot_media_read_block(uint32_t blk, uint32_t nblocks,
-                                           void *buf);
 
 int uiox_boot_hw_read_block(uint32_t blkno, void *buf)
 {
     return uiox_boot_media_read_block(blkno, 1u, buf) == UIOX_BOOT_OK ? 0 : -1;
 }
 
-/* --- Cache / maintenance (ARMv7 CP15) ------------------------------ */
 static void arm32_dcache_flush(uintptr_t s, size_t n)
 {
-    uintptr_t end  = s + n;
-    uintptr_t line = 32u;
-    uintptr_t a    = s & ~(line - 1u);
+    uintptr_t end = s + n, line = 32u, a = s & ~(line - 1u);
     while (a < end) {
         __asm__ volatile("mcr p15, 0, %0, c7, c14, 1" :: "r"(a) : "memory");
         a += line;
@@ -65,28 +54,23 @@ static void arm32_icache_inv(void)
     __asm__ volatile("mcr p15, 0, %0, c7, c5, 0" :: "r"(z) : "memory");
     __asm__ volatile("dsb; isb" ::: "memory");
 }
-/* SP804 system timer read (board descriptor supplies the base). */
 static uint64_t arm32_get_ticks(void)
 {
     uint64_t base = uiox_board_get()->timer_base;
-    if (!base) {                       /* fallback: cycle counter */
+    if (!base) {
         uint32_t v;
         __asm__ volatile("mrc p15, 0, %0, c9, c13, 0" : "=r"(v));
         return (uint64_t)v;
     }
-    return (uint64_t)rd(base + 0x04u, 0u);   /* Timer1Value */
+    return (uint64_t)rd(base + 0x04u, 0u);
 }
 static void arm32_udelay(uint32_t us)
 {
-    /* SP804 1 MHz tick → 1 µs (board brings the timer up). */
     uint64_t start = arm32_get_ticks();
     while ((arm32_get_ticks() - start) < (uint64_t)us) { }
 }
 static void __attribute__((noreturn)) arm32_reset(void)
-{
-    /* TODO(board): write the SoC watchdog reset register. */
-    for (;;) __asm__ volatile("wfe");
-}
+{ for (;;) __asm__ volatile("wfe"); }
 static void arm32_barrier(void) { __asm__ volatile("dsb" ::: "memory"); }
 
 static const uiox_boot_hw_ops_t arm32_ops = {

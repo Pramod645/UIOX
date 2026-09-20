@@ -2,19 +2,18 @@
  * 01_uBoot/src/arch/arm64/uiox_boot_hw_arm64.c
  *
  * ARM64 hardware ops, driven by the board descriptor.
- * The QEMU-only read_block(address 0) is replaced by a call into the
- * board's storage backend, and all bases come from uiox_board_get().
+ * PL011 register offsets come from uiox_boot_hw.h (shared across arches) —
+ * never re-declared here. Storage reads go through the media layer.
  */
 #include "uiox_boot.h"
 #include "uiox_boot_board.h"
+#include "uiox_boot_media.h"     /* uiox_boot_media_read_block */
 
 static inline void wr(uint64_t b, uint32_t o, uint32_t v)
 { *((volatile uint32_t *)(uintptr_t)(b + o)) = v; }
 static inline uint32_t rd(uint64_t b, uint32_t o)
 { return *((volatile uint32_t *)(uintptr_t)(b + o)); }
 
-/* UART divisor depends on the UART clock, which the board bring-up
- * has already locked. 24 MHz / (16 * 115200) = 13. */
 static void pl011_init(uint64_t base, uint32_t uart_clk_hz)
 {
     uint32_t div = (uart_clk_hz + (16u * 115200u) / 2u) / (16u * 115200u);
@@ -34,17 +33,9 @@ static void pl011_putc(char c)
 
 static void arm64_hw_init(void)
 {
-    /* Board bring-up FIRST: clocks, PLLs, pin-mux. Without this the
-     * UART is not clocked and nothing prints. */
     (void)uiox_board_bringup();
     pl011_init(uiox_board_get()->uart_base, 24000000u);
 }
-
-/* --- Real storage: forward to the boot-media layer ----------------- */
-/* The media layer decides VirtIO vs SDHCI vs NVMe; this file no longer
- * reads a fixed address. Implemented in boot_media. */
-uiox_boot_err_t uiox_boot_media_read_block(uint32_t blk, uint32_t nblocks,
-                                           void *buf);
 
 int uiox_boot_hw_read_block(uint32_t blkno, void *buf)
 {
