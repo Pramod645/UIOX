@@ -14,9 +14,9 @@
  * Board descriptors and drivers reference SOC_* macros — never literals.
  *
  * EVERY board block defines SOC_CLK_BASE and SOC_STORAGE_BASE (0 = TODO),
- * so a board descriptor can reference them regardless of which board is
- * selected — that is what keeps the generic boards compilable under the
- * QEMU selection too.
+ * and every arch block provides the accessor macros its backend uses
+ * (GIC-400 for arm32, CLINT/PLIC for riscv64), so a backend compiles
+ * regardless of which board is selected.
  */
 #ifndef UIOX_SOC_MAP_H
 #define UIOX_SOC_MAP_H
@@ -106,6 +106,34 @@ extern "C" {
 #    error "no ARM64 board selected"
 #  endif
 
+/* ── ARM64 GIC accessors (used by SoC backends) ─────────────────────── */
+#  ifndef SOC_GIC_DIST_CTLR
+#    define SOC_GIC_DIST_CTLR      (SOC_GIC_DIST_BASE + 0x000u)
+#  endif
+#  ifndef SOC_GIC_DIST_IGROUPR
+#    define SOC_GIC_DIST_IGROUPR   (SOC_GIC_DIST_BASE + 0x080u)
+#  endif
+#  ifndef SOC_GIC_DIST_ISENABLER
+#    define SOC_GIC_DIST_ISENABLER(irq) \
+        (SOC_GIC_DIST_BASE + 0x100u + 4u * (((irq) / 32u)))
+#  endif
+#  ifndef SOC_GIC_DIST_IPRIORITYR
+#    define SOC_GIC_DIST_IPRIORITYR(irq) \
+        (SOC_GIC_DIST_BASE + 0x400u + ((irq) & ~3u))
+#  endif
+#  ifndef SOC_GIC_CPU_CTLR
+#    define SOC_GIC_CPU_CTLR       (SOC_GIC_CPU_BASE + 0x000u)
+#  endif
+#  ifndef SOC_GIC_CPU_PMR
+#    define SOC_GIC_CPU_PMR        (SOC_GIC_CPU_BASE + 0x004u)
+#  endif
+#  ifndef SOC_GIC_CPU_IAR
+#    define SOC_GIC_CPU_IAR        (SOC_GIC_CPU_BASE + 0x00Cu)
+#  endif
+#  ifndef SOC_GIC_CPU_EOIR
+#    define SOC_GIC_CPU_EOIR       (SOC_GIC_CPU_BASE + 0x010u)
+#  endif
+
 /* =====================================================================
  * ARM32 boards
  * ===================================================================== */
@@ -125,6 +153,11 @@ extern "C" {
 #    define SOC_VIRTIO_IRQ       48u
 #    define SOC_CLK_BASE         0x00000000UL   /* no PLL ctrl on QEMU */
 #    define SOC_STORAGE_BASE     0x00000000UL   /* virtio is the medium */
+#    define SOC_GIC_DIST_BASE    0x08000000UL   /* GIC-400 distributor */
+#    define SOC_GIC_CPU_BASE     0x08010000UL   /* GIC-400 CPU iface   */
+#    ifndef SOC_TIMER0_BASE
+#      define SOC_TIMER0_BASE    SOC_TIMER_BASE
+#    endif
 #    define UIOX_BOARD_STR       "qemu-versatilepb-arm32"
 
 #  elif defined(UIOX_BOARD_GENERIC_ARM32)
@@ -140,15 +173,45 @@ extern "C" {
 #    ifndef SOC_TIMER_BASE
 #      define SOC_TIMER_BASE     0x00000000UL   /* TODO */
 #    endif
+#    ifndef SOC_TIMER0_BASE
+#      define SOC_TIMER0_BASE    SOC_TIMER_BASE
+#    endif
 #    ifndef SOC_STORAGE_BASE
 #      define SOC_STORAGE_BASE   0x00000000UL   /* TODO */
 #    endif
 #    ifndef SOC_CLK_BASE
 #      define SOC_CLK_BASE       0x00000000UL   /* TODO */
 #    endif
+#    ifndef SOC_GIC_DIST_BASE
+#      define SOC_GIC_DIST_BASE  0x00000000UL   /* TODO */
+#    endif
+#    ifndef SOC_GIC_CPU_BASE
+#      define SOC_GIC_CPU_BASE   0x00000000UL   /* TODO */
+#    endif
 #    define UIOX_BOARD_STR      "generic-arm32"
 #  else
 #    error "no ARM32 board selected"
+#  endif
+
+/* ── ARM32 GIC-400 accessors (arm32 backend uses a GIC, not the VIC) ── */
+#  ifndef SOC_GIC_DIST_CTLR
+#    define SOC_GIC_DIST_CTLR      (SOC_GIC_DIST_BASE + 0x000u)
+#  endif
+#  ifndef SOC_GIC_DIST_ISENABLER
+#    define SOC_GIC_DIST_ISENABLER(irq) \
+        (SOC_GIC_DIST_BASE + 0x100u + 4u * (((irq) / 32u)))
+#  endif
+#  ifndef SOC_GIC_CPU_CTLR
+#    define SOC_GIC_CPU_CTLR       (SOC_GIC_CPU_BASE + 0x000u)
+#  endif
+#  ifndef SOC_GIC_CPU_PMR
+#    define SOC_GIC_CPU_PMR        (SOC_GIC_CPU_BASE + 0x004u)
+#  endif
+#  ifndef SOC_GIC_CPU_IAR
+#    define SOC_GIC_CPU_IAR        (SOC_GIC_CPU_BASE + 0x00Cu)
+#  endif
+#  ifndef SOC_GIC_CPU_EOIR
+#    define SOC_GIC_CPU_EOIR       (SOC_GIC_CPU_BASE + 0x010u)
 #  endif
 
 /* =====================================================================
@@ -163,7 +226,15 @@ extern "C" {
 #    define SOC_LAPIC_BASE       0xFEE00000UL
 #    define SOC_IOAPIC_BASE      0xFEC00000UL
 #    define SOC_PIT_BASE         0x0040UL      /* PIT channel 0 port */
-#    define SOC_COM1_BASE        0x03F8UL      /* 16550 COM1 port    */
+//#    define SOC_COM1_BASE        0x03F8UL      /* 16550 COM1 port    */
+#    define SOC_PIT_PORT         0x0040UL      /* PIT ch0 I/O port   (== SOC_PIT_BASE) */
+#    define SOC_PIT_BASE         0x0040UL      /* PIT as MMIO alias                    */
+#    define SOC_UART0_PORT       0x03F8UL      /* COM1 I/O port      (== SOC_COM1_BASE)*/
+#    define SOC_COM1_BASE        0x03F8UL      /* COM1 as MMIO alias                   */
+#    define SOC_UART_IRQ         4u            /* COM1 legacy IRQ line                 */
+#    define SOC_HPET_BASE        0xFED00000UL  /* HPET MMIO window                     */
+#    define SOC_IOAPIC_IRQ_BASE  0x10UL        /* first routed APIC vector             */
+
 #    define SOC_VIRTIO_BASE      0x10001000UL
 #    define SOC_VIRTIO_STRIDE    0x1000u
 #    define SOC_VIRTIO_IRQ       1u
@@ -224,6 +295,36 @@ extern "C" {
 #    define UIOX_BOARD_STR      "generic-riscv64"
 #  else
 #    error "no RISC-V board selected"
+#  endif
+
+/* ── CLINT accessors (msip / mtimecmp / mtime, per hart) ────────────── */
+/* QEMU virt CLINT layout:                                                 */
+/*   msip[hart]      at 0x0000 + 4*hart                                    */
+/*   mtimecmp[hart]  at 0x4000 + 8*hart                                    */
+/*   mtime           at 0xBFF8                                             */
+#  ifndef SOC_CLINT_MSIP
+#    define SOC_CLINT_MSIP(h)      (SOC_CLINT_BASE + 0x0000u + 4u  * (h))
+#  endif
+#  ifndef SOC_CLINT_MTIMECMP
+#    define SOC_CLINT_MTIMECMP(h)  (SOC_CLINT_BASE + 0x4000u + 8u  * (h))
+#  endif
+#  ifndef SOC_CLINT_MTIME
+#    define SOC_CLINT_MTIME        (SOC_CLINT_BASE + 0xBFF8u)
+#  endif
+
+/* ── PLIC accessors (priority / enable / threshold, per context) ────── */
+/* QEMU virt PLIC layout:                                                  */
+/*   priority[irq]  at 0x000000 + 4*irq                                    */
+/*   enable[ctx]    at 0x002000 + 0x80*ctx                                 */
+/*   threshold[ctx] at 0x200000 + 0x1000*ctx                               */
+#  ifndef SOC_PLIC_PRIORITY
+#    define SOC_PLIC_PRIORITY(i)   (SOC_PLIC_BASE + 0x000000u + 4u * (i))
+#  endif
+#  ifndef SOC_PLIC_ENABLE
+#    define SOC_PLIC_ENABLE(c)     (SOC_PLIC_BASE + 0x002000u + 0x80u * (c))
+#  endif
+#  ifndef SOC_PLIC_THRESHOLD
+#    define SOC_PLIC_THRESHOLD(c)  (SOC_PLIC_BASE + 0x200000u + 0x1000u * (c))
 #  endif
 
 #else

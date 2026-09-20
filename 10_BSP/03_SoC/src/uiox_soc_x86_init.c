@@ -6,8 +6,6 @@
  */
 #include "uiox_soc_x86.h"
 #include "uiox_soc.h"
-//#include "../../../20_DriverInterfaces/include/mmio.h"
-//#include "../../../20_DriverInterfaces/include/irq.h"
 #include "uiox_soc_stdio.h"
 #include "uiox_soc_types.h"
 
@@ -40,20 +38,22 @@ static void x86_ioapic_init(void)
     /* Mask all redirection table entries first */
     for (uiox_uint32_t i = 0u; i <= max_redir; i++)
         ioapic_write((uiox_uint8_t)IOAPIC_REG_REDTBL(i),
-                     IOAPIC_RED_MASKED | (SOC_IOAPIC_IRQ_BASE + i));
+                     (uiox_uint32_t)(IOAPIC_RED_MASKED
+                                     | (SOC_IOAPIC_IRQ_BASE + i)));
 
     /* Unmask COM1 (IRQ4) → vector SOC_IOAPIC_IRQ_BASE + 4 */
-    uiox_uint32_t uart_vec = (uiox_uint32_t)SOC_IOAPIC_IRQ_BASE + SOC_UART_IRQ;
+    uiox_uint32_t uart_vec =
+        (uiox_uint32_t)(SOC_IOAPIC_IRQ_BASE + SOC_UART_IRQ);
     ioapic_write((uiox_uint8_t)IOAPIC_REG_REDTBL(SOC_UART_IRQ), uart_vec);
 
     printf("[soc/x86]  IOAPIC UART IRQ%u => vector %u unmasked\n",
-           SOC_UART_IRQ, uart_vec);
+           (unsigned)SOC_UART_IRQ, (unsigned)uart_vec);
 }
 
 /* ── LAPIC timer calibration using HPET ─────────────────────────────── */
 static void x86_lapic_timer_init_hpet(uiox_uint32_t hz)
 {
-    /* 1. Program HPET timer 0 in one-shot mode for 10 ms */
+    /* 1. Read HPET period (femtoseconds per tick) from GCAP_ID high word */
     uiox_uint64_t hpet_period_fs =
         ((uiox_uint64_t)soc_mmio_read32(HPET_GCAP_ID + 4u)) & 0xFFFFFFFFull;
     if (hpet_period_fs == 0u) {
@@ -82,13 +82,16 @@ static void x86_lapic_timer_init_hpet(uiox_uint32_t hz)
     uiox_uint32_t ticks_per_sec = ticks_10ms * 100u;
     uiox_uint32_t lapic_period  = ticks_per_sec / hz;
 
-    printf("[soc/x86]  LAPIC timer: %u ticks/s => period=%u ticks @ %u Hz\n",
-           ticks_per_sec, lapic_period, hz);
+    printf("[soc/x86]  LAPIC timer: %lu ticks/s => period=%lu ticks @ %lu Hz\n",
+           (unsigned long)ticks_per_sec,
+           (unsigned long)lapic_period,
+           (unsigned long)hz);
 
     /* Program LAPIC periodic timer */
     soc_mmio_write32(LAPIC_TIMER_DCR, 0x3u);
-    soc_mmio_write32(LAPIC_LVT_TIMER, LAPIC_TIMER_PERIODIC
-                                 | (SOC_IOAPIC_IRQ_BASE + 0u));
+    soc_mmio_write32(LAPIC_LVT_TIMER,
+                     (uiox_uint32_t)(LAPIC_TIMER_PERIODIC
+                                     | (SOC_IOAPIC_IRQ_BASE + 0u)));
     soc_mmio_write32(LAPIC_TIMER_ICR, lapic_period);
 }
 
@@ -96,11 +99,11 @@ static void x86_lapic_timer_init_hpet(uiox_uint32_t hz)
 static void x86_pit_init(uiox_uint32_t hz)
 {
     uiox_uint32_t divisor = 1193182u / hz;  /* PIT input = 1.193182 MHz        */
-    _outb(SOC_PIT_PORT + 3u, 0x34u);  /* Channel 0, rate generator, lo/hi */
-    _outb(SOC_PIT_PORT,      (uiox_uint8_t)(divisor & 0xFFu));
-    _outb(SOC_PIT_PORT,      (uiox_uint8_t)((divisor >> 8u) & 0xFFu));
+    _outb((uiox_uint16_t)SOC_PIT_PORT + 3u, 0x34u); /* Channel 0, rate gen, lo/hi */
+    _outb((uiox_uint16_t)SOC_PIT_PORT, (uiox_uint8_t)(divisor & 0xFFu));
+    _outb((uiox_uint16_t)SOC_PIT_PORT, (uiox_uint8_t)((divisor >> 8u) & 0xFFu));
     printf("[soc/x86]  PIT @ port 0x%02x: %u Hz (divisor=%u)\n",
-           SOC_PIT_PORT, hz, divisor);
+           (unsigned)SOC_PIT_PORT, (unsigned)hz, (unsigned)divisor);
 }
 
 /* =========================================================================
@@ -122,5 +125,5 @@ int uiox_soc_x86_init(void)
 void uiox_soc_x86_fini(void)
 {
     soc_mmio_write32(LAPIC_LVT_TIMER, LAPIC_LVT_MASKED);
-    printf("[soc/x86]  x86-64 SoC torn down.\n");
+    printf("[soc/x86]  SoC torn down.\n");
 }
