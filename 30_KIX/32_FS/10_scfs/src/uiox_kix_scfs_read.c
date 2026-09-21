@@ -2,10 +2,10 @@
  *  30_KIX/32_FS/10_scfs/src/read.c  — freestanding fix v1.1
  *    FIXED: ../../33_PCS path, fprintf(stderr,...)
  */
-#include "../include/fs.h"
-#include "../include/inode.h"
-#include "../include/file.h"
-#include "../include/buf.h"
+#include "../include/uiox_kix_fs.h"
+#include "../include/uiox_kix_inode.h"
+#include "../include/uiox_kix_file.h"
+#include "../include/uiox_kix_buf.h"
 #include "uiox_klibc.h"
 
 /*

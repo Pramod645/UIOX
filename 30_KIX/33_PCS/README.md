@@ -1,1 +1,1 @@
-PCS
+PCS: process control subsystem
