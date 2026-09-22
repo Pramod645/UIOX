@@ -264,3 +264,87 @@ Dir	Files present
 03_netfs	03_netfs.md (2.3K) · netfs.png (105K) · include/ · src/ · .DS_Store
 10_unfs	unfs_extra_unfs_snap.c (5.9K) · unfs_extra_unfs_xattr.c (5.7K) · unfs_kix_unfs_disk.h (3.8K) · (headers)
 
+=============
+/* =====================================================================
+ * Syscall numbers.
+ *
+ * SCFS numbers follow the Linux generic (asm-generic) syscall list so the
+ * table matches what userland and any future strace-ish tooling expect.
+ * The arch stub adds no offset — x86-64 numbers already match this list.
+ * Rebase here only if a target diverges.
+ * these are already available from book analysis and for created definations as for below:
+ * chdir
+ * close
+ * creat
+ * file
+ * inode
+ * link
+ * mkdir
+ * mknod
+ * mount
+ * open
+ * pipe
+ * read
+ * write
+ * ===================================================================== */
+//POSIX are these 
+#define SCFS_NR_open      2 //uiox_kix_scfs_open.c
+#define SCFS_NR_close     3
+#define SCFS_NR_read      0 //uiox_kix_scfs_read.c
+#define SCFS_NR_write     1 //uiox_kix_scfs_write.c
+#define SCFS_NR_lseek     8 //uiox_kix_scfs_read.c
+#define SCFS_NR_pread     17
+#define SCFS_NR_pwrite    18
+#define SCFS_NR_readv     19
+#define SCFS_NR_writev    20
+#define SCFS_NR_stat      4 //uiox_kix_scfs_chdir.c
+#define SCFS_NR_lstat     6
+#define SCFS_NR_fstat     5 //uiox_kix_scfs_chdir.c
+#define SCFS_NR_newfstatat 262
+#define SCFS_NR_chmod     90
+#define SCFS_NR_fchmod    91 //uiox_kix_scfs_chdir.c
+#define SCFS_NR_chown     92 //uiox_kix_scfs_chdir.c
+#define SCFS_NR_fchown    93
+#define SCFS_NR_truncate  76
+#define SCFS_NR_ftruncate 77
+#define SCFS_NR_access    21
+#define SCFS_NR_umask     95
+#define SCFS_NR_mkdir     83 //uiox_kix_scfs_mkdir.c
+#define SCFS_NR_rmdir     84 //uiox_kix_scfs_mkdir.c
+#define SCFS_NR_chdir     80 //uiox_kix_scfs_chdir.c
+#define SCFS_NR_fchdir    81 
+#define SCFS_NR_getcwd    79
+#define SCFS_NR_getdents64 217
+#define SCFS_NR_link      86  // uiox_kix_scfs_link.c
+#define SCFS_NR_unlink    87 // uiox_kix_scfs_link.c
+#define SCFS_NR_rename    82
+#define SCFS_NR_symlink   88
+#define SCFS_NR_readlink  89
+#define SCFS_NR_fsync     74
+#define SCFS_NR_fdatasync 75
+#define SCFS_NR_sync      162
+#define SCFS_NR_mount     165 //uiox_kix_scfs_mount.c
+#define SCFS_NR_umount2   166
+#define SCFS_NR_statfs    137
+#define SCFS_NR_fstatfs   138
+#define SCFS_NR_dup       32
+#define SCFS_NR_dup3      292
+#define SCFS_NR_fcntl     72
+#define SCFS_NR_ioctl     16
+#define SCFS_NR_mmap      9
+#define SCFS_NR_munmap    11
+#define SCFS_NR_msync     26
+#define SCFS_NR_statx     332
+//posix end ehere
+// below new
+#define SCFS_NR_chroot    161 //uiox_kix_scfs_chdir.c
+#define SCFS_NR_fclose    57 //uiox_kix_scfs_close.c
+#define SCFS_NR_dirname   158 // uiox_kix_scfs_creat.c
+#define SCFS_NR_creat     85 // uiox_kix_scfs_creat.c
+#define SCFS_NR_falloc    59 // uiox_kix_scfs_file.c
+#define SCFS_NR_fclose     60 // uiox_kix_scfs_file.c
+#define SCFS_NR_ufalloc    61 // uiox_kix_scfs_file.c
+#define SCFS_NR_dirname     62 // uiox_kix_scfs_link.c, uiox_kix_scfs_mkdir.c,uiox_kix_scfs_mknod.c
+#define SCFS_NR_mknod     133 // uiox_kix_scfs_mknod.c
+#define SCFS_NR_umount     134 // uiox_kix_scfs_mount.c
+#define SCFS_NR_pipe      22 // uiox_kix_scfs_pipe.c
