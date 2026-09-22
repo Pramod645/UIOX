@@ -254,3 +254,13 @@ The two decisions this format encodes
 
 2. Sizes as two halves, not one uint64_t. This is the deliberate choice from the note you pasted. A uiox_uint64_t field would force 8-byte alignment on the arm32/riscv32 readers and break the 4-byte struct packing. i_size_lo/i_size_hi keep the layout aligned everywhere; the kernel reassembles with unfs_mk64() at iget time into inode_t.i_size. The same split applies to all four timestamps.
 =================================
+
+Aanalysis: for these remaing files system folders files
+The four subsystems — what's actually there
+
+Dir	Files present
+01_fsa	src/: bmap.c (7.1K) · buffer.c (8.1K) · inode.c (9.0K) · namei.c · superblock.c (11.5K). include/: bmap.h · buffer.h · fs_types.h · namei.h · inode.h · superblock.h
+02_journal	13_journal.md (4.0K) · include/ · src/ · .DS_Store
+03_netfs	03_netfs.md (2.3K) · netfs.png (105K) · include/ · src/ · .DS_Store
+10_unfs	unfs_extra_unfs_snap.c (5.9K) · unfs_extra_unfs_xattr.c (5.7K) · unfs_kix_unfs_disk.h (3.8K) · (headers)
+

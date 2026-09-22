@@ -1,5 +1,5 @@
 /*
- * 30_KIX/32_FS/10_unfs/include/unfs_disk.h   — v2.0.0
+ * 30_KIX/32_FS/10_unfs/include/unfs_disk.h   — v2.1.0
  *
  * UIOX Native Filesystem (UNFS) — ON-DISK FORMAT.
  *
@@ -7,22 +7,27 @@
  * Defines the bytes on the block device, NOT the in-core layout — that is
  * uiox_kix_scfs_inode.h / mount.h.  unfs_iget() converts one to the other.
  *
- * ── v2.0.0 on-disk bump ─────────────────────────────────────────────
- * v1 was 32-bit: uint32 i_size, no groups, no xattr, 32-bit time.  All four
- * changed, so the format carries a versioned MAGIC and a feature word:
+ * ── v2.1.0 fixes ───────────────────────────────────────────────────────
+ *   FIX 1  UNFS_INODE_SIZE was 256 while UNFS_INODE_BYTES was 512; the
+ *          struct with padding is ~508 bytes, so the two disagreed and the
+ *          superblock advertised the wrong slot size.  Now ONE constant:
+ *          UNFS_INODE_BYTES == UNFS_INODE_SIZE == 512.
+ *   FIX 2  i_xattr_blk is a DISK pointer; inode_t.i_xattr is an IN-CORE
+ *          chain.  inflate does NOT populate i_xattr — it stays NULL and
+ *          UNFS reads the on-disk chain on demand in getxattr().
  *
- *   UNFS_MAGIC_V1 0x554E4653 ("UNFS")
- *   UNFS_MAGIC_V2 0x554E4654 ("UNFT")   <- current
+ * ── on-disk versioning ────────────────────────────────────────────────
+ *   UNFS_MAGIC_V1 0x554E4653 ("UNFS")  legacy 32-bit
+ *   UNFS_MAGIC_V2 0x554E4654 ("UNFT")  current
  *
- * A v2 kernel MOUNTS v1 read-only; refuses to write it.  A v1 kernel
+ * A v2 kernel MOUNTS v1 read-only and REFUSES to write it.  A v1 kernel
  * refuses v2 outright.  That is the point of the versioned magic.
  *
- * ── size >4 GB without 64-bit inode fields everywhere ───────────────
- * UNFS uses EXTENTS, not Bach's i_addr[13].  The 64-bit size is stored as
- * two 32-bit halves so the on-disk inode stays 4-byte aligned for arm32 /
- * riscv32 readers; the kernel reassembles into inode_t.i_size at iget time.
+ * ── sizes as two 32-bit halves, not one uint64_t ──────────────────────
+ * Keeps the on-disk inode 4-byte aligned for arm32 / riscv32 readers.
+ * Reassembled with unfs_mk64() at iget time.
  *
- * @version 2.0.0  @date 2026-09-21
+ * @version 2.1.0  @date 2026-09-21
  */
 #ifndef UNFS_DISK_H
 #define UNFS_DISK_H
@@ -34,14 +39,21 @@
 #define UNFS_MAGIC      UNFS_MAGIC_V2
 
 #define UNFS_BLOCK_SIZE      4096u    /* UNFS uses 4 KiB, not Bach's 512 */
-#define UNFS_INODE_SIZE        256u   /* bytes per on-disk inode         */
 #define UNFS_MAX_EXTENTS        12u   /* inline extents per inode        */
 #define UNFS_MAX_GROUPS         64u
 #define UNFS_NAME_MAX          255u
 #define UNFS_ROOT_INO            2u
 #define UNFS_NIL_INO             0u
 
-/* ── feature flags ─────────────────────────────────────────────────── */
+/* ── FIX 1: inode slot size — ONE value ─────────────────────────────── */
+/* The on-disk slot is 512 bytes: 8 inodes fit in a 4096-byte block, and the
+ * padded unfs_inode_disk_t (~508 bytes) sits inside it.  Both names expand
+ * to the same number so superblock arithmetic, table offsets, and struct
+ * padding agree.  (UNFS_INODE_SIZE was 256 — that was the bug.) */
+#define UNFS_INODE_BYTES     512u   /* ON-DISK inode slot size       */
+#define UNFS_INODE_SIZE      UNFS_INODE_BYTES   /* alias — was 256, now 512 */
+
+/* ── feature flags (superblock s_feature_*) ────────────────────────── */
 #define UNFS_FEAT_COMPAT_DIR_INDEX     0x00000001u
 #define UNFS_FEAT_INCOMPAT_64BIT       0x00000001u   /* 64-bit sizes   */
 #define UNFS_FEAT_INCOMPAT_EXTENTS     0x00000002u   /* extent tree    */
@@ -63,7 +75,7 @@ typedef struct unfs_sb_disk {
     uiox_uint32_t s_blocks_free;        /* free blocks (statfs)         */
     uiox_uint32_t s_inodes_total;
     uiox_uint32_t s_inodes_free;
-    uiox_uint32_t s_inode_size;         /* UNFS_INODE_SIZE              */
+    uiox_uint32_t s_inode_size;         /* == UNFS_INODE_SIZE (512) now */
     uiox_uint32_t s_inode_first_blk;    /* first block of the inode tbl */
     uiox_uint32_t s_inode_blocks;       /* blocks in the inode table    */
     uiox_uint32_t s_ncg;                /* allocation groups            */
@@ -102,7 +114,6 @@ typedef struct unfs_group_disk {
 } unfs_group_disk_t;
 
 /* ── extent — a contiguous run of blocks ───────────────────────────── */
-/* One extent covers up to (2^16 - 1) blocks = 256 MiB at 4 KiB. */
 typedef struct unfs_extent_disk {
     uiox_uint32_t e_start_lo;   /* logical block offset, low 32         */
     uiox_uint32_t e_start_hi;   /*                 high 32 (sparse fwd) */
@@ -115,6 +126,17 @@ typedef struct unfs_extent_disk {
 #define UNFS_EXT_LAST   0x8000u   /* last extent in a leaf block          */
 
 /* ── inode — 512-byte slot on disk ─────────────────────────────────── */
+/* Byte layout (sums to 508, padded to the 512-byte slot):
+ *   mode 2 + nlink 2 + uid 4 + gid 4              = 12
+ *   size_lo 4 + size_hi 4                         =  8
+ *   4 x 64-bit times  (8 x uint32)                = 32
+ *   blocks+flags+gen+seq+xattr_blk+extent_leaf    = 24
+ *   fastlink[60]                                  = 60
+ *   i_ext[12] x 16                                = 192
+ *   i_reserved[176]                               = 176
+ *   i_checksum                                    =  4
+ *                                          total  = 508  (+4 pad = 512)
+ */
 typedef struct unfs_inode_disk {
     uiox_uint16_t i_mode;               /* type + permissions (Bach IF*) */
     uiox_uint16_t i_nlink;
@@ -134,7 +156,10 @@ typedef struct unfs_inode_disk {
     uiox_uint32_t i_flags;              /* UNFS_IFLAG_*                  */
     uiox_uint32_t i_generation;         /* stable file handle            */
     uiox_uint32_t i_seq;                /* change counter                */
-    uiox_uint32_t i_xattr_blk;          /* xattr chain block, 0 = none   */
+    uiox_uint32_t i_xattr_blk;          /* FIX 2: DISK block of the xattr
+                                         * chain, 0 = none.  NOT loaded
+                                         * into inode_t.i_xattr; getxattr()
+                                         * reads it on demand.            */
     uiox_uint32_t i_extent_leaf;        /* overflow extent block, 0=inline*/
 
     /* fast symlink: target stored inline when short enough */
@@ -169,6 +194,9 @@ typedef struct unfs_dirent_disk {
 #define UNFS_DT_LNK     6
 
 /* ── xattr — one node per attribute, chained off i_xattr_blk ───────── */
+/* FIX 2: this is the DISK form.  The in-core form (uiox_xattr_node_t,
+ * declared in uiox_kix_scfs_ops.h) is populated only when a caller asks via
+ * getxattr/listxattr, and freed afterwards — inode_t.i_xattr stays NULL. */
 typedef struct unfs_xattr_disk {
     uiox_uint32_t x_next;               /* next xattr block, 0 = last  */
     uiox_uint8_t  x_namelen;
@@ -176,20 +204,20 @@ typedef struct unfs_xattr_disk {
     uiox_uint16_t x_flags;
     uiox_uint8_t  x_name[64];
     uiox_uint8_t  x_value[180];         /* inline value                */
-} unfs_xattr_disk_t;
+} unfs_xattr_disk_t;                    /* 256 bytes                    */
 
 /* ── layout constants ──────────────────────────────────────────────── */
 #define UNFS_SB_OFFSET       1024u
 #define UNFS_SB_SIZE         1024u
-#define UNFS_INODE_BYTES     512u   /* ON-DISK inode slot size       */
+/* UNFS_INODE_BYTES defined above, and it IS the slot size. */
 
 /* ── endian helpers — on-disk format is little-endian on all four
  *    targets; the freestanding build has no <endian.h>. ────────────── */
-static inline uiox_uint32_t unfs_lo32(uiox_uint64_t v) { return (uiox_uint32_t)(v & 0xFFFFFFFFu); }
-static inline uiox_uint32_t unfs_hi32(uiox_uint64_t v) { return (uiox_uint32_t)(v >> 32); }
+static inline uiox_uint32_t unfs_lo32(uiox_uint64_t v)
+{ return (uiox_uint32_t)(v & 0xFFFFFFFFu); }
+static inline uiox_uint32_t unfs_hi32(uiox_uint64_t v)
+{ return (uiox_uint32_t)(v >> 32); }
 static inline uiox_uint64_t unfs_mk64(uiox_uint32_t lo, uiox_uint32_t hi)
-{
-    return ((uiox_uint64_t)hi << 32) | (uiox_uint64_t)lo;
-}
+{ return ((uiox_uint64_t)hi << 32) | (uiox_uint64_t)lo; }
 
 #endif /* UNFS_DISK_H */
