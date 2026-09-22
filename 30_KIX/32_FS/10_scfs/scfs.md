@@ -101,3 +101,121 @@ Storage logic leaking in — the static inode array and the linear di->name[j] s
 The clearest single fix: enumerate the POSIX syscall table as SCFS's public surface, implement each as a thin dispatcher, and let UNFS/FSA own everything below. Then UNFS registers as the backend, SCFS carries the calls, and unsupported operations degrade to ENOSYS instead of null-pointer faults.
 
 If you want, I can draft the SCFS syscall table — the full POSIX entry list with each one's fd/path lookup and dispatch target, marking which delegate to file_ops, which to inode_ops, and which return ENOSYS until UNFS lands.
+
+
+
+
+
+============
+Proposed file names — the consolidated set
+Fifteen files, down from 23, grouped so each name matches its contents:
+
+
+File	Functions	Domain
+uiox_kix_scfs_open.c	open · creat	open/create
+uiox_kix_scfs_read.c	read · pread · pwrite · readv · writev	read path
+uiox_kix_scfs_write.c	write	write path ✅ exists
+uiox_kix_scfs_close.c	close · fclose	close (owns close)
+uiox_kix_scfs_lseek.c	lseek	seek
+uiox_kix_scfs_stat.c	stat · fstat · lstat · newfstatat · statx · chmod · fchmod · chown · fchown · access · umask	metadata
+uiox_kix_scfs_dir.c	chdir · fchdir · getcwd · chroot · getdents64	directory path
+uiox_kix_scfs_mkdir.c	mkdir · rmdir · mknod · dirname	directory create (owns dirname)
+uiox_kix_scfs_link.c	link · unlink · symlink · readlink · rename	name binding
+uiox_kix_scfs_file.c	falloc · ufalloc · truncate · ftruncate · fallocate	i-node/file table
+uiox_kix_scfs_fd.c	dup · dup3 · fcntl · pipe	descriptor table
+uiox_kix_scfs_mount.c	mount · umount · umount2 · statfs · fstatfs	mount table
+uiox_kix_scfs_sync.c	fsync · fdatasync · sync · msync	durability
+uiox_kix_scfs_ioctl.c	ioctl	device control
+uiox_kix_scfs_mmap.c	mmap · munmap	memory mapping
+
+====================The 15-file final set
+#	File	Status
+1	uiox_kix_scfs_open.c	needs write (open + creat)
+2	uiox_kix_scfs_read.c	needs write (read/pread/pwrite/readv/writev)
+3	uiox_kix_scfs_write.c	✅ exists in your repo
+4	uiox_kix_scfs_close.c	needs write (close + fclose, single owner)
+5	uiox_kix_scfs_lseek.c	needs write
+6	uiox_kix_scfs_stat.c	✅ merged
+7	uiox_kix_scfs_dir.c	needs write (chdir/fchdir/getcwd/chroot/getdents64)
+8	uiox_kix_scfs_mkdir.c	needs write (mkdir/rmdir/mknod + owns dirname)
+9	uiox_kix_scfs_link.c	✅ merged
+10	uiox_kix_scfs_file.c	needs write (truncate/ftruncate/fallocate)
+11	uiox_kix_scfs_fd.c	✅ merged
+12	uiox_kix_scfs_mount.c	✅ merged
+13	uiox_kix_scfs_sync.c	✅ merged
+14	uiox_kix_scfs_ioctl.c	✅ merged
+15	uiox_kix_scfs_mmap.c	folded into sync.c
+================================================
+#	File	Functions
+0	uiox_kix_scfs_internal.h	shared prologue (errno, VFS/PCS contract, scfs_fd_file)
+1	uiox_kix_scfs_open.c	open · creat
+2	uiox_kix_scfs_read.c	read · pread · pwrite · readv · writev
+3	uiox_kix_scfs_write.c	write
+4	uiox_kix_scfs_close.c	close · fclose
+5	uiox_kix_scfs_lseek.c	lseek
+6	uiox_kix_scfs_dir.c	chdir · fchdir · getcwd · chroot · getdents64
+7	uiox_kix_scfs_mkdir.c	mkdir · rmdir · mknod · dirname
+8	uiox_kix_scfs_file.c	truncate · ftruncate · fallocate
+9	uiox_kix_scfs_stat.c	stat · fstat · lstat · newfstatat · statx · chmod · fchmod · chown · fchown · access · umask
+10	uiox_kix_scfs_link.c	link · unlink · symlink · readlink · rename
+11	uiox_kix_scfs_fd.c	dup · dup3 · fcntl · pipe · falloc · ufalloc
+12	uiox_kix_scfs_mount.c	mount · umount · umount2 · statfs · fstatfs
+13	uiox_kix_scfs_sync.c	fsync · fdatasync · sync · msync
+14	uiox_kix_scfs_ioctl.c	ioctl
+15	uiox_kix_scfs_mmap.c	mmap · munmap
+=============================================
+The chain, layer by layer
+
+syscall nr
+   │  scfs_dispatch(nr, …)          ← dispatch.c : MAPS ✓
+   ▼
+   fs_*()  (fs.h)                    ← declared ✓
+   │  fop->op / iop->op             ← ops.h : MAPS ✓
+   ▼
+ uiox_file_ops_t / uiox_inode_ops_t  ← ops.h : MAPS ✓
+   │  backend (UNFS) implements them
+   ▼
+ inode_t  (inode.h)                  ← MAPS ✓  (i_iop, i_fop, i_pipe, i_path)
+   │  i_addr[] + bmap()
+   ▼
+ buf.h  (bread/bwrite/bmap)          ← MAPS ✓  (now includes inode.h)
+==============
+
+What stayed Bach
+Every actual algorithm is unchanged:
+
+Algorithm	Bach Ch.	Where it lives now
+iget / iput (i-node cache + refcount)	Ch.4	inode.h prototypes
+ialloc / ifree (free-i-node list)	Ch.4	inode.h
+iupdate (write i-node back)	Ch.4	inode_ops.write_inode
+itrunc (free blocks past new end)	Ch.4	inode_ops.truncate
+bmap (direct + single/double/triple indirect)	Ch.4	buf.h — unchanged, still walks i_addr[13]
+alloc / free (superblock free-block chain)	Ch.4	buf.h — balloc/bfree over s_free[50]
+bread / breada / bwrite / brelse	Ch.3	buf.h — buffer cache intact
+getblk (hash + free-list)	Ch.3	buf.h
+namei (path walk)	Ch.5	inode.h
+falloc / ufalloc (file table)	Ch.7	file.h
+getmount (mount table)	Ch.9	mount.h
+statfs from s_tfree/s_tinode	Ch.4	mount.h superblock
+================================
+
+What changed
+
+/* Bach's way */
+fs_read(fd, buf, n) {
+    ip = u.u_ofile[fd]->f_inode;
+    if ((ip->i_mode & IFMT) == IFCHR) readi_character(...);
+    else                                   readi_regular(...);
+}
+
+
+
+to
+
+/* UIOX way */
+fs_read(fd, buf, n) {
+    fp = u_area()->u_ofile.ufd_file[fd];
+    if (!fp->f_op || !fp->f_op->read) return FS_ENOSYS;
+    return fp->f_op->read(fp, buf, n);     /* same readi, reached via the table */
+}
+=================================

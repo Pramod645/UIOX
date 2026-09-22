@@ -1,74 +1,25 @@
 /*
- *  30_KIX/32_FS/10_scfs/src/write.c  — freestanding fix v1.2
- *    FIXED: balloc() returns uint32_t blkno, not buf_t*
- *           Use balloc() for block number, then getblk() for buffer.
+ * 30_KIX/32_FS/10_scfs/src/uiox_kix_scfs_write.c
+ *
+ * write
+ *
+ * Bach Ch.7 — sequential write through the file's own write operation,
+ * advancing f_pos as bytes are written.  The buffered write path (page
+ * cache, delayed write, bmap_alloc on growth) lives below in the backend;
+ * SCFS resolves the fd and hands the call down.
+ *
+ * @version 1.0.0  @date 2026-09-21
  */
-#include "../include/fs.h"
-#include "../include/inode.h"
-#include "../include/file.h"
-#include "../include/buf.h"
-#include "uiox_klibc.h"
+#include "uiox_kix_scfs_internal.h"
 
-/*
- * Algorithm write
- * input : user file descriptor, buffer, byte count
- * output: bytes written
- */
-int fs_write(int fd, const char *buf, uint32_t count)
+/* write() — sequential write from the user buffer, advancing f_pos. */
+long uiox_kix_scfs_write(uiox_reg_t fd, uiox_reg_t ubuf, uiox_reg_t count,
+                         uiox_reg_t a3, uiox_reg_t a4, uiox_reg_t a5)
 {
-    file_t   *fp;
-    inode_t  *ip;
-    uint32_t  done = 0;
-
-    if (fd < 0 || fd >= NOFILE) return FS_EBADF;
-    fp = u.u_ofile.ufd_file[fd];
-    if (!fp) return FS_EBADF;
-    if (!(fp->f_flag & O_WRONLY)) return FS_EBADF;
-
-    ip = fp->f_inode;
-    if (!ip) return FS_EBADF;
-
-    /* Pipe write — discard in sim */
-    if ((ip->i_mode & IFMT) == IFIFO)
-        return (int)count;
-
-    if (fp->f_flag & O_APPEND)
-        fp->f_offset = ip->i_size;
-
-    while (done < count) {
-        uint32_t blk_idx = fp->f_offset / BLOCK_SIZE;
-        uint32_t blkoff  = fp->f_offset % BLOCK_SIZE;
-        uint32_t avail   = BLOCK_SIZE - blkoff;
-        uint32_t n       = (avail < (count - done)) ? avail : (count - done);
-        uint32_t blkno;
-        buf_t   *bp;
-
-        if (blk_idx >= (uint32_t)(NBLOCK_DIRECT + NBLOCK_INDIRECT)) break;
-
-        if (!ip->i_addr[blk_idx]) {
-            /* Allocate a new block — balloc returns block number */
-            blkno = balloc((uint16_t)ip->i_dev);
-            if (!blkno) break;
-            ip->i_addr[blk_idx] = blkno;
-            ip->i_flag |= IUPD;
-            bp = getblk((uint16_t)ip->i_dev, blkno);
-        } else {
-            blkno = ip->i_addr[blk_idx];
-            bp = bread((uint16_t)ip->i_dev, blkno);
-        }
-        if (!bp) break;
-
-        memcpy(bp->b_data + blkoff, buf + done, n);
-        bp->b_flags |= B_DIRTY;
-        bwrite(bp);
-        brelse(bp);
-
-        done         += n;
-        fp->f_offset += n;
-        if (fp->f_offset > ip->i_size)
-            ip->i_size = fp->f_offset;
-    }
-
-    ip->i_flag |= IUPD;
-    return (int)done;
+    (void)a3; (void)a4; (void)a5;
+    uiox_file_t *f;
+    long rc = scfs_fd_file(fd, &f);
+    if (rc < 0) return rc;
+    if (!f->f_op || !f->f_op->write) return -SCFS_ENOSYS;
+    return (long)f->f_op->write(f, (const void *)ubuf, (size_t)count, &f->f_pos);
 }

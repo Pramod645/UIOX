@@ -1,83 +1,99 @@
 /*
- *  30_KIX/32_FS/10_scfs/src/read.c  — freestanding fix v1.1
- *    FIXED: ../../33_PCS path, fprintf(stderr,...)
+ * 30_KIX/32_FS/10_scfs/src/uiox_kix_scfs_read.c
+ *
+ * read / pread / pwrite / readv / writev
+ *
+ * Bach Ch.7 — pread/pwrite are private-offset read/write (lseek/read/lseek
+ * back, so a shared file-table entry keeps its f_pos); readv/writev walk the
+ * iovec and hand each segment to the file's read/write operation.
+ *
+ * @version 1.0.0  @date 2026-09-21
  */
-#include "../include/uiox_kix_fs.h"
-#include "../include/uiox_kix_inode.h"
-#include "../include/uiox_kix_file.h"
-#include "../include/uiox_kix_buf.h"
-#include "uiox_klibc.h"
+#include "uiox_kix_scfs_internal.h"
 
-/*
- * Algorithm read
- * input : user file descriptor, buffer, byte count
- * output: bytes read
- */
-int fs_read(int fd, char *buf, uint32_t count)
+/* read() — sequential read into the user buffer, advancing f_pos. */
+long uiox_kix_scfs_read(uiox_reg_t fd, uiox_reg_t ubuf, uiox_reg_t count,
+                        uiox_reg_t a3, uiox_reg_t a4, uiox_reg_t a5)
 {
-    file_t  *fp;
-    inode_t *ip;
-    uint32_t done = 0;
-
-    if (fd < 0 || fd >= NOFILE) return FS_EBADF;
-    fp = u.u_ofile.ufd_file[fd];
-    if (!fp) return FS_EBADF;
-    if (!(fp->f_flag & O_RDONLY) && fp->f_flag != 0) return FS_EBADF;
-
-    ip = fp->f_inode;
-    if (!ip) return FS_EBADF;
-
-    /* Pipe read */
-    if ((ip->i_mode & IFMT) == IFIFO) {
-        /* sim: return 0 (EOF) */
-        return 0;
-    }
-
-    while (done < count && fp->f_offset < ip->i_size) {
-        uint32_t blkno  = fp->f_offset / BLOCK_SIZE;
-        uint32_t blkoff = fp->f_offset % BLOCK_SIZE;
-        uint32_t avail  = BLOCK_SIZE - blkoff;
-        uint32_t want   = count - done;
-        uint32_t n      = (avail < want) ? avail : want;
-        uint32_t left   = ip->i_size - fp->f_offset;
-        if (n > left) n = left;
-
-        if (blkno < (uint32_t)(NBLOCK_DIRECT + NBLOCK_INDIRECT) &&
-            ip->i_addr[blkno]) {
-            buf_t *bp = bread((uint16_t)ip->i_dev, ip->i_addr[blkno]);
-            if (bp) {
-                memcpy(buf + done, bp->b_data + blkoff, n);
-                brelse(bp);
-            } else {
-                break;
-            }
-        } else {
-            memset(buf + done, 0, n);
-        }
-        done         += n;
-        fp->f_offset += n;
-    }
-
-    ip->i_flag |= IACC;
-    return (int)done;
+    (void)a3; (void)a4; (void)a5;
+    uiox_file_t *f;
+    long rc = scfs_fd_file(fd, &f);
+    if (rc < 0) return rc;
+    if (!f->f_op || !f->f_op->read) return -SCFS_ENOSYS;
+    return (long)f->f_op->read(f, (void *)ubuf, (size_t)count, &f->f_pos);
 }
 
-int fs_lseek(int fd, int32_t offset, int whence)
+/* pread() — positioned read; f_pos is saved and restored. */
+long uiox_kix_scfs_pread(uiox_reg_t fd, uiox_reg_t ubuf, uiox_reg_t count,
+                         uiox_reg_t off, uiox_reg_t a4, uiox_reg_t a5)
 {
-    file_t  *fp;
-    int32_t  new_off;
+    (void)a4; (void)a5;
+    uiox_file_t *f;
+    long rc = scfs_fd_file(fd, &f);
+    if (rc < 0) return rc;
+    if (!f->f_op || !f->f_op->read) return -SCFS_ENOSYS;
 
-    if (fd < 0 || fd >= NOFILE) return FS_EBADF;
-    fp = u.u_ofile.ufd_file[fd];
-    if (!fp) return FS_EBADF;
+    uint64_t saved = f->f_pos;
+    f->f_pos = (uint64_t)off;
+    ssize_t n = f->f_op->read(f, (void *)ubuf, (size_t)count, &f->f_pos);
+    f->f_pos = saved;
+    return (long)n;
+}
 
-    switch (whence) {
-        case 0: new_off = offset; break;                                  /* SEEK_SET */
-        case 1: new_off = (int32_t)fp->f_offset + offset; break;         /* SEEK_CUR */
-        case 2: new_off = (int32_t)fp->f_inode->i_size + offset; break;  /* SEEK_END */
-        default: return FS_EBADF;
+/* pwrite() — positioned write; f_pos saved and restored. */
+long uiox_kix_scfs_pwrite(uiox_reg_t fd, uiox_reg_t ubuf, uiox_reg_t count,
+                          uiox_reg_t off, uiox_reg_t a4, uiox_reg_t a5)
+{
+    (void)a4; (void)a5;
+    uiox_file_t *f;
+    long rc = scfs_fd_file(fd, &f);
+    if (rc < 0) return rc;
+    if (!f->f_op || !f->f_op->write) return -SCFS_ENOSYS;
+
+    uint64_t saved = f->f_pos;
+    f->f_pos = (uint64_t)off;
+    ssize_t n = f->f_op->write(f, (const void *)ubuf, (size_t)count, &f->f_pos);
+    f->f_pos = saved;
+    return (long)n;
+}
+
+/* readv() — scatter read across the iovec until it is full or the file ends. */
+long uiox_kix_scfs_readv(uiox_reg_t fd, uiox_reg_t iov_uptr, uiox_reg_t iovcnt,
+                         uiox_reg_t a3, uiox_reg_t a4, uiox_reg_t a5)
+{
+    (void)a3; (void)a4; (void)a5;
+    uiox_file_t *f;
+    long rc = scfs_fd_file(fd, &f);
+    if (rc < 0) return rc;
+    if (!f->f_op || !f->f_op->read) return -SCFS_ENOSYS;
+
+    const uiox_iovec_t *iov = (const uiox_iovec_t *)iov_uptr;
+    long total = 0;
+    for (uint32_t i = 0u; i < (uint32_t)iovcnt; i++) {
+        ssize_t n = f->f_op->read(f, iov[i].iov_base, iov[i].iov_len, &f->f_pos);
+        if (n < 0) return (total > 0) ? total : (long)n;
+        total += n;
+        if ((size_t)n < iov[i].iov_len) break;
     }
-    if (new_off < 0) return FS_EBADF;
-    fp->f_offset = (uint32_t)new_off;
-    return (int)fp->f_offset;
+    return total;
+}
+
+/* writev() — gather write across the iovec. */
+long uiox_kix_scfs_writev(uiox_reg_t fd, uiox_reg_t iov_uptr, uiox_reg_t iovcnt,
+                          uiox_reg_t a3, uiox_reg_t a4, uiox_reg_t a5)
+{
+    (void)a3; (void)a4; (void)a5;
+    uiox_file_t *f;
+    long rc = scfs_fd_file(fd, &f);
+    if (rc < 0) return rc;
+    if (!f->f_op || !f->f_op->write) return -SCFS_ENOSYS;
+
+    const uiox_iovec_t *iov = (const uiox_iovec_t *)iov_uptr;
+    long total = 0;
+    for (uint32_t i = 0u; i < (uint32_t)iovcnt; i++) {
+        ssize_t n = f->f_op->write(f, iov[i].iov_base, iov[i].iov_len, &f->f_pos);
+        if (n < 0) return (total > 0) ? total : (long)n;
+        total += n;
+    }
+    return total;
 }

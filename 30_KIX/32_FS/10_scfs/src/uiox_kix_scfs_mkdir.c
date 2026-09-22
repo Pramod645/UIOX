@@ -1,90 +1,113 @@
 /*
- *  30_KIX/32_FS/10_scfs/src/mkdir.c  — freestanding fix v1.1
- *    FIXED: ../../33_PCS path, dirname(), fprintf(stderr,...)
+ * 30_KIX/32_FS/10_scfs/src/uiox_kix_scfs_mkdir.c
+ *
+ * mkdir / rmdir / mknod / dirname
+ *
+ * Bach Ch.4 — ialloc() allocates an i-node, ifree() frees it; Ch.5 — a new
+ * directory is linked into its parent by name.  mknod creates a special
+ * i-node whose device number sits in the i-node.  dirname() is defined ONCE
+ * here, as a global, and every other unit calls it through the shared header.
+ *
+ * @version 1.0.0  @date 2026-09-21
  */
-#include "../include/fs.h"
-#include "../include/inode.h"
-#include "uiox_klibc.h"
+#include "uiox_kix_scfs_internal.h"
 
-/* ── fs_dirname: freestanding dirname replacement ────────────── */
-static char *fs_dirname(const char *path, char *out, size_t outsz)
+/* dirname() — split a path into its directory component (Bach Ch.5).
+ * SINGLE GLOBAL DEFINITION — mkdir.c owns it. */
+int uiox_kix_scfs_dirname(const char *path, char *out, size_t outlen)
 {
-    size_t len; const char *last = NULL; const char *p;
-    if (!path || !*path) { strncpy(out, ".", outsz-1); out[outsz-1]='\0'; return out; }
-    strncpy(out, path, outsz-1); out[outsz-1]='\0';
-    len = strlen(out);
-    while (len > 1 && out[len-1] == '/') out[--len] = '\0';
-    for (p = out; *p; p++) if (*p == '/') last = p;
-    if (!last)                    { strncpy(out, ".", outsz-1); out[outsz-1]='\0'; }
-    else if (last == out)         { out[1] = '\0'; }
-    else                          { out[last - out] = '\0'; }
-    return out;
-}
-/* ── fs_basename: freestanding basename replacement ──────────── */
-static const char *fs_basename(const char *path)
-{
-    const char *last = path; const char *p;
-    if (!path || !*path) return ".";
-    for (p = path; *p; p++) if (*p == '/' && *(p+1) != '\0') last = p+1;
-    return last;
-}
+    if (!path || !out || outlen == 0u) return -SCFS_EINVAL;
 
-/*
- * Algorithm mkdir
- * input : directory name, permissions
- * output: 0 on success
- */
-int fs_mkdir(const char *path, uint16_t mode)
-{
-    char        parent_buf[256];
-    const char *newname;
-    inode_t    *parent_ip;
-    inode_t    *ip;
+    size_t n = 0u;
+    while (path[n]) n++;                       /* strlen, freestanding-safe */
 
-    if (!path) return FS_ENOENT;
+    size_t end = n;
+    while (end > 1u && path[end - 1u] == '/') end--;
 
-    fs_dirname(path, parent_buf, sizeof parent_buf);
-    newname   = fs_basename(path);
-    parent_ip = namei(parent_buf);
-    if (!parent_ip) return FS_ENOENT;
+    size_t cut = end;
+    while (cut > 0u && path[cut - 1u] != '/') cut--;
 
-    if ((parent_ip->i_mode & IFMT) != IFDIR) {
-        iput(parent_ip); return FS_ENOTDIR;
+    if (cut == 0u) {                           /* no slash — current dir */
+        out[0] = '.';
+        out[1] = '\0';
+        return 1;
     }
-    if (!iaccess(parent_ip, 2)) { iput(parent_ip); return FS_EACCES; }
 
-    ip = ialloc(parent_ip->i_dev);
-    if (!ip) { iput(parent_ip); return FS_ENFILE; }
-
-    ip->i_mode  = (uint16_t)(IFDIR | (mode & ~(uint16_t)u.u_umask));
-    ip->i_nlink = 2;   /* '.' and parent */
-    ip->i_uid   = u.u_uid;
-    ip->i_gid   = u.u_gid;
-    ip->i_flag |= IUPD;
-
-    iupdate(ip);
-
-    printf("[mkdir] '%s' (ino=%u, parent='%s')\n",
-           newname, ip->i_number, parent_buf);
-
-    iput(ip);
-    iput(parent_ip);
-    return FS_OK;
+    if (cut >= outlen) return -SCFS_EINVAL;
+    for (size_t i = 0u; i < cut; i++) out[i] = path[i];
+    out[cut] = '\0';
+    return (int)cut;
 }
 
-int fs_rmdir(const char *path)
+/* mkdir() — allocate an i-node, link "." and "..", enter the name in the
+ * parent directory. */
+long uiox_kix_scfs_mkdir(uiox_reg_t uptr, uiox_reg_t mode,
+                         uiox_reg_t a2, uiox_reg_t a3, uiox_reg_t a4, uiox_reg_t a5)
 {
-    inode_t *ip;
-    if (!path) return FS_ENOENT;
-    ip = namei(path);
-    if (!ip) return FS_ENOENT;
-    if ((ip->i_mode & IFMT) != IFDIR) { iput(ip); return FS_ENOTDIR; }
-    if (u.u_uid != 0 && u.u_uid != ip->i_uid) { iput(ip); return FS_EPERM; }
-    /* In a real kernel: verify directory is empty first */
-    ip->i_nlink = 0;
-    ip->i_flag |= IUPD;
-    iupdate(ip);
-    iput(ip);
-    printf("[rmdir] '%s' removed\n", path);
-    return FS_OK;
+    (void)a2; (void)a3; (void)a4; (void)a5;
+    if (uptr == 0u) return -SCFS_EFAULT;
+
+    uiox_inode_t *parent = (uiox_inode_t *)0;
+    long rc = vfs_path_lookup((const char *)uptr, &parent, UIOX_VFS_PARENT);
+    if (rc < 0) return rc;
+    if (!parent || !parent->i_op || !parent->i_op->mkdir)
+        return -SCFS_ENOSYS;
+
+    return parent->i_op->mkdir(parent, (const char *)uptr,
+                               (uint32_t)mode & 0x0FFFu);
+}
+
+/* rmdir() — remove an empty directory: unlink it from the parent, then
+ * ifree() the i-node and fs_free() its block (Bach Ch.4). */
+long uiox_kix_scfs_rmdir(uiox_reg_t uptr,
+                         uiox_reg_t a1, uiox_reg_t a2, uiox_reg_t a3,
+                         uiox_reg_t a4, uiox_reg_t a5)
+{
+    (void)a1; (void)a2; (void)a3; (void)a4; (void)a5;
+    if (uptr == 0u) return -SCFS_EFAULT;
+
+    uiox_inode_t *inode = (uiox_inode_t *)0;
+    long rc = vfs_path_lookup((const char *)uptr, &inode, 0u);
+    if (rc < 0) return rc;
+    if (!inode) return -SCFS_ENOENT;
+    if (!(inode->i_mode & UIOX_S_IFDIR)) return -SCFS_ENOTDIR;
+    if (inode->i_size != 0u) return -SCFS_EBUSY;   /* not empty */
+
+    return (inode->i_op && inode->i_op->rmdir)
+         ? inode->i_op->rmdir(inode)
+         : -SCFS_ENOSYS;
+}
+
+/* mknod() — create a character device, block device, or FIFO.  Bach Ch.4:
+ * the device number is stored in the i-node; the node has no data blocks. */
+long uiox_kix_scfs_mknod(uiox_reg_t uptr, uiox_reg_t mode, uiox_reg_t dev,
+                         uiox_reg_t a3, uiox_reg_t a4, uiox_reg_t a5)
+{
+    (void)a3; (void)a4; (void)a5;
+    if (uptr == 0u) return -SCFS_EFAULT;
+
+    uint32_t type = (uint32_t)mode & UIOX_S_IFMT;
+    if (type != UIOX_S_IFCHR && type != UIOX_S_IFBLK && type != UIOX_S_IFIFO)
+        return -SCFS_EINVAL;                    /* mknod makes specials only */
+
+    char dir[256];
+    if (uiox_kix_scfs_dirname((const char *)uptr, dir, sizeof(dir)) < 0)
+        return -SCFS_EINVAL;
+
+    uiox_inode_t *parent = (uiox_inode_t *)0;
+    long rc = vfs_path_lookup(dir, &parent, 0u);
+    if (rc < 0) return rc;
+    if (!parent || !parent->i_op || !parent->i_op->mknod)
+        return -SCFS_ENOSYS;
+
+    uiox_inode_t *node = (uiox_inode_t *)0;
+    rc = parent->i_op->mknod(parent, (const char *)uptr, (uint32_t)mode,
+                             (uint32_t)dev, &node);
+    if (rc < 0) return rc;
+
+    if (node) {
+        node->i_rdev = (uint32_t)dev;
+        node->i_size = 0u;
+    }
+    return SCFS_OK;
 }

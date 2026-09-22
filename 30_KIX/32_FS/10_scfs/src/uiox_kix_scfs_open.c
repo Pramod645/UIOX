@@ -1,54 +1,61 @@
 /*
- *  30_KIX/32_FS/10_scfs/src/open.c  — freestanding fix v1.1
- *    FIXED: ../../33_PCS path, fprintf(stderr,...)
+ * 30_KIX/32_FS/10_scfs/src/uiox_kix_scfs_open.c
+ *
+ * open / creat
+ *
+ * Bach Ch.5 — namei() resolves the path; ialloc() creates a new i-node;
+ * Ch.7 falloc() allocates the descriptor + file-table entry.
+ *
+ * @version 1.0.0  @date 2026-09-21
  */
-#include "../include/fs.h"
-#include "../include/inode.h"
-#include "../include/file.h"
-#include "uiox_klibc.h"
+#include "uiox_kix_scfs_internal.h"
 
-/*
- * Algorithm open
- * input : file name, type of open, file permission
- * output: file descriptor
- */
-int fs_open(const char *path, int flags, uint16_t mode)
+/* open() — resolve the path, create when O_CREAT, truncate when O_TRUNC,
+ * then allocate a descriptor and return it. */
+long uiox_kix_scfs_open(uiox_reg_t uptr, uiox_reg_t flags, uiox_reg_t mode,
+                        uiox_reg_t a3, uiox_reg_t a4, uiox_reg_t a5)
 {
-    inode_t *ip;
-    file_t  *fp;
-    int      fd;
-    int      rwmode = (flags & O_RDWR) ? (O_RDONLY | O_WRONLY) : (flags & 3);
+    (void)a3; (void)a4; (void)a5;
+    if (uptr == 0u) return -SCFS_EFAULT;
 
-    if (flags & O_CREAT)
-        return fs_creat(path, mode);
+    uiox_inode_t *inode = (uiox_inode_t *)0;
+    long rc = vfs_path_lookup((const char *)uptr, &inode, (uint32_t)flags);
 
-    ip = namei(path);
-    if (!ip) return FS_ENOENT;
+    if (rc < 0) {
+        /* O_CREAT: the path does not exist — create it in its parent. */
+        if (!((uint32_t)flags & UIOX_O_CREAT)) return rc;
 
-    if ((rwmode & O_RDONLY) && !iaccess(ip, 4)) goto eacces;
-    if ((rwmode & O_WRONLY) && !iaccess(ip, 2)) goto eacces;
+        char dir[256];
+        if (uiox_kix_scfs_dirname((const char *)uptr, dir, sizeof(dir)) < 0)
+            return -SCFS_EINVAL;
 
-    /* No write on directory */
-    if ((rwmode & O_WRONLY) && (ip->i_mode & IFMT) == IFDIR)
-        goto eisdir;
+        uiox_inode_t *parent = (uiox_inode_t *)0;
+        rc = vfs_path_lookup(dir, &parent, 0u);
+        if (rc < 0) return rc;
+        if (!parent || !parent->i_op || !parent->i_op->create)
+            return -SCFS_ENOSYS;
 
-    fp = falloc();
-    if (!fp) { iput(ip); return FS_ENFILE; }
+        uiox_inode_t *created = (uiox_inode_t *)0;
+        rc = parent->i_op->create(parent, (const char *)uptr,
+                                  (uint32_t)mode & 0x0FFFu, &created);
+        if (rc < 0) return rc;
+        inode = created;
+    } else if ((uint32_t)flags & UIOX_O_TRUNC) {
+        if (inode->i_op && inode->i_op->truncate) {
+            rc = inode->i_op->truncate(inode, 0u);
+            if (rc < 0) return rc;
+        }
+    }
 
-    fd = ufalloc();
-    if (fd < 0) { f_close(fp); iput(ip); return FS_ENFILE; }
+    return (long)vfs_fd_alloc(inode, (uint32_t)flags, (uint32_t)mode & 0x0FFFu);
+}
 
-    fp->f_inode  = ip;
-    fp->f_offset = (flags & O_APPEND) ? ip->i_size : 0;
-    fp->f_flag   = (uint16_t)rwmode;
-    fp->f_count  = 1;
-
-    if (flags & O_TRUNC) itrunc(ip);
-
-    u.u_ofile.ufd_file[fd] = fp;
-    printf("[open] '%s' fd=%d flags=0x%x\n", path, fd, flags);
-    return fd;
-
-eacces: iput(ip); return FS_EACCES;
-eisdir: iput(ip); return FS_EISDIR;
+/* creat() — Bach Ch.5: equivalent to open(path, O_CREAT|O_WRONLY|O_TRUNC). */
+long uiox_kix_scfs_creat(uiox_reg_t uptr, uiox_reg_t mode,
+                         uiox_reg_t a2, uiox_reg_t a3, uiox_reg_t a4, uiox_reg_t a5)
+{
+    (void)a2; (void)a3; (void)a4; (void)a5;
+    return uiox_kix_scfs_open(uptr,
+                              UIOX_O_CREAT | UIOX_O_WRONLY | UIOX_O_TRUNC,
+                              mode, 0, 0, 0);
 }

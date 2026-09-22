@@ -1,92 +1,91 @@
 /*
- *  30_KIX/32_FS/10_scfs/src/mount.c  — freestanding fix v1.1
- *    FIXED: ../../33_PCS path, fprintf(stderr,...), for (int i=...)
+ * 30_KIX/32_FS/10_scfs/src/uiox_kix_scfs_mount.c
+ *
+ * mount / umount / umount2 / statfs / fstatfs
+ *
+ * Bach Ch.9 — the mount table holds one entry per mounted filesystem:
+ * device number, mount-point i-node, and the mounted-on superblock.  A path
+ * walk crossing a mount point is redirected to the mounted root.  umount
+ * refuses while the filesystem is busy and flushes dirty i-nodes first.
+ * Ch.4 — statfs reports the superblock's free-block / free-inode counts.
+ *
+ * Merged unit: the mount table and filesystem-statistics surface.
+ *
+ * @version 1.0.0  @date 2026-09-21
  */
-#include "../include/fs.h"
-#include "../include/inode.h"
-#include "../include/mount.h"
-#include "uiox_klibc.h"
+#include "uiox_kix_scfs_internal.h"
 
-mount_t mount_table[NMOUNT];
+/* ── mount / unmount ────────────────────────────────────────────────── */
 
-/*
- * Algorithm mount
- */
-int fs_mount(const char *special, const char *dir, int flags)
+/* mount() — attach a filesystem at a directory.
+ *   a0 = source   a1 = target mount point   a2 = fs type   a3 = flags   a4 = data */
+long uiox_kix_scfs_mount(uiox_reg_t src, uiox_reg_t tgt, uiox_reg_t fstype,
+                         uiox_reg_t flags, uiox_reg_t data, uiox_reg_t a5)
 {
-    inode_t *spec_ip, *dir_ip, *root_ip;
-    mount_t *mp;
-    uint16_t dev;
-    (void)flags;
+    (void)src; (void)flags; (void)data; (void)a5;
+    if (tgt == 0u || fstype == 0u) return -SCFS_EINVAL;
 
-    if (!special || !dir) return FS_ENOENT;
-    if (u.u_uid != 0) return FS_EPERM;
+    uiox_inode_t *mntpt = (uiox_inode_t *)0;
+    long rc = vfs_path_lookup((const char *)tgt, &mntpt, 0u);
+    if (rc < 0) return rc;
+    if (!mntpt) return -SCFS_ENOENT;
+    if (!(mntpt->i_mode & UIOX_S_IFDIR)) return -SCFS_ENOTDIR;
 
-    spec_ip = namei(special);
-    if (!spec_ip) return FS_ENOENT;
-    dev = (uint16_t)((spec_ip->i_major << 8) | spec_ip->i_minor);
-    iput(spec_ip);
-
-    dir_ip = namei(dir);
-    if (!dir_ip) return FS_ENOENT;
-    if ((dir_ip->i_mode & IFMT) != IFDIR) { iput(dir_ip); return FS_ENOTDIR; }
-
-    mp = mount_alloc();
-    if (!mp) { iput(dir_ip); return FS_EBUSY; }
-
-    mp->m_dev   = dev;
-    mp->m_bufp  = NULL;
-    mp->m_inodp = dir_ip;
-    dir_ip->i_flag |= IMOUNT;
-
-    root_ip = iget(dev, 1);
-    if (!root_ip) { mount_free(mp); iput(dir_ip); return FS_ENOENT; }
-    mp->m_mount_root = root_ip;
-    iput(root_ip);
-
-    printf("[mount] '%s' on '%s' dev=%u\n", special, dir, dev);
-    return FS_OK;
+    return vfs_mount((const char *)tgt, (const char *)fstype);
 }
 
-int fs_umount(const char *special)
+/* umount() — detach the filesystem mounted at a path.  Busy check, flush,
+ * then remove the mount-table entry (Bach Ch.9). */
+long uiox_kix_scfs_umount(uiox_reg_t tgt, uiox_reg_t flags,
+                          uiox_reg_t a2, uiox_reg_t a3, uiox_reg_t a4, uiox_reg_t a5)
 {
-    inode_t *spec_ip, *mnt_ip;
-    uint16_t dev;
-    mount_t *mp;
+    (void)flags; (void)a2; (void)a3; (void)a4; (void)a5;
+    if (tgt == 0u) return -SCFS_EFAULT;
 
-    if (!special) return FS_ENOENT;
-    if (u.u_uid != 0) return FS_EPERM;
+    if (vfs_mount_busy((const char *)tgt)) return -SCFS_EBUSY;
 
-    spec_ip = namei(special);
-    if (!spec_ip) return FS_ENOENT;
-    dev = (uint16_t)((spec_ip->i_major << 8) | spec_ip->i_minor);
-    iput(spec_ip);
+    long rc = vfs_sync_all();               /* flush before detach */
+    if (rc < 0) return rc;
 
-    mp = getmount(dev);
-    if (!mp) return FS_ENOENT;
-
-    mnt_ip = mp->m_inodp;
-    if (mnt_ip) {
-        mnt_ip->i_flag &= (uint16_t)~IMOUNT;
-        iput(mnt_ip);
-    }
-    mount_free(mp);
-    printf("[umount] '%s' unmounted\n", special);
-    return FS_OK;
+    return vfs_unmount((const char *)tgt);
 }
 
-mount_t *mount_alloc(void)
+/* umount2() — unmount with flags; MNT_FORCE skips the busy check. */
+long uiox_kix_scfs_umount2(uiox_reg_t tgt, uiox_reg_t flags,
+                           uiox_reg_t a2, uiox_reg_t a3, uiox_reg_t a4, uiox_reg_t a5)
 {
-    int i;
-    for (i = 0; i < NMOUNT; i++)
-        if (mount_table[i].m_dev == 0) return &mount_table[i];
-    return NULL;
+    (void)a2; (void)a3; (void)a4; (void)a5;
+    if (tgt == 0u) return -SCFS_EFAULT;
+
+    if (!((uint32_t)flags & UIOX_MNT_FORCE) && vfs_mount_busy((const char *)tgt))
+        return -SCFS_EBUSY;
+
+    long rc = vfs_sync_all();
+    if (rc < 0) return rc;
+
+    return vfs_unmount((const char *)tgt);
 }
-void mount_free(mount_t *mp) { if (mp) memset(mp, 0, sizeof(mount_t)); }
-mount_t *getmount(uint16_t dev)
+
+/* ── filesystem statistics ──────────────────────────────────────────── */
+
+/* statfs() — filesystem statistics by path (Bach Ch.4 superblock counts). */
+long uiox_kix_scfs_statfs(uiox_reg_t uptr, uiox_reg_t ubuf,
+                          uiox_reg_t a2, uiox_reg_t a3, uiox_reg_t a4, uiox_reg_t a5)
 {
-    int i;
-    for (i = 0; i < NMOUNT; i++)
-        if (mount_table[i].m_dev == dev) return &mount_table[i];
-    return NULL;
+    (void)a2; (void)a3; (void)a4; (void)a5;
+    if (uptr == 0u || ubuf == 0u) return -SCFS_EFAULT;
+    return vfs_statfs((const char *)uptr, (void *)ubuf);
+}
+
+/* fstatfs() — same, addressed by the descriptor's superblock. */
+long uiox_kix_scfs_fstatfs(uiox_reg_t fd, uiox_reg_t ubuf,
+                           uiox_reg_t a2, uiox_reg_t a3, uiox_reg_t a4, uiox_reg_t a5)
+{
+    (void)a2; (void)a3; (void)a4; (void)a5;
+    if (ubuf == 0u) return -SCFS_EFAULT;
+    uiox_file_t *f;
+    long rc = scfs_fd_file(fd, &f);
+    if (rc < 0) return rc;
+    if (!f->f_inode) return -SCFS_EBADF;
+    return vfs_statfs_sb(f->f_inode->i_dev, (void *)ubuf);
 }

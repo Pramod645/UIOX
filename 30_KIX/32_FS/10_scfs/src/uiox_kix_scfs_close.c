@@ -1,24 +1,42 @@
 /*
- *  30_KIX/32_FS/10_scfs/src/close.c  — freestanding fix v1.1
- *    FIXED: ../../33_PCS path, fprintf(stderr,...)
+ * 30_KIX/32_FS/10_scfs/src/uiox_kix_scfs_close.c
+ *
+ * close / fclose
+ *
+ * Bach Ch.7 close() — drop the descriptor, decrement the file-table
+ * reference count, and iput() the i-node only when no other descriptor
+ * still shares the entry.  A deleted-but-open file keeps working for
+ * exactly this reason.
+ *
+ * @version 1.0.0  @date 2026-09-21
  */
-#include "../include/fs.h"
-#include "../include/file.h"
-#include "uiox_klibc.h"
+#include "uiox_kix_scfs_internal.h"
 
-/*
- * Algorithm close
- * input : user file descriptor
- * output: 0 on success
- */
-int fs_close(int fd)
+/* fclose() — flush, release the file-table reference, iput() on last use. */
+long uiox_kix_scfs_fclose(uiox_reg_t fd,
+                          uiox_reg_t a1, uiox_reg_t a2, uiox_reg_t a3,
+                          uiox_reg_t a4, uiox_reg_t a5)
 {
-    file_t *fp;
-    if (fd < 0 || fd >= NOFILE) return FS_EBADF;
-    fp = u.u_ofile.ufd_file[fd];
-    if (!fp) return FS_EBADF;
-    u.u_ofile.ufd_file[fd] = NULL;
-    f_close(fp);
-    printf("[close] fd=%d\n", fd);
-    return FS_OK;
+    (void)a1; (void)a2; (void)a3; (void)a4; (void)a5;
+    uiox_file_t *f;
+    long rc = scfs_fd_file(fd, &f);
+    if (rc < 0) return rc;
+
+    if (f->f_op && f->f_op->close) f->f_op->close(f);
+
+    if (f->f_count > 0u) f->f_count--;
+
+    if (f->f_count == 0u && f->f_inode &&
+        f->f_inode->i_op && f->f_inode->i_op->iput)
+        f->f_inode->i_op->iput(f->f_inode);
+
+    return vfs_fd_free((uint32_t)fd);
+}
+
+/* close() — the SCFS_NR_close entry; identical to fclose(). */
+long uiox_kix_scfs_close(uiox_reg_t fd,
+                         uiox_reg_t a1, uiox_reg_t a2, uiox_reg_t a3,
+                         uiox_reg_t a4, uiox_reg_t a5)
+{
+    return uiox_kix_scfs_fclose(fd, a1, a2, a3, a4, a5);
 }
