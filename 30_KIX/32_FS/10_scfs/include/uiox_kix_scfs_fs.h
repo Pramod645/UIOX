@@ -1,10 +1,12 @@
 /*
- * 30_KIX/32_FS/10_scfs/include/uiox_kix_scfs_fs.h   — modernised
+ * 30_KIX/32_FS/10_scfs/include/uiox_kix_scfs_fs.h   — v3.0.0
  *
- * UIOX filesystem front end.  Bach's fs_*() prototypes are kept (they are
- * the syscall bodies); dispatch goes through the ops tables.
+ * UIOX filesystem front end.  Bach's fs_*() syscall bodies, dispatched
+ * through the ops tables.
  *
- * @version 2.0.0  @date 2026-09-21
+ * GAP FIXES APPLIED (#1 64-bit sizes, #5 write-ordering, #6 TRIM,
+ *                     #7 64-bit time, #8 xattr)
+ * @version 3.0.0  @date 2026-09-21
  */
 #ifndef UIOX_KIX_SCFS_FS_H
 #define UIOX_KIX_SCFS_FS_H
@@ -16,32 +18,30 @@
 #include "uiox_kix_scfs_ops.h"
 #include "uiox_klibc.h"
 
-/* ── stat ───────────────────────────────────────────────────────────── */
 typedef struct stat {
-    uint32_t st_dev;        /* widened: device numbers exceed 16 bits  */
-    uint32_t st_ino;
-    uint16_t st_mode;
-    uint16_t st_nlink;
-    uint16_t st_uid;
-    uint16_t st_gid;
-    uint64_t st_size;       /* widened: files beyond 4 GB              */
-    time_t   st_atime;
-    time_t   st_mtime;
-    time_t   st_ctime;
-    uint8_t  st_major;
-    uint8_t  st_minor;
+    uint32_t       st_dev;
+    uint32_t       st_ino;
+    uint16_t       st_mode;
+    uint16_t       st_nlink;
+    uint16_t       st_uid;
+    uint16_t       st_gid;
+    uint64_t       st_size;          /* GAP #1 */
+    uiox_time64_t  st_atime;         /* GAP #7 */
+    uiox_time64_t  st_mtime;
+    uiox_time64_t  st_ctime;
+    uiox_time64_t  st_btime;
+    uint8_t        st_major;
+    uint8_t        st_minor;
 } stat_t;
 
-/* ── directory entry ────────────────────────────────────────────────── */
-#define MAXNAMLEN   255     /* widened from v7's 14 */
+#define MAXNAMLEN   255
 typedef struct dirent {
-    uint32_t d_ino;
-    uint16_t d_reclen;      /* getdents64 needs a stride field */
-    uint8_t  d_type;        /* DT_REG / DT_DIR / ... */
+    uint64_t d_ino;
+    uint16_t d_reclen;
+    uint8_t  d_type;
     char     d_name[MAXNAMLEN + 1];
 } dirent_t;
 
-/* d_type values */
 #define DT_UNKNOWN 0
 #define DT_REG     1
 #define DT_DIR     2
@@ -50,7 +50,7 @@ typedef struct dirent {
 #define DT_FIFO    5
 #define DT_LNK     6
 
-/* ── error codes — THE canonical set (SCFS aliases these) ───────────── */
+/* error codes — THE canonical set */
 #define FS_OK        0
 #define FS_ENOENT   -1
 #define FS_EACCES   -2
@@ -69,14 +69,20 @@ typedef struct dirent {
 #define FS_EFAULT  -15
 #define FS_ENOMEM  -16
 #define FS_ERANGE  -17
+#define FS_ENOSPC  -18   /* no free blocks (GAP #2) */
+#define FS_EFBIG   -19   /* file exceeds backend max  */
 
-/* ── syscall bodies (Bach Ch.5/7; called by scfs_dispatch) ──────────── */
+/* sync modes (GAP #5) */
+#define UIOX_SYNC_LAZY    0
+#define UIOX_SYNC_ORDERED 1
+#define UIOX_SYNC_FULL    2
+
 int  fs_open   (const char *path, int flags, uint16_t mode);
 int  fs_read   (int fd, char *buf, uint32_t count);
 int  fs_write  (int fd, const char *buf, uint32_t count);
-int  fs_pread  (int fd, char *buf, uint32_t count, uint32_t off);
-int  fs_pwrite (int fd, const char *buf, uint32_t count, uint32_t off);
-int  fs_lseek  (int fd, int32_t offset, int whence);
+int  fs_pread  (int fd, char *buf, uint32_t count, uint64_t off);
+int  fs_pwrite (int fd, const char *buf, uint32_t count, uint64_t off);
+int  fs_lseek  (int fd, int64_t offset, int whence);
 int  fs_close  (int fd);
 int  fs_dup    (int fd);
 int  fs_fcntl  (int fd, int cmd, int arg);
@@ -98,20 +104,28 @@ int  fs_readlink(const char *path, char *buf, uint32_t len);
 int  fs_rename (const char *old, const char *new);
 int  fs_access (const char *path, int mode);
 int  fs_chmod  (const char *path, uint16_t mode);
-int  fs_truncate(const char *path, uint64_t size);
-int  fs_ftruncate(int fd, uint64_t size);
+int  fs_truncate(const char *path, uint64_t size);   /* GAP #1 */
+int  fs_ftruncate(int fd, uint64_t size);            /* GAP #1 */
 int  fs_getdents64(int fd, void *buf, uint32_t count);
 int  fs_fsync  (int fd);
 int  fs_sync   (void);
+int  fs_sync_mode(int mode);                          /* GAP #5 */
+int  fs_discard(uint16_t dev, uint64_t offset, uint64_t len); /* GAP #6 */
 int  fs_mount  (const char *dev, const char *dir, int flags);
 int  fs_umount (const char *dir, int flags);
 int  fs_statfs (const char *path, void *buf);
+int  fs_statvfs(const char *path, void *buf);
 int  fs_ioctl  (int fd, uint32_t req, void *arg);
 int  fs_mmap   (int fd, uint32_t length, uint32_t prot, uint32_t flags,
-                uint32_t offset);
+                uint64_t offset);                     /* GAP #1 */
 
-/* ── backend registration ───────────────────────────────────────────── */
-/* A backend calls this to install its ops tables.  UNFS registers here. */
+/* xattr (GAP #8) */
+int  fs_setxattr(const char *path, const char *name,
+                 const void *val, uint32_t len, int flags);
+int  fs_getxattr(const char *path, const char *name, void *val, uint32_t len);
+int  fs_listxattr(const char *path, char *list, uint32_t size);
+int  fs_removexattr(const char *path, const char *name);
+
 int  fs_register_fs(const char *name,
                     const uiox_inode_ops_t *iop,
                     const uiox_file_ops_t  *fop);

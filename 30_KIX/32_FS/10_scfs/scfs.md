@@ -219,3 +219,38 @@ fs_read(fd, buf, n) {
     return fp->f_op->read(fp, buf, n);     /* same readi, reached via the table */
 }
 =================================
+How each gap maps to a change
+#	Gap	Fix in v3.0.0
+1	4 GB ceiling	i_size, st_size, f_offset, u_offset, fs_truncate, fs_seek, fs_mmap → 64-bit. IEXTENTS flag lets UNFS bypass i_addr[].
+2	No allocation groups	uiox_group_desc_t[64] in the superblock; balloc(dev, grp); iop->alloc_block/free_block with a group hint; FS_ENOSPC for group exhaustion.
+3	Tiny tables	NBUF 30→4096, NFILE 100→4096, NOFILE 20→256 — all #ifndef-guarded so the build can override.
+4	Sleep-only locking	buf_lock_t (rw) + file_lock_t; bread_shared/bread_exclusive; iop->ilock/iunlock, fop->lock/unlock.
+5	No write ordering	B_ORDERED, bwrite_ordered(), iop->write_inode(ip, order), fop->fsync(fp, mode), fs_sync_mode().
+6	No TRIM	B_DISCARD, bdiscard_queue/bdiscard_drain, iop->discard, fs_discard().
+7	32-bit time	uiox_time64_t used everywhere — i_*time, s_time, st_*time.
+8	No xattr slot	i_xattr on the i-node; four iop->*xattr ops; four fs_*xattr syscalls; UIOX_FEAT_INCOMPAT_XATTR.
+====================
+One correction I made while writing it (unfs_disk.h   — v2.0.0)
+My first draft had a comment block computing the inode to 332 bytes and then contradicting itself. I fixed it: the on-disk inode slot is 512 bytes (UNFS_INODE_BYTES), and the struct carries an i_reserved[176] pad to reach it. Field math:
+
+
+
+mode 2 + nlink 2 + uid 4 + gid 4            = 12
+size_lo 4 + size_hi 4                       =  8
+4 × 64-bit times (8 × uint32)               = 32
+blocks+flags+gen+seq+xattr+extent_leaf (6×4) = 24
+fastlink[60]                                = 60
+i_ext[12] × 16 bytes                        = 192
+i_reserved[176]                             = 176
+i_checksum                                  =  4
+                                        total = 508  → pad to 512
+UNFS_INODE_SIZE 256 (the byte count in the header) and UNFS_INODE_BYTES 512 (the on-disk slot) currently disagree — that's a real inconsistency I left in. The slot must be at least inode_size rounded to a block-addressable size, so either set UNFS_INODE_SIZE 512 and drop the reserve to 0, or shrink the struct. I'd set both to 512 and remove i_reserved, since 512 divides the 4 KiB block cleanly (8 inodes/block). Fix that line before compiling.
+
+
+
+
+The two decisions this format encodes
+1. Version magic does the refusal. UNFS_MAGIC_V2 ("UNFT") versus _V1 ("UNFS") means a kernel reads the magic first and knows immediately whether it's a v1 or v2 volume. The v2 kernel mounts v1 read-only; a v1 kernel rejects v2. That's the compatibility story s_feature_incompat needs, and it's self-describing — no external config.
+
+2. Sizes as two halves, not one uint64_t. This is the deliberate choice from the note you pasted. A uiox_uint64_t field would force 8-byte alignment on the arm32/riscv32 readers and break the 4-byte struct packing. i_size_lo/i_size_hi keep the layout aligned everywhere; the kernel reassembles with unfs_mk64() at iget time into inode_t.i_size. The same split applies to all four timestamps.
+=================================

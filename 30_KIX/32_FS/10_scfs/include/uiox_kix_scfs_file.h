@@ -1,10 +1,10 @@
 /*
- * 30_KIX/32_FS/10_scfs/include/uiox_kix_scfs_file.h   — modernised
+ * 30_KIX/32_FS/10_scfs/include/uiox_kix_scfs_file.h   — v3.0.0
  *
- * UIOX file table + per-process descriptor table + u-area.
- * Bach Ch.7 layout, with the op-table pointer and the process-state fix.
+ * UIOX file table + per-process descriptor table + u-area (Bach Ch.7).
  *
- * @version 2.0.0  @date 2026-09-21
+ * GAP FIXES APPLIED (#3 table size, #4 concurrency)
+ * @version 3.0.0  @date 2026-09-21
  */
 #ifndef UIOX_KIX_SCFS_FILE_H
 #define UIOX_KIX_SCFS_FILE_H
@@ -13,10 +13,13 @@
 #include "uiox_kix_scfs_ops.h"
 #include "uiox_klibc.h"
 
-#define NFILE       100     /* max open files system-wide */
-#define NOFILE      20      /* max open files per process */
+#ifndef NFILE
+#define NFILE       4096          /* GAP #3: tunable, was 100 */
+#endif
+#ifndef NOFILE
+#define NOFILE      256           /* GAP #3: tunable, was 20  */
+#endif
 
-/* File open flags (match the O_* values in uiox_vfs.h) */
 #define FREAD       0x0001
 #define FWRITE      0x0002
 #define FAPPEND     0x0004
@@ -28,42 +31,51 @@
 #define O_EXCL      0x0080
 #define O_TRUNC     0x0200
 #define O_APPEND    0x0400
+#define O_DIRECT    0x0800
+#define O_NONBLOCK  0x1000
 
-/* File-table entry (Bach Ch.7) */
+#define UIOX_ATIME_ALWAYS   0
+#define UIOX_ATIME_RELATIME 1
+#define UIOX_ATIME_NOATIME  2
+
+/* GAP #4: per-open-file lock */
+typedef struct file_lock {
+    int16_t   l_excl;
+    int16_t   l_readers;
+    void     *l_waitq;
+} file_lock_t;
+
 typedef struct file {
-    uint16_t                  f_flag;    /* FREAD / FWRITE / FAPPEND     */
-    uint16_t                  f_count;   /* reference count (dup ++)     */
-    inode_t                  *f_inode;   /* i-node this entry names      */
-    uint32_t                  f_offset;  /* current read/write offset    */
-    const uiox_file_ops_t    *f_op;      /* data ops (copied from i_fop) */
-    struct file              *f_next;    /* free-list link               */
+    uint16_t               f_flag;
+    uint16_t               f_count;
+    inode_t               *f_inode;
+    uint64_t               f_offset;    /* 64-bit (was uint32) */
+    const uiox_file_ops_t *f_op;
+    struct file           *f_next;
+    file_lock_t            f_lock;      /* GAP #4 */
+    uint32_t               f_seq;
 } file_t;
 
-/* Per-process user file descriptor table */
 typedef struct ufd {
-    file_t   *ufd_file[NOFILE];          /* open file pointers           */
+    file_t   *ufd_file[NOFILE];
 } ufd_t;
 
-/* u area — PROCESS STATE (Bach Ch.7).  One per process, not a global. */
 typedef struct u_area {
-    ufd_t     u_ofile;                   /* open file table              */
-    inode_t  *u_cdir;                    /* current directory inode      */
-    inode_t  *u_rdir;                    /* root directory inode         */
+    ufd_t     u_ofile;
+    inode_t  *u_cdir;
+    inode_t  *u_rdir;
     uint16_t  u_uid;
     uint16_t  u_gid;
     uint16_t  u_umask;
-    uint32_t  u_offset;                  /* current file offset          */
-    int       u_segflg;                  /* 0 = user, 1 = kernel         */
-    int       u_error;                   /* error code                   */
+    uint64_t  u_offset;
+    int       u_segflg;
+    int       u_error;
+    uint8_t   u_atime_policy;
 } u_area_t;
 
-/* System-wide file table (Bach NFILE) */
 extern file_t file_table[NFILE];
-
-/* Process u-area accessor — supplied by 34_PCS, one per process. */
 extern u_area_t *u_area(void);
 
-/* File-table operations (Bach Ch.7) */
 file_t *falloc(void);
 void    f_close(file_t *fp);
 int     ufalloc(void);
