@@ -1,99 +1,45 @@
-/*
- * 30_KIX/32_FS/10_scfs/src/uiox_kix_scfs_read.c
- *
- * read / pread / pwrite / readv / writev
- *
- * Bach Ch.7 — pread/pwrite are private-offset read/write (lseek/read/lseek
- * back, so a shared file-table entry keeps its f_pos); readv/writev walk the
- * iovec and hand each segment to the file's read/write operation.
- *
- * @version 1.0.0  @date 2026-09-21
- */
 #include "uiox_kix_scfs_internal.h"
 
-/* read() — sequential read into the user buffer, advancing f_pos. */
-long uiox_kix_scfs_read(uiox_reg_t fd, uiox_reg_t ubuf, uiox_reg_t count,
-                        uiox_reg_t a3, uiox_reg_t a4, uiox_reg_t a5)
+static int32_t scfs_do_read(int fd, char *buf, uint32_t count, int positioned,
+                            uint32_t pos)
 {
-    (void)a3; (void)a4; (void)a5;
-    uiox_file_t *f;
-    long rc = scfs_fd_file(fd, &f);
+    scfs_file_t *f = scfs_getf(fd);
+    uint32_t     off;
+    uint32_t     moved = 0u;
+    int32_t      rc;
+
+    if (!f) return SCFS_EBADF;
+    if (!buf && count) return SCFS_EFAULT;
+    if (!(f->f_flag & FREAD)) return SCFS_EBADF;
+
+    off = positioned ? pos : f->f_offset;
+    rc  = readi_at(f->f_inode, buf, count, off, &moved);
     if (rc < 0) return rc;
-    if (!f->f_op || !f->f_op->read) return -SCFS_ENOSYS;
-    return (long)f->f_op->read(f, (void *)ubuf, (size_t)count, &f->f_pos);
+
+    if (!positioned) f->f_offset = off + moved;
+    return (int32_t)moved;
 }
 
-/* pread() — positioned read; f_pos is saved and restored. */
-long uiox_kix_scfs_pread(uiox_reg_t fd, uiox_reg_t ubuf, uiox_reg_t count,
-                         uiox_reg_t off, uiox_reg_t a4, uiox_reg_t a5)
+int32_t uiox_kix_scfs_read(int fd, char *buf, uint32_t count)
+{ return scfs_do_read(fd, buf, count, 0, 0u); }
+
+int32_t uiox_kix_scfs_pread(int fd, char *buf, uint32_t count, uint32_t off)
+{ return scfs_do_read(fd, buf, count, 1, off); }
+
+int32_t uiox_kix_scfs_readv(int fd, const void *iov, int iovcnt)
 {
-    (void)a4; (void)a5;
-    uiox_file_t *f;
-    long rc = scfs_fd_file(fd, &f);
-    if (rc < 0) return rc;
-    if (!f->f_op || !f->f_op->read) return -SCFS_ENOSYS;
+    const scfs_iovec_t *v = (const scfs_iovec_t *)iov;
+    int32_t total = 0;
+    int     i;
 
-    uint64_t saved = f->f_pos;
-    f->f_pos = (uint64_t)off;
-    ssize_t n = f->f_op->read(f, (void *)ubuf, (size_t)count, &f->f_pos);
-    f->f_pos = saved;
-    return (long)n;
-}
+    if (!iov || iovcnt < 0) return SCFS_EINVAL;
 
-/* pwrite() — positioned write; f_pos saved and restored. */
-long uiox_kix_scfs_pwrite(uiox_reg_t fd, uiox_reg_t ubuf, uiox_reg_t count,
-                          uiox_reg_t off, uiox_reg_t a4, uiox_reg_t a5)
-{
-    (void)a4; (void)a5;
-    uiox_file_t *f;
-    long rc = scfs_fd_file(fd, &f);
-    if (rc < 0) return rc;
-    if (!f->f_op || !f->f_op->write) return -SCFS_ENOSYS;
-
-    uint64_t saved = f->f_pos;
-    f->f_pos = (uint64_t)off;
-    ssize_t n = f->f_op->write(f, (const void *)ubuf, (size_t)count, &f->f_pos);
-    f->f_pos = saved;
-    return (long)n;
-}
-
-/* readv() — scatter read across the iovec until it is full or the file ends. */
-long uiox_kix_scfs_readv(uiox_reg_t fd, uiox_reg_t iov_uptr, uiox_reg_t iovcnt,
-                         uiox_reg_t a3, uiox_reg_t a4, uiox_reg_t a5)
-{
-    (void)a3; (void)a4; (void)a5;
-    uiox_file_t *f;
-    long rc = scfs_fd_file(fd, &f);
-    if (rc < 0) return rc;
-    if (!f->f_op || !f->f_op->read) return -SCFS_ENOSYS;
-
-    const uiox_iovec_t *iov = (const uiox_iovec_t *)iov_uptr;
-    long total = 0;
-    for (uint32_t i = 0u; i < (uint32_t)iovcnt; i++) {
-        ssize_t n = f->f_op->read(f, iov[i].iov_base, iov[i].iov_len, &f->f_pos);
-        if (n < 0) return (total > 0) ? total : (long)n;
+    for (i = 0; i < iovcnt; i++) {
+        int32_t n = scfs_do_read(fd, (char *)v[i].base, (uint32_t)v[i].len,
+                                 0, 0u);
+        if (n < 0) return (total > 0) ? total : n;
         total += n;
-        if ((size_t)n < iov[i].iov_len) break;
-    }
-    return total;
-}
-
-/* writev() — gather write across the iovec. */
-long uiox_kix_scfs_writev(uiox_reg_t fd, uiox_reg_t iov_uptr, uiox_reg_t iovcnt,
-                          uiox_reg_t a3, uiox_reg_t a4, uiox_reg_t a5)
-{
-    (void)a3; (void)a4; (void)a5;
-    uiox_file_t *f;
-    long rc = scfs_fd_file(fd, &f);
-    if (rc < 0) return rc;
-    if (!f->f_op || !f->f_op->write) return -SCFS_ENOSYS;
-
-    const uiox_iovec_t *iov = (const uiox_iovec_t *)iov_uptr;
-    long total = 0;
-    for (uint32_t i = 0u; i < (uint32_t)iovcnt; i++) {
-        ssize_t n = f->f_op->write(f, iov[i].iov_base, iov[i].iov_len, &f->f_pos);
-        if (n < 0) return (total > 0) ? total : (long)n;
-        total += n;
+        if (n < (int32_t)v[i].len) break;
     }
     return total;
 }

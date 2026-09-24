@@ -1,113 +1,132 @@
-/*
- * 30_KIX/32_FS/10_scfs/src/uiox_kix_scfs_mkdir.c
- *
- * mkdir / rmdir / mknod / dirname
- *
- * Bach Ch.4 — ialloc() allocates an i-node, ifree() frees it; Ch.5 — a new
- * directory is linked into its parent by name.  mknod creates a special
- * i-node whose device number sits in the i-node.  dirname() is defined ONCE
- * here, as a global, and every other unit calls it through the shared header.
- *
- * @version 1.0.0  @date 2026-09-21
- */
 #include "uiox_kix_scfs_internal.h"
 
-/* dirname() — split a path into its directory component (Bach Ch.5).
- * SINGLE GLOBAL DEFINITION — mkdir.c owns it. */
-int uiox_kix_scfs_dirname(const char *path, char *out, size_t outlen)
+/*
+ * Bach's Algorithm mkdir: identical to mknod except that the inode gets
+ * the directory type and the caller creates the "." and ".." entries.
+ *
+ * ── the two link counts, which is the part that bites ────────────────
+ * A directory starts at link count 2, not 1: its own "." and the entry
+ * its PARENT holds.  The parent's link count also rises by one, because
+ * the new directory's ".." points back.  Getting this wrong makes find
+ * count a directory twice or never.
+ *
+ * ── order ────────────────────────────────────────────────────────────
+ * The parent entry is written FIRST, then "." and "..".  Either order
+ * leaves a crash window; this one leaves the child INVISIBLE rather than
+ * BROKEN — an unreferenced inode is recoverable by fsck, a directory with
+ * no "." is not.
+ */
+int uiox_kix_scfs_mkdir(const char *path, uint16_t perm)
 {
-    if (!path || !out || outlen == 0u) return -SCFS_EINVAL;
+    InCoreInode *dir;
+    InCoreInode *ip;
+    char         parent[SCFS_PATH_MAX];
+    const char  *name = (const char *)0;
+    int          rc;
 
-    size_t n = 0u;
-    while (path[n]) n++;                       /* strlen, freestanding-safe */
+    if (!path) return SCFS_EFAULT;
 
-    size_t end = n;
-    while (end > 1u && path[end - 1u] == '/') end--;
+    rc = scfs_path_split(path, parent, sizeof(parent), &name);
+    if (rc != SCFS_OK) return rc;
 
-    size_t cut = end;
-    while (cut > 0u && path[cut - 1u] != '/') cut--;
-
-    if (cut == 0u) {                           /* no slash — current dir */
-        out[0] = '.';
-        out[1] = '\0';
-        return 1;
+    dir = namei(parent, scfs_cwd_get(), scfs_uid_get(), scfs_gid_get());
+    if (!dir) return SCFS_ENOENT;
+    if (!SCFS_IS_DIR(dir->mode)) { iput(dir); return SCFS_ENOTDIR; }
+    if (!inode_access_ok(dir, scfs_uid_get(), scfs_gid_get(), 0, 1, 1)) {
+        iput(dir);
+        return SCFS_EACCES;
     }
 
-    if (cut >= outlen) return -SCFS_EINVAL;
-    for (size_t i = 0u; i < cut; i++) out[i] = path[i];
-    out[cut] = '\0';
-    return (int)cut;
-}
+    if (dir_lookup(dir, name) != 0u) { iput(dir); return SCFS_EEXIST; }
 
-/* mkdir() — allocate an i-node, link "." and "..", enter the name in the
- * parent directory. */
-long uiox_kix_scfs_mkdir(uiox_reg_t uptr, uiox_reg_t mode,
-                         uiox_reg_t a2, uiox_reg_t a3, uiox_reg_t a4, uiox_reg_t a5)
-{
-    (void)a2; (void)a3; (void)a4; (void)a5;
-    if (uptr == 0u) return -SCFS_EFAULT;
+    ip = ialloc(FT_DIR, scfs_apply_umask(perm), 0u, 0u);
+    if (!ip) { iput(dir); return SCFS_ENOSPC; }
 
-    uiox_inode_t *parent = (uiox_inode_t *)0;
-    long rc = vfs_path_lookup((const char *)uptr, &parent, UIOX_VFS_PARENT);
-    if (rc < 0) return rc;
-    if (!parent || !parent->i_op || !parent->i_op->mkdir)
-        return -SCFS_ENOSYS;
-
-    return parent->i_op->mkdir(parent, (const char *)uptr,
-                               (uint32_t)mode & 0x0FFFu);
-}
-
-/* rmdir() — remove an empty directory: unlink it from the parent, then
- * ifree() the i-node and fs_free() its block (Bach Ch.4). */
-long uiox_kix_scfs_rmdir(uiox_reg_t uptr,
-                         uiox_reg_t a1, uiox_reg_t a2, uiox_reg_t a3,
-                         uiox_reg_t a4, uiox_reg_t a5)
-{
-    (void)a1; (void)a2; (void)a3; (void)a4; (void)a5;
-    if (uptr == 0u) return -SCFS_EFAULT;
-
-    uiox_inode_t *inode = (uiox_inode_t *)0;
-    long rc = vfs_path_lookup((const char *)uptr, &inode, 0u);
-    if (rc < 0) return rc;
-    if (!inode) return -SCFS_ENOENT;
-    if (!(inode->i_mode & UIOX_S_IFDIR)) return -SCFS_ENOTDIR;
-    if (inode->i_size != 0u) return -SCFS_EBUSY;   /* not empty */
-
-    return (inode->i_op && inode->i_op->rmdir)
-         ? inode->i_op->rmdir(inode)
-         : -SCFS_ENOSYS;
-}
-
-/* mknod() — create a character device, block device, or FIFO.  Bach Ch.4:
- * the device number is stored in the i-node; the node has no data blocks. */
-long uiox_kix_scfs_mknod(uiox_reg_t uptr, uiox_reg_t mode, uiox_reg_t dev,
-                         uiox_reg_t a3, uiox_reg_t a4, uiox_reg_t a5)
-{
-    (void)a3; (void)a4; (void)a5;
-    if (uptr == 0u) return -SCFS_EFAULT;
-
-    uint32_t type = (uint32_t)mode & UIOX_S_IFMT;
-    if (type != UIOX_S_IFCHR && type != UIOX_S_IFBLK && type != UIOX_S_IFIFO)
-        return -SCFS_EINVAL;                    /* mknod makes specials only */
-
-    char dir[256];
-    if (uiox_kix_scfs_dirname((const char *)uptr, dir, sizeof(dir)) < 0)
-        return -SCFS_EINVAL;
-
-    uiox_inode_t *parent = (uiox_inode_t *)0;
-    long rc = vfs_path_lookup(dir, &parent, 0u);
-    if (rc < 0) return rc;
-    if (!parent || !parent->i_op || !parent->i_op->mknod)
-        return -SCFS_ENOSYS;
-
-    uiox_inode_t *node = (uiox_inode_t *)0;
-    rc = parent->i_op->mknod(parent, (const char *)uptr, (uint32_t)mode,
-                             (uint32_t)dev, &node);
-    if (rc < 0) return rc;
-
-    if (node) {
-        node->i_rdev = (uint32_t)dev;
-        node->i_size = 0u;
+    if (dir_add(dir, name, ip->ino) != 0) {
+        iput(ip);
+        iput(dir);
+        return SCFS_EIO;
     }
+
+    if (dir_add(ip, ".", ip->ino) != 0 ||
+        dir_add(ip, "..", dir->ino) != 0) {
+        /* roll the parent entry back — the child never became visible */
+        dir_remove(dir, name);
+        iput(ip);
+        iput(dir);
+        return SCFS_EIO;
+    }
+
+    /* ── the two link counts ───────────────────────────────────────── */
+    ip->nlink = 2;          /* "." and the parent's entry */
+
+    dir->nlink++;           /* the child's ".." points back at us */
+    dir->flags |= (IFLAG_CHANGED | IFLAG_MODIFIED);
+    iupdate(dir);
+
+    ip->flags |= (IFLAG_CHANGED | IFLAG_MODIFIED);
+    iupdate(ip);
+
+    iput(dir);
+    iput(ip);
+    return SCFS_OK;
+}
+
+/*
+ * rmdir — the reverse, and stricter than unlink.  Bach: a directory may be
+ * removed only when it is EMPTY, and only by the super user or its owner.
+ */
+int uiox_kix_scfs_rmdir(const char *path)
+{
+    InCoreInode *ip;
+    InCoreInode *dir;
+    char         parent[SCFS_PATH_MAX];
+    const char  *name = (const char *)0;
+    int          rc;
+
+    if (!path) return SCFS_EFAULT;
+
+    rc = scfs_path_split(path, parent, sizeof(parent), &name);
+    if (rc != SCFS_OK) return rc;
+
+    if (name[0] == '.' && (name[1] == '\0' ||
+        (name[1] == '.' && name[2] == '\0'))) {
+        return SCFS_EINVAL;         /* never remove "." or ".." */
+    }
+
+    ip = namei(path, scfs_cwd_get(), scfs_uid_get(), scfs_gid_get());
+    if (!ip) return SCFS_ENOENT;
+
+    if (!SCFS_IS_DIR(ip->mode)) { iput(ip); return SCFS_ENOTDIR; }
+    if (!inode_access_ok(ip, scfs_uid_get(), scfs_gid_get(), 0, 1, 1)) {
+        iput(ip);
+        return SCFS_EACCES;
+    }
+
+    /* The emptiness test: nlink above 2 means it holds a subdirectory. */
+    if (ip->nlink > 2u) { iput(ip); return SCFS_ENOTEMPTY; }
+
+    dir = namei(parent, scfs_cwd_get(), scfs_uid_get(), scfs_gid_get());
+    if (!dir) { iput(ip); return SCFS_ENOENT; }
+
+    if (dir_remove(dir, name) != 0) {
+        iput(dir);
+        iput(ip);
+        return SCFS_EIO;
+    }
+
+    /* ── the link counts, mirrored ─────────────────────────────────── */
+    if (dir->nlink > 0u) dir->nlink--;
+    dir->flags |= (IFLAG_CHANGED | IFLAG_MODIFIED);
+    iupdate(dir);
+
+    fs_free_inode_blocks(ip);
+    ip->nlink = 0u;
+    ip->flags |= (IFLAG_CHANGED | IFLAG_MODIFIED);
+    iupdate(ip);
+
+    ip->locked = false;
+    iput(dir);
+    iput(ip);
     return SCFS_OK;
 }

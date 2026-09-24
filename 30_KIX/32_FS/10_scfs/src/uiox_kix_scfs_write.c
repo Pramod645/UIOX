@@ -1,25 +1,49 @@
-/*
- * 30_KIX/32_FS/10_scfs/src/uiox_kix_scfs_write.c
- *
- * write
- *
- * Bach Ch.7 — sequential write through the file's own write operation,
- * advancing f_pos as bytes are written.  The buffered write path (page
- * cache, delayed write, bmap_alloc on growth) lives below in the backend;
- * SCFS resolves the fd and hands the call down.
- *
- * @version 1.0.0  @date 2026-09-21
- */
 #include "uiox_kix_scfs_internal.h"
 
-/* write() — sequential write from the user buffer, advancing f_pos. */
-long uiox_kix_scfs_write(uiox_reg_t fd, uiox_reg_t ubuf, uiox_reg_t count,
-                         uiox_reg_t a3, uiox_reg_t a4, uiox_reg_t a5)
+static int32_t scfs_do_write(int fd, const char *buf, uint32_t count,
+                             int positioned, uint32_t pos)
 {
-    (void)a3; (void)a4; (void)a5;
-    uiox_file_t *f;
-    long rc = scfs_fd_file(fd, &f);
+    scfs_file_t *f = scfs_getf(fd);
+    uint32_t     off;
+    uint32_t     moved = 0u;
+    int32_t      rc;
+
+    if (!f) return SCFS_EBADF;
+    if (!buf && count) return SCFS_EFAULT;
+    if (!(f->f_flag & FWRITE)) return SCFS_EBADF;
+
+    off = positioned ? pos : f->f_offset;
+
+    /* append mode: every write goes to the end, whatever the offset is */
+    if ((f->f_flag & FAPPEND) && !positioned) off = f->f_inode->size;
+
+    rc = writei_at(f->f_inode, buf, count, off, &moved);
     if (rc < 0) return rc;
-    if (!f->f_op || !f->f_op->write) return -SCFS_ENOSYS;
-    return (long)f->f_op->write(f, (const void *)ubuf, (size_t)count, &f->f_pos);
+
+    if (!positioned) f->f_offset = off + moved;
+    return (int32_t)moved;
+}
+
+int32_t uiox_kix_scfs_write(int fd, const char *buf, uint32_t count)
+{ return scfs_do_write(fd, buf, count, 0, 0u); }
+
+int32_t uiox_kix_scfs_pwrite(int fd, const char *buf, uint32_t count, uint32_t off)
+{ return scfs_do_write(fd, buf, count, 1, off); }
+
+int32_t uiox_kix_scfs_writev(int fd, const void *iov, int iovcnt)
+{
+    const scfs_iovec_t *v = (const scfs_iovec_t *)iov;
+    int32_t total = 0;
+    int     i;
+
+    if (!iov || iovcnt < 0) return SCFS_EINVAL;
+
+    for (i = 0; i < iovcnt; i++) {
+        int32_t n = scfs_do_write(fd, (const char *)v[i].base,
+                                  (uint32_t)v[i].len, 0, 0u);
+        if (n < 0) return (total > 0) ? total : n;
+        total += n;
+        if (n < (int32_t)v[i].len) break;
+    }
+    return total;
 }

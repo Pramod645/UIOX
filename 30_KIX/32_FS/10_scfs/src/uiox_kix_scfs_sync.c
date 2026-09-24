@@ -1,57 +1,112 @@
-/*
- * 30_KIX/32_FS/10_scfs/src/uiox_kix_scfs_sync.c
- *
- * fsync / fdatasync / sync / msync
- *
- * Bach Ch.3 — the buffer cache holds dirty blocks; fsync/fdatasync write a
- * file's dirty buffers back to disk, sync() flushes the whole cache.  msync
- * does the same for a memory mapping, so it lives with the other durability
- * calls rather than beside mmap().
- *
- * @version 1.0.0  @date 2026-09-21
- */
 #include "uiox_kix_scfs_internal.h"
 
-/* fsync() — flush the file's data and its i-node to stable storage. */
-long uiox_kix_scfs_fsync(uiox_reg_t fd,
-                         uiox_reg_t a1, uiox_reg_t a2, uiox_reg_t a3,
-                         uiox_reg_t a4, uiox_reg_t a5)
-{
-    (void)a1; (void)a2; (void)a3; (void)a4; (void)a5;
-    uiox_file_t *f;
-    long rc = scfs_fd_file(fd, &f);
-    if (rc < 0) return rc;
+/*
+ * ── the correction this file carries ─────────────────────────────────
+ * The first cut called inode_cache_sync() to sweep the inode cache for
+ * changed inodes.  NO SUCH FUNCTION EXISTS in 01_fsa — inode.c exposes
+ * iget / iput / iupdate / inode_disk_read and nothing that walks the
+ * cache.  sync() therefore does what the two layers can actually do.
+ */
 
-    if (f->f_op && f->f_op->fsync) { f->f_op->fsync(f); return SCFS_OK; }
-    return vfs_sync_inode(f->f_inode);
+void uiox_kix_scfs_sync(void)
+{
+    uint32_t i;
+
+    /* ── the buffer cache drain ─────────────────────────────────────
+     * Bach: "the sync system call ... schedules all the delayed write
+     * operations for the buffer cache and the inode cache."  In this
+     * filesystem buf_sync() is that drain — it walks all 64 cache slots
+     * and writes every dirty one to the disk array. */
+    buf_sync();                             /* 01_fsa */
+
+    /* ── the inodes this layer can reach ────────────────────────────
+     * Every open file's inode is in the file table, so sweeping that
+     * table reaches every inode that is both cached and in use. */
+    for (i = 0u; i < NFILE; i++) {
+        scfs_file_t *f = &scfs_file_table[i];
+
+        if (!f->f_inuse || !f->f_inode) continue;
+        if (f->f_inode->flags & (IFLAG_ACCESSED | IFLAG_CHANGED | IFLAG_MODIFIED))
+            iupdate(f->f_inode);            /* 01_fsa */
+    }
+
+    /* ── the gap ─────────────────────────────────────────────────────
+     * An inode that is changed, still in the cache, and NOT open is not
+     * reached by the loop above.  Reaching it needs a cache walk that
+     * 01_fsa does not export:
+     *
+     *     inode_cache_sync();      // would go here — does not exist
+     *
+     * Add it to 01_fsa/src/inode.c (walk icache[0..MAX_INCACHE-1],
+     * iupdate any slot with refcount > 0 and dirty flags set) and the
+     * uncomment below closes the gap with no change to this unit's
+     * callers. */
+    /* inode_cache_sync(); */
+
+    if (sb_is_modified()) sb_clear_modified();
 }
 
-/* fdatasync() — flush file data; the i-node write is optional when the size
- * did not change. */
-long uiox_kix_scfs_fdatasync(uiox_reg_t fd,
-                             uiox_reg_t a1, uiox_reg_t a2, uiox_reg_t a3,
-                             uiox_reg_t a4, uiox_reg_t a5)
+int uiox_kix_scfs_fsync(int fd)
 {
-    (void)a1; (void)a2; (void)a3; (void)a4; (void)a5;
-    uiox_file_t *f;
-    long rc = scfs_fd_file(fd, &f);
-    if (rc < 0) return rc;
-    return vfs_sync_inode(f->f_inode);
+    scfs_file_t *f = scfs_getf(fd);
+    if (!f) return SCFS_EBADF;
+
+    /* Metadata first: the inode carries size, block map and timestamps,
+     * so writing it records WHERE the data is before the data lands. */
+    iupdate(f->f_inode);                    /* 01_fsa */
+
+    /* Then the data.  buf_sync() drains the whole pool because the cache
+     * has no per-file handle. */
+    buf_sync();                             /* 01_fsa */
+
+    return SCFS_OK;
 }
 
-/* sync() — flush every dirty buffer in the system. */
-long uiox_kix_scfs_sync(uiox_reg_t a0, uiox_reg_t a1, uiox_reg_t a2,
-                        uiox_reg_t a3, uiox_reg_t a4, uiox_reg_t a5)
+int uiox_kix_scfs_fdatasync(int fd)
 {
-    (void)a0; (void)a1; (void)a2; (void)a3; (void)a4; (void)a5;
-    return vfs_sync_all();
+    scfs_file_t *f = scfs_getf(fd);
+    if (!f) return SCFS_EBADF;
+
+    /* The split fs_types.h already makes:
+     *   IFLAG_MODIFIED  the DATA changed      -> must reach the disk
+     *   IFLAG_CHANGED   metadata only changed -> may be skipped
+     *   IFLAG_ACCESSED  a read happened       -> may be skipped
+     *
+     * A pure timestamp update sets only CHANGED, so skipping the inode
+     * write here is exactly what fdatasync is for. */
+    if (f->f_inode->flags & IFLAG_MODIFIED) {
+        iupdate(f->f_inode);                /* 01_fsa */
+        buf_sync();                         /* 01_fsa */
+    }
+
+    return SCFS_OK;
 }
 
-/* msync() — flush modified pages of a mapping back to backing store. */
-long uiox_kix_scfs_msync(uiox_reg_t addr, uiox_reg_t length, uiox_reg_t flags,
-                         uiox_reg_t a3, uiox_reg_t a4, uiox_reg_t a5)
+int uiox_kix_scfs_syncfs(int fd)
 {
-    (void)a3; (void)a4; (void)a5;
-    if (addr == 0u || length == 0u) return -SCFS_EINVAL;
-    return vfs_msync((void *)addr, (uint64_t)length, (uint32_t)flags);
+    scfs_file_t *f = scfs_getf(fd);
+    if (!f) return SCFS_EBADF;
+
+    /* 01_fsa owns one mounted filesystem, so syncing it and syncing the
+     * system are the same work today.  Kept separate because it will not
+     * be once mount() can read a second device. */
+    uiox_kix_scfs_sync();
+    return SCFS_OK;
+}
+
+int uiox_kix_scfs_sync_file_range(int fd, uint32_t off, uint32_t len, int flags)
+{
+    scfs_file_t *f;
+
+    (void)off; (void)len; (void)flags;
+
+    f = scfs_getf(fd);
+    if (!f) return SCFS_EBADF;
+
+    /* The buffer cache holds whole blocks with no notion of "the part of
+     * this block that belongs to this range", so a range flush cannot be
+     * expressed.  Flushing everything is a superset of what was asked. */
+    iupdate(f->f_inode);                    /* 01_fsa */
+    buf_sync();                             /* 01_fsa */
+    return SCFS_OK;
 }

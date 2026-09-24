@@ -348,3 +348,124 @@ Dir	Files present
 #define SCFS_NR_mknod     133 // uiox_kix_scfs_mknod.c
 #define SCFS_NR_umount     134 // uiox_kix_scfs_mount.c
 #define SCFS_NR_pipe      22 // uiox_kix_scfs_pipe.c
+=======================================================
+The core POSIX filesystem syscalls
+Open / close / lifecycle
+
+Syscall	Purpose
+open / openat	open or create a file, return fd
+creat	create (legacy, = open with O_CREAT|O_TRUNC)
+close	release fd
+dup / dup2 / dup3	duplicate fd
+fcntl	fd control (flags, locking)
+Read / write
+
+Syscall	Purpose
+read	read bytes
+write	write bytes
+pread / pwrite	positioned read/write, no fd seek
+readv / writev	scatter/gather I/O
+lseek	reposition file offset
+Metadata / status
+
+Syscall	Purpose
+stat / lstat / fstat	file metadata
+fstatat	metadata relative to a dirfd
+chmod / fchmod / fchmodat	permission bits
+chown / fchown / lchown	owner/group
+utime / utimes / utimensat	timestamps
+truncate / ftruncate	resize
+access / faccessat	permission check
+umask	default permission mask
+Directory
+
+Syscall	Purpose
+mkdir / mkdirat	create directory
+rmdir	remove empty directory
+chdir / fchdir	change cwd
+getcwd	read cwd
+readdir (via getdents/getdents64)	enumerate entries
+link / linkat	hard link
+unlink / unlinkat	remove name
+rename / renameat	move/rename
+symlink / readlink	symbolic link
+mknod	create device/fifo node
+Sync / durability
+
+Syscall	Purpose
+fsync	flush file + metadata
+fdatasync	flush file data
+sync / syncfs	flush everything
+sync_file_range	flush a range
+Mount / filesystem admin
+
+Syscall	Purpose
+mount / umount2	attach/detach a filesystem
+statfs / fstatfs	filesystem stats
+chroot	change root
+Extended attributes / control (Linux)
+
+Syscall	Purpose
+setxattr / getxattr / listxattr / removexattr	metadata
+ioctl	device/FS-specific control
+flock	advisory locking
+Plus memory-mapped file I/O (mmap/munmap/msync), which your SCFS already carries an mmap_page hook for.
+=============================================
+10_scfs — 39 files
+include/ — 3
+
+
+1.  uiox_kix_scfs.h
+2.  uiox_kix_scfs_internal.h
+3.  uiox_kix_scfs_dispatch.h
+src/ — the three table units — 3
+
+
+4.  uiox_kix_scfs_table.c              file table, fd table, mount table,
+                                       scfs_getf, scfs_falloc, scfs_init
+5.  uiox_kix_scfs_dispatch_table.c     sysent[] (42 rows), scfs_dispatch,
+                                       scfs_gap_table, scfs_syscall_init
+6.  uiox_kix_scfs_syscalls.c           every sys_* alias
+src/ — Bach's algorithms, Ch.5 — 18
+
+
+7.  uiox_kix_scfs_open.c               open
+8.  uiox_kix_scfs_creat.c              creat
+9.  uiox_kix_scfs_close.c              close
+10. uiox_kix_scfs_read.c               read, pread, readv
+11. uiox_kix_scfs_write.c              write, pwrite, writev
+12. uiox_kix_scfs_lseek.c              lseek
+13. uiox_kix_scfs_dup.c                dup, dup2, dup3
+14. uiox_kix_scfs_link.c               link
+15. uiox_kix_scfs_unlink.c             unlink
+16. uiox_kix_scfs_mknod.c              mknod, mkfifo
+17. uiox_kix_scfs_chdir.c              chdir
+18. uiox_kix_scfs_chroot.c             chroot
+19. uiox_kix_scfs_chown.c              chown, fchown
+20. uiox_kix_scfs_chmod.c              chmod, fchmod
+21. uiox_kix_scfs_stat.c               stat, fstat, lstat, fstatat, statx
+22. uiox_kix_scfs_pipe.c               pipe
+23. uiox_kix_scfs_mount.c              mount
+24. uiox_kix_scfs_umount.c             umount, umount2
+src/ — the remainder — 15
+
+
+25. uiox_kix_scfs_openat.c             openat + the whole *at() family
+26. uiox_kix_scfs_fcntl.c              F_DUPFD, F_GETFL, F_SETFL, F_GETOWN
+27. uiox_kix_scfs_truncate.c           truncate, ftruncate, fallocate
+28. uiox_kix_scfs_access.c             access, umask, scfs_is_super,
+                                       credentials, scfs_perm_test
+29. uiox_kix_scfs_utime.c              utime, utimes, futimes, futimens
+30. uiox_kix_scfs_mkdir.c              mkdir, rmdir
+31. uiox_kix_scfs_fchdir.c             fchdir, getcwd
+32. uiox_kix_scfs_getdents64.c         getdents64
+33. uiox_kix_scfs_rename.c             rename
+34. uiox_kix_scfs_sync.c               sync, fsync, fdatasync, syncfs,
+                                       sync_file_range
+35. uiox_kix_scfs_statfs.c             statfs, fstatfs, fstype
+36. uiox_kix_scfs_xattr.c              setxattr, getxattr, listxattr,
+                                       removexattr
+37. uiox_kix_scfs_ioctl.c              ioctl, flock, close_range
+38. uiox_kix_scfs_mmap.c               mmap, munmap, msync, mprotect,
+                                       madvise, mincore
+Row 38 ends the list at 38 numbered entries, and the file count is 39 — the arithmetic: 3 headers + 3 tables + 18 algorithms + 15 remainder = 39.

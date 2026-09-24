@@ -1,61 +1,69 @@
-/*
- * 30_KIX/32_FS/10_scfs/src/uiox_kix_scfs_open.c
- *
- * open / creat
- *
- * Bach Ch.5 — namei() resolves the path; ialloc() creates a new i-node;
- * Ch.7 falloc() allocates the descriptor + file-table entry.
- *
- * @version 1.0.0  @date 2026-09-21
- */
 #include "uiox_kix_scfs_internal.h"
 
-/* open() — resolve the path, create when O_CREAT, truncate when O_TRUNC,
- * then allocate a descriptor and return it. */
-long uiox_kix_scfs_open(uiox_reg_t uptr, uiox_reg_t flags, uiox_reg_t mode,
-                        uiox_reg_t a3, uiox_reg_t a4, uiox_reg_t a5)
+/*
+ * Bach's Algorithm open.
+ *
+ * input:  path name, open flags, permission
+ * output: user file descriptor
+ * {
+ *     get inode for file name (algorithm namei);
+ *     if (file does not exist and file is not being created)
+ *         return (error);
+ *     ... five checks ...
+ *     allocate file table entry (algorithm falloc);
+ *     allocate user file descriptor entry;
+ *     ...
+ * }
+ */
+int uiox_kix_scfs_open(const char *path, int flags, uint16_t perm)
 {
-    (void)a3; (void)a4; (void)a5;
-    if (uptr == 0u) return -SCFS_EFAULT;
+    InCoreInode *ip;
+    scfs_file_t *f;
+    int          fd;
 
-    uiox_inode_t *inode = (uiox_inode_t *)0;
-    long rc = vfs_path_lookup((const char *)uptr, &inode, (uint32_t)flags);
+    if (!path) return SCFS_EFAULT;
 
-    if (rc < 0) {
-        /* O_CREAT: the path does not exist — create it in its parent. */
-        if (!((uint32_t)flags & UIOX_O_CREAT)) return rc;
-
-        char dir[256];
-        if (uiox_kix_scfs_dirname((const char *)uptr, dir, sizeof(dir)) < 0)
-            return -SCFS_EINVAL;
-
-        uiox_inode_t *parent = (uiox_inode_t *)0;
-        rc = vfs_path_lookup(dir, &parent, 0u);
-        if (rc < 0) return rc;
-        if (!parent || !parent->i_op || !parent->i_op->create)
-            return -SCFS_ENOSYS;
-
-        uiox_inode_t *created = (uiox_inode_t *)0;
-        rc = parent->i_op->create(parent, (const char *)uptr,
-                                  (uint32_t)mode & 0x0FFFu, &created);
-        if (rc < 0) return rc;
-        inode = created;
-    } else if ((uint32_t)flags & UIOX_O_TRUNC) {
-        if (inode->i_op && inode->i_op->truncate) {
-            rc = inode->i_op->truncate(inode, 0u);
-            if (rc < 0) return rc;
-        }
+    /* O_CREAT with a path that does not exist goes to creat's body. */
+    ip = namei(path, scfs_cwd_get(), scfs_uid_get(), scfs_gid_get());
+    if (!ip) {
+        if (flags & O_CREAT) return uiox_kix_scfs_creat(path, perm);
+        return SCFS_ENOENT;
     }
 
-    return (long)vfs_fd_alloc(inode, (uint32_t)flags, (uint32_t)mode & 0x0FFFu);
-}
+    /* a directory may be opened read-only, for getdents */
+    if (SCFS_IS_DIR(ip->mode) && ((flags & O_ACCMODE) != O_RDONLY)) {
+        iput(ip);
+        return SCFS_EISDIR;
+    }
+    if (SCFS_IS_DIR(ip->mode) && (flags & O_TRUNC)) {
+        iput(ip);
+        return SCFS_EISDIR;
+    }
 
-/* creat() — Bach Ch.5: equivalent to open(path, O_CREAT|O_WRONLY|O_TRUNC). */
-long uiox_kix_scfs_creat(uiox_reg_t uptr, uiox_reg_t mode,
-                         uiox_reg_t a2, uiox_reg_t a3, uiox_reg_t a4, uiox_reg_t a5)
-{
-    (void)a2; (void)a3; (void)a4; (void)a5;
-    return uiox_kix_scfs_open(uptr,
-                              UIOX_O_CREAT | UIOX_O_WRONLY | UIOX_O_TRUNC,
-                              mode, 0, 0, 0);
+    if (flags & O_TRUNC) {
+        if ((flags & O_ACCMODE) == O_RDONLY) {
+            iput(ip);
+            return SCFS_EACCES;
+        }
+        fs_free_inode_blocks(ip);
+        ip->size = 0;
+        ip->flags |= IFLAG_CHANGED | IFLAG_MODIFIED;
+        iupdate(ip);
+    }
+
+    if (!scfs_perm_test(ip, (flags & O_ACCMODE) == O_RDONLY ? SCFS_R_OK
+                          : (flags & O_ACCMODE) == O_WRONLY ? SCFS_W_OK
+                          : (SCFS_R_OK | SCFS_W_OK))) {
+        iput(ip);
+        return SCFS_EACCES;
+    }
+
+    f = scfs_falloc(ip, flags, 0u);
+    if (!f) { iput(ip); return SCFS_ENFILE; }
+
+    fd = scfs_ufd_alloc(f);
+    if (fd < 0) { scfs_fclose_entry(f); return fd; }
+
+    iput(ip);
+    return fd;
 }

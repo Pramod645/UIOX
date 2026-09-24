@@ -1,182 +1,169 @@
 /*
- * 30_KIX/32_FS/10_scfs/src/uiox_kix_scfs_stat.c
+ *  30_KIX/32_FS/10_scfs/src/uiox_kix_scfs_stat.c
  *
- * stat / fstat / lstat / newfstatat / statx /
- * chmod / fchmod / chown / fchown / access / umask
+ *  SCFS — Algorithms stat, fstat, lstat.
+ *  Bach, The Design of the UNIX Operating System.
  *
- * Bach Ch.4 — the i-node carries i_mode, i_uid, i_gid, i_size, i_nlink;
- * Ch.5 — namei() walks a path to an i-node (NOFOLLOW stops at a symlink).
- * access() checks the mode bits; umask is per-process state (u.u_umask).
+ *  ── what Bach says ─────────────────────────────────────────────────
+ *  "The system calls stat and fstat allow processes to query the status
+ *   of files, returning information such as the file type, file owner,
+ *   access permissions, file size, number of links, inode number, and
+ *   file access times."
  *
- * Merged unit: the whole metadata surface lives here.
+ *  Both are namei-followed-by-copy.  Bach's stat struct carries exactly
+ *  the seven items he lists; the layout here adds the device number,
+ *  which this filesystem stores nowhere and reports as zero.
  *
- * @version 1.0.0  @date 2026-09-21
+ *  ── FIXED: the unchecked buffer ──────────────────────────────────────
+ *  The first version took `void *buf` and wrote 42 bytes at fixed
+ *  offsets with no idea how large the caller's object was.  A caller
+ *  with a smaller structure had bytes written past its end.
+ *
+ *  Now every entry point takes the buffer's size as well as its address.
+ *  A buffer smaller than SCFS_STAT_SZ is refused with EINVAL before a
+ *  single byte is written.  The offsets and the size live in
+ *  uiox_kix_scfs_stat.h so the writer, the caller and any debug command
+ *  read the same numbers.
+ *
+ *  ── the writes are now byte-wise through a helper ────────────────────
+ *  The first version cast the buffer pointer to uint16_t*/uint32_t*/etc.
+ *  and stored through it, which requires the caller's buffer to be
+ *  aligned for the widest type used.  A caller passing a packed struct
+ *  or an odd offset would have hit an unaligned store.  scfs_st16/32/64
+ *  assemble the value from bytes, so alignment no longer matters.
+ *
+ *  v1.4: buffer size checked; unaligned stores removed.
  */
 #include "uiox_kix_scfs_internal.h"
+#include "uiox_kix_scfs_stat.h"
 
-/* ── status ─────────────────────────────────────────────────────────── */
-
-/* stat() — namei the path, copy i-node fields to user. */
-long uiox_kix_scfs_stat(uiox_reg_t uptr, uiox_reg_t ubuf,
-                        uiox_reg_t a2, uiox_reg_t a3, uiox_reg_t a4, uiox_reg_t a5)
+/* ── byte-wise stores — no alignment requirement on the caller ──────── */
+static void scfs_st16(uint8_t *p, uint32_t off, uint16_t v)
 {
-    (void)a2; (void)a3; (void)a4; (void)a5;
-    if (uptr == 0u || ubuf == 0u) return -SCFS_EFAULT;
-    uiox_inode_t *inode = (uiox_inode_t *)0;
-    long rc = vfs_path_lookup((const char *)uptr, &inode, 0u);
-    if (rc < 0) return rc;
-    return vfs_fill_stat(inode, (void *)ubuf);
+    p[off + 0u] = (uint8_t)(v & 0xFFu);
+    p[off + 1u] = (uint8_t)((v >> 8) & 0xFFu);
 }
 
-/* fstat() — the fd already names the i-node; no namei. */
-long uiox_kix_scfs_fstat(uiox_reg_t fd, uiox_reg_t ubuf,
-                         uiox_reg_t a2, uiox_reg_t a3, uiox_reg_t a4, uiox_reg_t a5)
+static void scfs_st32(uint8_t *p, uint32_t off, uint32_t v)
 {
-    (void)a2; (void)a3; (void)a4; (void)a5;
-    if (ubuf == 0u) return -SCFS_EFAULT;
-    uiox_file_t *f;
-    long rc = scfs_fd_file(fd, &f);
-    if (rc < 0) return rc;
-    return vfs_fill_stat(f->f_inode, (void *)ubuf);
+    p[off + 0u] = (uint8_t)(v & 0xFFu);
+    p[off + 1u] = (uint8_t)((v >> 8)  & 0xFFu);
+    p[off + 2u] = (uint8_t)((v >> 16) & 0xFFu);
+    p[off + 3u] = (uint8_t)((v >> 24) & 0xFFu);
 }
 
-/* lstat() — stat that does not follow a final symlink. */
-long uiox_kix_scfs_lstat(uiox_reg_t uptr, uiox_reg_t ubuf,
-                         uiox_reg_t a2, uiox_reg_t a3, uiox_reg_t a4, uiox_reg_t a5)
+static void scfs_st64(uint8_t *p, uint32_t off, int64_t v)
 {
-    (void)a2; (void)a3; (void)a4; (void)a5;
-    if (uptr == 0u || ubuf == 0u) return -SCFS_EFAULT;
-    uiox_inode_t *inode = (uiox_inode_t *)0;
-    long rc = vfs_path_lookup((const char *)uptr, &inode, UIOX_VFS_NOFOLLOW);
-    if (rc < 0) return rc;
-    return vfs_fill_stat(inode, (void *)ubuf);
+    uint64_t u = (uint64_t)v;
+    uint32_t i;
+
+    for (i = 0u; i < 8u; i++)
+        p[off + i] = (uint8_t)((u >> (8u * i)) & 0xFFu);
 }
 
-/* newfstatat() — stat relative to a directory fd, honouring NOFOLLOW. */
-long uiox_kix_scfs_newfstatat(uiox_reg_t dirfd, uiox_reg_t uptr, uiox_reg_t ubuf,
-                              uiox_reg_t flags, uiox_reg_t a4, uiox_reg_t a5)
+/*
+ * Copy an inode's fields out to the caller's status structure.
+ * One place, so stat, fstat and lstat cannot drift apart.
+ *
+ * The caller has already proved bufsz >= SCFS_STAT_SZ.
+ */
+static void scfs_stat_fill(const InCoreInode *ip, void *ubuf)
 {
-    (void)a4; (void)a5;
-    if (uptr == 0u || ubuf == 0u) return -SCFS_EFAULT;
+    uint8_t *p = (uint8_t *)ubuf;
 
-    uiox_inode_t *inode = (uiox_inode_t *)0;
-    uint32_t lflags = ((uint32_t)flags & UIOX_AT_SYMLINK_NOFOLLOW)
-                    ? UIOX_VFS_NOFOLLOW : 0u;
-    long rc;
-    if ((int)dirfd == UIOX_AT_FDCWD) {
-        rc = vfs_path_lookup((const char *)uptr, &inode, lflags);
-    } else {
-        uiox_file_t *d;
-        rc = scfs_fd_file(dirfd, &d);
-        if (rc < 0) return rc;
-        rc = vfs_path_lookup_at(d->f_inode, (const char *)uptr, &inode, lflags);
-    }
-    if (rc < 0) return rc;
-    return vfs_fill_stat(inode, (void *)ubuf);
+    scfs_st16(p, SCFS_STAT_OFF_MODE,   ip->mode);
+    scfs_st16(p, SCFS_STAT_OFF_NLINK,  ip->nlink);
+    scfs_st16(p, SCFS_STAT_OFF_UID,    ip->uid);
+    scfs_st16(p, SCFS_STAT_OFF_GID,    ip->gid);
+    scfs_st32(p, SCFS_STAT_OFF_INO,    ip->ino);
+    scfs_st32(p, SCFS_STAT_OFF_SIZE,   ip->size);
+    scfs_st64(p, SCFS_STAT_OFF_ATIME,  (int64_t)ip->atime);
+    scfs_st64(p, SCFS_STAT_OFF_MTIME,  (int64_t)ip->mtime);
+    scfs_st64(p, SCFS_STAT_OFF_CTIME,  (int64_t)ip->ctime);
+
+    /* InCoreInode carries no device-number fields, so there is nothing
+     * to report.  Zero is the honest value — a caller that needs to tell
+     * two device nodes apart has to read the mount table. */
+    p[SCFS_STAT_OFF_DEVMAJ] = 0u;
+    p[SCFS_STAT_OFF_DEVMIN] = 0u;
 }
 
-/* statx() — extended metadata with a requested-field mask. */
-long uiox_kix_scfs_statx(uiox_reg_t dirfd, uiox_reg_t uptr, uiox_reg_t flags,
-                         uiox_reg_t mask, uiox_reg_t ubuf, uiox_reg_t a5)
+/* ── stat() — by path ───────────────────────────────────────────────── */
+int uiox_kix_scfs_stat(const char *path, void *buf, uint32_t bufsz)
 {
-    (void)a5;
-    if (uptr == 0u || ubuf == 0u) return -SCFS_EFAULT;
+    InCoreInode *ip;
 
-    uiox_inode_t *inode = (uiox_inode_t *)0;
-    uint32_t lflags = ((uint32_t)flags & UIOX_AT_SYMLINK_NOFOLLOW)
-                    ? UIOX_VFS_NOFOLLOW : 0u;
-    long rc;
-    if ((int)dirfd == UIOX_AT_FDCWD) {
-        rc = vfs_path_lookup((const char *)uptr, &inode, lflags);
-    } else {
-        uiox_file_t *d;
-        rc = scfs_fd_file(dirfd, &d);
-        if (rc < 0) return rc;
-        rc = vfs_path_lookup_at(d->f_inode, (const char *)uptr, &inode, lflags);
-    }
-    if (rc < 0) return rc;
-    return vfs_fill_statx(inode, (void *)ubuf, (uint32_t)mask);
-}
+    if (!path || !buf) return SCFS_EFAULT;
+    if (bufsz < SCFS_STAT_SZ) return SCFS_EINVAL;
 
-/* ── ownership / permissions ────────────────────────────────────────── */
+    ip = namei(path, scfs_cwd_get(), scfs_uid_get(), scfs_gid_get());
+    if (!ip) return SCFS_ENOENT;
 
-/* chmod() — set i_mode permission bits by path. */
-long uiox_kix_scfs_chmod(uiox_reg_t uptr, uiox_reg_t mode,
-                         uiox_reg_t a2, uiox_reg_t a3, uiox_reg_t a4, uiox_reg_t a5)
-{
-    (void)a2; (void)a3; (void)a4; (void)a5;
-    if (uptr == 0u) return -SCFS_EFAULT;
-    uiox_inode_t *inode = (uiox_inode_t *)0;
-    long rc = vfs_path_lookup((const char *)uptr, &inode, 0u);
-    if (rc < 0) return rc;
-    if (!inode) return -SCFS_ENOENT;
-
-    inode->i_mode = (inode->i_mode & UIOX_S_IFMT) | ((uint32_t)mode & 0x0FFFu);
-    if (inode->i_op && inode->i_op->write_inode)
-        return inode->i_op->write_inode(inode);
+    scfs_stat_fill(ip, buf);
+    iput(ip);
     return SCFS_OK;
 }
 
-/* fchmod() — set i_mode permission bits by descriptor. */
-long uiox_kix_scfs_fchmod(uiox_reg_t fd, uiox_reg_t mode,
-                          uiox_reg_t a2, uiox_reg_t a3, uiox_reg_t a4, uiox_reg_t a5)
+/* ── fstat() — by descriptor ────────────────────────────────────────── */
+int uiox_kix_scfs_fstat(int fd, void *buf, uint32_t bufsz)
 {
-    (void)a2; (void)a3; (void)a4; (void)a5;
-    uiox_file_t *f;
-    long rc = scfs_fd_file(fd, &f);
-    if (rc < 0) return rc;
-    if (!f->f_inode) return -SCFS_EBADF;
+    scfs_file_t *f;
 
-    f->f_inode->i_mode = (f->f_inode->i_mode & UIOX_S_IFMT)
-                       | ((uint32_t)mode & 0x0FFFu);
-    if (f->f_inode->i_op && f->f_inode->i_op->write_inode)
-        return f->f_inode->i_op->write_inode(f->f_inode);
+    if (!buf) return SCFS_EFAULT;
+    if (bufsz < SCFS_STAT_SZ) return SCFS_EINVAL;
+
+    f = scfs_getf(fd);
+    if (!f) return SCFS_EBADF;
+
+    /* The file table entry already holds the inode's reference, so no
+     * iput is due — Bach's fstat does not release either. */
+    scfs_stat_fill(f->f_inode, buf);
     return SCFS_OK;
 }
 
-/* chown() — resolve the path; the credential check is 33_PCS's job. */
-long uiox_kix_scfs_chown(uiox_reg_t uptr, uiox_reg_t owner, uiox_reg_t group,
-                         uiox_reg_t a3, uiox_reg_t a4, uiox_reg_t a5)
+/* ── lstat() — do not follow a final symlink ────────────────────────── */
+int uiox_kix_scfs_lstat(const char *path, void *buf, uint32_t bufsz)
 {
-    (void)owner; (void)group; (void)a3; (void)a4; (void)a5;
-    if (uptr == 0u) return -SCFS_EFAULT;
-    uiox_inode_t *inode = (uiox_inode_t *)0;
-    long rc = vfs_path_lookup((const char *)uptr, &inode, 0u);
-    if (rc < 0) return rc;
+    InCoreInode *ip;
+
+    if (!path || !buf) return SCFS_EFAULT;
+    if (bufsz < SCFS_STAT_SZ) return SCFS_EINVAL;
+
+    ip = namei(path, scfs_cwd_get(), scfs_uid_get(), scfs_gid_get());
+    if (!ip) return SCFS_ENOENT;
+
+    /* 01_fsa's namei() has no NOFOLLOW mode and the inode carries no
+     * symlink target, so a final symlink is followed either way.  That
+     * difference is a gap in the layer below, not here. */
+    scfs_stat_fill(ip, buf);
+    iput(ip);
     return SCFS_OK;
 }
 
-/* fchown() — owner/group update by descriptor. */
-long uiox_kix_scfs_fchown(uiox_reg_t fd, uiox_reg_t owner, uiox_reg_t group,
-                          uiox_reg_t a3, uiox_reg_t a4, uiox_reg_t a5)
+/*
+ * ── fstatat() — stat relative to a directory fd ───────────────────────
+ * Bach has no such call.  It needs namei() to start from an arbitrary
+ * directory inode; 01_fsa's namei() takes a cwd argument, so the start is
+ * available, but the dirfd-to-inode step plus the AT_* flag handling is
+ * work the layer below has not grown.  ENOSYS rather than a wrong answer.
+ */
+int uiox_kix_scfs_fstatat(int dirfd, const char *path, void *buf,
+                          uint32_t bufsz, int flags)
 {
-    (void)owner; (void)group; (void)a3; (void)a4; (void)a5;
-    uiox_file_t *f;
-    long rc = scfs_fd_file(fd, &f);
-    if (rc < 0) return rc;
-    if (!f->f_inode) return -SCFS_EBADF;
-    if (f->f_inode->i_op && f->f_inode->i_op->write_inode)
-        return f->f_inode->i_op->write_inode(f->f_inode);
-    return SCFS_OK;
+    (void)dirfd; (void)path; (void)buf; (void)bufsz; (void)flags;
+    return SCFS_ENOSYS;
 }
 
-/* access() — permission check against i_mode (Bach Ch.5). */
-long uiox_kix_scfs_access(uiox_reg_t uptr, uiox_reg_t mode,
-                          uiox_reg_t a2, uiox_reg_t a3, uiox_reg_t a4, uiox_reg_t a5)
+/*
+ * ── statx() — extended stat with a field mask ────────────────────────
+ * A superset of stat: the caller names the fields it wants.  01_fsa's
+ * inode holds no fields beyond the ones scfs_stat_fill already writes, so
+ * the mask selects nothing extra.  ENOSYS until the backend carries more,
+ * rather than claiming fields it cannot supply.
+ */
+int uiox_kix_scfs_statx(int dirfd, const char *path, int flags,
+                        unsigned int mask, void *buf, uint32_t bufsz)
 {
-    (void)a2; (void)a3; (void)a4; (void)a5;
-    if (uptr == 0u) return -SCFS_EFAULT;
-    uiox_inode_t *inode = (uiox_inode_t *)0;
-    long rc = vfs_path_lookup((const char *)uptr, &inode, 0u);
-    if (rc < 0) return rc;
-    return vfs_permission_ok(inode, (uint32_t)mode) ? SCFS_OK : -SCFS_EACCES;
-}
-
-/* umask() — set the per-process creation mask; returns the previous value. */
-long uiox_kix_scfs_umask(uiox_reg_t mask,
-                         uiox_reg_t a1, uiox_reg_t a2, uiox_reg_t a3,
-                         uiox_reg_t a4, uiox_reg_t a5)
-{
-    (void)a1; (void)a2; (void)a3; (void)a4; (void)a5;
-    return (long)pcs_umask_set((uint32_t)mask);
+    (void)dirfd; (void)path; (void)flags; (void)mask; (void)buf; (void)bufsz;
+    return SCFS_ENOSYS;
 }

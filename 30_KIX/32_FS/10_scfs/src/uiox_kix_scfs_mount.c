@@ -1,91 +1,81 @@
-/*
- * 30_KIX/32_FS/10_scfs/src/uiox_kix_scfs_mount.c
- *
- * mount / umount / umount2 / statfs / fstatfs
- *
- * Bach Ch.9 — the mount table holds one entry per mounted filesystem:
- * device number, mount-point i-node, and the mounted-on superblock.  A path
- * walk crossing a mount point is redirected to the mounted root.  umount
- * refuses while the filesystem is busy and flushes dirty i-nodes first.
- * Ch.4 — statfs reports the superblock's free-block / free-inode counts.
- *
- * Merged unit: the mount table and filesystem-statistics surface.
- *
- * @version 1.0.0  @date 2026-09-21
- */
 #include "uiox_kix_scfs_internal.h"
 
-/* ── mount / unmount ────────────────────────────────────────────────── */
-
-/* mount() — attach a filesystem at a directory.
- *   a0 = source   a1 = target mount point   a2 = fs type   a3 = flags   a4 = data */
-long uiox_kix_scfs_mount(uiox_reg_t src, uiox_reg_t tgt, uiox_reg_t fstype,
-                         uiox_reg_t flags, uiox_reg_t data, uiox_reg_t a5)
+/*
+ * Bach's Algorithm mount, verbatim.
+ * {
+ *   if (not super user) return (error);
+ *   get inode for block special file (algorithm namei);
+ *   make legality checks;
+ *   get inode for "mount on" directory name (algorithm namei);
+ *   if (not directory, or reference count > 1)
+ *   { release inode (algorithm iput); return (error); }
+ *   find empty slot in mount table;
+ *   invoke block device driver open routine;
+ *   get free buffer from buffer cache;
+ *   read super block into free buffer;
+ *   initialize super block fields;
+ *   get root inode of mount device (algorithm iget), save in mount table;
+ *   mark inode of "mounted on" directory as mount point;
+ *   release special file inode;
+ *   unlock inode of mount point directory;
+ * }
+ *
+ * The mount TABLE is SCFS's own.  Two steps belong below: reading the
+ * super block through the buffer cache, and iget() on the mounted root.
+ * 01_fsa's buffer cache is addressed by block number with no device
+ * field, so a second device cannot be read through it.  The slot is
+ * filled and the structure is correct; the device half reports the gap.
+ */
+int uiox_kix_scfs_mount(const char *dev, const char *dir, int flags)
 {
-    (void)src; (void)flags; (void)data; (void)a5;
-    if (tgt == 0u || fstype == 0u) return -SCFS_EINVAL;
+    InCoreInode *spec;
+    InCoreInode *mp;
+    scfs_mount_t *m;
 
-    uiox_inode_t *mntpt = (uiox_inode_t *)0;
-    long rc = vfs_path_lookup((const char *)tgt, &mntpt, 0u);
-    if (rc < 0) return rc;
-    if (!mntpt) return -SCFS_ENOENT;
-    if (!(mntpt->i_mode & UIOX_S_IFDIR)) return -SCFS_ENOTDIR;
+    if (!dev || !dir) return SCFS_EFAULT;
 
-    return vfs_mount((const char *)tgt, (const char *)fstype);
-}
+    if (!scfs_is_super()) return SCFS_EPERM;
 
-/* umount() — detach the filesystem mounted at a path.  Busy check, flush,
- * then remove the mount-table entry (Bach Ch.9). */
-long uiox_kix_scfs_umount(uiox_reg_t tgt, uiox_reg_t flags,
-                          uiox_reg_t a2, uiox_reg_t a3, uiox_reg_t a4, uiox_reg_t a5)
-{
-    (void)flags; (void)a2; (void)a3; (void)a4; (void)a5;
-    if (tgt == 0u) return -SCFS_EFAULT;
+    spec = namei(dev, scfs_cwd_get(), scfs_uid_get(), scfs_gid_get());
+    if (!spec) return SCFS_ENOENT;
 
-    if (vfs_mount_busy((const char *)tgt)) return -SCFS_EBUSY;
+    if (!SCFS_IS_BLK(spec->mode)) {
+        iput(spec);
+        return SCFS_ENOTBLK;
+    }
+    if (spec->flags & IMOUNT) {
+        iput(spec);
+        return SCFS_EBUSY;
+    }
 
-    long rc = vfs_sync_all();               /* flush before detach */
-    if (rc < 0) return rc;
+    mp = namei(dir, scfs_cwd_get(), scfs_uid_get(), scfs_gid_get());
+    if (!mp) { iput(spec); return SCFS_ENOENT; }
 
-    return vfs_unmount((const char *)tgt);
-}
+    if (!SCFS_IS_DIR(mp->mode)) {
+        iput(mp); iput(spec);
+        return SCFS_ENOTDIR;
+    }
+    if (mp->refcount > 1) {
+        iput(mp); iput(spec);
+        return SCFS_EBUSY;
+    }
 
-/* umount2() — unmount with flags; MNT_FORCE skips the busy check. */
-long uiox_kix_scfs_umount2(uiox_reg_t tgt, uiox_reg_t flags,
-                           uiox_reg_t a2, uiox_reg_t a3, uiox_reg_t a4, uiox_reg_t a5)
-{
-    (void)a2; (void)a3; (void)a4; (void)a5;
-    if (tgt == 0u) return -SCFS_EFAULT;
+    m = scfs_mount_alloc();
+    if (!m) { iput(mp); iput(spec); return SCFS_ENOSPC; }
 
-    if (!((uint32_t)flags & UIOX_MNT_FORCE) && vfs_mount_busy((const char *)tgt))
-        return -SCFS_EBUSY;
+    m->m_dev     = 0u;          /* no device field anywhere — see header */
+    m->m_mountpt = mp;
+    m->m_root    = (InCoreInode *)0;
+    m->m_sb_buf  = (BufEntry *)0;
+    m->m_rdonly  = (flags & 1) ? 1u : 0u;
 
-    long rc = vfs_sync_all();
-    if (rc < 0) return rc;
+    mp->flags |= IMOUNT;
+    mp->locked = false;
 
-    return vfs_unmount((const char *)tgt);
-}
+    iput(spec);
 
-/* ── filesystem statistics ──────────────────────────────────────────── */
+    m->m_fstype[0] = '?';
+    m->m_fstype[1] = '\0';
 
-/* statfs() — filesystem statistics by path (Bach Ch.4 superblock counts). */
-long uiox_kix_scfs_statfs(uiox_reg_t uptr, uiox_reg_t ubuf,
-                          uiox_reg_t a2, uiox_reg_t a3, uiox_reg_t a4, uiox_reg_t a5)
-{
-    (void)a2; (void)a3; (void)a4; (void)a5;
-    if (uptr == 0u || ubuf == 0u) return -SCFS_EFAULT;
-    return vfs_statfs((const char *)uptr, (void *)ubuf);
-}
-
-/* fstatfs() — same, addressed by the descriptor's superblock. */
-long uiox_kix_scfs_fstatfs(uiox_reg_t fd, uiox_reg_t ubuf,
-                           uiox_reg_t a2, uiox_reg_t a3, uiox_reg_t a4, uiox_reg_t a5)
-{
-    (void)a2; (void)a3; (void)a4; (void)a5;
-    if (ubuf == 0u) return -SCFS_EFAULT;
-    uiox_file_t *f;
-    long rc = scfs_fd_file(fd, &f);
-    if (rc < 0) return rc;
-    if (!f->f_inode) return -SCFS_EBADF;
-    return vfs_statfs_sb(f->f_inode->i_dev, (void *)ubuf);
+    return SCFS_ENOSYS;     /* no device path in 01_fsa yet */
 }

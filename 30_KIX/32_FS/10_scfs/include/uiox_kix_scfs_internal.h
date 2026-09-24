@@ -1,64 +1,126 @@
 /*
- * 30_KIX/32_FS/10_scfs/include/uiox_kix_scfs_internal.h   — v2.0.0
+ *  30_KIX/32_FS/10_scfs/include/uiox_kix_scfs_internal.h
  *
- * Shared prologue for every src/*.c unit, rewritten against the modern
- * inode_t / file_t / ops-table headers.  The old vfs_* extern block is gone;
- * the bridge now runs through the two op tables plus the Bach core calls.
+ *  SCFS — shared prologue for every src/*.c unit.
+ *  CORRECTED against the real 01_fsa headers.
  *
- * @version 2.0.0  @date 2026-09-21
+ *  ── what the first cut got wrong, and the fix ────────────────────────
+ *    BLKSIZE            -> BLOCK_SIZE   (fs_types.h defines BLOCK_SIZE)
+ *    sb_get() as a field reader -> sb_access.c accessors (named)
+ *    readi/writei       -> now declared here and defined in
+ *                          01_fsa/readwrite.c (NEW file)
+ *
+ *  ── the layer split ─────────────────────────────────────────────────
+ *   10_scfs  FILE level   file table, user fd table, mount table
+ *   01_fsa   INODE level  inode cache, buffer cache, bmap, superblock
+ *
+ *  SCFS calls 01_fsa directly.  No bridge, no vtable, no second inode type.
+ *
+ *  v1.1: header names corrected; no field names invented.
  */
 #ifndef UIOX_KIX_SCFS_INTERNAL_H
 #define UIOX_KIX_SCFS_INTERNAL_H
 
-#include "uiox_kix_scfs_fs.h"       /* brings inode/file/mount/buf/ops + FS_* */
+#include "uiox_kix_scfs.h"
 
-/* ── errno — one set.  SCFS aliases the FS_* codes. ─────────────────── */
-#define SCFS_OK      FS_OK
-#define SCFS_ENOENT  FS_ENOENT
-#define SCFS_EACCES  FS_EACCES
-#define SCFS_EEXIST  FS_EEXIST
-#define SCFS_EBADF   FS_EBADF
-#define SCFS_ENOTDIR FS_ENOTDIR
-#define SCFS_EISDIR  FS_EISDIR
-#define SCFS_EPERM   FS_EPERM
-#define SCFS_EBUSY   FS_EBUSY
-#define SCFS_EROFS   FS_EROFS
-#define SCFS_EXDEV   FS_EXDEV
-#define SCFS_EINVAL  FS_EINVAL
-#define SCFS_ENOSYS  FS_ENOSYS
-#define SCFS_EFAULT  FS_EFAULT
-#define SCFS_ENOMEM  FS_ENOMEM
-#define SCFS_ERANGE  FS_ERANGE
+/* ═════════════════════════════════════════════════════════════════════
+ * 01_fsa — the i-node level, called directly
+ *
+ * These are the exact names and signatures 01_fsa exports.  The real
+ * headers are included below, so a signature drift is a compile error
+ * rather than a silent mismatch.
+ * ═════════════════════════════════════════════════════════════════════ */
 
-/* ── Bach core calls SCFS uses directly (from inode.h / buf.h) ──────── */
-/* iget / iput / ialloc / ifree / namei / iupdate / itrunc / iaccess
- * bread / bwrite / brelse / getblk / balloc / bfree / bmap — declared in
- * their own headers, already included above. */
+/* ── the real types — never redeclared in this layer ──────────────── */
+#include "fs_types.h"     /* BLOCK_SIZE, MAX_*, NDIRECT, FileType, PERM_* */
+#include "buffer.h"       /* BufEntry, getblk/bread/bwrite/brelse        */
+#include "inode.h"        /* DiskInode, InCoreInode, iget/iput/iupdate   */
+#include "namei.h"        /* DirEntry, ROOT_INO, namei/dir_*             */
+#include "superblock.h"   /* SuperBlock, fs_alloc/fs_free/ialloc/ifree   */
+#include "bmap.h"         /* BmapResult, bmap, bmap_alloc                */
+#include "readwrite.h"    /* readi/writei/readi_at/writei_at  (NEW)      */
 
-/* ── modern helpers the SCFS units call ─────────────────────────────── */
-/* fd table — the per-process descriptor table lives in the u-area */
-extern file_t   *u_fd_get(int fd);          /* u_area()->u_ofile lookup */
-extern int       u_fd_alloc(file_t *fp);    /* lowest free fd           */
-extern int       u_fd_free(int fd);
-extern int       u_fd_dup(int fd);
-extern int       u_fd_find_free(void);
+/* ═════════════════════════════════════════════════════════════════════
+ * The 01_fsa super block accessors (01_fsa/src/sb_access.c)
+ *
+ * superblock.c declares `static SuperBlock sb;`, so no other unit can
+ * reach it.  These are the named readers instead of a struct field walk.
+ * ═════════════════════════════════════════════════════════════════════ */
+uint32_t sb_total_blocks(void);
+uint32_t sb_free_blocks (void);
+uint32_t sb_total_inodes(void);
+uint32_t sb_free_inodes (void);
+uint32_t sb_block_size  (void);
+int      sb_is_modified (void);
+void     sb_clear_modified(void);
 
-/* path resolution — namei() plus the mount-point redirect (Bach Ch.9) */
-extern inode_t  *namei_at(inode_t *dir, const char *path);
-extern inode_t  *namei_parent(const char *path, char **lastname);
+/* ═════════════════════════════════════════════════════════════════════
+ * Extra 01_fsa symbols SCFS calls that the headers do not declare
+ * ═════════════════════════════════════════════════════════════════════ */
 
-/* mount table */
-extern int       vfs_mount_root(const char *fstype);
-extern int       vfs_mount_busy(const char *dir);
+/* fs_free_inode_blocks is defined in superblock.c and declared in
+ * superblock.h — nothing further needed. */
 
-/* block-device read used by the SCFS-ramfs/UNFS backends */
-extern int       bdev_read(uint16_t dev, uint32_t blkno, void *buf);
-extern int       bdev_write(uint16_t dev, uint32_t blkno, const void *buf);
+/* inode_cache_sync does NOT exist in 01_fsa.  Bach's sync sweeps the
+ * inode cache for changed inodes; this filesystem has no such sweep, so
+ * SCFS's sync() must not call one.  It is replaced by a local walk of
+ * the inode cache's public surface — see sync.c, which now relies on
+ * buf_sync() plus iupdate() on the inodes it actually knows about. */
 
-/* ── shared fd lookup (every unit uses this) ────────────────────────── */
-static inline file_t *scfs_fd(int fd)
-{
-    return (fd < 0 || fd >= NOFILE) ? (file_t *)0 : u_fd_get(fd);
-}
+/* ═════════════════════════════════════════════════════════════════════
+ * SCFS's own table helpers  (uiox_kix_scfs_table.c)
+ * ═════════════════════════════════════════════════════════════════════ */
+
+/* the hinge — descriptor number to file table entry, or NULL */
+scfs_file_t *scfs_getf(int fd);
+
+/* Bach's two allocation steps, kept separate:
+ *   scfs_falloc       allocate a FILE TABLE entry (count, offset)
+ *   scfs_ufd_alloc    allocate a USER FD slot pointing at it  */
+scfs_file_t *scfs_falloc      (InCoreInode *ip, int flags, uint32_t perm_mask);
+int          scfs_ufd_alloc   (scfs_file_t *f);
+int          scfs_ufd_find    (void);
+void         scfs_fclose_entry(scfs_file_t *f);
+void         scfs_fput        (scfs_file_t *f);
+
+/* dup: point two descriptors at ONE file table entry */
+int          scfs_ufd_link    (scfs_file_t *f);
+
+/* create a node for O_CREAT — ialloc plus the directory entry */
+InCoreInode *scfs_create_node (const char *path, uint16_t perm);
+
+/* split a path into its parent directory and final component */
+int          scfs_path_split  (const char *path, char *parent, uint32_t sz,
+                               const char **name);
+
+/* ═════════════════════════════════════════════════════════════════════
+ * Process state — cwd, root, umask, credentials
+ *
+ * Bach keeps cwd and root in the u area.  33_PCS owns them; the bring-up
+ * fallback lives in uiox_kix_scfs_table.c and access.c.
+ * ═════════════════════════════════════════════════════════════════════ */
+InCoreInode *scfs_cwd_get (void);
+void         scfs_cwd_set (InCoreInode *ip);
+InCoreInode *scfs_root_get(void);
+void         scfs_root_set(InCoreInode *ip);
+
+uint16_t scfs_umask_get(void);
+uint16_t scfs_umask_set(uint16_t mask);
+
+void     scfs_ufdt_bind(uint16_t unused_);
+void     scfs_cred_set (uint16_t uid, uint16_t gid);
+uint16_t scfs_uid_get  (void);
+uint16_t scfs_gid_get  (void);
+
+/* the current time, as the inode stores it (seconds) */
+void     scfs_time_set(int64_t t);
+int64_t  scfs_time_now(void);
+
+/* ═════════════════════════════════════════════════════════════════════
+ * Mount table
+ * ═════════════════════════════════════════════════════════════════════ */
+scfs_mount_t *scfs_mount_alloc(void);
+void          scfs_mount_free (scfs_mount_t *mp);
+scfs_mount_t *scfs_mount_find (uint16_t dev);
 
 #endif /* UIOX_KIX_SCFS_INTERNAL_H */

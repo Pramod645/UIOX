@@ -1,29 +1,35 @@
-/*
- * 30_KIX/32_FS/10_scfs/src/uiox_kix_scfs_lseek.c
- *
- * lseek
- *
- * Bach Ch.7 — reposition the per-file offset.  Defect fixed here: the ops
- * slot was `.seek = (void *)0`, so any lseek dereferenced a null pointer.
- * Three tiers now: the backend's own seek op, else the VFS seek helper,
- * else ENOSYS — never a fault.
- *
- * @version 1.0.0  @date 2026-09-21
- */
 #include "uiox_kix_scfs_internal.h"
 
-/* lseek() — reposition f_pos (SEEK_SET / SEEK_CUR / SEEK_END). */
-long uiox_kix_scfs_lseek(uiox_reg_t fd, uiox_reg_t off, uiox_reg_t whence,
-                         uiox_reg_t a3, uiox_reg_t a4, uiox_reg_t a5)
+/*
+ * Bach's Algorithm lseek.
+ * The offset lives in the FILE TABLE entry, not the inode — which is why
+ * dup() shares a position and a fresh open() starts at zero.
+ * {
+ *     get file table entry from user file descriptor;
+ *     calculate the new offset from whence;
+ *     if the result is negative, return error;
+ *     store the new offset in the file table entry;
+ *     return (new offset);
+ * }
+ */
+int uiox_kix_scfs_lseek(int fd, int32_t offset, int whence)
 {
-    (void)a3; (void)a4; (void)a5;
-    uiox_file_t *f;
-    long rc = scfs_fd_file(fd, &f);
-    if (rc < 0) return rc;
+    scfs_file_t *f = scfs_getf(fd);
+    int32_t base;
+    int32_t np;
 
-    if (f->f_op && f->f_op->seek)
-        return (long)f->f_op->seek(f, (int64_t)off, (uint32_t)whence);
+    if (!f) return SCFS_EBADF;
 
-    if (!f->f_inode) return -SCFS_EBADF;
-    return (long)vfs_seek_fallback(f, (int64_t)off, (uint32_t)whence);
+    switch (whence) {
+    case SEEK_SET: base = 0;                              break;
+    case SEEK_CUR: base = (int32_t)f->f_offset;           break;
+    case SEEK_END: base = (int32_t)f->f_inode->size;      break;
+    default:       return SCFS_EINVAL;
+    }
+
+    np = base + offset;
+    if (np < 0) return SCFS_EINVAL;
+
+    f->f_offset = (uint32_t)np;
+    return np;
 }
