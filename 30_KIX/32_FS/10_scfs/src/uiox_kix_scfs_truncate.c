@@ -105,8 +105,7 @@ static void scfs_clear_map_past(InCoreInode *ip, uint32_t from_blk)
                     }
                 }
 
-                bwrite(b);                              /* 01_fsa */
-                brelse(b);                              /* 01_fsa */
+                bwrite(b, true, false);                 /* persist + release */
 
                 /* If every pointer is gone the indirect block itself has
                  * no reason to exist — free it and clear the slot. */

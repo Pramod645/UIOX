@@ -469,3 +469,89 @@ src/ — the remainder — 15
 38. uiox_kix_scfs_mmap.c               mmap, munmap, msync, mprotect,
                                        madvise, mincore
 Row 38 ends the list at 38 numbered entries, and the file count is 39 — the arithmetic: 3 headers + 3 tables + 18 algorithms + 15 remainder = 39.
+
+===========
+00_buffcache — 8 files
+Bach Ch.3 — the block buffer cache.
+
+
+
+include/         bcache.h                    11.7 KB   public interface, BufHdr, 5 states
+                 bcache_internal.h            5.7 KB   pool + hash/free-list ops, extern geom
+
+buffers/src/     getblk.c                     9.7 KB   getblk (5 scenarios, bounded spin)
+                 brelse.c                     3.8 KB   brelse (LRU tail/head placement)
+                 bread.c                      3.7 KB   bread
+                 breada.c                     6.4 KB   breada (read + read-ahead)
+                 bwrite.c                     6.8 KB   bwrite + bdwrite + bflush
+                 bcache_init.c               13.8 KB   the pool, sentinels, platform hooks
+01_fsa — 10 files
+Bach Ch.4 — the eight inode-level algorithms across six sources.
+
+
+
+include/         inode.h                      7.4 KB   DiskInode, InCoreInode (both with dev)
+                 bmap.h                       3.3 KB   BmapResult (with dev)
+                 superblock.h                 9.8 KB   SuperBlock + alloc/free/ialloc/ifree
+                 readwrite.h                  2.4 KB   readi/writei/readi_at/writei_at
+
+src/             inode.c                     14.4 KB   iget, iput, iupdate, inode_disk_read,
+                                                       inode_access_ok, inode_cache_init
+                 bmap.c                      13.1 KB   bmap, bmap_alloc
+                 namei.c                     15.6 KB   namei, dir_lookup, dir_add,
+                                                       dir_remove, fs_mkfs
+                 superblock.c                22.9 KB   alloc, free, ialloc, ifree,
+                                                       fs_free_inode_blocks, sb_get
+                 readwrite.c                 10.3 KB   Bach's I/O loop via breada
+                 sb_access.c                  4.3 KB   named accessors for statfs
+10_scfs — 39 files
+Bach Ch.5 — the three kernel data structures and the syscall bodies.
+
+include/ — 4
+
+
+
+uiox_kix_scfs.h              21.1 KB   the 3 structs, flags, codes, all prototypes
+uiox_kix_scfs_internal.h      7.4 KB   the 01_fsa contract + SCFS helpers
+uiox_kix_scfs_dispatch.h      6.7 KB   syscall numbers, scfs_sysent_t, carrier
+uiox_kix_scfs_stat.h          7.1 KB   SCFS_STAT_SZ / SCFS_STATFS_SZ + offsets
+src/ — the three tables, 3
+
+
+
+uiox_kix_scfs_table.c            16.3 KB   file table, fd table, mount table,
+                                           scfs_getf, scfs_falloc, scfs_init
+uiox_kix_scfs_dispatch_table.c   21.8 KB   sysent[] (43 rows), scfs_dispatch,
+                                           scfs_gap_table, scfs_syscall_init
+uiox_kix_scfs_syscalls.c         11.0 KB   every sys_* alias
+src/ — Bach's algorithms, 18
+
+
+
+uiox_kix_scfs_open.c         4.5 KB   uiox_kix_scfs_chown.c       3.0 KB
+uiox_kix_scfs_creat.c        3.7 KB   uiox_kix_scfs_chmod.c       3.2 KB
+uiox_kix_scfs_close.c        2.5 KB   uiox_kix_scfs_stat.c        6.9 KB
+uiox_kix_scfs_read.c         6.5 KB   uiox_kix_scfs_pipe.c        5.0 KB
+uiox_kix_scfs_write.c        5.5 KB   uiox_kix_scfs_dup.c         3.7 KB
+uiox_kix_scfs_lseek.c        2.3 KB   uiox_kix_scfs_mount.c       5.3 KB
+uiox_kix_scfs_link.c         5.0 KB   uiox_kix_scfs_umount.c      5.7 KB
+uiox_kix_scfs_unlink.c       5.0 KB   uiox_kix_scfs_mknod.c       6.1 KB
+uiox_kix_scfs_chdir.c        3.1 KB   uiox_kix_scfs_chroot.c      3.5 KB
+src/ — the remainder, 14
+
+
+
+uiox_kix_scfs_openat.c       6.7 KB   uiox_kix_scfs_sync.c        8.2 KB
+uiox_kix_scfs_fcntl.c        4.9 KB   uiox_kix_scfs_statfs.c      6.4 KB
+uiox_kix_scfs_truncate.c     7.6 KB   uiox_kix_scfs_xattr.c       7.7 KB
+uiox_kix_scfs_access.c       6.3 KB   uiox_kix_scfs_ioctl.c       5.3 KB
+uiox_kix_scfs_utime.c        4.3 KB   uiox_kix_scfs_mmap.c        6.1 KB
+uiox_kix_scfs_mkdir.c        8.1 KB   uiox_kix_scfs_getdents64.c  7.9 KB
+uiox_kix_scfs_fchdir.c       7.2 KB   uiox_kix_scfs_rename.c      9.3 KB
+
+Counts
+Layer	Headers	Sources	Total
+00_buffcache	2	6	8
+01_fsa	4	6	10
+10_scfs	4	35	39
+			57

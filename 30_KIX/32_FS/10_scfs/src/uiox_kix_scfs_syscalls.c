@@ -14,11 +14,15 @@
  *   sys_open()             the name arch assembly and the user-space
  *                          stub expect to find in the symbol table
  *
- * The split is a build convenience, not a design: a trap handler that
- * calls the entry directly gets uiox_kix_scfs_*; linking against an arch
- * shim that expects sys_* gets the wrapper.  Each alias is one line of
- * forwarding, so there is exactly one implementation of every algorithm
- * and no chance of the two drifting.
+ * Each alias is one line of forwarding, so there is exactly one
+ * implementation of every algorithm and no chance of the two drifting.
+ *
+ * ── FIXED in this revision ─────────────────────────────────────────────
+ *  stat / fstat / lstat / statfs / fstatfs now take a THIRD argument —
+ *  the size of the caller's buffer, checked before anything is written.
+ *  The forwarders here still passed two, so they called a three-argument
+ *  function with two arguments.  They carry the size now, matching
+ *  uiox_kix_scfs_stat.h and the nargs column in the dispatch table.
  *
  * ── the ones that return a value rather than a code ────────────────────
  * lseek returns the new offset; read/write return a byte count; umask
@@ -26,9 +30,10 @@
  * forward the return value unchanged — an alias that clamped or
  * re-coded would be a second implementation in disguise.
  *
- * @version 1.0.0  @date 2026-09-23
+ * @version 1.1.0  @date 2026-09-23
  */
 #include "uiox_kix_scfs_internal.h"
+#include "uiox_kix_scfs_stat.h"
 
 /* ═════════════════════════════════════════════════════════════════════
  * Descriptors and I/O
@@ -138,15 +143,21 @@ int  sys_linkat(int odirfd, const char *oldp, int ndirfd, const char *newp, int 
 
 /* ═════════════════════════════════════════════════════════════════════
  * Status, metadata, durability
+ *
+ * The five status calls carry the caller's buffer size as the last
+ * argument.  The implementation refuses a buffer smaller than
+ * SCFS_STAT_SZ / SCFS_STATFS_SZ before writing anything, so the size has
+ * to travel with the call — a two-argument form would call a
+ * three-argument function.
  * ═════════════════════════════════════════════════════════════════════ */
-int  sys_stat (const char *path, void *buf)
-{ return uiox_kix_scfs_stat(path, buf); }
+int  sys_stat (const char *path, void *buf, uint32_t bufsz)
+{ return uiox_kix_scfs_stat(path, buf, bufsz); }
 
-int  sys_fstat(int fd, void *buf)
-{ return uiox_kix_scfs_fstat(fd, buf); }
+int  sys_fstat(int fd, void *buf, uint32_t bufsz)
+{ return uiox_kix_scfs_fstat(fd, buf, bufsz); }
 
-int  sys_lstat(const char *path, void *buf)
-{ return uiox_kix_scfs_lstat(path, buf); }
+int  sys_lstat(const char *path, void *buf, uint32_t bufsz)
+{ return uiox_kix_scfs_lstat(path, buf, bufsz); }
 
 int  sys_chmod(const char *path, uint16_t mode)
 { return uiox_kix_scfs_chmod(path, mode); }
@@ -179,11 +190,6 @@ int  sys_utimes(const char *path, const int64_t *t)
 { return uiox_kix_scfs_utimes(path, t); }
 
 /* ── the forwarders that were only ever inline in their own unit ────── */
-/*
- * These were defined at the bottom of the algorithm unit that owns them
- * and were not carried over when the aliases were consolidated here.
- * Kept, so a caller reaching for them links.
- */
 int  sys_futimes (int fd, const int64_t *t)
 { return uiox_kix_scfs_futimes(fd, t); }
 
@@ -208,11 +214,18 @@ int  sys_fsync(int fd)
 int  sys_fdatasync(int fd)
 { return uiox_kix_scfs_fdatasync(fd); }
 
-int  sys_statfs (const char *path, void *buf)
-{ return uiox_kix_scfs_statfs(path, buf); }
+int  sys_syncfs(int fd)
+{ return uiox_kix_scfs_syncfs(fd); }
 
-int  sys_fstatfs(int fd, void *buf)
-{ return uiox_kix_scfs_fstatfs(fd, buf); }
+int  sys_sync_file_range(int fd, uint32_t off, uint32_t len, int flags)
+{ return uiox_kix_scfs_sync_file_range(fd, off, len, flags); }
+
+/* the two that carry a buffer size, like the three at the top */
+int  sys_statfs (const char *path, void *buf, uint32_t bufsz)
+{ return uiox_kix_scfs_statfs(path, buf, bufsz); }
+
+int  sys_fstatfs(int fd, void *buf, uint32_t bufsz)
+{ return uiox_kix_scfs_fstatfs(fd, buf, bufsz); }
 
 int  sys_mount (const char *dev, const char *dir, int flags)
 { return uiox_kix_scfs_mount(dev, dir, flags); }
@@ -234,12 +247,6 @@ int  sys_removexattr(const char *p, const char *n)
 { return uiox_kix_scfs_removexattr(p, n); }
 
 /* ── the calls whose return VALUE is the answer ─────────────────────── */
-/*
- * Bach's lseek returns the new offset; read and write return a count;
- * mmap returns an address.  These forward the value unchanged — an alias
- * that converted or clamped the result would be a second implementation
- * of the algorithm, which is exactly what this unit exists to prevent.
- */
 void *sys_mmap(void *addr, uint32_t len, int prot, int flags, int fd, uint32_t off)
 { return uiox_kix_scfs_mmap(addr, len, prot, flags, fd, off); }
 

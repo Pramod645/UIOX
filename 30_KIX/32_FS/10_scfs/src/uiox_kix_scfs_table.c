@@ -23,7 +23,14 @@
  * dup() and pipe() need them apart — dup() links a second descriptor to an
  * existing entry, pipe() allocates two entries over one inode.
  *
- * @version 1.0.0  @date 2026-09-23
+ * ── FIXED in this revision ─────────────────────────────────────────────
+ *  scfs_create_node() tested the mode with SCFS_S_ISDIR(), which the
+ *  corrected header renamed to SCFS_IS_DIR().  Six other units were
+ *  updated and this one was missed; it was a compile error, not a
+ *  warning.  The macro name is now the header's, and the file type test
+ *  matches the form used everywhere else.
+ *
+ * @version 1.1.0  @date 2026-09-23
  */
 #include "uiox_kix_scfs_internal.h"
 
@@ -82,12 +89,14 @@ uint16_t scfs_umask_set(uint16_t mask)
  * ═════════════════════════════════════════════════════════════════════ */
 scfs_file_t *scfs_getf(int fd)
 {
-    if (fd < 0 || fd >= NOFILE) return (scfs_file_t *)0;
-    if (!scfs_u)                return (scfs_file_t *)0;
+    scfs_file_t *f;
 
-    scfs_file_t *f = scfs_u->ufd_file[fd];
-    if (!f || !f->f_inuse)      return (scfs_file_t *)0;
-    if (!f->f_inode)            return (scfs_file_t *)0;  /* half-torn */
+    if (fd < 0 || fd >= (int)NOFILE) return (scfs_file_t *)0;
+    if (!scfs_u)                     return (scfs_file_t *)0;
+
+    f = scfs_u->ufd_file[fd];
+    if (!f || !f->f_inuse)           return (scfs_file_t *)0;
+    if (!f->f_inode)                 return (scfs_file_t *)0;  /* half-torn */
 
     return f;
 }
@@ -102,21 +111,24 @@ static uint16_t scfs_flag_from(int flags)
 {
     uint16_t m;
 
-    switch (flags & 0x3) {
+    switch (flags & O_ACCMODE) {
     case O_RDONLY: m = FREAD;          break;
     case O_WRONLY: m = FWRITE;         break;
     default:       m = FREAD | FWRITE; break;
     }
-    if (flags & O_APPEND) m |= FAPPEND;
+    if (flags & O_APPEND)   m |= FAPPEND;
+    if (flags & O_NONBLOCK) m |= FNONBLOCK;
     return m;
 }
 
 scfs_file_t *scfs_falloc(InCoreInode *ip, int flags, uint32_t perm_mask)
 {
+    uint32_t i;
+
     (void)perm_mask;
     if (!ip) return (scfs_file_t *)0;
 
-    for (uint32_t i = 0u; i < NFILE; i++) {
+    for (i = 0u; i < NFILE; i++) {
         scfs_file_t *f = &scfs_file_table[i];
         if (f->f_inuse) continue;
 
@@ -125,7 +137,8 @@ scfs_file_t *scfs_falloc(InCoreInode *ip, int flags, uint32_t perm_mask)
         f->f_flag   = scfs_flag_from(flags);
         f->f_offset = (flags & O_APPEND) ? ip->size : 0u;
         f->f_inuse  = 1u;
-        f->f_pad    = 0u;
+        f->f_pad[0] = 0u;
+        f->f_pad[1] = 0u;
 
         /* The inode now holds a file table reference, so its own count
          * must rise — otherwise close() would free it while open. */
@@ -170,9 +183,13 @@ void scfs_fput(scfs_file_t *f)
  * ═════════════════════════════════════════════════════════════════════ */
 int scfs_ufd_find(void)
 {
+    int i;
+
     if (!scfs_u) return SCFS_EMFILE;
 
-    for (int i = 0; i < NOFILE; i++)
+    /* Only a NULL slot is free.  A slot holding a released entry is
+     * still occupied until close() clears it. */
+    for (i = 0; i < (int)NOFILE; i++)
         if (!scfs_u->ufd_file[i]) return i;
 
     return SCFS_EMFILE;
@@ -180,9 +197,11 @@ int scfs_ufd_find(void)
 
 int scfs_ufd_alloc(scfs_file_t *f)
 {
+    int fd;
+
     if (!f) return SCFS_EINVAL;
 
-    int fd = scfs_ufd_find();
+    fd = scfs_ufd_find();
     if (fd < 0) return fd;
 
     scfs_u->ufd_file[fd] = f;
@@ -193,9 +212,11 @@ int scfs_ufd_alloc(scfs_file_t *f)
  * reference rises, so close() on one does not release the other. */
 int scfs_ufd_link(scfs_file_t *f)
 {
+    int fd;
+
     if (!f) return SCFS_EINVAL;
 
-    int fd = scfs_ufd_find();
+    fd = scfs_ufd_find();
     if (fd < 0) return fd;
 
     f->f_count++;
@@ -212,15 +233,17 @@ int scfs_ufd_link(scfs_file_t *f)
 int scfs_path_split(const char *path, char *parent, uint32_t sz,
                     const char **name)
 {
+    uint32_t n, cut, i;
+
     if (!path || !parent || !name) return SCFS_EINVAL;
 
-    uint32_t n = 0u;
+    n = 0u;
     while (path[n]) n++;
     if (n == 0u) return SCFS_EINVAL;
 
     while (n > 1u && path[n - 1u] == '/') n--;      /* trim trailing / */
 
-    uint32_t cut = n;
+    cut = n;
     while (cut > 0u && path[cut - 1u] != '/') cut--;
 
     if (cut == 0u) {                                /* no slash */
@@ -231,7 +254,7 @@ int scfs_path_split(const char *path, char *parent, uint32_t sz,
     }
     if (cut >= sz) return SCFS_ENOMEM;
 
-    for (uint32_t i = 0u; i < cut; i++) parent[i] = path[i];
+    for (i = 0u; i < cut; i++) parent[i] = path[i];
     parent[cut] = '\0';
     *name = path + cut;
     return SCFS_OK;
@@ -243,34 +266,52 @@ int scfs_path_split(const char *path, char *parent, uint32_t sz,
  * Bach's Algorithm creat, steps 3 and 4: assign a free inode (algorithm
  * ialloc), then create the directory entry in the parent, recording the
  * new name and the newly assigned inode number.
+ *
+ * ── the macro name ───────────────────────────────────────────────────
+ * The file-type test is SCFS_IS_DIR(), from uiox_kix_scfs.h, which reads
+ * the nibble the way fs_types.h's FileType assigns it.  The older
+ * SCFS_S_ISDIR() spelling is gone from the header and must not appear.
  * ═════════════════════════════════════════════════════════════════════ */
 InCoreInode *scfs_create_node(const char *path, uint16_t perm)
 {
-    char        parent[SCFS_PATH_MAX];
-    const char *name = (const char *)0;
+    char            parent[SCFS_PATH_MAX];
+    const char     *name = (const char *)0;
+    InCoreInode    *dir;
+    InCoreInode    *ip;
+    int             rc;
 
-    int rc = scfs_path_split(path, parent, sizeof(parent), &name);
+    rc = scfs_path_split(path, parent, sizeof(parent), &name);
     if (rc != SCFS_OK) return (InCoreInode *)0;
 
-    InCoreInode *dir = namei(parent, scfs_cwd_get(), 0u, 0u);   /* 01_fsa */
+    dir = namei(parent, scfs_cwd_get(), 0u, 0u);            /* 01_fsa */
     if (!dir) return (InCoreInode *)0;
+
+    /* ── the corrected type test ───────────────────────────────────── */
     if (!SCFS_IS_DIR(dir->mode)) { iput(dir); return (InCoreInode *)0; }
-    if (!inode_access_ok(dir, 0u, 0u, 0, 1, 0)) { iput(dir); return (InCoreInode *)0; }
+
+    if (!inode_access_ok(dir, 0u, 0u, 0, 1, 0)) {
+        iput(dir);
+        return (InCoreInode *)0;
+    }
 
     /* The name must not already be there. */
-    if (dir_lookup(dir, name) != 0u) { iput(dir); return (InCoreInode *)0; }
+    if (dir_lookup(dir, name) != 0u) {                      /* 01_fsa */
+        iput(dir);
+        return (InCoreInode *)0;
+    }
 
-    InCoreInode *ip = ialloc(FT_REGULAR, (uint16_t)(perm & 0777u), 0u, 0u);
+    ip = ialloc(FT_REGULAR, scfs_apply_umask(perm), 0u, 0u);
     if (!ip) { iput(dir); return (InCoreInode *)0; }
 
     ip->nlink = 1;
-    if (dir_add(dir, name, ip->ino) != 0) {      /* 01_fsa */
+    if (dir_add(dir, name, ip->ino) != 0) {                 /* 01_fsa */
         iput(ip);
         iput(dir);
         return (InCoreInode *)0;
     }
 
-    iupdate(ip);
+    ip->flags |= IFLAG_CHANGED;
+    iupdate(ip);                                            /* 01_fsa */
     iput(dir);            /* the parent is done with */
     return ip;            /* caller owns the new inode */
 }
@@ -280,7 +321,9 @@ InCoreInode *scfs_create_node(const char *path, uint16_t perm)
  * ═════════════════════════════════════════════════════════════════════ */
 scfs_mount_t *scfs_mount_alloc(void)
 {
-    for (uint32_t i = 0u; i < NMOUNT; i++)
+    uint32_t i;
+
+    for (i = 0u; i < NMOUNT; i++)
         if (!scfs_mount_table[i].m_inuse) {
             scfs_mount_t *mp = &scfs_mount_table[i];
             mp->m_inuse = 1u;
@@ -292,6 +335,7 @@ scfs_mount_t *scfs_mount_alloc(void)
 void scfs_mount_free(scfs_mount_t *mp)
 {
     if (!mp) return;
+
     if (mp->m_mountpt) iput(mp->m_mountpt);
     if (mp->m_root)    iput(mp->m_root);
     if (mp->m_sb_buf)  brelse(mp->m_sb_buf);
@@ -299,12 +343,17 @@ void scfs_mount_free(scfs_mount_t *mp)
     mp->m_mountpt = (InCoreInode *)0;
     mp->m_root    = (InCoreInode *)0;
     mp->m_sb_buf  = (BufEntry *)0;
+    mp->m_dev     = 0u;
     mp->m_inuse   = 0u;
+    mp->m_rdonly  = 0u;
+    mp->m_fstype[0] = '\0';
 }
 
 scfs_mount_t *scfs_mount_find(uint16_t dev)
 {
-    for (uint32_t i = 0u; i < NMOUNT; i++)
+    uint32_t i;
+
+    for (i = 0u; i < NMOUNT; i++)
         if (scfs_mount_table[i].m_inuse && scfs_mount_table[i].m_dev == dev)
             return &scfs_mount_table[i];
     return (scfs_mount_t *)0;
@@ -319,22 +368,34 @@ scfs_mount_t *scfs_mount_find(uint16_t dev)
  * ═════════════════════════════════════════════════════════════════════ */
 int scfs_init(void)
 {
-    for (uint32_t i = 0u; i < NFILE; i++)  {
-        scfs_file_table[i].f_inuse = 0u;
-        scfs_file_table[i].f_inode = (InCoreInode *)0;
+    InCoreInode *root;
+    uint32_t     i;
+
+    for (i = 0u; i < NFILE; i++) {
+        scfs_file_table[i].f_inuse  = 0u;
+        scfs_file_table[i].f_inode  = (InCoreInode *)0;
+        scfs_file_table[i].f_count  = 0u;
+        scfs_file_table[i].f_offset = 0u;
+        scfs_file_table[i].f_flag   = 0u;
     }
-    for (uint32_t i = 0u; i < NOFILE; i++)
+
+    for (i = 0u; i < NOFILE; i++)
         scfs_u_default.ufd_file[i] = (scfs_file_t *)0;
-    for (uint32_t i = 0u; i < NMOUNT; i++)
-        scfs_mount_table[i].m_inuse = 0u;
+
+    for (i = 0u; i < NMOUNT; i++) {
+        scfs_mount_table[i].m_inuse   = 0u;
+        scfs_mount_table[i].m_mountpt = (InCoreInode *)0;
+        scfs_mount_table[i].m_root    = (InCoreInode *)0;
+        scfs_mount_table[i].m_sb_buf  = (BufEntry *)0;
+    }
 
     /* Bach: "when the system is first booted, process 0 makes the file
      * system root its current directory during initialization." */
-    InCoreInode *root = iget(ROOT_INO);          /* 01_fsa */
+    root = iget(ROOT_INO);                      /* 01_fsa */
     if (!root) return SCFS_EIO;
 
-    s_root = root;
-    s_cwd  = root;
+    s_root  = root;
+    s_cwd   = root;
     s_umask = 0u;
 
     printf("[scfs] tables ready: %u file entries, %u fds, %u mounts\n",

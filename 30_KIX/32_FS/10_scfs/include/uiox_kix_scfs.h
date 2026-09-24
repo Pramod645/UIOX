@@ -78,6 +78,10 @@
 
 /* ═════════════════════════════════════════════════════════════════════
  * Result codes
+ *
+ * Bach's kernel returns -1 and sets u.u_error; a freestanding kernel with
+ * no u area returns the code directly.  The numbers are the conventional
+ * ones so user space needs no translation table.
  * ═════════════════════════════════════════════════════════════════════ */
 #define SCFS_OK         0
 #define SCFS_EPERM      1
@@ -124,6 +128,11 @@
 
 /* ═════════════════════════════════════════════════════════════════════
  * Limits
+ *
+ * NFILE and NOFILE are Bach's names for the two table sizes.  The values
+ * here are larger than his 100 / 20 because this kernel runs fewer,
+ * bigger processes; the ratio is kept so the fd table stays a small
+ * array indexed by a small int.
  * ═════════════════════════════════════════════════════════════════════ */
 #define NFILE          256u   /* entries in the system-wide FILE TABLE    */
 #define NOFILE          64u   /* entries in the per-process fd table      */
@@ -137,6 +146,16 @@
 
 /* ═════════════════════════════════════════════════════════════════════
  * STRUCTURE 1 — an entry in the FILE TABLE
+ *
+ * Bach: "one entry allocated for every opened file in the system."
+ *
+ * f_count is not the inode's reference count.  It counts DESCRIPTORS
+ * pointing at this entry: dup() raises it, close() lowers it, the entry
+ * is freed at zero.  The inode has its own count, held by the entry.
+ *
+ * f_offset lives HERE — not in the descriptor, not in the inode.  That is
+ * why two descriptors from dup() share a position and two from separate
+ * open() calls do not.
  * ═════════════════════════════════════════════════════════════════════ */
 /* the status flags, in Bach's f_flag */
 #define FREAD     0x01u
@@ -158,6 +177,12 @@ typedef struct scfs_file {
 
 /* ═════════════════════════════════════════════════════════════════════
  * STRUCTURE 2 — the USER FILE DESCRIPTOR TABLE
+ *
+ * Bach: "one entry allocated for every file descriptor known to a
+ * process."  The slot INDEX is the descriptor number a program passes in.
+ *
+ * Per PROCESS, which is why Bach keeps it in the u area.  One instance
+ * lives here for bring-up; 33_PCS rebinds it with scfs_ufdt_bind().
  * ═════════════════════════════════════════════════════════════════════ */
 typedef struct scfs_ufdt {
     scfs_file_t *ufd_file[NOFILE];
@@ -165,6 +190,14 @@ typedef struct scfs_ufdt {
 
 /* ═════════════════════════════════════════════════════════════════════
  * STRUCTURE 3 — the MOUNT TABLE
+ *
+ * Bach: "containing information for every active file system."  The
+ * mount-point inode keeps the reference namei gave it, so a path walk
+ * that crosses the mount still holds the directory the mount replaced.
+ *
+ * NOTE: there is no device field on InCoreInode, so m_dev is filled from
+ * the mount call's own argument and is the only device identity the
+ * system has.
  * ═════════════════════════════════════════════════════════════════════ */
 typedef struct scfs_mount {
     InCoreInode *m_mountpt;   /* the directory mounted ON                */

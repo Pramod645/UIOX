@@ -1,22 +1,39 @@
-#include "uiox_kix_scfs_internal.h"
-
 /*
- * Bach has no mmap.  Ch.6 describes the process's address space in units
- * of REGIONS and Ch.7 §1 maps those onto physical pages, but nothing let
- * a program ASK for a mapping.
+ * 30_KIX/32_FS/10_scfs/src/uiox_kix_scfs_mmap.c
  *
- * The kernel work splits cleanly:
+ * SCFS — mmap, munmap, msync, mprotect.
+ * Bach, The Design of the UNIX Operating System.
+ *
+ * ── where this sits relative to Bach ───────────────────────────────────
+ * Bach has no mmap.  Chapter 6 describes the process's address space in
+ * units of REGIONS — "a contiguous area of a process's address space,
+ * such as text, data, or stack" — and Chapter 7 §1 maps those regions
+ * onto physical pages.  A file could be mapped as the backing store of a
+ * text region, but nothing let a program ASK for a mapping.
+ *
+ * mmap(2) is that ask.  The kernel work it needs splits cleanly:
+ *
  *   SCFS's part   the FILE side — resolve the descriptor, check it is
- *                 mappable, capture the inode and the block map
+ *                 mappable, capture the inode and the block map so the
+ *                 fault handler can find the bytes
  *   the VM part   the ADDRESS side — choose a virtual range, build the
  *                 page table entries, handle the page fault
  *
  * 33_PCS owns the address space.  There is no MMU-backed paging in this
- * build at all, so there is no address side to hand the file side to.
+ * build at all, so there is no address side to hand the file side to —
+ * and mmap without a page fault handler cannot be faked, because the
+ * whole point is that the mapping is populated lazily by the hardware.
+ *
+ * ── the refusal, stated precisely ──────────────────────────────────────
  * These calls return ENOSYS.  The file half below is written out because
- * it is correct and complete, but a return of success would hand the
- * caller a virtual address whose first read faults into nothing.
+ * it is correct and complete — a program's mapping request is validated
+ * against the inode exactly as Bach's region code would need it to be —
+ * but a return of success would hand the caller a virtual address whose
+ * first read faults into nothing.
+ *
+ * @version 1.0.0  @date 2026-09-23
  */
+#include "uiox_kix_scfs_internal.h"
 
 /* Validate a mapping request against its file.  This is the file-side
  * half; it returns the inode the mapping would be backed by, or NULL
@@ -24,15 +41,13 @@
 static InCoreInode *scfs_mmap_validate(int fd, uint32_t length,
                                        int prot, int flags, int *err)
 {
-    scfs_file_t *f;
-
-    f = scfs_getf(fd);
+    scfs_file_t *f = scfs_getf(fd);
     if (!f) { *err = SCFS_EBADF; return (InCoreInode *)0; }
 
     if (length == 0u) { *err = SCFS_EINVAL; return (InCoreInode *)0; }
 
     /* A directory has no byte stream to map. */
-    if (SCFS_IS_DIR(f->f_inode->mode)) {
+    if (SCFS_S_ISDIR(f->f_inode->mode)) {
         *err = SCFS_ENODEV;
         return (InCoreInode *)0;
     }
@@ -40,8 +55,7 @@ static InCoreInode *scfs_mmap_validate(int fd, uint32_t length,
     /* A shared writable mapping needs the descriptor to be writable —
      * otherwise two processes could write through the same pages and only
      * one of them would have asked permission. */
-    if ((flags & SCFS_MAP_SHARED) && (prot & SCFS_PROT_WRITE) &&
-        !(f->f_flag & FWRITE)) {
+    if ((flags & 0x1) && (prot & 0x2) && !(f->f_flag & FWRITE)) {
         *err = SCFS_EACCES;
         return (InCoreInode *)0;
     }
@@ -49,8 +63,8 @@ static InCoreInode *scfs_mmap_validate(int fd, uint32_t length,
     /* MAP_SHARED and MAP_PRIVATE are mutually exclusive and exactly one
      * must be given. */
     {
-        int shared = (flags & SCFS_MAP_SHARED)  ? 1 : 0;
-        int priv   = (flags & SCFS_MAP_PRIVATE) ? 1 : 0;
+        int shared  = (flags & 0x1) ? 1 : 0;
+        int priv    = (flags & 0x2) ? 1 : 0;
         if (shared == priv) { *err = SCFS_EINVAL; return (InCoreInode *)0; }
     }
 
@@ -61,8 +75,8 @@ static InCoreInode *scfs_mmap_validate(int fd, uint32_t length,
 void *uiox_kix_scfs_mmap(void *addr, uint32_t length, int prot,
                          int flags, int fd, uint32_t offset)
 {
-    int          err = SCFS_OK;
-    InCoreInode *ip  = scfs_mmap_validate(fd, length, prot, flags, &err);
+    int          err  = SCFS_OK;
+    InCoreInode *ip   = scfs_mmap_validate(fd, length, prot, flags, &err);
 
     if (!ip) return SCFS_MAP_FAILED;
 
@@ -75,15 +89,17 @@ void *uiox_kix_scfs_mmap(void *addr, uint32_t length, int prot,
 
     /* The offset must be block-aligned: a mapping is built out of whole
      * pages, and the file's blocks are whole blocks. */
-    if (offset % (uint32_t)BLOCK_SIZE)
+    if (offset % BLKSIZE)
         return SCFS_MAP_FAILED;
 
-    /* ── the address side, which does not exist ──────────────────────
+    /*
+     * ── the address side, which does not exist ──────────────────────
      * Bach's region code would now allocate a virtual range, record the
      * backing inode and offset in the region table, and arrange for a
      * page fault to call bmap() for the block that holds the faulting
      * address.  33_PCS owns the address space and this build has no MMU
-     * paging, so there is nothing to hand the validated request to. */
+     * paging, so there is nothing to hand the validated request to.
+     */
     (void)addr; (void)prot;
     return SCFS_MAP_FAILED;
 }
@@ -109,16 +125,25 @@ int uiox_kix_scfs_mprotect(void *addr, uint32_t length, int prot)
     return SCFS_ENOSYS;
 }
 
+/* ── madvise — telling the VM about access patterns ─────────────────── */
 int uiox_kix_scfs_madvise(void *addr, uint32_t length, int advice)
 {
     (void)addr; (void)length; (void)advice;
     return SCFS_ENOSYS;
 }
 
-/* Needs a resident-page bitmap for a mapping, so it is downstream of the
- * same missing address side. */
+/*
+ * ── mincore — "which pages of this mapping are resident?" ────────────
+ * Needs a resident-page bitmap for a mapping, so it is downstream of the
+ * same missing address side.
+ */
 int uiox_kix_scfs_mincore(void *addr, uint32_t length, uint8_t *vec)
 {
     (void)addr; (void)length; (void)vec;
     return SCFS_ENOSYS;
 }
+
+/* sys_* aliases — same bodies. */
+void *sys_mmap(void *a, uint32_t l, int p, int f, int fd, uint32_t o)
+{ return uiox_kix_scfs_mmap(a, l, p, f, fd, o); }
+int sys_munmap(void *a, uint32_t l)  { return uiox_kix_scfs_munmap(a, l); }
