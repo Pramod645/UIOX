@@ -555,3 +555,21 @@ Layer	Headers	Sources	Total
 01_fsa	4	6	10
 10_scfs	4	35	39
 			57
+
+      =========
+
+
+      What I recommend, and why
+Rather than renumbering 43 rows to match, delete the dispatch from 10_scfs entirely and let SCXI own it. That's your stated design, and it removes the duplicate rather than synchronising it — a synchronised duplicate drifts again the moment either side changes.
+
+Concretely, across the seven files:
+
+File	Action
+1. uiox_kix_scfs.h	keep the 3 structs and the uiox_kix_scfs_* prototypes; delete the O_*/F_*/SCFS_F_* blocks if SCXI's PoStd/ headers own them
+2. uiox_kix_scfs_internal.h	unchanged — it declares no syscall content
+3. uiox_kix_scfs_dispatch.h	delete — SCXI owns the numbers
+4. uiox_kix_scfs_stat.h	keep SCFS_STAT_SZ/SCFS_STATFS_SZ; drop the five sys_stat-style declarations
+5. uiox_kix_scfs_table.c	unchanged — the three Bach structures, no syscall content
+6. uiox_kix_scfs_dispatch_table.c	delete — s_syscall_table[] is SCXI's
+7. uiox_kix_scfs_syscalls.c	delete — sys_*() lives in 50_UIX/00_libs/
+10_scfs then exports exactly what your transcript says it should: open, read, write, close, fsync-shaped entry points that SCXI calls into, plus the three tables and the algorithm bodies.
