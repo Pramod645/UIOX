@@ -75,12 +75,28 @@
  *  "no next block known" — the end of the direct range, or an indirect
  *  level where bmap did not compute one — and is served as plain bread.
  *
- *  @version 2.2.0  @date 2026-09-25
+ *  ── WHY uiox_soc_stdio.h IS NOT INCLUDED ─────────────────────────────
+ *  Two headers in this tree declare the same symbol and disagree:
+ *
+ *      uiox_klibc.h:164    extern int  uiox_printf(const char *fmt, ...)
+ *      uiox_soc_stdio.h:34 void        uiox_printf(const char *fmt, ...)
+ *
+ *  and both define the printf macro (klibc.h:221, stdio.h:59).  Including
+ *  both in one translation unit is a hard error under -Werror, whichever
+ *  order they arrive in.
+ *
+ *  This file needs neither.  Its only diagnostic is a counter
+ *  (bcache_stats.read_oob), and the integer types it uses arrive through
+ *  bcache.h → bcache_types.h → uiox_klibc.h.  So stdio.h is not included,
+ *  rather than the two headers being coordinated.
+ *
+ *  A file that DOES call early_puts() may include uiox_soc_stdio.h — but
+ *  it must not also pull in uiox_klibc.h, or it re-creates this clash.
+ *
+ *  @version 2.3.0  @date 2026-09-25
  */
 #include "bcache.h"
 #include "bcache_internal.h"
-#include "uiox_klibc.h"        /* uint*_t, bool, memset, memcpy, printf */
-#include "uiox_soc_stdio.h"    /* early_puts — NOT printf */
 
 BufHdr *breada(uint8_t dev, uint32_t blkno, uint32_t ra_blkno)
 {
