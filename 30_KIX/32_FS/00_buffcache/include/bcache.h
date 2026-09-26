@@ -54,6 +54,7 @@
 #define UIOX_BCACHE_H
 
 #include "bcache_types.h"
+#include "uiox_klibc.h"
 
 /* ═════════════════════════════════════════════════════════════════════
  * Buffer header — Bach's BufferHeaders

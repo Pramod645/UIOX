@@ -1,5 +1,5 @@
 /*
- *  31_BufferCache/00_FileBuff/buffers/src/breada.c
+ *  31_BufferCache/00_FileBuff/src/breada.c
  *
  *  Algorithm breada — Bach, Ch.3 §2.  Read a block and read ahead.
  *
@@ -31,29 +31,43 @@
  *      return buffer;
  *  }
  *
- *  ── the shape of the algorithm, which is easy to get wrong ────────────
- *  Bach tests the cache BEFORE calling getblk, for each block separately,
- *  and the third step re-runs bread when the first block was already
- *  resident.  That is not redundant: getblk on a cached block returns it
- *  LOCKED, and the third step is what guarantees the caller gets a lock
- *  on the block it asked for even when the read path below was skipped.
+ *  ── the shape of the algorithm, and where this diverges ───────────────
+ *  Bach tests the cache BEFORE getblk, for each block separately, and the
+ *  third step re-runs bread when the first block was already resident.
+ *  He needs that because getblk on a cached block returns it LOCKED, and
+ *  the third step is what guarantees the caller holds a lock on the block
+ *  it asked for even when the read path above was skipped.
  *
- *  ── what this implementation keeps, and what it changes ───────────────
- *  KEPT:
- *    · the per-block cache test before getblk
- *    · the read-ahead buffer is released when its I/O completes — here
- *      the "I/O" is a synchronous platform copy, so release is immediate
- *    · a cached read-ahead block is NOT re-read and NOT displaced
+ *  THIS IMPLEMENTATION HAS ONE CALL SITE FOR THE IMMEDIATE BLOCK, not two.
+ *  bread() already performs the same cache test and returns immediately on
+ *  a hit, so Bach's two paths collapse into one:
+ *
+ *      Bach                                    here
+ *      ──────────────────────────────────      ──────────────────────────
+ *      if (not in cache) { getblk; read; }     b = bread(dev, blkno);
+ *      if (was in cache)  { bread; return; }
+ *
+ *  The earlier revision kept both, with a first_was_cached flag choosing
+ *  between them.  That produced a `b` the compiler could not prove was
+ *  initialised on every path (-Werror=maybe-uninitialized), and — more
+ *  importantly — it RETURNED EARLY when the first block was cached, so the
+ *  read-ahead never ran in exactly the case it is most useful: a
+ *  sequential scan that keeps finding the current block already resident.
+ *
+ *  ── what is kept from Bach ────────────────────────────────────────────
+ *    · the read-ahead block is cache-tested before getblk
+ *    · a resident read-ahead block is NOT re-read and NOT displaced
+ *    · the read-ahead buffer is released when its I/O completes — with a
+ *      synchronous platform hook, immediately
  *    · the returned buffer is the immediate block, locked
  *
- *  CHANGED:
- *    · the sleep in the third step has nothing to sleep against, so the
- *      immediate read is completed inline and the buffer returned ready
- *    · the read-ahead is not asynchronous.  Bach's "asynchronous read"
- *      needs an interrupt to complete it; with a synchronous platform
- *      hook the copy happens now.  The BENEFIT Bach is after — the next
- *      block is resident before it is asked for — is preserved; only the
- *      concurrency is not.
+ *  ── what is not asynchronous ──────────────────────────────────────────
+ *  Bach's second read is started in parallel and completed by an interrupt.
+ *  This layer has no interrupt to hook, so the copy happens inline.  The
+ *  BENEFIT — the next block is resident before it is asked for — is
+ *  preserved; only the concurrency is not.  The same applies to Bach's
+ *  sleep(event first buffer contains valid data): there is nothing to
+ *  sleep against, so the buffer is returned ready.
  *
  *  ── where the second argument comes from ──────────────────────────────
  *  01_fsa's bmap() fills BmapResult.readahead_blk on every direct-block
@@ -61,88 +75,78 @@
  *  "no next block known" — the end of the direct range, or an indirect
  *  level where bmap did not compute one — and is served as plain bread.
  *
- *  @version 2.0.0  @date 2026-09-24
+ *  @version 2.2.0  @date 2026-09-25
  */
 #include "bcache.h"
 #include "bcache_internal.h"
+#include "uiox_klibc.h"        /* uint*_t, bool, memset, memcpy, printf */
+#include "uiox_soc_stdio.h"    /* early_puts — NOT printf */
 
 BufHdr *breada(uint8_t dev, uint32_t blkno, uint32_t ra_blkno)
 {
-    BufHdr  *b;
-    int      first_was_cached;
+    BufHdr *b;
+    BufHdr *ra;
 
     /* ── an absent read-ahead is just a read ───────────────────────── */
     if (ra_blkno == 0u || ra_blkno == blkno)
         return bread(dev, blkno);
 
-    /* ── step 1: is the FIRST block already in the cache? ───────────
-     * Bach tests before getblk, because the answer decides whether the
-     * third step has to re-read. */
-    first_was_cached = (bcache_hash_lookup(dev, blkno) != (BufHdr *)0);
-
-    /* Bach: "if (first block not in cache) { get buffer for first block;
-     * if (buffer data not valid) initiate disk read; }" */
-    if (!first_was_cached) {
-        b = getblk(dev, blkno);
-        if (!b) return (BufHdr *)0;     /* pool starved — logged */
-
-        if (!(b->status & BUF_VALID)) {
-            b->status |= BUF_IOBUSY;
-            bcache_plat_read_block(dev, blkno, b->data);
-            b->status &= ~BUF_IOBUSY;
-            b->status |=  BUF_VALID;
-            bcache_stats.reads++;
-        }
-    }
+    /* ══ step 1: the immediate block, locked, for the caller ═════════
+     * Bach: "if (first block not in cache) { get buffer for first block
+     * (algorithm getblk); if (buffer data not valid) initiate disk read; }"
+     * followed by "if (first block was originally in cache) { read first
+     * block (algorithm bread); return buffer; }"
+     *
+     * Both branches do the same thing — fetch the immediate block and
+     * hand it back locked — so they collapse into one call.  bread()
+     * tests the cache itself: a hit returns the buffer immediately, a
+     * miss reads the device.  Either way b is assigned, so there is no
+     * path on which the return below reads an uninitialised pointer. */
+    b = bread(dev, blkno);
+    if (!b) return (BufHdr *)0;         /* pool starved */
 
     /* ── step 2: the read-ahead block ───────────────────────────────
      * Bach checks the cache FIRST.  If it is already there and valid,
      * the read-ahead is pointless — the block is left alone rather than
-     * re-read or moved in the replacement order. */
-    {
-        BufHdr *ra = bcache_hash_lookup(dev, ra_blkno);
+     * re-read or moved in the replacement order.
+     *
+     * Bach's step: "if (second block not in cache) { get buffer for
+     * second block (algorithm getblk); if (buffer data valid) release
+     * buffer (algorithm brelse); else initiate disk read; }" */
+    ra = bcache_hash_lookup(dev, ra_blkno);
 
-        if (ra && (ra->status & BUF_VALID)) {
-            /* already resident — nothing to do, and it must NOT be
-             * displaced or re-read */
-        } else {
-            BufHdr *ra_b = getblk(dev, ra_blkno);
+    if (!ra || !(ra->status & BUF_VALID)) {
+        BufHdr *ra_b = getblk(dev, ra_blkno);
 
-            if (ra_b) {
-                if (ra_b->status & BUF_VALID) {
-                    /* Rach: "if (buffer data valid) release buffer" —
-                     * it came in valid between the two checks. */
-                    brelse(ra_b);
-                } else {
-                    ra_b->status |= BUF_IOBUSY;
-                    bcache_plat_read_block(dev, ra_blkno, ra_b->data);
-                    ra_b->status &= ~BUF_IOBUSY;
-                    ra_b->status |=  BUF_VALID;
-                    bcache_stats.readaheads++;
-                }
+        if (ra_b) {
+            if (ra_b->status & BUF_VALID) {
+                /* It came in valid between the two checks — Bach:
+                 * "if (buffer data valid) release buffer". */
+                brelse(ra_b);
+            } else {
+                ra_b->status |= BUF_IOBUSY;
+                bcache_plat_read_block(dev, ra_blkno, ra_b->data);
+                ra_b->status &= ~BUF_IOBUSY;
+                ra_b->status |=  BUF_VALID;
+                bcache_stats.readaheads++;
 
                 /* The read-ahead buffer is released when its I/O is
-                 * done — Bach's "the read-ahead buffer is released
+                 * done — Bach: "the read-ahead buffer is released
                  * automatically when I/O done".  With a synchronous
                  * platform hook, that is now. */
                 brelse(ra_b);
             }
-            /* A starved pool on the read-ahead is NOT fatal: the block
-             * the caller asked for is the one that matters, and it is
-             * already in hand below. */
         }
+        /* A starved pool on the read-ahead is NOT fatal: the block the
+         * caller asked for is in hand, and it is the one that matters. */
     }
 
-    /* ── step 3: the immediate block, locked, for the caller ────────
-     * Bach: "if (first block was originally in cache) { read first
-     * block (bread); return buffer; }"  bread() returns it locked. */
-    if (first_was_cached) {
-        b = bread(dev, blkno);
-        return b;
-    }
-
-    /* Bach's sleep(event first buffer contains valid data) has nothing
+    /* ── step 3: return the immediate block ═════════════════════════
+     * Bach's sleep(event first buffer contains valid data) has nothing
      * to wait on: the read in step 1 was synchronous, so b is valid and
-     * locked already.  It is returned as-is. */
+     * locked already.  It is returned as-is.
+     *
+     * Bach returns here too — "return buffer" once the first block is
+     * in hand — and this is that return, for both of his paths. */
     return b;
 }

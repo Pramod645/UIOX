@@ -31,6 +31,7 @@
 #define UIOX_BCACHE_INTERNAL_H
 
 #include "bcache.h"
+#include "uiox_klibc.h"
 
 /* ═════════════════════════════════════════════════════════════════════
  * The pool

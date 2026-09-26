@@ -45,7 +45,8 @@
 #ifndef UIOX_BCACHE_TYPES_H
 #define UIOX_BCACHE_TYPES_H
 
-#include "uiox_base_types.h"
+//#include "uiox_base_types.h"
+#include "uiox_klibc.h"
 
 /* ═════════════════════════════════════════════════════════════════════
  * Geometry
