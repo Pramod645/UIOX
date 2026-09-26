@@ -58,7 +58,7 @@ int uiox_kix_scfs_chroot(const char *path)
     if (!ip) return SCFS_ENOENT;
 
     /* ── it must be a directory ─────────────────────────────────────── */
-    if (!SCFS_S_ISDIR(ip->mode)) {
+    if (!SCFS_IS_DIR(ip->mode)) {
         iput(ip);
         return SCFS_ENOTDIR;
     }

@@ -50,7 +50,7 @@ static InCoreInode *scfs_dirfd_inode(int dirfd, int *need_put)
 
     scfs_file_t *f = scfs_getf(dirfd);
     if (!f) return (InCoreInode *)0;
-    if (!SCFS_S_ISDIR(f->f_inode->mode)) return (InCoreInode *)0;
+    if (!SCFS_IS_DIR(f->f_inode->mode)) return (InCoreInode *)0;
 
     return f->f_inode;              /* borrowed from the file table entry */
 }

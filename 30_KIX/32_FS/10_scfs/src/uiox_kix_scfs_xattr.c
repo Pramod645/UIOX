@@ -89,8 +89,13 @@ static int scfs_xattr_precheck(const char *name)
 
 /* ── setxattr ───────────────────────────────────────────────────────── */
 int uiox_kix_scfs_setxattr(const char *path, const char *name,
-                           const void *value, uint32_t size, int flags)
+                           const void *value, uint32_t size, int flags /* unused - no xattr storage */)
 {
+
+    /* flags is part of setxattr's ABI (XATTR_CREATE / XATTR_REPLACE) but
+     * there is no storage to create or replace in, so it is discarded
+     * explicitly rather than left unused - -Wextra rejects the latter. */
+    (void)flags;
     int rc;
 
     if (!path || !name || (!value && size)) return SCFS_EFAULT;

@@ -1,6 +1,4 @@
 /*
- * 30_KIX/32_FS/10_scfs/src/uiox_kix_scfs_table.c
- *
  * SCFS — the three kernel data structures, and the helpers that manage
  * them.  Bach, The Design of the UNIX Operating System.
  *
@@ -24,7 +22,7 @@
  * existing entry, pipe() allocates two entries over one inode.
  *
  * ── FIXED in this revision ─────────────────────────────────────────────
- *  scfs_create_node() tested the mode with SCFS_S_ISDIR(), which the
+ *  scfs_create_node() tested the mode with SCFS_IS_DIR(), which the
  *  corrected header renamed to SCFS_IS_DIR().  Six other units were
  *  updated and this one was missed; it was a compile error, not a
  *  warning.  The macro name is now the header's, and the file type test
@@ -33,6 +31,13 @@
  * @version 1.1.0  @date 2026-09-23
  */
 #include "uiox_kix_scfs_internal.h"
+
+static uint32_t scfs_name_len(const char *name)
+{
+    uint32_t n = 0u;
+    while (n < (uint32_t)UNFS_NAME_MAX && name[n] != '\0') n++;
+    return n;
+}
 
 /* ═════════════════════════════════════════════════════════════════════
  * STRUCTURE 1 — the file table
@@ -49,7 +54,33 @@ scfs_file_t scfs_file_table[NFILE];
 scfs_ufdt_t  scfs_u_default;
 scfs_ufdt_t *scfs_u = &scfs_u_default;
 
-void scfs_ufdt_bind(scfs_ufdt_t *t) { scfs_u = t ? t : &scfs_u_default; }
+/* ── scfs_ufdt_bind ─────────────────────────────────────────────────────
+ * The header declares
+ *
+ *     void scfs_ufdt_bind(uint16_t unused_);
+ *
+ * and this file defined it taking a scfs_ufdt_t pointer instead.  Those
+ * are different types, so the definition did not match its declaration:
+ *
+ *     table.c:57: conflicting types for 'scfs_ufdt_bind';
+ *                 have 'void(struct scfs_ufdt *)'
+ *     uiox_kix_scfs_internal.h:124: previous declaration with type
+ *                 'void(short unsigned int)'
+ *
+ * The header's shape is what the callers were written against - 33_PCS
+ * rebinds by process, and the parameter is a process identifier rather
+ * than a table pointer.
+ *
+ * The body keeps the single-process default, because there is exactly one
+ * scfs_ufdt_t in this build (scfs_u_default); when 33_PCS supplies a real
+ * per-process table the parameter names which one to select.  Until then
+ * the argument is accepted and ignored, which is what the header's
+ * parameter name (unused_) already says. */
+void scfs_ufdt_bind(uint16_t unused_)
+{
+    (void)unused_;
+    scfs_u = &scfs_u_default;
+}
 
 /* ═════════════════════════════════════════════════════════════════════
  * STRUCTURE 3 — the mount table
@@ -270,7 +301,7 @@ int scfs_path_split(const char *path, char *parent, uint32_t sz,
  * ── the macro name ───────────────────────────────────────────────────
  * The file-type test is SCFS_IS_DIR(), from uiox_kix_scfs.h, which reads
  * the nibble the way fs_types.h's FileType assigns it.  The older
- * SCFS_S_ISDIR() spelling is gone from the header and must not appear.
+ * SCFS_IS_DIR() spelling is gone from the header and must not appear.
  * ═════════════════════════════════════════════════════════════════════ */
 InCoreInode *scfs_create_node(const char *path, uint16_t perm)
 {
@@ -295,16 +326,17 @@ InCoreInode *scfs_create_node(const char *path, uint16_t perm)
     }
 
     /* The name must not already be there. */
-    if (dir_lookup(dir, name) != 0u) {                      /* 01_fsa */
+    if (dir_lookup(dir, name, scfs_name_len(name)) != 0u) {                      /* 01_fsa */
         iput(dir);
         return (InCoreInode *)0;
     }
 
-    ip = ialloc(FT_REGULAR, scfs_apply_umask(perm), 0u, 0u);
+    ip = ialloc(UNFS_IFREG, scfs_apply_umask(perm), 0u, 0u);
     if (!ip) { iput(dir); return (InCoreInode *)0; }
 
     ip->nlink = 1;
-    if (dir_add(dir, name, ip->ino) != 0) {                 /* 01_fsa */
+    if (dir_add(dir, name, scfs_name_len(name), ip->ino,
+                SCFS_DT_REG) != 0) {                        /* 01_fsa */
         iput(ip);
         iput(dir);
         return (InCoreInode *)0;
@@ -342,7 +374,7 @@ void scfs_mount_free(scfs_mount_t *mp)
 
     mp->m_mountpt = (InCoreInode *)0;
     mp->m_root    = (InCoreInode *)0;
-    mp->m_sb_buf  = (BufEntry *)0;
+    mp->m_sb_buf  = (BufHdr *)0;
     mp->m_dev     = 0u;
     mp->m_inuse   = 0u;
     mp->m_rdonly  = 0u;
@@ -386,12 +418,12 @@ int scfs_init(void)
         scfs_mount_table[i].m_inuse   = 0u;
         scfs_mount_table[i].m_mountpt = (InCoreInode *)0;
         scfs_mount_table[i].m_root    = (InCoreInode *)0;
-        scfs_mount_table[i].m_sb_buf  = (BufEntry *)0;
+        scfs_mount_table[i].m_sb_buf  = (BufHdr *)0;
     }
 
     /* Bach: "when the system is first booted, process 0 makes the file
      * system root its current directory during initialization." */
-    root = iget(ROOT_INO);                      /* 01_fsa */
+    root = iget(UNFS_ROOT_INO);                      /* 01_fsa */
     if (!root) return SCFS_EIO;
 
     s_root  = root;

@@ -1,7 +1,21 @@
 /*
  *  30_KIX/32_FS/10_scfs/include/uiox_kix_scfs_internal.h
  *
- *  SCFS — shared prologue for every src/*.c unit.
+ *  SCFS — shared prologue for every unit under src/.
+ *
+ *  NOTE on this line: it used to name a file glob with a slash and a
+ *  star, and the slash-star inside a block comment OPENS A NESTED
+ *  COMMENT.  -Werror rejects that:
+ *
+ *      uiox_kix_scfs_internal.h:4: error: quoted slash-star within
+ *      comment
+ *
+ *  The wording has been changed rather than escaped, because escaping
+ *  does not help — the compiler scans the raw bytes and a backslash
+ *  changes nothing.  It had been latent since the file was written;
+ *  10_scfs had simply never been compiled.  Do not put a file glob, or
+ *  any slash-star pair, inside a comment in this tree.
+ *
  *  CORRECTED against the real 01_fsa headers.
  *
  *  ── what the first cut got wrong, and the fix ────────────────────────

@@ -45,7 +45,7 @@ int uiox_kix_scfs_chdir(const char *path)
 
     /* ── must be a directory, and executable (searchable) ───────────── */
     /* Mode tests use 01_fsa's encoding: (mode >> 12) & 0xF == FT_DIR. */
-    if (!SCFS_S_ISDIR(ip->mode)) {
+    if (!SCFS_IS_DIR(ip->mode)) {
         iput(ip);
         return SCFS_ENOTDIR;
     }

@@ -40,7 +40,7 @@ int uiox_kix_scfs_fchdir(int fd)
     scfs_file_t *f = scfs_getf(fd);
     if (!f) return SCFS_EBADF;
 
-    if (!SCFS_S_ISDIR(f->f_inode->mode)) return SCFS_ENOTDIR;
+    if (!SCFS_IS_DIR(f->f_inode->mode)) return SCFS_ENOTDIR;
 
     /* The cwd slot holds a reference of its own, so take one before
      * adopting — see the note above; this is what makes close() on the
@@ -60,58 +60,94 @@ int uiox_kix_scfs_fchdir(int fd)
  * a well-formed filesystem happens only at the root, whose ".." names
  * itself.
  */
+/* ── scfs_dir_block_read ──────────────────────────────────────────────
+ * Read one 4 KB directory block into 'blk'.
+ *
+ * bmap() returns a MAPPING — {dev, blkno, valid, blk_offset, io_bytes} —
+ * NOT a buffer.  This function used to index r.buf->data and brelse(r.buf),
+ * and BmapResult has never had a 'buf' member; the eleven errors that
+ * produced were the whole of that defect.
+ *
+ * The unit conversion happens HERE, at the buffer boundary: bmap works in
+ * UNFS 4096-byte blocks, the buffer cache in 512-byte sectors.
+ * ───────────────────────────────────────────────────────────────────── */
+static bool scfs_dir_block_read(uint8_t dev, uint32_t blkno, uint8_t *blk)
+{
+    uint32_t s;
+
+    for (s = 0u; s < (uint32_t)UNFS_SECTORS_PER_BLOCK; s++) {
+        BufHdr *buf = bread(dev, blkno * (uint32_t)UNFS_SECTORS_PER_BLOCK + s);
+        if (!buf) return false;
+
+        memcpy(blk + (s * (uint32_t)BCACHE_SECTOR_SIZE),
+               buf->data, (size_t)BCACHE_SECTOR_SIZE);
+
+        brelse(buf);
+    }
+    return true;
+}
+
+/* ── a directory scan: find the name whose entry has this inode ───────
+ * Returns the name length, or 0 when no entry matches — which for a
+ * well-formed filesystem happens only at the root, whose ".." names
+ * itself.
+ *
+ * ── REWRITTEN: the entry format ──────────────────────────────────────
+ * The previous body walked BACH's entry layout:
+ *
+ *      uint16_t e_ino = data[p] | (data[p+1] << 8);   // 2-byte inode
+ *      uint32_t q     = p + 2u;                       // name follows
+ *      while (data[q] != 0) { q++; nlen++; }          // NUL-terminated
+ *
+ * UNFS stores something else — unfs_format.h's unfs_dirent_t:
+ *
+ *      offset 0   uint32_t d_ino        (4, not 2)
+ *      offset 4   uint16_t d_rec_len    (this record's own length)
+ *      offset 6   uint8_t  d_name_len   (read, not scanned for)
+ *      offset 7   uint8_t  d_type
+ *      offset 8   char     d_name[]
+ *
+ * So the old walk read a 4-byte inode as two 2-byte halfwords, then found
+ * a "name length" by scanning for a NUL that is not the field's terminator.
+ * It would have returned wrong names on any real volume, or none at all.
+ * namei.h's dirent_reclen() / dirent_next() / dirent_match() do the walk
+ * now, which is also what dir_lookup() uses — so the two cannot disagree.
+ * ───────────────────────────────────────────────────────────────────── */
 static uint32_t scfs_dirname_of(InCoreInode *dp, uint32_t ino,
                                 char *out, uint32_t outsz)
 {
     uint32_t off = 0u;
+    uint8_t  blk[UNFS_BLOCK_SIZE];
 
     while (off < dp->size) {
         BmapResult r = bmap(dp, off);               /* 01_fsa */
-        if (!r.valid || !r.buf) break;
 
-        /* The block offset within the directory that this buffer holds. */
-        uint32_t blk_start = off - (off % BLKSIZE);
-        uint32_t p         = off - blk_start;
+        if (!r.valid) break;
+        if (!scfs_dir_block_read(r.dev, r.blkno, blk)) break;
 
-        while (p < BLKSIZE) {
-            /* An entry is Bach's: a 2-byte inode number, then the name.
-             * An inode number of 0 means the slot is empty — removed. */
-            uint16_t e_ino = (uint16_t)((uint16_t)r.buf->data[p] |
-                                        ((uint16_t)r.buf->data[p + 1] << 8));
-            uint32_t nlen  = 0u;
-            uint32_t q     = p + 2u;
+        {
+            uint8_t  *end = blk + (uint32_t)UNFS_BLOCK_SIZE;
+            DirEntry *de  = (DirEntry *)blk;
 
-            if (e_ino == 0u) {
-                /* Empty slot: skip the whole entry.  Without an explicit
-                 * length field the entry is name-terminated, so count to
-                 * the NUL and round up. */
-                while (q < BLKSIZE && r.buf->data[q] != 0u) q++;
-                q++;                                   /* past the NUL */
-                p = q;
-                continue;
-            }
+            while ((uint8_t *)de < end) {
+                if (de->d_name_len == 0u) break;    /* end of entries */
 
-            uint32_t name_at = q;
-            while (q < BLKSIZE && r.buf->data[q] != 0u) { q++; nlen++; }
-            if (q >= BLKSIZE) break;                   /* spans the block */
+                if (de->d_ino == ino) {
+                    uint32_t nlen = (uint32_t)de->d_name_len;
 
-            if (e_ino == (uint16_t)ino) {
-                if (nlen == 0u || nlen >= outsz) nlen = 0u;
-                else {
-                    for (uint32_t i = 0u; i < nlen; i++)
-                        out[i] = r.buf->data[name_at + i];
+                    if (nlen == 0u || nlen >= outsz) return 0u;
+
+                    memcpy(out, de->d_name, (size_t)nlen);
                     out[nlen] = '\0';
+                    return nlen;
                 }
-                brelse(r.buf);                     /* 01_fsa */
-                return nlen;
-            }
 
-            q++;
-            p = q;
+                de = dirent_next(de, end);
+                if (!de) break;
+            }
         }
 
-        brelse(r.buf);                             /* 01_fsa */
-        off = blk_start + BLKSIZE;
+        off += UNFS_BLOCK_SIZE;                     /* one 4 KB block */
     }
 
     return 0u;
@@ -127,7 +163,7 @@ static uint32_t scfs_parent_ino(InCoreInode *dp)
     uint32_t     ino = 0u;
 
     /* dir_lookup() resolves one fixed name, which is all ".." needs. */
-    ino = dir_lookup(dp, "..");                    /* 01_fsa */
+    ino = dir_lookup(dp, "..", 2u);                 /* 01_fsa */
 
     /* A directory whose ".." names itself is the root. */
     if (ino == dp->ino) return 0u;

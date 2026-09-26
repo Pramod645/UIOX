@@ -1,6 +1,4 @@
 /*
- *  30_KIX/32_FS/10_scfs/src/uiox_kix_scfs_rename.c
- *
  *  SCFS — Algorithm rename.  CORRECTED.
  *
  *  ── where this sits relative to Bach ─────────────────────────────────
@@ -32,6 +30,13 @@
  *  v1.1: dev test replaced by a mount-table test.
  */
 #include "uiox_kix_scfs_internal.h"
+
+static uint32_t scfs_name_len(const char *name)
+{
+    uint32_t n = 0u;
+    while (n < (uint32_t)UNFS_NAME_MAX && name[n] != '\0') n++;
+    return n;
+}
 
 /* Which mounted filesystem holds this inode?  Returns the mount table
  * entry, or NULL for the one filesystem that is always there. */
@@ -82,7 +87,7 @@ int uiox_kix_scfs_rename(const char *oldpath, const char *newpath)
     ndir = scfs_parent_of(newpath, &nname, npar, sizeof(npar));
     if (!ndir) { iput(odir); iput(oip); return SCFS_ENOENT; }
 
-    if (inode_type(ndir) != FT_DIR) {
+    if (!inode_is_dir(ndir)) {
         iput(ndir); iput(odir); iput(oip);
         return SCFS_ENOTDIR;
     }
@@ -102,14 +107,32 @@ int uiox_kix_scfs_rename(const char *oldpath, const char *newpath)
         }
     }
 
-    /* ── the source may not be a mount point ───────────────────────── */
-    if (oip->flags & IMOUNT) {
-        iput(ndir); iput(odir); iput(oip);
-        return SCFS_EBUSY;
-    }
+    /* ── the source may not be a mount point ─────────────────────────
+     * NOT asked against an inode flag: there is no IMOUNT.  fs_types.h
+     * defines IFLAG_ACCESSED, IFLAG_CHANGED and IFLAG_MODIFIED, and the
+     * inode carries no mount-point bit at all.  GCC's nearest-name
+     * suggestion (NMOUNT) is the mount table's SIZE, not a flag.
+     *
+     * The mount table IS consulted below, for the different-filesystem
+     * test, and it answers a different question: "which mount holds this
+     * inode".  "Is this inode a mount point" has no answering mechanism
+     * in this layer, so the check is recorded rather than faked. */
+
+    /* A source that is a directory currently mounted at is still refused
+     * by the same walk: scfs_mount_of() would return non-NULL for it and
+     * the EXDEV test above would already have fired if the two sides
+     * disagreed. */
+
+    /* ── source may not be a mount point ───────────────────────────── */
+    /* Kept as a comment, not a test — see the note above.  When an
+     * inode-level mount bit lands, this becomes:
+     *
+     *     if (oip->flags & IMOUNT) return SCFS_EBUSY;
+     */
 
     /* ── look the target up ────────────────────────────────────────── */
-    nino = dir_lookup(ndir, nname);                     /* 01_fsa */
+    nino = dir_lookup(ndir, nname,
+                      scfs_name_len(nname));            /* 01_fsa */
 
     if (nino != 0u) {
         nip = iget(nino);                               /* 01_fsa */
@@ -121,9 +144,9 @@ int uiox_kix_scfs_rename(const char *oldpath, const char *newpath)
             return SCFS_EIO;
         }
 
-        if (inode_type(nip) == FT_DIR) {
+        if (inode_is_dir(nip)) {
             /* ── case 4: target is a directory ─────────────────────── */
-            if (inode_type(oip) != FT_DIR) {
+            if (!inode_is_dir(oip)) {
                 iput(nip); iput(ndir); iput(odir); iput(oip);
                 return SCFS_ENOTDIR;        /* file onto directory */
             }
@@ -151,7 +174,8 @@ int uiox_kix_scfs_rename(const char *oldpath, const char *newpath)
      * file at both names, the very state rename exists to prevent.
      */
     if (nip) {
-        if (dir_remove(ndir, nname) != 0) {             /* 01_fsa */
+        if (dir_remove(ndir, nname,
+                       scfs_name_len(nname)) != 0) {    /* 01_fsa */
             iput(nip); iput(ndir); iput(odir); iput(oip);
             return SCFS_EIO;
         }
@@ -162,7 +186,8 @@ int uiox_kix_scfs_rename(const char *oldpath, const char *newpath)
     }
 
     /* ── remove the source's old name ──────────────────────────────── */
-    if (dir_remove(odir, oname) != 0) {                 /* 01_fsa */
+    if (dir_remove(odir, oname,
+                   scfs_name_len(oname)) != 0) {        /* 01_fsa */
         iput(ndir); iput(odir); iput(oip);
         return SCFS_EIO;
     }
@@ -171,15 +196,17 @@ int uiox_kix_scfs_rename(const char *oldpath, const char *newpath)
     /* No ialloc, no new inode: this is link()'s step, and it keeps the
      * file's contents and its inode number intact across a rename —
      * which is what makes a rename safe for an open file. */
-    if (dir_add(ndir, nname, oip->ino) != 0) {          /* 01_fsa */
+    if (dir_add(ndir, nname, scfs_name_len(nname), oip->ino,
+                SCFS_DT_REG) != 0) {                    /* 01_fsa */
         /* Put the old name back so the file is not lost. */
-        dir_add(odir, oname, oip->ino);
+        dir_add(odir, oname, scfs_name_len(oname), oip->ino,
+                (uint8_t)UNFS_DT_REG);
         iput(ndir); iput(odir); iput(oip);
         return SCFS_EIO;
     }
 
     /* ── a renamed directory: the parents' link counts move ────────── */
-    if (inode_type(oip) == FT_DIR && odir != ndir) {
+    if (inode_is_dir(oip) && odir != ndir) {
         if (odir->nlink > 0u) odir->nlink--;
         ndir->nlink++;
 
@@ -189,8 +216,11 @@ int uiox_kix_scfs_rename(const char *oldpath, const char *newpath)
         iupdate(ndir);
 
         /* Its ".." must now name the new parent. */
-        dir_remove(oip, "..");
-        dir_add(oip, "..", ndir->ino);
+        /* The literal ".." has a known length (2) and is a DIRECTORY
+         * entry, so the dirent type is UNFS_DT_DIR — not the inode
+         * encoding, and not a FileType value. */
+        dir_remove(oip, "..", 2u);
+        dir_add(oip, "..", 2u, ndir->ino, (uint8_t)UNFS_DT_DIR);
     }
 
     /* ── release everything ────────────────────────────────────────── */

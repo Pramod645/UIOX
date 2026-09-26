@@ -153,9 +153,14 @@ void          fs_free(uint8_t dev, uint32_t blkno);
  *       }
  *   }
  * ═════════════════════════════════════════════════════════════════════ */
-InCoreInode  *ialloc_dev(uint8_t dev, FileType ftype, uint16_t mode,
+/* 'unfs_if' is a UNFS_IF* value — UNFS_IFDIR, UNFS_IFREG, … — NOT the
+ * removed FileType enum.  FileType packed into the SAME bits as
+ * UNFS_IFMT, so the two COLLIDED: (FT_DIR << 12) is 0x2000, which is
+ * UNFS_IFCHR.  A caller still passing FT_* compiles and writes the wrong
+ * type, which is why 10_scfs's call sites were converted too. */
+InCoreInode  *ialloc_dev(uint8_t dev, uint16_t unfs_if, uint16_t mode,
                          uint16_t uid, uint16_t gid);
-InCoreInode  *ialloc(FileType ftype, uint16_t mode, uint16_t uid, uint16_t gid);
+InCoreInode  *ialloc(uint16_t unfs_if, uint16_t mode, uint16_t uid, uint16_t gid);
 
 /* ═════════════════════════════════════════════════════════════════════
  * Algorithm ifree  (§8) — return an inode to the free pool

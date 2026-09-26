@@ -1,313 +1,358 @@
 /*
  *  30_KIX/32_FS/10_scfs/src/uiox_kix_scfs_truncate.c
  *
- *  SCFS — truncate, ftruncate, fallocate.
+ *  SCFS - truncate, ftruncate, fallocate.
  *  Bach, The Design of the UNIX Operating System.
  *
- *  ── where this sits relative to Bach ─────────────────────────────────
+ *  -- where this sits relative to Bach -------------------------------
  *  Bach has no separate truncate algorithm: it is the tail of Algorithm
- *  creat — "if the file did exist at time of create, free all file
+ *  creat - "if the file did exist at time of create, free all file
  *  blocks."  That is one 01_fsa call, fs_free_inode_blocks().
  *
  *  truncate(2) is that same call WITHOUT the directory work and WITHOUT
  *  the open.  ftruncate() is the same for an open descriptor.
  *
- *  ── FIXED: the stale block pointers ──────────────────────────────────
- *  The first version freed the blocks past the cut but never cleared the
- *  matching entries in ip->addr[].  That left the inode pointing at
- *  blocks which had been returned to the free list — so a later
- *  bmap_alloc() on the same logical offset could hand the SAME block to a
- *  second file.  Two files, one block: silent data loss, and it is
- *  reachable by an ordinary truncate followed by a write.
+ *  -- REWRITTEN: the map is an EXTENT ARRAY, not an indirect tree ------
+ *  The previous body walked Bach's addr[] tree: ten direct block
+ *  pointers, then single-, double- and triple-indirect blocks reached
+ *  through bread().  UNFS stores none of that.
  *
- *  There are two places the map has to be cleared, and the first version
- *  had neither:
+ *      old                        UNFS
+ *      -----------------------    ------------------------------------
+ *      uint32_t addr[13]          unfs_extent_t i_extents[4]
+ *      NDIRECT / NINDIRECT / ...  no counterpart - the split is gone
+ *      PTRS_PER_BLOCK             128 pointers per 512-byte block;
+ *                                 irrelevant, there is no pointer array
+ *      an indirect CONTAINER      i_extent_tree, ONE overflow block
+ *      free the container when    nothing to free - an extent has no
+ *        its pointers empty         container
  *
- *    1. DIRECT entries   ip->addr[i] past the cut must be zeroed.
- *    2. INDIRECT blocks  the pointers INSIDE the indirect block must be
- *                        zeroed too — clearing only the inode's top-level
- *                        pointer would free the indirect block itself
- *                        while leaving it full of dangling numbers.
+ *  So this is not a rename.  'clear the map past block N' means TRIM
+ *  AN EXTENT, not zero a pointer: an extent names a run of consecutive
+ *  physical blocks, so the cut either falls before it, inside it, or
+ *  after it - and the middle case SHRINKS e_len rather than splitting
+ *  into two entries.
  *
- *  scfs_clear_map_past() below does both, walking the same three levels
- *  bmap() reads.  It is deliberately conservative: it clears entries and
- *  frees the indirect blocks themselves only when they become empty.
+ *  -- the stale-pointer bug this file was written to fix ------------
+ *  The first version freed the blocks past the cut but never touched
+ *  the map, so the inode still named blocks that were on the free list
+ *  - and the next allocation could hand the same block to a second
+ *  file.  Two files, one block, silent data loss.
  *
- *  ── growing ──────────────────────────────────────────────────────────
- *  POSIX lets ftruncate EXTEND a file, producing a sparse hole that reads
- *  back as zeros.  01_fsa's bmap() has no hole concept, so extension is
- *  implemented by writing zero blocks up to the new size.  Honest and
- *  portable; it costs disk where a sparse file would not.
+ *  That bug is not fixed by the rewrite; it is fixed by KEEPING the
+ *  clear pass, which is why scfs_clear_map_past() is still here.  The
+ *  invariant it maintains is unchanged: after a shrink, no extent may
+ *  name a physical block at or beyond the cut.
  *
- *  ── the double/triple indirect limit ─────────────────────────────────
- *  01_fsa's bmap_alloc() implements direct and single-indirect only and
- *  prints an ERROR otherwise.  A file is therefore capped at
- *  NDIRECT + PTRS_PER_BLOCK blocks — about 10 KB with BLOCK_SIZE 512.
- *  The grow path reports that as ENOSPC rather than looping.
+ *  -- the units -------------------------------------------------------
+ *  bmap(), the extent fields and UNFS_BLOCK_SIZE are all in 4096-byte
+ *  UNFS blocks.  BLOCK_SIZE is 512 - the buffer cache's SECTOR size.
+ *  The previous body mixed the two: it stepped the free loop by
+ *  BLOCK_SIZE and computed the first block to clear with
+ *  (newsize + BLOCK_SIZE - 1) / BLOCK_SIZE, so it walked eight times
+ *  as many iterations as there were blocks and cleared at the wrong
+ *  boundary.  Everything below is in UNFS_BLOCK_SIZE.
  *
- *  v1.3: stale block pointers cleared (direct + indirect); grow path
- *        bounded by the allocator's real reach.
+ *  -- growing ----------------------------------------------------------
+ *  POSIX lets ftruncate EXTEND a file, producing a sparse hole.  UNFS
+ *  HAS hole extents (UNFS_EXT_HOLE), so a proper implementation would
+ *  add one and write nothing.
+ *
+ *      bmap_alloc() is still a stub that reports valid == false, and
+ *      no code in this tree creates a hole extent.
+ *
+ *  Until allocation exists, the grow path cannot put a single block on
+ *  disk, so it reports ENOSYS - the same answer mount(), mmap() and
+ *  mmap's siblings give for their own missing halves.  Returning ENOSPC
+ *  would claim the disk is full, which is a different and false fact.
+ *
+ *  @version 2.0.0  @date 2026-09-26
  */
 #include "uiox_kix_scfs_internal.h"
 
-/* How many map slots an inode has, in total. */
-#define SCFS_MAP_SLOTS (NDIRECT + NINDIRECT + NDINDIRECT + NTINDIRECT)
-
-/* What bmap_alloc can actually reach: direct blocks, then one level of
- * single-indirect.  Anything past this returns an invalid mapping. */
-#define SCFS_ALLOC_MAX_BLOCKS (NDIRECT + PTRS_PER_BLOCK)
-
-/* ─────────────────────────────────────────────────────────────────────
- * scfs_clear_map_past — drop every map entry at or beyond block index
- * 'from_blk', and free the indirect blocks that become empty.
+/*
+ * -- scfs_clear_map_past ----------------------------------------------
+ * Trim every extent in 'ip' so that none names a logical block at or
+ * beyond 'from_blk'.
  *
- * Called only from the shrink path, after the data blocks themselves
- * have been freed.  This function frees NO data blocks — if it did, the
- * two would double-free.
- * ───────────────────────────────────────────────────────────────────── */
+ * Frees NO data blocks.  The caller frees them, then calls this.  If
+ * this freed too the two would double-free - and that split is why the
+ * function exists separately at all.
+ *
+ * Three cases per extent, and the middle one is the whole point:
+ *
+ *     from_blk >= end      the extent is wholly below the cut: keep it
+ *     from_blk <= start    wholly past the cut: empty the slot
+ *     otherwise            the cut falls INSIDE: shrink e_len to end
+ *                          at from_blk, and free the physical run that
+ *                          the shrink just orphaned
+ *
+ * The middle case is where data would leak if it were skipped: the
+ * blocks past the cut are still on disk and no longer named by anything.
+ */
 static void scfs_clear_map_past(InCoreInode *ip, uint32_t from_blk)
 {
     uint32_t i;
 
-    /* ── level 0: the direct entries ──────────────────────────────── */
-    for (i = from_blk; i < NDIRECT && i < SCFS_MAP_SLOTS; i++)
-        ip->addr[i] = 0u;
+    if (!ip) return;
 
-    /* Nothing past the direct level: done. */
-    if (from_blk < NDIRECT) {
-        /* The indirect slots are untouched when the cut is inside the
-         * direct range, so return without walking them. */
-        return;
-    }
+    for (i = 0u; i < UNFS_INLINE_EXTENTS; i++) {
+        unfs_extent_t *e = &ip->i_extents[i];
+        uint32_t       e_start;
+        uint32_t       e_end;
 
-    /* ── level 1: single indirect ─────────────────────────────────────
-     * from_blk is now expressed relative to the first indirect block. */
-    {
-        uint32_t rel = from_blk - NDIRECT;
+        if (e->e_len == 0u) continue;              /* empty slot      */
 
-        if (ip->addr[NDIRECT]) {
-            BufEntry *b = bread(ip->addr[NDIRECT]);         /* 01_fsa */
-            if (b) {
-                uint32_t *ptrs = (uint32_t *)b->data;
-                uint32_t  j;
-                int       any_left = 0;
+        e_start = (uint32_t)e->e_logical;          /* inclusive        */
+        e_end   = e_start + (uint32_t)e->e_len;    /* exclusive        */
 
-                for (j = 0u; j < PTRS_PER_BLOCK; j++) {
-                    if (j >= rel) {
-                        if (ptrs[j]) {
-                            /* The data block was freed by the caller's
-                             * loop; only the POINTER is cleared here. */
-                            ptrs[j] = 0u;
-                            b->dirty = true;
-                        }
-                    } else if (ptrs[j]) {
-                        any_left = 1;
-                    }
-                }
+        /* -- wholly below the cut: nothing to do ------------------- */
+        if (from_blk >= e_end) continue;
 
-                bwrite(b, true, false);                 /* persist + release */
+        /* -- wholly past the cut: the slot goes -------------------- */
+        if (from_blk <= e_start) {
+            e->e_logical  = 0u;
+            e->e_physical = 0u;
+            e->e_len      = 0u;
+            e->e_flags    = 0u;
+            continue;
+        }
 
-                /* If every pointer is gone the indirect block itself has
-                 * no reason to exist — free it and clear the slot. */
-                if (!any_left) {
-                    fs_free(ip->addr[NDIRECT]);             /* 01_fsa */
-                    ip->addr[NDIRECT] = 0u;
-                }
+        /* -- the cut falls INSIDE: shrink, and free the orphaned run -
+         *
+         * Keep blocks [e_start, from_blk) and release
+         * [from_blk, e_end).  A hole extent owns no blocks, so there is
+         * nothing to free in that case - the shrink alone is correct. */
+        {
+            uint32_t keep  = from_blk - e_start;
+            uint32_t drop  = e_end - from_blk;
+            uint32_t first = (uint32_t)e->e_physical + keep;
+            uint32_t n;
+
+            if (!(e->e_flags & UNFS_EXT_HOLE)) {
+                for (n = 0u; n < drop; n++)
+                    fs_free(ip->dev, first + n);   /* 01_fsa */
+            }
+
+            if (keep == 0u) {
+                e->e_logical  = 0u;
+                e->e_physical = 0u;
+                e->e_len      = 0u;
+                e->e_flags    = 0u;
+            } else {
+                e->e_len = (uint16_t)keep;
             }
         }
     }
 
-    /* ── level 2 and 3 ────────────────────────────────────────────────
-     * bmap_alloc() cannot create these, so a shrink that reaches them
-     * means the inode already held them.  Reading them is still correct:
-     * leaving dangling pointers two levels down would be the same bug.
+    /* -- the overflow extent tree ------------------------------------
+     * ONE 4 KB block holding an array of unfs_extent_t, terminated by an
+     * entry with e_len == 0 - a single level, as the bootloader's
+     * extent_lookup() assumes.
      *
-     * The two slots are cleared outright when the cut is past their whole
-     * range, and the walk is bounded so a corrupt pointer cannot loop. */
-    {
-        uint32_t double_start = NDIRECT + NINDIRECT;
-        uint32_t triple_start = NDIRECT + NINDIRECT + NDINDIRECT;
+     * bmap_alloc() is a stub and nothing in this build sets
+     * i_extent_tree, so this branch is defence against a foreign or
+     * future image rather than a live path.  It is written out rather
+     * than omitted because leaving dangling entries in a tree block
+     * that this function is supposed to be clearing is exactly the bug
+     * the file exists to prevent. */
+    if (ip->i_extent_tree != 0u) {
+        uint32_t per = (uint32_t)(UNFS_BLOCK_SIZE / sizeof(unfs_extent_t));
+        uint8_t  tree[UNFS_BLOCK_SIZE];
+        uint32_t s;
+        bool     ok = true;
+        bool     dirty = false;
 
-        if (from_blk <= double_start && ip->addr[double_start] &&
-            ip->addr[NINDIRECT + NDIRECT]) {
-            /* The cut is at or before the double-indirect range: the
-             * whole subtree goes.  Freeing the data blocks was the
-             * caller's job; here the container blocks are freed. */
-            BufEntry *di = bread(ip->addr[double_start]);    /* 01_fsa */
-            if (di) {
-                uint32_t *p1 = (uint32_t *)di->data;
-                uint32_t  a;
+        for (s = 0u; s < (uint32_t)UNFS_SECTORS_PER_BLOCK; s++) {
+            BufHdr *buf = bread(ip->dev,
+                                ip->i_extent_tree * (uint32_t)UNFS_SECTORS_PER_BLOCK + s);
+            if (!buf) { ok = false; break; }
 
-                for (a = 0u; a < PTRS_PER_BLOCK; a++) {
-                    if (!p1[a]) continue;
-
-                    {
-                        BufEntry *si = bread(p1[a]);         /* 01_fsa */
-                        if (si) {
-                            uint32_t *p2 = (uint32_t *)si->data;
-                            uint32_t  c;
-
-                            for (c = 0u; c < PTRS_PER_BLOCK; c++) p2[c] = 0u;
-                            si->dirty = true;
-                            bwrite(si);                      /* 01_fsa */
-                            brelse(si);                      /* 01_fsa */
-                        }
-                    }
-                    fs_free(p1[a]);                          /* 01_fsa */
-                    p1[a] = 0u;
-                }
-
-                di->dirty = true;
-                bwrite(di);                                  /* 01_fsa */
-                brelse(di);                                  /* 01_fsa */
-            }
-            fs_free(ip->addr[double_start]);                 /* 01_fsa */
-            ip->addr[double_start] = 0u;
+            memcpy(tree + (s * (uint32_t)BCACHE_SECTOR_SIZE),
+                   buf->data, (size_t)BCACHE_SECTOR_SIZE);
+            brelse(buf);
         }
 
-        if (from_blk <= triple_start && ip->addr[triple_start]) {
-            /* Same treatment one level deeper.  Two nested reads, then
-             * the container blocks go. */
-            BufEntry *ti = bread(ip->addr[triple_start]);    /* 01_fsa */
-            if (ti) {
-                uint32_t *t1 = (uint32_t *)ti->data;
-                uint32_t  a;
+        if (ok) {
+            unfs_extent_t *et = (unfs_extent_t *)tree;
 
-                for (a = 0u; a < PTRS_PER_BLOCK; a++) {
-                    if (!t1[a]) continue;
+            for (i = 0u; i < per; i++) {
+                uint32_t e_start, e_end;
 
-                    {
-                        BufEntry *di = bread(t1[a]);         /* 01_fsa */
-                        if (di) {
-                            uint32_t *p1 = (uint32_t *)di->data;
-                            uint32_t  c;
+                if (et[i].e_len == 0u) break;      /* end of entries  */
 
-                            for (c = 0u; c < PTRS_PER_BLOCK; c++) {
-                                if (p1[c]) {
-                                    fs_free(p1[c]);          /* 01_fsa */
-                                    p1[c] = 0u;
-                                }
-                            }
-                            di->dirty = true;
-                            bwrite(di);                      /* 01_fsa */
-                            brelse(di);                      /* 01_fsa */
-                        }
-                    }
-                    fs_free(t1[a]);                          /* 01_fsa */
-                    t1[a] = 0u;
+                e_start = (uint32_t)et[i].e_logical;
+                e_end   = e_start + (uint32_t)et[i].e_len;
+
+                if (from_blk >= e_end) continue;
+
+                if (from_blk <= e_start) {
+                    et[i].e_logical  = 0u;
+                    et[i].e_physical = 0u;
+                    et[i].e_len      = 0u;
+                    et[i].e_flags    = 0u;
+                    dirty = true;
+                    continue;
                 }
 
-                ti->dirty = true;
-                bwrite(ti);                                  /* 01_fsa */
-                brelse(ti);                                  /* 01_fsa */
+                {
+                    uint32_t keep  = from_blk - e_start;
+                    uint32_t drop  = e_end - from_blk;
+                    uint32_t first = (uint32_t)et[i].e_physical + keep;
+                    uint32_t n;
+
+                    if (!(et[i].e_flags & UNFS_EXT_HOLE)) {
+                        for (n = 0u; n < drop; n++)
+                            fs_free(ip->dev, first + n);   /* 01_fsa */
+                    }
+
+                    et[i].e_len = (uint16_t)keep;
+                    dirty = true;
+                }
             }
-            fs_free(ip->addr[triple_start]);                 /* 01_fsa */
-            ip->addr[triple_start] = 0u;
+
+            /* Write the block back only if something in it changed -
+             * the buffer layer expresses dirtiness through bwrite's
+             * flags, not a field on the header. */
+            if (dirty) {
+                for (s = 0u; s < (uint32_t)UNFS_SECTORS_PER_BLOCK; s++) {
+                    BufHdr *buf = bread(ip->dev,
+                                        ip->i_extent_tree * (uint32_t)UNFS_SECTORS_PER_BLOCK + s);
+                    if (!buf) break;
+
+                    memcpy(buf->data,
+                           tree + (s * (uint32_t)BCACHE_SECTOR_SIZE),
+                           (size_t)BCACHE_SECTOR_SIZE);
+                    bwrite(buf, true, false);       /* 01_fsa */
+                }
+            }
         }
+    }
+}
+
+/*
+ * -- scfs_zero_tail --------------------------------------------------
+ * Zero the bytes from 'tail' to the end of the UNFS block at
+ * 'blk_off'.  Called when a shrink cuts part-way through a block, so a
+ * later read of that block does not see the bytes of the longer file.
+ *
+ * The write is read-modify-write in UNFS block units - the buffer cache
+ * moves 512-byte sectors, so the whole 4 KB block is assembled, edited
+ * and written back.
+ */
+static void scfs_zero_tail(InCoreInode *ip, uint32_t blk_off, uint32_t tail)
+{
+    BmapResult r = bmap(ip, blk_off);           /* 01_fsa */
+    uint8_t    blk[UNFS_BLOCK_SIZE];
+    uint32_t   s;
+    bool       ok = true;
+
+    if (!r.valid || r.blkno == 0u) return;      /* a hole - already zero */
+
+    for (s = 0u; s < (uint32_t)UNFS_SECTORS_PER_BLOCK; s++) {
+        BufHdr *buf = bread(r.dev,
+                            r.blkno * (uint32_t)UNFS_SECTORS_PER_BLOCK + s);
+        if (!buf) { ok = false; break; }
+
+        memcpy(blk + (s * (uint32_t)BCACHE_SECTOR_SIZE),
+               buf->data, (size_t)BCACHE_SECTOR_SIZE);
+        brelse(buf);
+    }
+    if (!ok) return;
+
+    for (s = tail; s < (uint32_t)UNFS_BLOCK_SIZE; s++) blk[s] = 0u;
+
+    for (s = 0u; s < (uint32_t)UNFS_SECTORS_PER_BLOCK; s++) {
+        BufHdr *buf = bread(r.dev,
+                            r.blkno * (uint32_t)UNFS_SECTORS_PER_BLOCK + s);
+        if (!buf) break;
+
+        memcpy(buf->data,
+               blk + (s * (uint32_t)BCACHE_SECTOR_SIZE),
+               (size_t)BCACHE_SECTOR_SIZE);
+        bwrite(buf, true, false);               /* 01_fsa */
     }
 }
 
 static int scfs_do_truncate(InCoreInode *ip, uint32_t newsize)
 {
-    if (SCFS_IS_DIR(ip->mode)) return SCFS_EISDIR;
+    if (!ip) return SCFS_EINVAL;
+    if (inode_is_dir(ip)) return SCFS_EISDIR;
 
-    /* ── the shrink-to-zero case: free everything, clear everything ── */
+    /* -- shrink to zero: 01_fsa frees the data AND the map ----------
+     * fs_free_inode_blocks() walks the inline extents and the overflow
+     * tree itself, so calling it here and then trimming the map would
+     * free every block twice.  It zeroes the map as it goes - see
+     * superblock.c - so nothing else is needed. */
     if (newsize == 0u) {
-        fs_free_inode_blocks(ip);       /* 01_fsa: frees data + indirect */
-        ip->size = 0u;
+        fs_free_inode_blocks(ip);               /* 01_fsa */
+        ip->size   = 0u;
         ip->flags |= (IFLAG_CHANGED | IFLAG_MODIFIED);
-        iupdate(ip);
+        iupdate(ip);                            /* 01_fsa */
         return SCFS_OK;
     }
 
     if (newsize == ip->size) return SCFS_OK;
 
-    /* ── the partial-shrink case ───────────────────────────────────── */
+    /* -- partial shrink ---------------------------------------------- */
     if (newsize < ip->size) {
-        uint32_t last_blk_off = newsize & (uint32_t)~(BLOCK_SIZE - 1u);
-        uint32_t tail         = newsize - last_blk_off;
+        /* All arithmetic in UNFS 4096-byte blocks.  BLOCK_SIZE is 512
+         * - the sector size - and using it here was the unit bug. */
+        uint32_t last_blk = newsize / (uint32_t)UNFS_BLOCK_SIZE;
+        uint32_t tail     = newsize % (uint32_t)UNFS_BLOCK_SIZE;
         uint32_t offset;
+        uint32_t first_clear;
 
-        /* Zero the tail of the block that straddles newsize, so a later
-         * read of that block does not see the old bytes. */
+        /* The block that straddles newsize: zero its tail so a later
+         * read does not see bytes from the longer file.  None when the
+         * new size lands exactly on a block boundary. */
         if (tail != 0u) {
-            BmapResult r = bmap(ip, last_blk_off);      /* 01_fsa */
-            if (r.valid && r.blkno) {
-                BufEntry *b = bread(r.blkno);           /* 01_fsa */
-                if (b) {
-                    uint32_t i;
-                    for (i = tail; i < (uint32_t)BLOCK_SIZE; i++)
-                        b->data[i] = 0u;
-                    b->dirty = true;
-                    bwrite(b);                          /* 01_fsa */
-                    brelse(b);                          /* 01_fsa */
-                }
-            }
+            scfs_zero_tail(ip, last_blk * (uint32_t)UNFS_BLOCK_SIZE, tail);
         }
 
-        offset = (tail != 0u) ? last_blk_off + BLOCK_SIZE : last_blk_off;
+        /* The first logical block that no longer exists.  Rounding UP
+         * is what 'tail != 0' decides: a partial block is still live. */
+        first_clear = (tail != 0u) ? (last_blk + 1u) : last_blk;
+        offset      = first_clear * (uint32_t)UNFS_BLOCK_SIZE;
 
-        /* Free the DATA blocks past the cut.  This loop frees blocks
-         * only — the pointers follow, in the walk below. */
+        /* Free the DATA blocks past the cut.  Extents name runs of
+         * CONSECUTIVE blocks, so this is a walk in 4 KB units, not a
+         * pointer chase. */
         while (offset < ip->size) {
-            BmapResult r = bmap(ip, offset);            /* 01_fsa */
-            if (r.valid && r.blkno != 0u) fs_free(r.blkno);
-            offset += BLOCK_SIZE;
+            BmapResult r = bmap(ip, offset);    /* 01_fsa */
+
+            if (r.valid && r.blkno != 0u)
+                fs_free(r.dev, r.blkno);        /* 01_fsa */
+
+            offset += UNFS_BLOCK_SIZE;
         }
 
-        /* ── THE FIX ────────────────────────────────────────────────
-         * Drop every map entry at or beyond the first block past the
-         * cut.  Without this the inode still names blocks that are on
-         * the free list, and the next bmap_alloc() can hand one of them
-         * to another file. */
-        {
-            uint32_t first_clear = (newsize + BLOCK_SIZE - 1u) / BLOCK_SIZE;
-            scfs_clear_map_past(ip, first_clear);
-        }
+        /* THE INVARIANT: after this call no extent names a block at or
+         * beyond 'first_clear'.  Without it the inode still points at
+         * freed blocks and the next allocation can hand one to another
+         * file. */
+        scfs_clear_map_past(ip, first_clear);
 
-        ip->size = newsize;
+        ip->size   = newsize;
         ip->flags |= (IFLAG_CHANGED | IFLAG_MODIFIED);
-        iupdate(ip);
+        iupdate(ip);                            /* 01_fsa */
         return SCFS_OK;
     }
 
-    /* ── the grow case: write zero blocks up to the new size ───────── */
-    {
-        static const char zeros[BLOCK_SIZE];
-        uint32_t off = ip->size;
-
-        /* bmap_alloc() cannot reach past the single-indirect level.  A
-         * request beyond that is reported rather than looping against an
-         * allocator that will keep saying no. */
-        if ((newsize + BLOCK_SIZE - 1u) / BLOCK_SIZE > SCFS_ALLOC_MAX_BLOCKS)
-            return SCFS_ENOSPC;
-
-        while (off < newsize) {
-            uint32_t chunk = newsize - off;
-            uint32_t moved = 0u;
-            int32_t  w;
-
-            if (chunk > (uint32_t)BLOCK_SIZE) chunk = (uint32_t)BLOCK_SIZE;
-
-            w = writei_at(ip, zeros, chunk, off, &moved);
-            if (w < 0) return (int)w;
-
-            /* Zero moved means the allocator refused — out of blocks, or
-             * past its reach.  Stop rather than spin. */
-            if (moved == 0u) return SCFS_ENOSPC;
-
-            off += moved;
-        }
-
-        if (ip->size > newsize) ip->size = newsize;
-        ip->flags |= (IFLAG_CHANGED | IFLAG_MODIFIED);
-        iupdate(ip);
-    }
-
-    return SCFS_OK;
+    /* -- grow ---------------------------------------------------------
+     *
+     * NOT IMPLEMENTED, and it cannot be faked.  Extending a file needs
+     * an extent that names blocks the file does not yet own, and
+     * bmap_alloc() is a stub: it reports valid == false and writes
+     * nothing, so the first block would never reach the disk.
+     *
+     * ENOSYS, not ENOSPC.  The disk is not full - the allocator does
+     * not exist.  A caller that treats ENOSPC as retryable would loop
+     * forever against a stub. */
+    return SCFS_ENOSYS;
 }
 
-/* ── truncate() — by path name ──────────────────────────────────────── */
+/* -- truncate() - by path name --------------------------------------- */
 int uiox_kix_scfs_truncate(const char *path, uint32_t len)
 {
     InCoreInode *ip;
@@ -326,29 +371,30 @@ int uiox_kix_scfs_truncate(const char *path, uint32_t len)
     rc = scfs_do_truncate(ip, len);
 
     ip->locked = false;
-    iput(ip);
+    iput(ip);                               /* 01_fsa */
     return rc;
 }
 
-/* ── ftruncate() — by descriptor ────────────────────────────────────── */
+/* -- ftruncate() - by descriptor ------------------------------------- */
 int uiox_kix_scfs_ftruncate(int fd, uint32_t len)
 {
     scfs_file_t *f = scfs_getf(fd);
     if (!f) return SCFS_EBADF;
     if (!(f->f_flag & FWRITE)) return SCFS_EINVAL;
 
-    /* The entry owns the inode reference — no iput.  The offset stays
-     * where it was even if it now points past the end. */
+    /* The file table entry owns the inode reference - no iput.  The
+     * entry's offset stays where it was even if it now points past the
+     * end; POSIX leaves it alone and a later read returns 0. */
     return scfs_do_truncate(f->f_inode, len);
 }
 
 /*
- * fallocate() — reserve space without writing it.
+ * fallocate() - reserve space without writing it.
  *
  * Needs an allocator that can mark blocks allocated while leaving them
  * unwritten, which 01_fsa's bitmap does not distinguish.  Reported rather
  * than implemented as "write zeros", which is a different syscall's
- * semantics — a caller preallocating a large file would get a full disk
+ * semantics - a caller preallocating a large file would get a full disk
  * instead of a reservation.
  */
 int uiox_kix_scfs_fallocate(int fd, int mode, uint32_t off, uint32_t len)

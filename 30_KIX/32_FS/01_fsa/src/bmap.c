@@ -1,304 +1,201 @@
 /*
  *  30_KIX/32_FS/01_fsa/src/bmap.c
  *
- *  Algorithm bmap — block map of a logical file byte offset to a
- *  file system block.
- *  Bach, The Design of the UNIX Operating System, Ch.4 §3.
+ *  Extent-based block map — UNFS's scheme, in place of Bach Ch.4 §3.
  *
- *  ── Bach's Algorithm bmap, verbatim ──────────────────────────────────
- *  input: inode, byte offset
- *  output: block number in the file system, byte offset into block,
- *          bytes of I/O in block, read ahead block number
- *  {
- *      calculate logical block number in file from byte offset;
- *      calculate start byte in block for I/O;          // output 2
- *      calculate number of bytes to copy to user;      // output 3
- *      check if read-ahead applicable, mark inode;     // output 4
- *      determine level of indirection;
- *      while (not at necessary level of indirection)
- *      {
- *          calculate index into inode or indirect block from logical
- *              block number in file;
- *          get disk block number from inode or indirect block;
- *          release buffer from previous disk read, if any (brelse);
- *          if (no more levels of indirection) return (block number);
- *          read indirect disk block (algorithm bread);
- *          adjust logical block number in file according to level of
- *              indirection;
- *      }
- *  }
+ *  ── why this is not the indirect tree ─────────────────────────────────
+ *  Bach's bmap() walks addr[13]: 10 direct pointers, then single-,
+ *  double- and triple-indirect levels, each requiring a bread() to follow.
+ *  That design fits 512-byte blocks, where 13 pointers cover about 5 KB
+ *  and indirect levels are genuinely needed.
  *
- *  ── COMPATIBILITY ─────────────────────────────────────────────────────
- *  BELOW (00_buffcache):
- *      indirect_lookup now calls  bread(dev, blkno)
- *      bmap_alloc now calls       bread(dev, blkno)
- *      bmap_alloc now calls       fs_alloc_begin() / fs_alloc_commit()
- *      every bwrite is             bwrite(buf, true, false)
+ *  UNFS uses 4096-byte blocks and a 256-byte inode, and stores EXTENTS:
  *
- *  ABOVE (10_scfs):
- *      BmapResult now carries .dev.  readwrite.c passes
- *      (bm.dev, bm.blkno) to bread/breada, and 01_fsa/readwrite.c's
- *      rw_bread() consumes .readahead_blk — the wire that was dangling.
+ *      unfs_extent_t i_extents[4];    four inline extents
+ *      uint32_t      i_extent_tree;   overflow tree block, or 0
  *
- *  ── the device ────────────────────────────────────────────────────────
- *  Every result fills r.dev = ip->dev.  An inode lives on exactly one
- *  filesystem, so the block it maps to lives on the same one.  This is
- *  the field that lets bmap's caller satisfy the buffer layer's
- *  (dev, blkno) contract.
+ *  Four inline extents already cover 4 x 64 KB directly, with one
+ *  overflow level beyond that.  A 512 KB file is one extent entry, not
+ *  128 map entries.
  *
- *  @version 2.0.0  @date 2026-09-24
+ *  ── what the signature keeps ──────────────────────────────────────────
+ *  Bach's algorithm is "map a file offset to a block number".  The
+ *  MECHANISM is an implementation detail, so the interface is unchanged:
+ *
+ *      BmapResult bmap(InCoreInode *ip, uint32_t byte_offset);
+ *
+ *  01_fsa's readwrite.c, namei.c, superblock.c and truncate.c all call it
+ *  as written and need no edit.  Only what happens inside changed.
+ *
+ *  ── the units trap ────────────────────────────────────────────────────
+ *  UNFS_BLOCK_SIZE is 4096.  00_buffcache's unit is 512
+ *  (BCACHE_SECTOR_SIZE).  bmap() returns an EXTENT address, so:
+ *
+ *      r.blkno  = UNFS block number        (4096-byte units)
+ *      r.dev    = the device, from the inode
+ *
+ *  A caller that passes r.blkno straight to bread() reads the first 512
+ *  bytes of the wrong location — one eighth of the way in.  The
+ *  conversion is UNFS_SECTORS_PER_BLOCK (8).  It is applied at the
+ *  buffer boundary, not here, so this function stays in UNFS units.
+ *
+ *  ── what this file cannot do yet ──────────────────────────────────────
+ *  bmap_alloc is NOT rewritten.  Allocating into an extent tree means
+ *  finding a free run, merging with neighbours where they are contiguous,
+ *  and splitting when they are not — materially more work than filling an
+ *  addr[] slot, and it belongs with 10_unfs's bitmap.  It is reported as
+ *  unimplemented rather than left in its old addr[] form, which would
+ *  write block numbers into a struct that no longer has that field.
+ *
+ *  @version 3.0.0  @date 2026-09-26
  */
 #include "bmap.h"
-#include "superblock.h"
+#include "inode.h"
 #include "buffer.h"
 #include "uiox_klibc.h"
 
 /*
- * The two-phase allocator (in superblock.c) exists so this file never
- * returns a block that is attached to no inode and on no free list.
- * See the note in fs_alloc()/fs_alloc_commit().
+ * The overflow extent-tree block is an array of unfs_extent_t.  Its
+ * capacity follows from the 4096-byte block and the 8-byte entry.
  */
-BufHdr *fs_alloc_begin(uint8_t dev, uint32_t *blkno_out);
-void    fs_alloc_commit(uint32_t blkno);
+#define EXTREE_PER_BLOCK ((uint32_t)(UNFS_BLOCK_SIZE / sizeof(unfs_extent_t)))
 
 /* ─────────────────────────────────────────────────────────────
- * Internal: read one indirect block and extract a block pointer.
- *
- * The dev argument is threaded through from the inode — an indirect
- * block lives on the same device as the inode that points at it.
+ * Internal: does this extent cover logical block 'lb'?
  * ───────────────────────────────────────────────────────────── */
-static uint32_t indirect_lookup(uint8_t dev, uint32_t indirect_blkno,
-                                uint32_t index, BufHdr **prev_buf)
+static int extent_covers(const unfs_extent_t *e, uint32_t lb)
 {
-    BufHdr   *buf;
-    uint32_t *ptrs;
-    uint32_t  result;
+    if (e->e_len == 0u) return 0;                  /* empty slot */
+    if (lb <  e->e_logical) return 0;
+    if (lb >= (uint32_t)e->e_logical + (uint32_t)e->e_len) return 0;
+    return 1;
+}
 
-    if (*prev_buf) {
-        brelse(*prev_buf);
-        *prev_buf = (BufHdr *)0;
-    }
+/* ─────────────────────────────────────────────────────────────
+ * Internal: map logical block via one extent.
+ *
+ * Returns the physical block, or 0 for "not mapped here".  A hole extent
+ * (UNFS_EXT_HOLE) is deliberately reported as 0 as well: the caller sees
+ * an unmapped block and reads zeros, which is what a hole IS.
+ * ───────────────────────────────────────────────────────────── */
+static uint32_t extent_phys(const unfs_extent_t *e, uint32_t lb)
+{
+    uint32_t delta;
 
-    buf = bread(dev, indirect_blkno);        /* ◀ (dev, blkno) */
+    if (!extent_covers(e, lb)) return 0u;
+    if (e->e_flags & UNFS_EXT_HOLE) return 0u;
+
+    delta = lb - (uint32_t)e->e_logical;
+    return (uint32_t)e->e_physical + delta;
+}
+
+/* ─────────────────────────────────────────────────────────────
+ * Internal: search the overflow extent-tree block.
+ *
+ * The tree block is one 4096-byte block holding an array of extents,
+ * terminated by an entry with e_len == 0.  A single level, as the
+ * bootloader's extent_lookup() assumes — so the two agree.
+ * ───────────────────────────────────────────────────────────── */
+static uint32_t extree_lookup(uint8_t dev, uint32_t tree_blk,
+                              uint32_t lb)
+{
+    BufHdr      *buf;
+    const unfs_extent_t *et;
+    uint32_t     i;
+
+    /* the tree block is one UNFS block = 8 buffer sectors; read the
+     * first sector and treat the buffer's data area as the block */
+    buf = bread(dev, tree_blk * UNFS_SECTORS_PER_BLOCK);
     if (!buf) return 0u;
 
-    ptrs   = (uint32_t *)buf->data;
-    result = (index < (uint32_t)PTRS_PER_BLOCK) ? ptrs[index] : 0u;
+    et = (const unfs_extent_t *)buf->data;
 
-    *prev_buf = buf;                         /* caller must brelse */
-    return result;
+    for (i = 0u; i < EXTREE_PER_BLOCK; i++) {
+        if (et[i].e_len == 0u) break;              /* end of entries */
+        if (extent_covers(&et[i], lb)) {
+            uint32_t p = extent_phys(&et[i], lb);
+            brelse(buf);
+            return p;
+        }
+    }
+
+    brelse(buf);
+    return 0u;
 }
 
 /* ═════════════════════════════════════════════════════════════
- * Algorithm bmap  (§3)
+ * bmap — map a file byte offset to a device block
  * ═════════════════════════════════════════════════════════════ */
 BmapResult bmap(InCoreInode *ip, uint32_t byte_offset)
 {
-    uint32_t   logical_blk;
     BmapResult r;
-    BufHdr    *prev_buf = (BufHdr *)0;
-    uint32_t   ptrs_per;
-    uint32_t   blkno    = 0u;
+    uint32_t   lb;          /* logical block within the file       */
+    uint32_t   i;
 
     memset(&r, 0, sizeof r);
 
-    /* ── the device, from the inode ────────────────────────────────── */
+    if (!ip) return r;
+
     r.dev = ip->dev;
 
-    logical_blk  = byte_offset / BLOCK_SIZE;
-    r.blk_offset = byte_offset % BLOCK_SIZE;
-    r.io_bytes   = BLOCK_SIZE - r.blk_offset;
+    /* UNFS units: the offset is divided by 4096, not 512 */
+    lb           = byte_offset / UNFS_BLOCK_SIZE;
+    r.blk_offset = byte_offset % UNFS_BLOCK_SIZE;
+    r.io_bytes   = UNFS_BLOCK_SIZE - r.blk_offset;
 
-    /* ── direct blocks ──────────────────────────────────────────────── */
-    if (logical_blk < (uint32_t)NDIRECT) {
-        uint32_t ra_logical;
+    /* ── the four inline extents ─────────────────────────────────── */
+    for (i = 0u; i < 4u; i++) {
+        uint32_t p = extent_phys(&ip->i_extents[i], lb);
 
-        blkno = ip->addr[logical_blk];
-
-        /* Bach's output 4: the next block, for breada's second argument.
-         * Marked on the inode as well, as Bach's algorithm says. */
-        ra_logical = logical_blk + 1u;
-        if (ra_logical < (uint32_t)NDIRECT && ip->addr[ra_logical]) {
-            r.readahead_blk = ip->addr[ra_logical];
-            ip->flags |= IFLAG_ACCESSED;
+        if (extent_covers(&ip->i_extents[i], lb)) {
+            r.blkno = p;
+            /* a hole maps to block 0 — valid=false, caller reads zeros */
+            r.valid = (p != 0u);
+            return r;
         }
-        goto done;
-    }
-    logical_blk -= (uint32_t)NDIRECT;
-
-    ptrs_per = (uint32_t)PTRS_PER_BLOCK;
-
-    /* ── single indirect ────────────────────────────────────────────── */
-    if (logical_blk < ptrs_per) {
-        uint32_t si_blk = ip->addr[NDIRECT];
-        if (!si_blk) goto done;
-        blkno = indirect_lookup(r.dev, si_blk, logical_blk, &prev_buf);
-        goto done;
-    }
-    logical_blk -= ptrs_per;
-
-    /* ── double indirect ────────────────────────────────────────────── */
-    if (logical_blk < ptrs_per * ptrs_per) {
-        uint32_t di_blk = ip->addr[NDIRECT + NINDIRECT];
-        uint32_t di_idx;
-        uint32_t si_idx;
-        uint32_t si_blk;
-
-        if (!di_blk) goto done;
-
-        di_idx = logical_blk / ptrs_per;
-        si_idx = logical_blk % ptrs_per;
-
-        si_blk = indirect_lookup(r.dev, di_blk, di_idx, &prev_buf);
-        if (!si_blk) goto done;
-        blkno = indirect_lookup(r.dev, si_blk, si_idx, &prev_buf);
-        goto done;
-    }
-    logical_blk -= ptrs_per * ptrs_per;
-
-    /* ── triple indirect ────────────────────────────────────────────── */
-    {
-        uint32_t ti_blk = ip->addr[NDIRECT + NINDIRECT + NDINDIRECT];
-        uint32_t ti_idx;
-        uint32_t di_idx;
-        uint32_t si_idx;
-        uint32_t di_blk;
-        uint32_t si_blk;
-
-        if (!ti_blk) goto done;
-
-        ti_idx = logical_blk / (ptrs_per * ptrs_per);
-        di_idx = (logical_blk / ptrs_per) % ptrs_per;
-        si_idx = logical_blk % ptrs_per;
-
-        di_blk = indirect_lookup(r.dev, ti_blk, ti_idx, &prev_buf);
-        if (!di_blk) goto done;
-        si_blk = indirect_lookup(r.dev, di_blk, di_idx, &prev_buf);
-        if (!si_blk) goto done;
-        blkno = indirect_lookup(r.dev, si_blk, si_idx, &prev_buf);
     }
 
-done:
-    if (prev_buf) brelse(prev_buf);
+    /* ── the overflow extent tree ────────────────────────────────── */
+    if (ip->i_extent_tree != 0u) {
+        uint32_t p = extree_lookup(ip->dev,
+                                   ip->i_extent_tree, lb);
+        r.blkno = p;
+        r.valid = (p != 0u);
+        return r;
+    }
 
-    r.blkno = blkno;
-    r.valid = (blkno != 0u);
-
-    printf("[bmap] dev=%u byte_off=%u -> blk=%u blk_off=%u io=%u ra=%u\n",
-           (unsigned)r.dev, (unsigned)byte_offset, (unsigned)r.blkno,
-           (unsigned)r.blk_offset, (unsigned)r.io_bytes,
-           (unsigned)r.readahead_blk);
+    /* No extent covers this offset: past EOF, or an unmapped region.
+     * Bach's bmap() reports the same way — valid stays false and the
+     * read stops. */
     return r;
 }
 
 /* ═════════════════════════════════════════════════════════════
- * bmap_alloc — like bmap but creates missing blocks on the fly
+ * bmap_alloc — NOT implemented for extents
  *
- * ── the two-phase allocator, and why ────────────────────────────────
- * The first cut called fs_alloc() directly, which did two things at
- * once: it detached the block from the free list AND zeroed + locked a
- * buffer for it.  If the inode's map entry was never written, the block
- * was then on no free list and attached to nothing — an unrecoverable
- * leak.
+ * Allocating into an extent tree is: find a free run of blocks, decide
+ * whether it merges with an adjacent extent's physical range, extend that
+ * extent or append a new one, and spill to the tree block when the four
+ * inline slots are full.  That work needs 10_unfs's block bitmap, which
+ * does not exist yet.
  *
- * fs_alloc() is now split so the caller can order those correctly:
+ * The previous addr[]-based version is REMOVED rather than kept: it wrote
+ * block numbers into InCoreInode.addr[], a field this format does not
+ * have, so keeping it would be a silent corruption rather than a failure.
  *
- *   1. fs_alloc_begin()   detach from the free list, lock the buffer
- *   2. attach the block number to the inode's map
- *   3. fs_alloc_commit()  zero + dirty + release the buffer
- *
- * A failure between 1 and 3 leaves the block locked and off the free
- * list — bad, but visible in bcache_stats — rather than silently lost.
- *
- * ── the double/triple indirect limit ────────────────────────────────
- * Bach's alloc handles every level.  This implementation allocates at
- * the direct and single-indirect levels only, and reports the limit
- * rather than returning a mapping that is not there.  Extending it is
- * the same pattern one level down: allocate the indirect block, write
- * its address into the parent, then allocate the data block.
- * ═════════════════════════════════════════════════════════════════ */
+ * This returns an invalid mapping, which makes the write path stop and
+ * report ENOSPC — the honest outcome until allocation is written.
+ * ═════════════════════════════════════════════════════════════ */
 BmapResult bmap_alloc(InCoreInode *ip, uint32_t byte_offset)
 {
-    uint32_t   logical_blk;
     BmapResult r;
 
     memset(&r, 0, sizeof r);
-    r.dev        = ip->dev;
-    logical_blk  = byte_offset / BLOCK_SIZE;
-    r.blk_offset = byte_offset % BLOCK_SIZE;
-    r.io_bytes   = BLOCK_SIZE - r.blk_offset;
 
-    /* ── direct ─────────────────────────────────────────────────────── */
-    if (logical_blk < (uint32_t)NDIRECT) {
-        if (!ip->addr[logical_blk]) {
-            uint32_t new_blk = 0u;
-            BufHdr  *nb      = fs_alloc_begin(r.dev, &new_blk);
+    if (ip) r.dev = ip->dev;
+    r.blk_offset = byte_offset % UNFS_BLOCK_SIZE;
+    r.io_bytes   = UNFS_BLOCK_SIZE - r.blk_offset;
+    r.valid      = false;      /* caller writes short, then ENOSPC */
 
-            if (!nb) return r;              /* out of space */
-
-            ip->addr[logical_blk] = new_blk;   /* attach FIRST   */
-            ip->flags |= IFLAG_CHANGED;
-
-            fs_alloc_commit(new_blk);          /* then dirty it  */
-        }
-        r.blkno = ip->addr[logical_blk];
-        r.valid = true;
-        printf("[bmap_alloc] direct dev=%u blk=%u off=%u\n",
-               (unsigned)r.dev, (unsigned)r.blkno, (unsigned)byte_offset);
-        return r;
-    }
-    logical_blk -= (uint32_t)NDIRECT;
-
-    /* ── single indirect ────────────────────────────────────────────── */
-    if (logical_blk < (uint32_t)PTRS_PER_BLOCK) {
-        BufHdr   *si_buf;
-        uint32_t *ptrs;
-
-        /* the indirect block itself, if this is the first entry */
-        if (!ip->addr[NDIRECT]) {
-            uint32_t new_blk = 0u;
-            BufHdr  *nb      = fs_alloc_begin(r.dev, &new_blk);
-
-            if (!nb) return r;
-
-            ip->addr[NDIRECT] = new_blk;       /* attach the container */
-            ip->flags |= IFLAG_CHANGED;
-            fs_alloc_commit(new_blk);
-        }
-
-        si_buf = bread(r.dev, ip->addr[NDIRECT]);    /* ◀ (dev, blkno) */
-        if (!si_buf) return r;
-
-        ptrs = (uint32_t *)si_buf->data;
-
-        if (!ptrs[logical_blk]) {
-            uint32_t new_blk = 0u;
-            BufHdr  *nb      = fs_alloc_begin(r.dev, &new_blk);
-
-            if (!nb) { brelse(si_buf); return r; }
-
-            ptrs[logical_blk] = new_blk;           /* attach */
-            bwrite(si_buf, true, false);           /* ◀ persist the map */
-            fs_alloc_commit(new_blk);              /* then dirty data   */
-
-            r.blkno = new_blk;
-            r.valid = true;
-            printf("[bmap_alloc] indirect dev=%u blk=%u off=%u\n",
-                   (unsigned)r.dev, (unsigned)r.blkno, (unsigned)byte_offset);
-            return r;
-        }
-
-        r.blkno = ptrs[logical_blk];
-        brelse(si_buf);
-        r.valid = true;
-        printf("[bmap_alloc] indirect(cached) dev=%u blk=%u off=%u\n",
-               (unsigned)r.dev, (unsigned)r.blkno, (unsigned)byte_offset);
-        return r;
-    }
-
-    /* ── the limit, reported rather than faked ──────────────────────── */
-    printf("[bmap_alloc] ERROR: this allocation is past the "
-           "single-indirect level (dev=%u off=%u) — not implemented\n",
-           (unsigned)r.dev, (unsigned)byte_offset);
-    return r;      /* r.valid stays false — the caller writes short */
+    return r;
 }

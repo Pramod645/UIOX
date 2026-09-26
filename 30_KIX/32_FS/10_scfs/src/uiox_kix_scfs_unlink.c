@@ -40,6 +40,13 @@
  */
 #include "uiox_kix_scfs_internal.h"
 
+static uint32_t scfs_name_len(const char *name)
+{
+    uint32_t n = 0u;
+    while (n < (uint32_t)UNFS_NAME_MAX && name[n] != '\0') n++;
+    return n;
+}
+
 int uiox_kix_scfs_unlink(const char *path)
 {
     if (!path) return SCFS_EFAULT;
@@ -61,11 +68,11 @@ int uiox_kix_scfs_unlink(const char *path)
 
     InCoreInode *dir = namei(parent, scfs_cwd_get(), 0u, 0u);  /* 01_fsa */
     if (!dir) return SCFS_ENOENT;
-    if (!SCFS_S_ISDIR(dir->mode)) { iput(dir); return SCFS_ENOTDIR; }
+    if (!SCFS_IS_DIR(dir->mode)) { iput(dir); return SCFS_ENOTDIR; }
     if (!inode_access_ok(dir, 0u, 0u, 0, 1, 1)) { iput(dir); return SCFS_EACCES; }
 
     /* ── 2. the inode of the file to be unlinked (algorithm iget) ──── */
-    uint32_t ino = dir_lookup(dir, name);       /* 01_fsa */
+    uint32_t ino = dir_lookup(dir, name, scfs_name_len(name));       /* 01_fsa */
     if (ino == 0u) {
         iput(dir);
         return SCFS_ENOENT;
@@ -80,7 +87,7 @@ int uiox_kix_scfs_unlink(const char *path)
     /* ── 3. a directory may not be unlinked here ───────────────────── */
     /* Bach allows it only for the super user; rmdir exists for the
      * ordinary case, and this layer has no credential to check. */
-    if (SCFS_S_ISDIR(ip->mode)) {
+    if (SCFS_IS_DIR(ip->mode)) {
         iput(ip);
         iput(dir);
         return SCFS_EISDIR;
@@ -90,7 +97,7 @@ int uiox_kix_scfs_unlink(const char *path)
     /* Bach: "write parent directory: zero inode number of unlinked
      * file".  dir_remove() does exactly that and writes the block back
      * through the buffer cache. */
-    rc = dir_remove(dir, name);                 /* 01_fsa */
+    rc = dir_remove(dir, name, scfs_name_len(name));                 /* 01_fsa */
     if (rc != 0) {
         iput(ip);
         iput(dir);

@@ -16,7 +16,7 @@
  *
  *      static SuperBlock sb;                 // unchanged
  *
- *      SuperBlock *sb_get(void) { return &sb; }   // add
+ *      SuperBlock *sb_get(uint8_t dev) { return &sb[dev]; }   // add
  *
  *  Put that function at the bottom of superblock.c, next to sb_print().
  *  Everything else in this file is ready to compile against it.
@@ -35,12 +35,26 @@
 #include "uiox_klibc.h"
 
 /* ═════════════════════════════════════════════════════════════
- * The accessor — see the header note.  Declared here so this file
- * compiles on its own; the definition belongs in superblock.c.
+ * The accessor
+ *
+ * NO local declaration here.  An earlier revision carried
+ *
+ *     extern SuperBlock *sb_get(void);
+ *
+ * which predates the change that threaded the device through every
+ * allocator and accessor.  superblock.h (included above) now declares
+ *
+ *     SuperBlock *sb_get(uint8_t dev);
+ *
+ * and the two collided:
+ *
+ *     sb_access.c:42: error: conflicting types for 'sb_get';
+ *                      have 'SuperBlock *(void)'
+ *     superblock.h:78: note: previous declaration of 'sb_get' with
+ *                      type 'SuperBlock *(uint8_t)'
+ *
+ * The header is the authority.  Do not re-add a local prototype.
  * ═════════════════════════════════════════════════════════════ */
-#ifndef UIOX_SB_ACCESSOR_DEFINED
-extern SuperBlock *sb_get(void);
-#endif
 
 /* ═════════════════════════════════════════════════════════════
  * Bach's statfs fields, named against this filesystem's own
@@ -49,14 +63,14 @@ extern SuperBlock *sb_get(void);
 /* Bach s_fsize — "the number of blocks in the file system" */
 uint32_t sb_total_blocks(void)
 {
-    SuperBlock *sb = sb_get();
+    SuperBlock *sb = sb_get(ROOT_DEV);
     return sb ? sb->fs_size : 0u;
 }
 
 /* Bach s_nfree — "the number of free blocks in the free list" */
 uint32_t sb_free_blocks(void)
 {
-    SuperBlock *sb = sb_get();
+    SuperBlock *sb = sb_get(ROOT_DEV);
     return sb ? sb->free_block_count : 0u;
 }
 
@@ -65,14 +79,14 @@ uint32_t sb_free_blocks(void)
  * actually uses for the f_files field. */
 uint32_t sb_total_inodes(void)
 {
-    SuperBlock *sb = sb_get();
+    SuperBlock *sb = sb_get(ROOT_DEV);
     return sb ? sb->max_inodes : 0u;
 }
 
 /* Bach s_ninode — "the number of free inodes in the cached list" */
 uint32_t sb_free_inodes(void)
 {
-    SuperBlock *sb = sb_get();
+    SuperBlock *sb = sb_get(ROOT_DEV);
     return sb ? sb->free_inode_count : 0u;
 }
 
@@ -94,12 +108,12 @@ uint32_t sb_block_size(void)
  */
 int sb_is_modified(void)
 {
-    SuperBlock *sb = sb_get();
+    SuperBlock *sb = sb_get(ROOT_DEV);
     return (sb && sb->modified) ? 1 : 0;
 }
 
 void sb_clear_modified(void)
 {
-    SuperBlock *sb = sb_get();
+    SuperBlock *sb = sb_get(ROOT_DEV);
     if (sb) sb->modified = false;
 }

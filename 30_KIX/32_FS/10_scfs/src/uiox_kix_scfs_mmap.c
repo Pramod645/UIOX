@@ -47,7 +47,7 @@ static InCoreInode *scfs_mmap_validate(int fd, uint32_t length,
     if (length == 0u) { *err = SCFS_EINVAL; return (InCoreInode *)0; }
 
     /* A directory has no byte stream to map. */
-    if (SCFS_S_ISDIR(f->f_inode->mode)) {
+    if (SCFS_IS_DIR(f->f_inode->mode)) {
         *err = SCFS_ENODEV;
         return (InCoreInode *)0;
     }
@@ -89,7 +89,7 @@ void *uiox_kix_scfs_mmap(void *addr, uint32_t length, int prot,
 
     /* The offset must be block-aligned: a mapping is built out of whole
      * pages, and the file's blocks are whole blocks. */
-    if (offset % BLKSIZE)
+    if (offset % UNFS_BLOCK_SIZE)
         return SCFS_MAP_FAILED;
 
     /*

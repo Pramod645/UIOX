@@ -25,7 +25,7 @@
  *
  * @version 1.0.0  @date 2026-09-23
  */
-#include "uiox_kix_scfs.h"
+#include "uiox_kix_scfs_internal.h"
 
 /* Bach splits the permission word's low 9 bits; the mode word's top
  * nibble carries the file type under 01_fsa's encoding. */

@@ -26,10 +26,8 @@
  *  read the same numbers.
  *
  *  ── the writes are now byte-wise through a helper ────────────────────
- *  The first version cast the buffer pointer to uint16_t*/uint32_t*/etc.
- *  and stored through it, which requires the caller's buffer to be
- *  aligned for the widest type used.  A caller passing a packed struct
- *  or an odd offset would have hit an unaligned store.  scfs_st16/32/64
+ *  The first version cast the buffer pointer to a uint16_t pointer,
+ *  then to a uint32_t pointer, and so on, and stored the value through it.
  *  assemble the value from bytes, so alignment no longer matters.
  *
  *  v1.4: buffer size checked; unaligned stores removed.

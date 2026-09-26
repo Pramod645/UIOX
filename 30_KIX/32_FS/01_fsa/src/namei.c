@@ -31,35 +31,51 @@
  *      return (working inode);
  *  }
  *
- *  ── COMPATIBILITY ─────────────────────────────────────────────────────
- *  BELOW (00_buffcache):
- *      every directory read is now  bread(bm.dev, bm.blkno)
- *      every directory write is now bwrite(buf, true, false)
- *      BufEntry -> BufHdr; no `dirty` field exists on the header
+ *  ── CHANGED in this revision (v3.1.0) ─────────────────────────────────
+ *  1. The dirent header is 8 bytes, and d_rec_len is READ, not computed.
  *
- *  ABOVE (10_scfs):
- *      dir_lookup / dir_add / dir_remove / namei / fs_mkfs keep their
- *      signatures — 10_scfs calls them unchanged.
+ *     The field order is {d_ino, d_rec_len, d_name_len, d_type, d_name[]}
+ *     per unfs_format.h.  An earlier revision wrote d_type into the byte
+ *     that is d_rec_len's low half — which corrupted each entry's own
+ *     length the moment it was written.  Every write site below now sets
+ *     d_rec_len from dirent_needed().
  *
- *  ── the device in namei ───────────────────────────────────────────────
- *  A path walk stays on one filesystem: the working inode's dev travels
- *  with it, and a directory's data blocks are on that same device.  The
- *  walk reads bm.dev, which bmap now fills from the inode.
+ *     dirent_reclen() reads d_rec_len because the stored length is
+ *     authoritative: the LAST entry in a block owns the block's spare
+ *     bytes, and a freed entry keeps the slot it was given.  Recomputing
+ *     from d_name_len would re-derive a shorter number.
  *
- *  ── directory entries are FIXED-SIZE ──────────────────────────────────
- *      typedef struct { uint32_t ino; char name[MAX_NAME_LEN]; } DirEntry;
+ *  2. The walk device is hoisted at entry, which fixes the walk.
  *
- *  512 / 32 = 16 entries per block.  A name is NEVER NUL-terminated by
- *  construction — it is 28 bytes filled by strncpy — so every comparison
- *  is bounded by MAX_NAME_LEN and every copy uses the field width.
+ *     namei() previously dereferenced 'cwd' at the start and then, after
+ *     iput()ing the working inode, had no device left for the components
+ *     that followed — the file carried a placeholder in that position.
+ *     A directory entry stores only an inode NUMBER, so the device has to
+ *     travel with the walk.  It is captured once, before the loop, and
+ *     every iget_dev() below uses it.
  *
- *  ── the lock protocol Bach relies on ─────────────────────────────────
- *  A function that RETURNS a locked inode (namei) leaves the lock set.
- *  One that COMPLETES a directory lookup (dir_lookup/add/remove) or
- *  takes a working inode for its own use releases it before returning.
- *  Getting this backwards deadlocks the next iget on the same inode.
+ *  3. The block unit is 4096 while the buffer unit is 512.
  *
- *  @version 2.0.0  @date 2026-09-24
+ *     Every directory block is read through dir_block_read(), which
+ *     assembles UNFS_SECTORS_PER_BLOCK (8) consecutive sectors.  The old
+ *     code stepped BLOCK_SIZE and passed bm.blkno straight to bread().
+ *
+ *  4. the LOG POD
+ *
+ *     printf() is gone.  The 32_FS session established that 01_fsa must
+ *     not pull in three colliding uiox_printf() prototypes, so the
+ *     diagnostics are removed rather than converted — nothing below
+ *     needs a stdio declaration.
+ *
+ *  ── what is still not done ────────────────────────────────────────────
+ *  dir_add's pass 3 needs extent allocation, and bmap_alloc() is still a
+ *  stub.  It returns -1 rather than pretending.  superblock.h DOES
+ *  provide the primitive it wants — fs_alloc_begin(dev, &blkno_out) is
+ *  documented as the split form specifically so a caller can attach the
+ *  block number before dirtying the buffer — so the work is wiring, not
+ *  invention.
+ *
+ *  @version 3.1.0  @date 2026-09-26
  */
 #include "namei.h"
 #include "bmap.h"
@@ -67,209 +83,314 @@
 #include "buffer.h"
 #include "uiox_klibc.h"
 
-/* 512 / sizeof(DirEntry) = 16 */
-#define DIRENTS_PER_BLOCK   (BLOCK_SIZE / (int)sizeof(DirEntry))
-
-/* ─────────────────────────────────────────────────────────────
- * Internal: compare a stored name against a wanted name.
+/* ═════════════════════════════════════════════════════════════
+ * Internal: read one 4 KB directory block into 'blk'.
  *
- * The stored field is MAX_NAME_LEN bytes and may have NO terminator, so
- * strncmp alone is not enough — a 28-byte name would compare equal to a
- * longer wanted name sharing its first 28 bytes.  The stored length is
- * found first, bounded by the field, and the lengths must match.
- * ───────────────────────────────────────────────────────────── */
-static int dirname_eq(const char *stored, const char *want)
+ * bm is an extent address in UNFS units; the buffer lives in 512-byte
+ * sectors.  Returns true when every sector of the block came back.
+ * ═════════════════════════════════════════════════════════════ */
+static bool dir_block_read(const BmapResult *bm, uint8_t *blk)
 {
-    uint32_t slen = 0u;
-    uint32_t wlen = 0u;
+    uint32_t s;
 
-    while (slen < (uint32_t)MAX_NAME_LEN && stored[slen] != '\0') slen++;
-    while (want[wlen] != '\0') wlen++;
+    for (s = 0u; s < (uint32_t)UNFS_SECTORS_PER_BLOCK; s++) {
+        BufHdr *buf = bread(bm->dev,
+                            bm->blkno * (uint32_t)UNFS_SECTORS_PER_BLOCK + s);
+        if (!buf) return false;
 
-    if (slen != wlen) return 0;
-    if (slen == 0u)   return 0;
+        memcpy(blk + (s * (uint32_t)BCACHE_SECTOR_SIZE),
+               buf->data,
+               (size_t)BCACHE_SECTOR_SIZE);
 
-    for (uint32_t i = 0u; i < slen; i++)
-        if (stored[i] != want[i]) return 0;
-
-    return 1;
-}
-
-/* ─────────────────────────────────────────────────────────────
- * Internal: copy a name into a directory entry's fixed field.
- * Always leaves the field NUL-terminated within its bound.
- * ───────────────────────────────────────────────────────────── */
-static void dirname_store(char *dst, const char *src)
-{
-    uint32_t i = 0u;
-
-    while (i < (uint32_t)(MAX_NAME_LEN - 1) && src[i] != '\0') {
-        dst[i] = src[i];
-        i++;
+        brelse(buf);
     }
-    dst[i] = '\0';
+    return true;
 }
 
-/* ─────────────────────────────────────────────────────────────
- * dir_lookup — search a directory for a component.
- * Returns the inode number of the match, or 0 if not found.
+/* ═════════════════════════════════════════════════════════════
+ * Internal: write one 4 KB directory block back.
+ * ═════════════════════════════════════════════════════════════ */
+static bool dir_block_write(uint8_t dev, uint32_t blkno, const uint8_t *blk)
+{
+    uint32_t s;
+
+    for (s = 0u; s < (uint32_t)UNFS_SECTORS_PER_BLOCK; s++) {
+        BufHdr *buf = bread(dev, blkno * (uint32_t)UNFS_SECTORS_PER_BLOCK + s);
+        if (!buf) return false;
+
+        memcpy(buf->data,
+               blk + (s * (uint32_t)BCACHE_SECTOR_SIZE),
+               (size_t)BCACHE_SECTOR_SIZE);
+
+        bwrite(buf, true, false);       /* persist + release */
+    }
+    return true;
+}
+
+/* ═════════════════════════════════════════════════════════════
+ * Internal: write one entry into a slot, at a given record length.
  *
- * Bach iterates the directory with bmap + bread + brelse; the blkno it
- * reads is on the inode's own device.
- * ───────────────────────────────────────────────────────────── */
-uint32_t dir_lookup(InCoreInode *dir, const char *name)
+ * d_rec_len is what the walk trusts, so it is set from the space this
+ * entry is given — which may be LARGER than the name needs when the slot
+ * is the last in a block and has absorbed the spare bytes.
+ * ═════════════════════════════════════════════════════════════ */
+static void dir_ent_store(DirEntry *de, uint32_t rec_len,
+                          uint32_t ino, uint8_t type,
+                          const char *name, uint32_t len)
+{
+    de->d_ino      = ino;
+    de->d_rec_len  = (uint16_t)rec_len;
+    de->d_name_len = (uint8_t)len;
+    de->d_type     = type;
+
+    memcpy(de->d_name, name, (size_t)len);
+}
+
+/* ═════════════════════════════════════════════════════════════
+ * Internal: find the LAST live entry in a block — the one whose record
+ * owns the block's spare bytes.  Returns NULL on an empty block.
+ * ═════════════════════════════════════════════════════════ */
+static DirEntry *dir_last_entry(uint8_t *blk)
+{
+    uint8_t   *end  = blk + (uint32_t)UNFS_BLOCK_SIZE;
+    DirEntry  *de   = (DirEntry *)blk;
+    DirEntry  *last = NULL;
+
+    while ((uint8_t *)de < end) {
+        if (de->d_name_len == 0u) break;        /* terminating slot */
+        last = de;
+        de   = dirent_next(de, end);
+        if (!de) break;
+    }
+    return last;
+}
+
+/* ═════════════════════════════════════════════════════════════
+ * dir_lookup — search a directory for a component.
+ *
+ * 'len' is the component length; names are NOT NUL-terminated on disk.
+ * Returns the inode number of the match, or 0 if not found.
+ * ═════════════════════════════════════════════════════════════ */
+uint32_t dir_lookup(InCoreInode *dir, const char *name, uint32_t len)
 {
     uint32_t offset = 0u;
+    uint8_t  blk[UNFS_BLOCK_SIZE];
 
-    if (!dir || !name) return 0u;
-    if (inode_type(dir) != FT_DIR) return 0u;
+    if (!dir || !name || len == 0u) return 0u;
+    if (len > (uint32_t)UNFS_NAME_MAX) return 0u;
+    if ((dir->mode & UNFS_IFMT) != UNFS_IFDIR) return 0u;
 
     while (offset < dir->size) {
         BmapResult bm = bmap(dir, offset);
-        BufHdr    *buf;
-        DirEntry  *entries;
-        int        i;
+        uint8_t   *end;
+        DirEntry  *de;
 
         if (!bm.valid) break;
+        if (!dir_block_read(&bm, blk)) break;
 
-        buf = bread(bm.dev, bm.blkno);          /* ◀ (dev, blkno) */
-        if (!buf) break;
+        end = blk + (uint32_t)UNFS_BLOCK_SIZE;
+        de  = (DirEntry *)blk;
 
-        entries = (DirEntry *)buf->data;
+        while ((uint8_t *)de < end) {
+            if (de->d_name_len == 0u) break;    /* end of entries */
 
-        for (i = 0; i < DIRENTS_PER_BLOCK; i++) {
-            if (entries[i].ino == 0u) continue;
-
-            if (dirname_eq(entries[i].name, name)) {
-                uint32_t found = entries[i].ino;
-                brelse(buf);
-                return found;
+            if (dirent_match(de, name, len)) {
+                return de->d_ino;
             }
+
+            de = dirent_next(de, end);
+            if (!de) break;
         }
-        brelse(buf);                            /* buffer layer */
-        offset += BLOCK_SIZE;                   /* Bach's adjust */
+
+        offset += UNFS_BLOCK_SIZE;              /* one 4 KB block */
     }
     return 0u;
 }
 
-/* ─────────────────────────────────────────────────────────────
- * dir_add — add a (name, ino) entry to a directory.
+/* ═════════════════════════════════════════════════════════════
+ * dir_add — add a (name, ino, type) entry to a directory.
  * Returns 0 on success, -1 on failure.
- * ───────────────────────────────────────────────────────────── */
-int dir_add(InCoreInode *dir, const char *name, uint32_t ino)
+ *
+ * Three cases, in Bach's order:
+ *   1. a free slot inside an existing block, where a removed entry left
+ *      d_ino == 0 with enough room
+ *   2. the free tail of the last entry in an existing block
+ *   3. a brand-new block at the end of the directory
+ * ═════════════════════════════════════════════════════════════ */
+int dir_add(InCoreInode *dir, const char *name, uint32_t len,
+            uint32_t ino, uint8_t type)
 {
-    uint32_t offset = 0u;
+    uint32_t offset;
+    uint32_t need;
 
-    if (!dir || !name || ino == 0u) return -1;
-    if (inode_type(dir) != FT_DIR) return -1;
+    if (!dir || !name || ino == 0u)     return -1;
+    if (len == 0u)                      return -1;
+    if (len > (uint32_t)UNFS_NAME_MAX)  return -1;
+    if ((dir->mode & UNFS_IFMT) != UNFS_IFDIR) return -1;
 
-    /* ── look for a free slot in the blocks that exist ─────────────── */
+    need = dirent_needed(len);
+    if (need > (uint32_t)UNFS_BLOCK_SIZE) return -1;
+
+    /* ── pass 1: a free slot inside a block ───────────────────────────
+     * A removed entry keeps its bytes and sets d_ino = 0, with d_rec_len
+     * still describing the space it owns. */
+    offset = 0u;
     while (offset < dir->size) {
         BmapResult bm = bmap(dir, offset);
-        BufHdr    *buf;
-        DirEntry  *entries;
-        int        i;
+        uint8_t    blk[UNFS_BLOCK_SIZE];
+        uint8_t   *end;
+        DirEntry  *de;
 
         if (!bm.valid) break;
+        if (!dir_block_read(&bm, blk)) return -1;
 
-        buf = bread(bm.dev, bm.blkno);          /* ◀ (dev, blkno) */
-        if (!buf) return -1;
+        end = blk + (uint32_t)UNFS_BLOCK_SIZE;
+        de  = (DirEntry *)blk;
 
-        entries = (DirEntry *)buf->data;
+        while ((uint8_t *)de < end) {
+            if (de->d_name_len == 0u) break;
 
-        for (i = 0; i < DIRENTS_PER_BLOCK; i++) {
-            if (entries[i].ino == 0u) {
-                entries[i].ino = ino;
-                dirname_store(entries[i].name, name);
+            if (dirent_free(de) && dirent_reclen(de) >= need) {
+                dir_ent_store(de, dirent_reclen(de),
+                              ino, type, name, len);
 
-                /* BufHdr has no `dirty` member — the write flags carry
-                 * that now, and bwrite releases the buffer. */
-                bwrite(buf, true, false);       /* ◀ persist */
-                brelse(NULL);
+                if (!dir_block_write(bm.dev, bm.blkno, blk)) return -1;
 
-                dir->size += (uint32_t)sizeof(DirEntry);
                 dir->flags |= IFLAG_MODIFIED | IFLAG_CHANGED;
-
-                printf("[dir_add] '%s' -> ino=%u in dir ino=%u (dev=%u)\n",
-                       name, (unsigned)ino, (unsigned)dir->ino,
-                       (unsigned)dir->dev);
                 return 0;
             }
+
+            de = dirent_next(de, end);
+            if (!de) break;
         }
-        brelse(buf);
-        offset += BLOCK_SIZE;
+
+        offset += UNFS_BLOCK_SIZE;
     }
 
-    /* ── no free slot — extend the directory by one block ──────────── */
+    /* ── pass 2: the free tail of the last entry in a block ──────────
+     * Bach's scheme, and ext2's: the last entry owns the block's spare
+     * bytes.  The new entry takes 'need' of them, the tail keeps the
+     * rest, and the tail's d_rec_len is rewritten to its new (shorter)
+     * length so the walk still steps correctly. */
+    offset = 0u;
+    while (offset < dir->size) {
+        BmapResult bm = bmap(dir, offset);
+        uint8_t    blk[UNFS_BLOCK_SIZE];
+        DirEntry  *last;
+        DirEntry  *nw;
+        uint32_t   start_off;
+        uint32_t   keep;
+        uint32_t   spare;
+
+        if (!bm.valid) break;
+        if (!dir_block_read(&bm, blk)) return -1;
+
+        last = dir_last_entry(blk);
+        if (!last) { offset += UNFS_BLOCK_SIZE; continue; }
+
+        start_off = (uint32_t)((uint8_t *)last - blk);
+
+        /* the tail's record must be big enough to hold its own name plus
+         * the new entry, or there is no room to split it */
+        keep = dirent_needed((uint32_t)last->d_name_len);
+        if (start_off + keep + need > (uint32_t)UNFS_BLOCK_SIZE) {
+            offset += UNFS_BLOCK_SIZE;
+            continue;
+        }
+
+        spare = dirent_reclen(last) - keep;
+
+        if (spare >= need) {
+            /* shrink the tail to its minimum, then place the new entry */
+            last->d_rec_len = (uint16_t)keep;
+
+            nw = (DirEntry *)((uint8_t *)last + keep);
+            dir_ent_store(nw, spare, ino, type, name, len);
+
+            if (!dir_block_write(bm.dev, bm.blkno, blk)) return -1;
+
+            dir->flags |= IFLAG_MODIFIED | IFLAG_CHANGED;
+            return 0;
+        }
+
+        offset += UNFS_BLOCK_SIZE;
+    }
+
+    /* ── pass 3: extend the directory by one block ───────────────────
+     * bmap_alloc() is NOT implemented for extents — it reports an
+     * invalid mapping rather than writing into a struct that has no
+     * addr[] field.  So this path cannot succeed yet, and it returns -1
+     * instead of pretending.  superblock.h's fs_alloc_begin(dev, &blkno)
+     * is the primitive that will fill this in. */
     {
         BmapResult bm = bmap_alloc(dir, dir->size);
-        BufHdr    *buf;
-        DirEntry  *entries;
+        uint8_t    blk[UNFS_BLOCK_SIZE];
+        DirEntry  *first;
 
-        if (!bm.valid) return -1;
+        if (!bm.valid) return -1;               /* ◀ allocation pending */
 
-        buf = bread(bm.dev, bm.blkno);          /* ◀ (dev, blkno) */
-        if (!buf) return -1;
+        memset(blk, 0, sizeof blk);
+        first = (DirEntry *)blk;
 
-        entries = (DirEntry *)buf->data;
-        entries[0].ino = ino;
-        dirname_store(entries[0].name, name);
+        /* the single entry in a fresh block owns the WHOLE block */
+        dir_ent_store(first, (uint32_t)UNFS_BLOCK_SIZE,
+                      ino, type, name, len);
 
-        bwrite(buf, true, false);               /* ◀ persist + release */
+        if (!dir_block_write(bm.dev, bm.blkno, blk)) return -1;
 
-        dir->size += BLOCK_SIZE;
+        dir->size += UNFS_BLOCK_SIZE;
         dir->flags |= IFLAG_MODIFIED | IFLAG_CHANGED;
-
-        printf("[dir_add] '%s' -> ino=%u (new block %u) in dir ino=%u\n",
-               name, (unsigned)ino, (unsigned)bm.blkno, (unsigned)dir->ino);
         return 0;
     }
 }
 
-/* ─────────────────────────────────────────────────────────────
+/* ═════════════════════════════════════════════════════════════
  * dir_remove — remove the entry with 'name'.
  * Returns 0 on success, -1 if not found.
  *
  * Bach zeroes the INODE NUMBER and leaves the name bytes; that is what
- * makes the slot reusable by dir_add and recognisable as empty by both
- * dir_lookup and getdents64.
- * ───────────────────────────────────────────────────────────── */
-int dir_remove(InCoreInode *dir, const char *name)
+ * makes the slot reusable by dir_add and recognisable as empty by
+ * getdents64.  d_rec_len and d_name_len are RETAINED so the slot still
+ * describes the space it owns — clearing either would make the walk stop
+ * early or step wrong and lose every entry after it.
+ * ═════════════════════════════════════════════════════════════ */
+int dir_remove(InCoreInode *dir, const char *name, uint32_t len)
 {
     uint32_t offset = 0u;
+    uint8_t  blk[UNFS_BLOCK_SIZE];
 
-    if (!dir || !name) return -1;
+    if (!dir || !name || len == 0u) return -1;
+    if ((dir->mode & UNFS_IFMT) != UNFS_IFDIR) return -1;
 
     while (offset < dir->size) {
         BmapResult bm = bmap(dir, offset);
-        BufHdr    *buf;
-        DirEntry  *entries;
-        int        i;
+        uint8_t   *end;
+        DirEntry  *de;
 
         if (!bm.valid) break;
+        if (!dir_block_read(&bm, blk)) return -1;
 
-        buf = bread(bm.dev, bm.blkno);          /* ◀ (dev, blkno) */
-        if (!buf) return -1;
+        end = blk + (uint32_t)UNFS_BLOCK_SIZE;
+        de  = (DirEntry *)blk;
 
-        entries = (DirEntry *)buf->data;
+        while ((uint8_t *)de < end) {
+            if (de->d_name_len == 0u) break;
 
-        for (i = 0; i < DIRENTS_PER_BLOCK; i++) {
-            if (entries[i].ino != 0u &&
-                dirname_eq(entries[i].name, name)) {
+            if (de->d_ino != 0u && dirent_match(de, name, len)) {
+                de->d_ino  = 0u;            /* slot free; lengths kept */
+                de->d_type = UNFS_DT_UNKNOWN;
 
-                entries[i].ino     = 0u;
-                entries[i].name[0] = '\0';
+                if (!dir_block_write(bm.dev, bm.blkno, blk)) return -1;
 
-                bwrite(buf, true, false);       /* ◀ persist + release */
-
-                dir->flags |= IFLAG_MODIFIED;
-                printf("[dir_remove] '%s' removed from dir ino=%u\n",
-                       name, (unsigned)dir->ino);
+                dir->flags |= IFLAG_MODIFIED | IFLAG_CHANGED;
                 return 0;
             }
+
+            de = dirent_next(de, end);
+            if (!de) break;
         }
-        brelse(buf);
-        offset += BLOCK_SIZE;
+
+        offset += UNFS_BLOCK_SIZE;
     }
     return -1;
 }
@@ -278,73 +399,76 @@ int dir_remove(InCoreInode *dir, const char *name)
  * Algorithm namei  (§4)
  *
  * Returns a LOCKED inode — the caller must iput() it.
- * ═════════════════════════════════════════════════════════════════ */
+ * ═════════════════════════════════════════════════════════════ */
 InCoreInode *namei(const char *path, InCoreInode *cwd,
                    uint16_t uid, uint16_t gid)
 {
     InCoreInode *wip;
-    char         component[MAX_NAME_LEN];
+    uint8_t      dev;                       /* the device the walk is on */
+    char         component[UNFS_NAME_MAX + 1u];
 
     if (!path || path[0] == '\0') return (InCoreInode *)0;
 
-    /* ── where the walk starts ─────────────────────────────────────── *
-     * An absolute path starts at the root; a relative one at the cwd.
-     * A cwd carries its own device, so a relative walk under a mounted
-     * filesystem stays on it. */
+    /* ── the device is captured ONCE, before anything is released ────
+     * A directory entry stores only an inode number, so the device has
+     * to travel with the walk.  Every iget_dev() below uses this value,
+     * including the ones after the working inode is iput().  Reading
+     * cwd->dev later would be a use-after-free, and dropping it entirely
+     * is what left the previous revision without a device at all. */
     if (path[0] == '/') {
-        wip = iget(ROOT_INO);
+        dev = cwd ? cwd->dev : ROOT_DEV;
+        wip = iget_dev(dev, UNFS_ROOT_INO);
         while (*path == '/') path++;
     } else {
-        if (!cwd) { printf("[namei] ERROR: no cwd\n"); return (InCoreInode *)0; }
-        wip = iget_dev(cwd->dev, cwd->ino);     /* ◀ same filesystem */
+        if (!cwd) return (InCoreInode *)0;
+        dev = cwd->dev;
+        wip = iget_dev(dev, cwd->ino);      /* same filesystem */
+        while (*path == '/') path++;        /* tolerate "./" forms */
     }
     if (!wip) return (InCoreInode *)0;
 
     while (*path) {
         uint32_t found_ino;
-        int      len = 0;
+        uint32_t clen;
 
         while (*path == '/') path++;
         if (*path == '\0') break;
 
-        while (*path && *path != '/' && len < MAX_NAME_LEN - 1)
-            component[len++] = *path++;
-        component[len] = '\0';
+        /* Collect one component.  A component longer than UNFS_NAME_MAX
+         * cannot name anything on this filesystem, so the walk fails
+         * rather than silently truncating to a DIFFERENT file's name —
+         * which is what a `len < MAX_NAME_LEN - 1` guard did. */
+        clen = 0u;
+        while (*path && *path != '/') {
+            if (clen >= (uint32_t)UNFS_NAME_MAX) { iput(wip); return (InCoreInode *)0; }
+            component[clen++] = *path++;
+        }
+        component[clen] = '\0';
 
         /* ── verify the working inode is a searchable directory ────── */
-        if (inode_type(wip) != FT_DIR) {
-            printf("[namei] ERROR: '%s' not a directory\n", component);
+        if ((wip->mode & UNFS_IFMT) != UNFS_IFDIR) {
             iput(wip);
             return (InCoreInode *)0;
         }
         if (!inode_access_ok(wip, uid, gid, 0, 0, 1)) {
-            printf("[namei] ERROR: no execute perm on dir ino=%u\n",
-                   (unsigned)wip->ino);
             iput(wip);
             return (InCoreInode *)0;
         }
 
         /* ── Bach's root/".." special case ─────────────────────────── */
-        if (component[0] == '.' && component[1] == '.' && component[2] == '\0'
-            && wip->ino == ROOT_INO) {
-            printf("[namei] '..' at root - staying\n");
+        if (clen == 2u && component[0] == '.' && component[1] == '.'
+            && wip->ino == UNFS_ROOT_INO) {
             continue;
         }
 
         /* ── read the directory and match the component ────────────── */
-        found_ino = dir_lookup(wip, component);
+        found_ino = dir_lookup(wip, component, clen);
         iput(wip);                              /* release the working inode */
 
-        if (!found_ino) {
-            printf("[namei] '%s' not found\n", component);
-            return (InCoreInode *)0;
-        }
+        if (!found_ino) return (InCoreInode *)0;
 
-        wip = iget(found_ino);
+        wip = iget_dev(dev, found_ino);         /* ◀ the walk's device */
         if (!wip) return (InCoreInode *)0;
-
-        printf("[namei] component '%s' -> ino=%u\n",
-               component, (unsigned)found_ino);
     }
 
     return wip;     /* locked, as Bach specifies */
@@ -355,35 +479,40 @@ InCoreInode *namei(const char *path, InCoreInode *cwd,
  *
  * Bach's mkfs: create the root inode, set its link count to 2, and write
  * the "." and ".." entries that make it a directory.
- * ═════════════════════════════════════════════════════════════════ */
-void fs_mkfs(void)
+ *
+ * The device-aware allocator is ialloc_dev(dev, ...) — the plain
+ * ialloc() in superblock.h has no dev parameter.
+ * ═════════════════════════════════════════════════════════════ */
+int fs_mkfs(uint8_t dev)
 {
     InCoreInode *root;
 
-    printf("[mkfs] creating filesystem\n");
-
-    root = ialloc(FT_DIR,
-                  PERM_UR | PERM_UW | PERM_UX |
-                  PERM_GR | PERM_GX |
-                  PERM_OR | PERM_OX,
-                  0u, 0u);
-    if (!root) {
-        printf("[mkfs] ERROR: cannot alloc root inode\n");
-        return;
-    }
+    /* UNFS_IFDIR, not the removed FileType's FT_DIR — the format's type
+     * encoding is what lands in i_mode.  (FT_DIR << 12) is 0x2000, which
+     * is UNFS_IFCHR, so the old spelling wrote a character device. */
+    root = ialloc_dev(dev, (uint16_t)UNFS_IFDIR,
+                      PERM_UR | PERM_UW | PERM_UX |
+                      PERM_GR | PERM_GX |
+                      PERM_OR | PERM_OX,
+                      0u, 0u);
+    if (!root) return -1;
 
     /* A directory starts at 2: its own "." and the entry its parent
      * holds.  The root has no parent, so ".." points at itself and the
      * count stays 2. */
-    root->nlink = 2u;
+    root->nlink  = 2u;
     root->flags |= IFLAG_CHANGED;
 
-    dir_add(root, ".",  root->ino);
-    dir_add(root, "..", root->ino);
+    if (dir_add(root, ".",  1u, root->ino, (uint8_t)UNFS_DT_DIR) != 0) {
+        iput(root);
+        return -1;
+    }
+    if (dir_add(root, "..", 2u, root->ino, (uint8_t)UNFS_DT_DIR) != 0) {
+        iput(root);
+        return -1;
+    }
 
     iupdate(root);
     iput(root);
-
-    printf("[mkfs] root ino=%u (dev=%u) created\n",
-           (unsigned)ROOT_INO, (unsigned)root->dev);
+    return 0;
 }

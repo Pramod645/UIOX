@@ -55,13 +55,109 @@
 #define UIOX_BCACHE_TYPES_H
 
 /* ═════════════════════════════════════════════════════════════════════
- * The integer types
+ * The integer types — DECLARED HERE, not inherited
  *
- * Taken from uiox_base_types.h — the small header BOTH stdio variants
- * include, and the only one that is safe to include alongside either.
- * It carries the integer typedefs and nothing that clashes.
+ * ── what went wrong ───────────────────────────────────────────────────
+ * This block used to be a single #include "uiox_base_types.h", on the
+ * stated belief that it "carries the integer typedefs and nothing that
+ * clashes".  That belief was wrong on BOTH counts, and the arm64 build
+ * failed with 14 errors in this file:
+ *
+ *     error: unknown type name 'uint32_t'   (line 116)
+ *     error: unknown type name 'uint64_t'   (x13, in BufStats)
+ *        note: 'uint32_t' is defined in header '<stdint.h>'
+ *
+ *   — it does NOT carry the integer typedefs, and
+ *
+ *     error: 'true' redefined [-Werror]     (uiox_klibc.h:84 vs
+ *     error: 'false' redefined [-Werror]     uiox_base_types.h:131)
+ *
+ *   — it DOES carry something that clashes, because bcache.h includes
+ *     this header and uiox_klibc.h in the same translation unit, and
+ *     both define true/false.
+ *
+ * ── why the types are spelled out below ───────────────────────────────
+ * A freestanding kernel built with -nostdinc cannot reach <stdint.h>.
+ * This header needs the fixed-width integers and a bool.  Declaring them
+ * behind #ifndef guards means:
+ *
+ *   · it no longer depends on which stdio header an includer chose
+ *   · an includer that already has them (via stdint.h, or either uiox
+ *     header) is unaffected — the guard makes ours a no-op
+ *   · the .o no longer varies with include ORDER
+ *
+ * The guards are the whole point.  Without them this would be the third
+ * definition of uint32_t in the tree.  They work for the FIXED-WIDTH
+ * types because every definition of those is the same type.  They do NOT
+ * work for uintptr_t/intptr_t, which are ABI-sized and therefore spelled
+ * differently in different headers — see the note below.
  * ═════════════════════════════════════════════════════════════════════ */
-#include "uiox_base_types.h"
+
+#ifndef UIOX_STDINT_TYPES_DEFINED
+#define UIOX_STDINT_TYPES_DEFINED
+
+typedef signed char        int8_t;
+typedef unsigned char      uint8_t;
+typedef short              int16_t;
+typedef unsigned short     uint16_t;
+typedef int                int32_t;
+typedef unsigned int       uint32_t;
+
+/* long long is exactly 64 bits on every target this kernel builds for —
+ * aarch64 (LP64), arm32 (ILP32), riscv64 (LP64) and x86-64 (LP64).
+ * GCC and Clang both guarantee it is at least 64; __SIZEOF_LONG_LONG__
+ * pins it rather than assuming. */
+typedef long long          int64_t;
+typedef unsigned long long uint64_t;
+
+/* ── uintptr_t / intptr_t are deliberately NOT declared here ─────────
+ * An earlier revision added them as `unsigned long` / `long`, on the
+ * reasoning that they must track the ABI rather than being fixed at 64.
+ * The reasoning was right and the declaration was still a mistake: on
+ * aarch64 `long` and `long long` are DIFFERENT types even though both
+ * are 64 bits wide, so klibc's
+ *
+ *     uiox_klibc.h:63   typedef uint64_t uintptr_t;   // long long unsigned
+ *
+ * collided with ours:
+ *
+ *     error: conflicting types for 'uintptr_t'; have 'uint64_t'
+ *            {aka 'long long unsigned int'}
+ *     note:  previous declaration of 'uintptr_t' with type 'uintptr_t'
+ *            {aka 'long unsigned int'}
+ *
+ * Two 64-bit integers of different underlying type are not compatible in
+ * C, so a guard could not have saved this — the guard only prevents a
+ * SECOND declaration, and klibc's is a DIFFERENT one.
+ *
+ * klibc is where these live, and it is included in every translation
+ * unit that pulls bcache.h (line 57, next to bcache_types.h).  This
+ * header therefore leaves them to it and only states the requirement.
+ * Do not re-add them here.
+ * ─────────────────────────────────────────────────────────────────── */
+
+#endif /* UIOX_STDINT_TYPES_DEFINED */
+
+/* bool, true and false.  Same reasoning as above, and the same #ifndef,
+ * so whichever header an includer reached first wins and nothing is
+ * redefined.  UIOX_BCACHE_BOOL_DEFINED is deliberately NOT the klibc or
+ * SoC guard name: this is our own one-shot, not theirs. */
+#ifndef UIOX_BCACHE_BOOL_DEFINED
+#define UIOX_BCACHE_BOOL_DEFINED
+
+#ifndef __cplusplus
+typedef _Bool bool;
+#endif
+
+#ifndef true
+#define true  1
+#endif
+
+#ifndef false
+#define false 0
+#endif
+
+#endif /* UIOX_BCACHE_BOOL_DEFINED */
 
 /* ═════════════════════════════════════════════════════════════════════
  * Geometry

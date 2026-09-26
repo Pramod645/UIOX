@@ -45,10 +45,8 @@
 #ifndef UIOX_KIX_SCFS_STAT_H
 #define UIOX_KIX_SCFS_STAT_H
 
-#include <stdint.h>
+#include "uiox_klibc.h"   /* uint*_t, no <stdint.h> under -nostdinc */
 
-#include "fs_types.h"     /* MAX_NAME_LEN */
-#include "namei.h"        /* DirEntry     */
 
 /* ═════════════════════════════════════════════════════════════════════
  * The status structure — 42 bytes
@@ -109,10 +107,5 @@
 /* ═════════════════════════════════════════════════════════════════════
  * The algorithm bodies that use these layouts
  * ═════════════════════════════════════════════════════════════════════ */
-int uiox_kix_scfs_stat  (const char *path, void *buf, uint32_t bufsz);
-int uiox_kix_scfs_fstat (int fd, void *buf, uint32_t bufsz);
-int uiox_kix_scfs_lstat (const char *path, void *buf, uint32_t bufsz);
-int uiox_kix_scfs_statfs (const char *path, void *buf, uint32_t bufsz);
-int uiox_kix_scfs_fstatfs(int fd, void *buf, uint32_t bufsz);
 
 #endif /* UIOX_KIX_SCFS_STAT_H */

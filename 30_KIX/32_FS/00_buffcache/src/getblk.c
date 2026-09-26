@@ -21,7 +21,7 @@
  *              remove buffer from free list;
  *              return buffer;
  *          }
- *          else  /* block not on hash queue */
+ *          else  // block not on hash queue 
  *          {
  *              if (there are no buffers on free list)   // scenario 4
  *              {

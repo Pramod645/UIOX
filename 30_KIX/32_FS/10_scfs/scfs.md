@@ -1041,3 +1041,80 @@ The drift is arithmetic, not structural. fs_types.h says the inode table starts 
 
 The one entry point that skips a layer
 01_uBoot calls 10_unfs's layout constants directly, with no 01_fsa and no 00_buffcache — because at boot there is no cache. That's why the format must live in a header both include, rather than inside 01_fsa's code.
+
+
+
+
+======================
+One thing I noticed while reading these
+iupdate in inode.c writes i_mode, i_nlink, i_uid, i_gid, i_size, the extents, i_extent_tree, the three timestamps and dev — but not i_blocks, i_mac_label, i_mac_flags, i_inline or i_checksum. Those five exist in DiskInode and are simply left as whatever the buffer happened to hold.
+
+That is not a compile error and it will not show up in the build — but for a real inode written to disk, i_checksum will be stale and i_mac_label will be zeros. Worth knowing before you trust an image written by this path.
+
+
+
+
+what to do for this fix--->That is not a compile error and it will not show up in the build — but for a real inode written to disk, i_checksum will be stale and i_mac_label will be zeros. Worth knowing before you trust an image written by this path.
+
+
+This needs a decision first, then a fix. The three fields fall into two different categories, and only one of them is mechanically safe.
+
+What's actually missing from iupdate
+Field	What it should hold	Can I write it correctly?
+i_checksum	CRC32C of bytes 0..251	Yes — unfs_crc32c() is declared in uiox_boot_unfs.h
+i_mac_label[16]	MAC security label, 33_PCS/05_sec	No — InCoreInode has no source for it
+i_mac_flags	MAC policy flags	No — same
+i_inline[60]	inline symlink target	Only for symlinks — no symlink support yet
+i_blocks	512-byte blocks allocated	Yes, but it needs counting
+The honest split
+i_checksum and i_blocks are fixable now. i_checksum is arithmetic over the record; i_blocks is a count of what the extents cover. Both have a definite correct value that iupdate can compute.
+
+i_mac_label / i_mac_flags are not. There is no MAC layer producing a label, so any value I write would be an invention. Writing zeros is currently correct — "no label" — but it's correct by accident, not by design. That's the difference between a known-absent feature and a bug.
+
+The real problem is that iupdate silently drops them. A field that is always zero and a field that was forgotten look identical on disk.
+
+So: what to do
+Three steps, in order.
+
+1. Zero the whole record on ialloc, not on iupdate
+The root cause is that ialloc writes a partially-filled inode into a buffer that may hold a dead inode's bytes. The fix belongs where the inode is born, not where it's updated:
+
+c
+
+
+/* in superblock.c's ialloc_dev, before the fields are set */
+memset(di, 0, sizeof *di);
+That makes every unset field deterministically zero rather than stale. This is the single most valuable change here — it converts "garbage" into "zero", which is a value you can reason about.
+
+2. Compute i_checksum and i_blocks in iupdate
+c
+
+
+/* i_blocks: count what the extents actually cover, in 512-byte units */
+di->i_blocks = (UNFS_BLOCK_SIZE / 512u) * total_blocks_in_extents(ip);
+
+/* i_checksum LAST — it covers bytes 0..251, so every other field
+ * must be written before it */
+di->i_checksum = unfs_crc32c(di, 252u);
+Order matters: the checksum must be the final write, or it covers stale bytes.
+
+3. Make the omissions explicit
+For the fields with no source, say so in the code rather than leaving it implicit:
+
+c
+
+
+/* i_mac_label / i_mac_flags: no MAC layer produces a label yet.
+ * These are ZERO because the record was zeroed at ialloc, not because
+ * they were forgotten here.  33_PCS/05_sec owns them when it lands. */
+What I'd want before writing step 2
+Two things I can't verify from here:
+
+Is unfs_crc32c's byte range right? The header comment says i_checksum is "CRC32C of bytes 0..251" — 252 bytes, leaving the last 4 for the checksum itself. But I'd be calling it from the kernel side, and I have not seen unfs_crc32c's implementation or confirmed the kernel links against the bootloader's copy. If the kernel has its own, it must agree byte-for-byte or every inode fails validation on the boot path.
+
+What does the bootloader do with a bad checksum? uiox_boot_unfs.h defines UNFS_ECORRUPT -117 /* checksum mismatch */, so it checks. If I write a checksum with the wrong range or the wrong polynomial, the kernel will happily write inodes that the bootloader rejects — which is worse than a zero checksum, because a zero might be treated as "no checksum" while a wrong one looks like corruption.
+
+My recommendation
+Do step 1 now — it's unambiguous, it's local to ialloc_dev, and it fixes the actual defect (stale bytes). Then leave i_checksum alone until you can show me unfs_crc32c and how the bootloader tests the field, because a wrong checksum is a worse failure than a missing one.
+
+Want me to apply step 1 — the memset at ialloc_dev — and add the explicit "these are zero because no MAC layer exists" comments? I'd need to read superblock.c's allocator as it stands now first, since I edited it two turns ago and haven't re-read it since.

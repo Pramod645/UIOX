@@ -56,8 +56,8 @@ int uiox_kix_scfs_dup(int fd)
  */
 int uiox_kix_scfs_dup2(int oldfd, int newfd)
 {
-    if (oldfd < 0 || oldfd >= NOFILE) return SCFS_EBADF;
-    if (newfd < 0 || newfd >= NOFILE) return SCFS_EBADF;
+    if (oldfd < 0 || oldfd >= (int)NOFILE) return SCFS_EBADF;
+    if (newfd < 0 || newfd >= (int)NOFILE) return SCFS_EBADF;
     if (oldfd == newfd) {
         /* POSIX: oldfd must still be valid, then nothing happens. */
         return scfs_getf(oldfd) ? newfd : SCFS_EBADF;

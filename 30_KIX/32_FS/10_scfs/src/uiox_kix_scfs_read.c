@@ -42,7 +42,7 @@
  *
  * @version 1.0.0  @date 2026-09-23
  */
-#include "uiox_kix_scfs.h"
+#include "uiox_kix_scfs_internal.h"
 
 /*
  * read() — Algorithm read.
@@ -129,9 +129,42 @@ int uiox_kix_scfs_pread(int fd, char *buf, uint32_t count, uint32_t off)
  * short segment means EOF or a hole, which ends the whole call — that is
  * readv's contract, and why the loop breaks rather than erroring.
  */
-int uiox_kix_scfs_readv(int fd, const scfs_iovec_t *iov, int iovcnt)
+/*
+ * ── the iovec layout, kept LOCAL ──────────────────────────────────────
+ * The public prototype is opaque on purpose:
+ *
+ *     int32_t uiox_kix_scfs_readv(int fd, const void *iov, int iovcnt);
+ *
+ * so this file must not name a struct type in its signature — an earlier
+ * revision wrote \`const scfs_iovec_t *\`, and that type is declared
+ * nowhere in the tree:
+ *
+ *     read.c:132: unknown type name 'scfs_iovec_t'
+ *     read.c:132: conflicting types for 'uiox_kix_scfs_readv';
+ *                 have 'int(int, const int *, int)'
+ *     uiox_kix_scfs.h:353: previous declaration ... 'int32_t(int,
+ *                 const void *, int)'
+ *
+ * The five member-access errors (iov_base / iov_len) were a consequence:
+ * an opaque pointer cannot be indexed.  Casting once, here, is what lets
+ * the walk address the segments while the public type stays opaque — the
+ * syscall stub owns the ABI, this function owns the walk.
+ *
+ * The layout matches the kernel's: a pointer then a length, in that
+ * order, both pointer-sized / 32-bit respectively.
+ * ───────────────────────────────────────────────────────────────────── */
+typedef struct {
+    void    *iov_base;
+    uint32_t iov_len;
+} scfs_iovec_local_t;
+
+/* int32_t, not int — the header declares int32_t, and a differing return
+ * type is its own compile error. */
+int32_t uiox_kix_scfs_readv(int fd, const void *iov, int iovcnt)
 {
-    if (!iov || iovcnt <= 0 || iovcnt > 1024) return SCFS_EINVAL;
+    const scfs_iovec_local_t *vec = (const scfs_iovec_local_t *)iov;
+
+    if (!vec || iovcnt <= 0 || iovcnt > 1024) return SCFS_EINVAL;
 
     scfs_file_t *f = scfs_getf(fd);
     if (!f) return SCFS_EBADF;
@@ -140,20 +173,20 @@ int uiox_kix_scfs_readv(int fd, const scfs_iovec_t *iov, int iovcnt)
     InCoreInode *ip = f->f_inode;
     if (!ip) return SCFS_EBADF;
 
-    int total = 0;
+    int32_t total = 0;
 
     for (int i = 0; i < iovcnt; i++) {
-        if (!iov[i].iov_base || iov[i].iov_len == 0u) continue;
+        if (!vec[i].iov_base || vec[i].iov_len == 0u) continue;
 
         uint32_t offset = f->f_offset;
-        int32_t  n = readi(ip, (char *)iov[i].iov_base,
-                           iov[i].iov_len, &offset);
-        if (n < 0) return (total > 0) ? total : (int)n;
+        int32_t  n = readi(ip, (char *)vec[i].iov_base,
+                           vec[i].iov_len, &offset);
+        if (n < 0) return (total > 0) ? total : n;
 
         f->f_offset = offset;
-        total += (int)n;
+        total += n;
 
-        if ((uint32_t)n < iov[i].iov_len) break;   /* short read ends it */
+        if ((uint32_t)n < vec[i].iov_len) break;   /* short read ends it */
     }
     return total;
 }

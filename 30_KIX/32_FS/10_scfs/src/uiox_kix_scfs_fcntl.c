@@ -61,14 +61,14 @@ static int scfs_fcntl_dupfd(const scfs_file_t *f, int minfd)
 {
     int fd;
 
-    if (minfd < 0 || minfd >= NOFILE) return SCFS_EINVAL;
+    if (minfd < 0 || minfd >= (int)NOFILE) return SCFS_EINVAL;
 
     /* The lowest free slot at or above minfd — the same search
      * scfs_ufd_find() does, narrowed. */
-    for (fd = minfd; fd < NOFILE; fd++)
+    for (fd = minfd; fd < (int)NOFILE; fd++)
         if (!scfs_u->ufd_file[fd]) break;
 
-    if (fd >= NOFILE) return SCFS_EMFILE;
+    if (fd >= (int)NOFILE) return SCFS_EMFILE;
 
     /* One file table entry, two descriptors: raise the entry's count,
      * exactly as dup() does.  No inode reference moves. */

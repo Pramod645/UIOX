@@ -1,5 +1,5 @@
 # =============================================================================
-# 30_KIX/32_FS/Makefile  — v2.0.0
+# 30_KIX/32_FS/Makefile  — v2.1.0
 #
 # Builds the three layers into one archive:  build/<arch>/libfs.a
 #
@@ -24,10 +24,34 @@
 # ── the include graph, which points DOWNWARD only ──────────────────────
 #   00_buffcache  →  its own include/
 #   01_fsa        →  its own include/  +  00_buffcache/include
+#                   +  10_unfs/include   ◀ v2.1.0
 #   10_scfs       →  its own include/  +  01_fsa/include + 00_buffcache/include
 #
 # No layer includes the one above it.  An upward -I means an inverted
 # dependency, and this Makefile will not hide it.
+#
+# ── v2.1.0 changes ────────────────────────────────────────────────────
+#   · 10_unfs/include added to COMMON_INCLUDES.
+#
+#     01_fsa/include/fs_types.h line 56 is now
+#
+#         #include "unfs_format.h"
+#
+#     because the on-disk format has ONE definition and the bootloader
+#     reads the same header.  unfs_format.h sits in 10_unfs/include, and
+#     that directory was not being searched, so the first 01_fsa source
+#     reached failed with:
+#
+#         fs_types.h:56:10: fatal error: unfs_format.h: No such file
+#         or directory
+#
+#     The -I belongs at the 32_FS level, not inside 01_fsa's Makefile,
+#     because 10_scfs includes 01_fsa's headers transitively and so needs
+#     the same resolution.
+#
+#     NOTE this is a DOWNWARD edge in the sense that matters: 01_fsa
+#     consumes a LAYOUT header from 10_unfs.  It does not call into
+#     10_unfs code, which is why 10_unfs is still not in FS_SRCS_C.
 #
 # ── v2.0.0 changes from the tree's previous version ────────────────────
 #   · 00_buffcache (lower-case c) added to SRCS and vpath — its sources
@@ -40,7 +64,7 @@
 #   · srclist target added — a silent empty glob is the failure mode this
 #     guards against
 #
-# @version 2.0.0  @date 2026-09-25
+# @version 2.1.0  @date 2026-09-26
 # =============================================================================
 
 MFDIR     := $(dir $(abspath $(lastword $(MAKEFILE_LIST))))
@@ -50,6 +74,7 @@ COMMONDIR := $(abspath $(MFDIR)../common)
 BCDIR    := $(MFDIR)00_buffcache
 FSA_DIR  := $(MFDIR)01_fsa
 SCFS_DIR := $(MFDIR)10_scfs
+UNFS_DIR := $(MFDIR)10_unfs
 
 UNAME_S := $(shell uname -s)
 ifeq ($(UNAME_S),Darwin)
@@ -89,12 +114,14 @@ COMMON_CFLAGS := \
 # -nostdinc: <stdio.h> is unreachable on purpose.  uiox_klibc.h (in
 # ../common) supplies printf/memset/memcpy as macros over uiox_*; the BSP
 # SoC stdio header supplies early_puts.  An undeclared call is -Werror.
+#######◀ v2.1.0 — unfs_format.h is in 10_unfs/include, so that directory must be searched.  It is
 COMMON_INCLUDES := \
   -I$(COMMONDIR)          \
   -I$(MFDIR)include       \
   -I$(BCDIR)/include      \
   -I$(FSA_DIR)/include    \
   -I$(SCFS_DIR)/include   \
+  -I$(UNFS_DIR)/include   \
   -I$(SOCINC)
 
 # ── the three layers, in dependency order ─────────────────────────────

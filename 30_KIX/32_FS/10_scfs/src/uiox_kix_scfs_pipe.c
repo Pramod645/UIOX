@@ -57,8 +57,9 @@ int uiox_kix_scfs_pipe(int *fds)
     if (!fds) return SCFS_EFAULT;
 
     /* ── 1. a FIFO inode (algorithm ialloc) ─────────────────────────── */
-    /* FT_FIFO is a real FileType in fs_types.h. */
-    ip = ialloc(FT_FIFO, 0600u, 0u, 0u);            /* 01_fsa */
+    /* UNFS_IFIFO is the ON-DISK type.  The old FT_FIFO nibble was not:
+     * (FT_FIFO << 12) is 0x5000, which no consumer recognises. */
+    ip = ialloc(UNFS_IFIFO, 0600u, 0u, 0u);         /* 01_fsa */
     if (!ip) return SCFS_ENOSPC;
 
     ip->nlink = 1;

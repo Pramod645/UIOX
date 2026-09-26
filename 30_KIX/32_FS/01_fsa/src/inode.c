@@ -168,10 +168,24 @@ DiskInode *inode_disk_read(uint8_t dev, uint32_t ino, BufHdr **out_buf)
     uint32_t  offset;
     BufHdr   *buf;
 
-    if (ino == 0u || ino > MAX_INODES) return (DiskInode *)0;
+    /* MAX_INODES and INODE_START_BLOCK are gone: fs_types.h no longer
+     * defines them, and unfs_format.h is the format's owner.
+     *
+     * The bound is what GROUP 0's inode table physically holds —
+     * UNFS_ITABLE_BLOCKS (8) x UNFS_INODES_PER_BLOCK (16) = 128 inodes.
+     *
+     * Deliberately NOT unfs_sb_t.s_inode_count, which is the volume's
+     * real total.  This is the lowest inode-layer primitive and it is
+     * called FROM the superblock path (sb_refill_inodes -> this), so
+     * reaching for sb_get(dev) here would be a circular dependency at
+     * mount time — the bound has to be computable before any superblock
+     * is loaded.  A later revision can add a per-device limit once the
+     * mount path can supply one. */
+    if (ino == 0u || ino > (UNFS_ITABLE_BLOCKS * UNFS_INODES_PER_BLOCK))
+        return (DiskInode *)0;
 
-    blkno  = ((ino - 1u) / INODES_PER_BLOCK) + INODE_START_BLOCK;
-    offset = ((ino - 1u) % INODES_PER_BLOCK) * (uint32_t)sizeof(DiskInode);
+    blkno  = ((ino - 1u) / UNFS_INODES_PER_BLOCK) + UNFS_GROUP0_ITABLE;
+    offset = ((ino - 1u) % UNFS_INODES_PER_BLOCK) * (uint32_t)sizeof(DiskInode);
 
     buf = bread(dev, blkno);                /* ◀ (dev, blkno) */
     if (!buf) return (DiskInode *)0;
@@ -193,16 +207,23 @@ void iupdate(InCoreInode *ip)
     di = inode_disk_read(ip->dev, ip->ino, &buf);
     if (!di) return;
 
-    di->mode  = ip->mode;
-    di->nlink = ip->nlink;
-    di->uid   = ip->uid;
-    di->gid   = ip->gid;
-    di->size  = ip->size;
-    memcpy(di->addr, ip->addr, sizeof ip->addr);
-    di->atime = ip->atime;
-    di->mtime = ip->mtime;
-    di->ctime = ip->ctime;
-    di->dev   = ip->dev;                    /* ◀ the new field */
+    /* DiskInode carries the FORMAT's field names now — i_* — while the
+     * in-core struct still uses the short ones.  The mapping is written
+     * out rather than renamed away, so the difference stays visible. */
+    di->i_mode  = ip->mode;
+    di->i_nlink = ip->nlink;
+    di->i_uid   = ip->uid;
+    di->i_gid   = ip->gid;
+    di->i_size  = ip->size;
+    /* The block map is an extent array on disk, not addr[]: four inline
+     * extents plus the overflow tree pointer.  A plain copy, because the
+     * in-core mirror uses the same field names. */
+    memcpy(di->i_extents, ip->i_extents, sizeof ip->i_extents);
+    di->i_extent_tree = ip->i_extent_tree;
+    di->i_atime_ns = (uint64_t)ip->atime;
+    di->i_mtime_ns = (uint64_t)ip->mtime;
+    di->i_ctime_ns = (uint64_t)ip->ctime;
+    di->dev        = ip->dev;               /* ◀ in-core only */
 
     /* Mark the buffer dirty, then write it synchronously.  The buffer
      * layer expresses dirtiness by the bwrite flags, not by a field on
@@ -221,7 +242,9 @@ InCoreInode *iget_dev(uint8_t dev, uint32_t ino)
     BufHdr      *buf;
     DiskInode   *di;
 
-    if (ino == 0u || ino > MAX_INODES) {
+    /* Same bound as inode_disk_read — group 0's inode table — for the
+     * same reason, and so the two cannot disagree about what is valid. */
+    if (ino == 0u || ino > (UNFS_ITABLE_BLOCKS * UNFS_INODES_PER_BLOCK)) {
         printf("[iget] ERROR: invalid ino=%u\n", (unsigned)ino);
         return (InCoreInode *)0;
     }
@@ -266,15 +289,16 @@ InCoreInode *iget_dev(uint8_t dev, uint32_t ino)
             return (InCoreInode *)0;
         }
 
-        ip->mode   = di->mode;
-        ip->nlink  = di->nlink;
-        ip->uid    = di->uid;
-        ip->gid    = di->gid;
-        ip->size   = di->size;
-        memcpy(ip->addr, di->addr, sizeof ip->addr);
-        ip->atime  = di->atime;
-        ip->mtime  = di->mtime;
-        ip->ctime  = di->ctime;
+        ip->mode   = di->i_mode;
+        ip->nlink  = di->i_nlink;
+        ip->uid    = di->i_uid;
+        ip->gid    = di->i_gid;
+        ip->size   = di->i_size;
+        memcpy(ip->i_extents, di->i_extents, sizeof ip->i_extents);
+        ip->i_extent_tree = di->i_extent_tree;
+        ip->atime  = (time_t)di->i_atime_ns;
+        ip->mtime  = (time_t)di->i_mtime_ns;
+        ip->ctime  = (time_t)di->i_ctime_ns;
         ip->dev    = di->dev;
         ip->refcount = 1;
         ip->locked   = true;

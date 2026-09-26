@@ -86,26 +86,46 @@ void sb_init(uint8_t dev)
     sb = &s_sb[dev];
     memset(sb, 0, sizeof *sb);
 
-    sb->fs_size          = MAX_BLOCKS;
-    sb->inode_start      = INODE_START_BLOCK;
-    sb->data_start       = DATA_START_BLOCK;
-    sb->max_inodes       = MAX_INODES;
-    sb->free_inode_count = MAX_INODES;
+    /* The four names below were removed from fs_types.h; unfs_format.h
+     * owns them now.  The mapping:
+     *
+     *     MAX_BLOCKS        -> the volume's block count.  UNFS reads it
+     *                          from the superblock's s_block_count, so
+     *                          there is no macro — NUM_DISK_BLOCKS_DEFAULT
+     *                          (00_buffcache) is the geometry's default
+     *                          and is what the buffer layer bounds reads
+     *                          against, so using it keeps the two in step.
+     *     INODE_START_BLOCK -> UNFS_GROUP0_ITABLE
+     *     DATA_START_BLOCK  -> UNFS_GROUP0_DATA
+     *     MAX_INODES        -> UNFS_ITABLE_BLOCKS * UNFS_INODES_PER_BLOCK
+     *                          (group 0's table: 8 x 16 = 128), the same
+     *                          bound inode.c uses.
+     *
+     * NOTE the inode bound is GROUP 0's capacity, not the volume's —
+     * a volume with more groups holds more inodes than this.  Wiring
+     * s_inode_count through from an on-disk superblock is the proper
+     * fix; this is the value the tree can compute today. */
+    sb->fs_size          = NUM_DISK_BLOCKS_DEFAULT;
+    sb->inode_start      = UNFS_GROUP0_ITABLE;
+    sb->data_start       = UNFS_GROUP0_DATA;
+    sb->max_inodes       = (UNFS_ITABLE_BLOCKS * UNFS_INODES_PER_BLOCK);
+    sb->free_inode_count = (UNFS_ITABLE_BLOCKS * UNFS_INODES_PER_BLOCK);
     sb->remembered_inode = 1u;
 
     /* ── the first run of free blocks goes into the window ─────────── */
-    blkno             = DATA_START_BLOCK;
+    blkno             = UNFS_GROUP0_DATA;
     sb->free_block_count = 0u;
     sb->free_block_idx   = 0;
 
-    while (blkno < MAX_BLOCKS && sb->free_block_idx < SB_FREE_BLOCK_MAX) {
+    while (blkno < NUM_DISK_BLOCKS_DEFAULT &&
+           sb->free_block_idx < SB_FREE_BLOCK_MAX) {
         sb->free_blocks[sb->free_block_idx++] = blkno++;
         sb->free_block_count++;
     }
 
     /* The remainder are free but not cached — the window chains to them
      * once it is drained.  Bach counts them here. */
-    while (blkno < MAX_BLOCKS) {
+    while (blkno < NUM_DISK_BLOCKS_DEFAULT) {
         sb->free_block_count++;
         blkno++;
     }
@@ -269,7 +289,7 @@ void fs_free(uint8_t dev, uint32_t blkno)
 
     if (!sb) return;
 
-    if (blkno < DATA_START_BLOCK || blkno >= MAX_BLOCKS) {
+    if (blkno < UNFS_GROUP0_DATA || blkno >= NUM_DISK_BLOCKS_DEFAULT) {
         printf("[free] dev=%u ERROR: invalid blkno %u\n",
                (unsigned)dev, (unsigned)blkno);
         return;
@@ -336,12 +356,13 @@ static void sb_refill_inodes(uint8_t dev, SuperBlock *sb)
     start              = sb->remembered_inode;
 
     for (ino = start;
-         ino <= MAX_INODES && sb->free_inode_idx < SB_FREE_INODE_MAX;
+         ino <= (UNFS_ITABLE_BLOCKS * UNFS_INODES_PER_BLOCK) &&
+             sb->free_inode_idx < SB_FREE_INODE_MAX;
          ino++) {
         BufHdr    *buf;
         DiskInode *di = inode_disk_read(dev, ino, &buf);
 
-        if (di && di->mode == 0u)
+        if (di && di->i_mode == 0u)          /* DiskInode carries i_* */
             sb->free_inodes[sb->free_inode_idx++] = ino;
 
         if (di) brelse(buf);                /* buffer layer */
@@ -356,7 +377,7 @@ static void sb_refill_inodes(uint8_t dev, SuperBlock *sb)
 /* ═════════════════════════════════════════════════════════════════════
  * Algorithm ialloc (§7) — assign a free inode
  * ═════════════════════════════════════════════════════════════════════ */
-InCoreInode *ialloc_dev(uint8_t dev, FileType ftype, uint16_t perm,
+InCoreInode *ialloc_dev(uint8_t dev, uint16_t unfs_if, uint16_t perm,
                         uint16_t uid, uint16_t gid)
 {
     SuperBlock *sb = sb_get(dev);
@@ -395,7 +416,7 @@ InCoreInode *ialloc_dev(uint8_t dev, FileType ftype, uint16_t perm,
          * Bach: "if (inode not free after all) { write inode to disk;
          * release inode; continue; }" — the window can be stale. */
         di = inode_disk_read(dev, ino, &buf);
-        if (!di || di->mode != 0u) {
+        if (!di || di->i_mode != 0u) {
             if (di) brelse(buf);
             iput(ip);
             continue;
@@ -403,8 +424,15 @@ InCoreInode *ialloc_dev(uint8_t dev, FileType ftype, uint16_t perm,
         brelse(buf);
 
         /* ── initialize it ─────────────────────────────────────────────
-         * mode = (ftype << 12) | perm, matching inode_type()'s read. */
-        ip->mode   = (uint16_t)(((uint16_t)ftype << 12) | (perm & 0x1FFu));
+         * mode = UNFS_IF* | perm — the ON-DISK encoding, composed by
+         * inode.h's inode_make_mode() so the two halves are joined in
+         * exactly one place.
+         *
+         * This replaces (ftype << 12) | perm, which packed a FileType
+         * nibble into the same bits as UNFS_IFMT: (FT_DIR << 12) is
+         * 0x2000, which is UNFS_IFCHR, so a directory written through
+         * that path read back as a character device. */
+        ip->mode   = inode_make_mode(unfs_if, perm);
         ip->nlink  = 0u;
         ip->uid    = uid;
         ip->gid    = gid;
@@ -412,24 +440,37 @@ InCoreInode *ialloc_dev(uint8_t dev, FileType ftype, uint16_t perm,
         ip->dev    = dev;
         ip->flags  = IFLAG_CHANGED;
         ip->atime  = ip->mtime = ip->ctime = (time_t)(jiffies ? jiffies : 0u);
-        memset(ip->addr, 0, sizeof ip->addr);
+        /* addr[] is gone — the block map is an EXTENT array now, and
+         * zeroing it here is what makes an unset map mean "no blocks"
+         * rather than "whatever the slot held".  This is also the ONLY
+         * place an inode is born, so it is the right place to zero the
+         * fields ialloc does not otherwise set — see the note in
+         * iupdate about i_checksum / i_mac_* / i_inline. */
+        memset(ip->i_extents, 0, sizeof ip->i_extents);
+        ip->i_extent_tree = 0u;
 
         iupdate(ip);                        /* write inode to disk */
 
         sb->free_inode_count--;
         sb->modified = true;
 
-        printf("[ialloc] dev=%u ino=%u type=%d perm=0%o uid=%u\n",
-               (unsigned)dev, (unsigned)ino, (int)ftype,
-               (unsigned)perm, (unsigned)uid);
+        printf("[ialloc] dev=%u ino=%u if=0%o perm=0%o uid=%u\n",
+               (unsigned)dev, (unsigned)ino,
+               (unsigned)unfs_if, (unsigned)perm, (unsigned)uid);
         return ip;                          /* LOCKED, as Bach says */
     }
 }
 
-/* ialloc — the single-filesystem form existing callers use. */
-InCoreInode *ialloc(FileType ftype, uint16_t perm, uint16_t uid, uint16_t gid)
+/* ialloc — the single-filesystem form existing callers use.
+ *
+ * 'unfs_if' is a UNFS_IF* value (UNFS_IFDIR, UNFS_IFREG, …), NOT the old
+ * FileType.  10_scfs callers passing FT_DIR / FT_REGULAR must be updated
+ * to UNFS_IFDIR / UNFS_IFREG — the two share bit positions, so a missed
+ * call site compiles and writes the WRONG TYPE, which is the failure this
+ * whole change exists to end. */
+InCoreInode *ialloc(uint16_t unfs_if, uint16_t perm, uint16_t uid, uint16_t gid)
 {
-    return ialloc_dev(ROOT_SB_DEV, ftype, perm, uid, gid);
+    return ialloc_dev(ROOT_SB_DEV, unfs_if, perm, uid, gid);
 }
 
 /* ═════════════════════════════════════════════════════════════════════
@@ -479,45 +520,69 @@ void fs_free_inode_blocks(InCoreInode *ip)
 
     if (!ip) return;
 
-    /* ── direct ─────────────────────────────────────────────────────── */
-    for (i = 0u; i < (uint32_t)NDIRECT; i++) {
-        if (ip->addr[i]) {
-            fs_free(ip->dev, ip->addr[i]);
-            ip->addr[i] = 0u;
+    /* ── the four inline extents ───────────────────────────────────────
+     * Each extent names a run of e_len CONSECUTIVE physical blocks, so
+     * the sweep is a walk from e_physical while the length lasts — not a
+     * pointer chase.  A hole owns no blocks: nothing to free. */
+    for (i = 0u; i < UNFS_INLINE_EXTENTS; i++) {
+        unfs_extent_t *e = &ip->i_extents[i];
+        uint32_t       n;
+
+        if (e->e_len == 0u) continue;
+        if (e->e_flags & UNFS_EXT_HOLE) { e->e_len = 0u; continue; }
+
+        for (n = 0u; n < (uint32_t)e->e_len; n++) {
+            fs_free(ip->dev, (uint32_t)e->e_physical + n);
         }
+
+        e->e_logical  = 0u;
+        e->e_physical = 0u;
+        e->e_len      = 0u;
+        e->e_flags    = 0u;
     }
 
-    /* ── single indirect: free the data blocks, then the container ──── */
-    if (ip->addr[NDIRECT]) {
-        BufHdr   *buf = bread(ip->dev, ip->addr[NDIRECT]);   /* ◀ (dev,blk) */
+    /* ── the overflow extent-tree block ────────────────────────────────
+     * One 4 KB block holding an array of unfs_extent_t, terminated by an
+     * entry with e_len == 0.  The tree block is itself allocated, so it
+     * is freed last, after its contents have been swept.
+     *
+     * NOTE: the tree block is ONE UNFS block but EIGHT buffer sectors, so
+     * this must read all eight — the same unit trap namei.c carries.
+     * Reading one sector and treating it as the block walks a quarter of
+     * the extents.  Left explicit here rather than silently partial. */
+    if (ip->i_extent_tree != 0u) {
+        uint32_t per = (uint32_t)(UNFS_BLOCK_SIZE / sizeof(unfs_extent_t));
+        uint8_t  tree[UNFS_BLOCK_SIZE];
+        uint32_t s;
+        bool     ok = true;
 
-        if (buf) {
-            uint32_t *ptrs = (uint32_t *)buf->data;
-            uint32_t  j;
+        for (s = 0u; s < (uint32_t)UNFS_SECTORS_PER_BLOCK; s++) {
+            BufHdr *buf = bread(ip->dev,
+                                ip->i_extent_tree * (uint32_t)UNFS_SECTORS_PER_BLOCK + s);
+            if (!buf) { ok = false; break; }
 
-            for (j = 0u; j < (uint32_t)PTRS_PER_BLOCK; j++) {
-                if (ptrs[j]) {
-                    fs_free(ip->dev, ptrs[j]);
-                    ptrs[j] = 0u;
+            memcpy(tree + (s * (uint32_t)BCACHE_SECTOR_SIZE),
+                   buf->data, (size_t)BCACHE_SECTOR_SIZE);
+            brelse(buf);
+        }
+
+        if (ok) {
+            unfs_extent_t *et = (unfs_extent_t *)tree;
+
+            for (i = 0u; i < per; i++) {
+                uint32_t n;
+
+                if (et[i].e_len == 0u) break;          /* end of entries */
+                if (et[i].e_flags & UNFS_EXT_HOLE) continue;
+
+                for (n = 0u; n < (uint32_t)et[i].e_len; n++) {
+                    fs_free(ip->dev, (uint32_t)et[i].e_physical + n);
                 }
             }
-
-            /* Zero the container's pointers before releasing it — leaving
-             * dangling numbers in a block that is about to be freed is
-             * the same defect truncate.c was fixed for. */
-            bwrite(buf, true, false);        /* ◀ persist + release */
         }
 
-        fs_free(ip->dev, ip->addr[NDIRECT]);
-        ip->addr[NDIRECT] = 0u;
-    }
-
-    /* ── the levels bmap_alloc cannot build ────────────────────────── */
-    if (ip->addr[NDIRECT + NINDIRECT] ||
-        ip->addr[NDIRECT + NINDIRECT + NDINDIRECT]) {
-        printf("[free] WARNING: ino=%u holds a double/triple-indirect "
-               "block — not swept (bmap_alloc cannot create one)\n",
-               (unsigned)ip->ino);
+        fs_free(ip->dev, ip->i_extent_tree);
+        ip->i_extent_tree = 0u;
     }
 
     ip->size = 0u;

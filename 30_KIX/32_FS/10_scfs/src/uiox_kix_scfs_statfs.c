@@ -87,7 +87,7 @@ static int scfs_fill_statfs(void *ubuf)
      * needs to tell two mounts apart has to compare mount points. */
     scfs_st64(p, SCFS_STATFS_OFF_FSID,    0);
 
-    scfs_st64(p, SCFS_STATFS_OFF_NAMEMAX, (int64_t)(MAX_NAME_LEN - 1));
+    scfs_st64(p, SCFS_STATFS_OFF_NAMEMAX, (int64_t)(UNFS_NAME_MAX - 1));
 
     return SCFS_OK;
 }

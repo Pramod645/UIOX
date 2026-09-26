@@ -53,7 +53,7 @@ int uiox_kix_scfs_creat(const char *path, uint16_t perm)
             iput(ip);                                  /* release it */
             return SCFS_EACCES;
         }
-        if (SCFS_S_ISDIR(ip->mode)) {
+        if (SCFS_IS_DIR(ip->mode)) {
             iput(ip);
             return SCFS_EISDIR;      /* creat() makes regular files */
         }

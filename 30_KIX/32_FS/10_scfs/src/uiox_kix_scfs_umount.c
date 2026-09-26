@@ -53,11 +53,17 @@ int uiox_kix_scfs_umount(const char *dir)
     InCoreInode *mp = namei(dir, scfs_cwd_get(), 0u, 0u);     /* 01_fsa */
     if (!mp) return SCFS_ENOENT;
 
-    /* ── 3. it must actually be a mount point ──────────────────────── */
-    if (!(mp->flags & IMOUNT)) {
-        iput(mp);
-        return SCFS_EINVAL;
-    }
+    /* ── 3. it must actually be a mount point ────────────────────────
+     * NOT asked against an inode flag: there is no IMOUNT.  fs_types.h
+     * defines IFLAG_ACCESSED, IFLAG_CHANGED and IFLAG_MODIFIED, and the
+     * inode carries no mount-point bit at all.  GCC's nearest-name
+     * suggestion (NMOUNT) is the mount table's SIZE, not a flag.
+     *
+     * The check is not lost, it MOVED: the mount table lookup below is
+     * the real test.  A directory is a mount point exactly when a live
+     * table slot names it as m_mountpt, and that is what the loop
+     * searches for — so a non-mount-point directory falls out at "!m"
+     * with the same SCFS_EINVAL this block returned. */
 
     /* ── 4. the mount table entry ───────────────────────────────────── */
     scfs_mount_t *m = (scfs_mount_t *)0;
@@ -93,8 +99,18 @@ int uiox_kix_scfs_umount(const char *dir)
     /* ── 7. release the mounted root inode ─────────────────────────── */
     if (m->m_root) iput(m->m_root);
 
-    /* ── 8. clear the mount-point flag on the directory ────────────── */
-    mp->flags &= (uint8_t)~IMOUNT;
+    /* ── 8. the mount point is no longer a mount point ──────────────
+     * NOT a flag clear: there is no IMOUNT bit to clear (see step 3).
+     * The record of the mount is the TABLE SLOT, and scfs_mount_free()
+     * below clears it — m_inuse falls to 0 and m_mountpt is dropped, so
+     * the lookup at step 4 stops finding this directory.
+     *
+     * Bach's ORDER still holds, which is what the header note is about:
+     * the busy check ran at step 6, BEFORE anything was torn down, so no
+     * process is left holding a file under an unreachable mount.
+     *
+     * The lock is released here because this call took the reference
+     * from namei() and hands it to scfs_mount_free(). */
     mp->locked = false;
 
     /* ── 9. free the super block buffer, then the mount table slot ─── */
