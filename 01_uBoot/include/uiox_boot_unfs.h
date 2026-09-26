@@ -201,17 +201,17 @@
       *      4 x uint64                    32   (size, atime, mtime, ctime)
       *      2 x uint32                     8   (blocks, flags)
       *      i_mac_label[16] + i_mac_flags  20
-      *      i_extents[4]  (4 x 8)          32
+      *      i_extents[4]  (4 x 12)           48
       *      i_extent_tree                  4
       *      i_inline[60]                  60
       *      i_checksum                     4
       *      ---------------------------------
-      *      declared                     168
+      *      declared                     184
       *
       * UNFS_INODE_SIZE is 256, so unfs_inode_size_assert evaluated to -1
       * and this header did not compile under -Werror.  The same struct
       * in 10_unfs/include/unfs_format.h is field-for-field identical and
-      * short by the same 88 bytes — the defect predates every file in
+      * short by the same 72 bytes — the defect predates every file in
       * 32_FS and is not specific to either copy.
       *
       * The pad closes the gap WITHOUT deciding the format: i_rdev
@@ -225,7 +225,7 @@
       * geometry the tree already assumes.  When the fields are decided
       * they must REPLACE the pad, never be appended after it — appending
       * would make sizeof 257 and fail the assertion the other way. */
-     uint8_t   _pad[88]; // this is the explicit pad to make the struct size 256 bytes, added after boot compiled and build during kernel fs updates
+     uint8_t   _pad[72];
  } __attribute__((packed));
  
  /* Directory entry — variable length, 4-byte aligned */
