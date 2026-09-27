@@ -22,7 +22,13 @@
  *
  *  plus the device the block lives on, and a validity flag.
  *
- *  @version 2.0.0  @date 2026-09-24
+ *  ── the extent write ops (v2.1.0) ─────────────────────────────────────
+ *  bmap() and bmap_alloc() both need to place a block into an inode's
+ *  extent map: bmap_alloc() for a fresh block, and unfs_cow_block() for a
+ *  copy.  Those three operations live in bmap.c next to the read side, so
+ *  the extent map has ONE owner and the two callers cannot drift apart.
+ *
+ *  @version 2.1.0  @date 2026-09-27
  */
 #ifndef UIOX_BMAP_H
 #define UIOX_BMAP_H
@@ -33,7 +39,7 @@
  * Result of Algorithm bmap  (§3)
  * ───────────────────────────────────────────────────────────── */
 typedef struct {
-    uint8_t  dev;          /* device the block lives on   ◀ NEW       */
+    uint8_t  dev;          /* device the block lives on               */
     uint32_t blkno;        /* block number in that device              */
     uint32_t blk_offset;   /* byte offset within that block            */
     uint32_t io_bytes;     /* bytes available for I/O this call        */
@@ -51,16 +57,44 @@ typedef struct {
  * Maps a logical byte offset within a file to the physical disk block,
  * the device holding it, and the offset within that block.
  *
- * Handles direct, single-, double- and triple-indirect blocks.
- * Returns a filled BmapResult; result.valid == false on error or when
- * the offset is past the end of the mapped range.
+ * Walks the four INLINE EXTENTS, then the overflow extent-tree block when
+ * i_extent_tree names one.  Returns a filled BmapResult; result.valid ==
+ * false when the offset maps to nothing, which includes a HOLE — a hole
+ * extent reports valid == false so the caller reads zeros rather than a
+ * block.
  */
 BmapResult bmap(InCoreInode *ip, uint32_t byte_offset);
 
 /*
- * bmap_alloc — like bmap but allocates missing blocks.
- * Used during writes to extend or fill sparse files.
+ * bmap_alloc — like bmap but allocates a block when the offset is not
+ * already mapped.
+ *
+ * Allocates through unfs_alloc_run() (10_unfs's group-bitmap allocator)
+ * and places the block into the inode's extent map.  Returns a valid
+ * mapping on success; r.valid == false on failure, and in that case
+ * r.blkno may still hold a block that was allocated and not placed — see
+ * the ordering note in bmap.c.
  */
 BmapResult bmap_alloc(InCoreInode *ip, uint32_t byte_offset);
+
+/* ─────────────────────────────────────────────────────────────
+ * Extent write ops — used by bmap_alloc() and by unfs_cow_block()
+ * ───────────────────────────────────────────────────────────── */
+
+/* Which inline slot covers logical block lb, or -1 when none does. */
+int bmap_extent_find(const InCoreInode *ip, uint32_t lb);
+
+/*
+ * Place physical block p at logical block lb.
+ *
+ *   covers lb, length 1   -> repoint
+ *   covers lb, longer     -> split into head / changed / tail
+ *   no cover, free slot   -> append a length-1 extent
+ *   no cover, array full  -> UNFS_ENOTSUP (the overflow tree is not
+ *                            written by anything yet)
+ *
+ * Returns UNFS_OK or a negative UNFS_E* code.
+ */
+int bmap_extent_place(InCoreInode *ip, uint32_t lb, uint32_t p);
 
 #endif /* UIOX_BMAP_H */

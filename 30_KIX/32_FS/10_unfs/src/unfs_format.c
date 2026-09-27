@@ -217,7 +217,7 @@ int unfs_format(uiox_uint32_t dev, uiox_uint32_t total_blocks,
         d0->d_name_len = 1u;
         d0->d_type     = UNFS_DT_DIR;
         d0->d_name[0]  = '.';
-        d0->d_rec_len  = (uiox_uint16_t)(sizeof(unfs_dirent_t) + 2u);
+        d0->d_rec_len  = (uiox_uint16_t)((sizeof(unfs_dirent_t) + 1u + 3u) & ~3u);
 
         unfs_dirent_t *d1 = (unfs_dirent_t *)(dbuf + d0->d_rec_len);
         d1->d_ino      = UNFS_ROOT_INO;
