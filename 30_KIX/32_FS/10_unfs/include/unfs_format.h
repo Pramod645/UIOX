@@ -1,6 +1,9 @@
 /*
  *  30_KIX/32_FS/10_unfs/include/unfs_format.h
- *
+ * disk layout and on-disk structures for UIOX Native Filesystem (UNFS) and disk reader code shared with the bootloader.
+ * disk.h is the kernel's internal representation of a disk; this header is the on-disk format that both the kernel and bootloader must agree on.
+ * disk.h file deleted as unfs_format.h is the source of truth for the on-disk format, and disk.h was redundant and confusing.
+ * 
  *  UIOX Native Filesystem (UNFS) — THE ON-DISK FORMAT.
  *
  *  ── who includes this ─────────────────────────────────────────────────
