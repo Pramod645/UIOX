@@ -991,3 +991,108 @@ The unfs_xattr.c you listed is unfs_extra_unfs_xattr.c on disk — it holds xatt
 The one thing the ASCII can't show well is that unfs_format.h is the only file with a second consumer outside your tree — 01_uBoot reads the same structs. That's why it carries layout and nothing else.
 
 If you want this as an actual file rather than text in the chat, say the word and I'll write it to outputs/ as 10_unfs/UNFS_FILEMAP.md so you get a download link.
+
+================
+read all three userspace files. Here's the analysis against the kernel work.
+
+The good news first: the encodings agree
+That's the thing most likely to be wrong, and it isn't:
+
+Constant	Userspace	Kernel	
+UNFS_MAGIC	0x554E4653UL	0x554E4653UL	✅
+UNFS_BLOCK_SIZE	4096u	4096u	✅
+UNFS_NAME_MAX	255u	255u	✅
+UNFS_S_IFDIR	0x4000	UNFS_IFDIR 0040000 octal = 0x4000	✅
+UNFS_S_IFREG	0x8000	UNFS_IFREG 0100000 octal = 0x8000	✅
+UNFS_S_IFLNK	0xA000	UNFS_IFLNK 0120000 octal = 0xA000	✅
+UNFS_S_IFMT	0xF000	UNFS_IFMT 0170000 octal = 0xF000	✅
+Different spelling (UNFS_S_IF* vs UNFS_IF*), same values. And crucially, neither collides — this is not the FileType situation, where (FT_DIR << 12) landed on UNFS_IFCHR. A userspace program checking UNFS_S_ISDIR(mode) against a mode written by the kernel gets the right answer.
+
+The problem: the userspace layer calls an API the kernel doesn't have
+unfs_lib.c sends eight ioctls:
+
+
+
+UNFS_IOC_SNAP_CREATE   UNFS_IOC_SNAP_DELETE   UNFS_IOC_SNAP_LIST
+UNFS_IOC_XATTR_GET     UNFS_IOC_XATTR_SET     UNFS_IOC_XATTR_LIST
+UNFS_IOC_COW_ENABLE    UNFS_IOC_COW_DISABLE   UNFS_IOC_COW_STATUS
+UNFS_IOC_FSINFO        UNFS_IOC_DEFRAG
+Nothing in the kernel implements ioctl for these. 10_scfs's uiox_kix_scfs_ioctl.c exists and compiles, but it doesn't know these commands. So every one of those wrappers returns an error today.
+
+Here's the mapping, honestly:
+
+Userspace feature	Needs kernel	State
+unfs_snapshot_create/delete/list	unfs_snap_create/delete/list	⚠️ implemented, but not reachable — no ioctl, and COW's repoint is parked
+unfs_xattr_get/set	unfs_xattr_get/set	✅ implemented in unfs_extra_unfs_xattr.c — needs the ioctl
+unfs_fsinfo	read unfs_sb_t	✅ data exists in unfs_fs_t.disk — needs the ioctl
+unfs_mac_label_*	i_mac_label[16]	⚠️ the field is on disk, but InCoreInode has no MAC fields — unfs_iget.c notes this
+unfs_mkfs	unfs_format.c	⚠️ exists in-kernel; userspace opens a device file instead
+unfs_fsck	nothing	❌ no fsck exists on either side
+UNFS_IOC_DEFRAG	nothing	❌ no defragmenter exists
+Three specific mismatches worth naming
+1. unfs_mkfs takes a different route entirely. The kernel's unfs_format(dev, total_blocks, root_ino_out) writes through unfs_bdev_* → bcache. The userspace unfs_mkfs does open(device, O_RDWR|O_CREAT|O_TRUNC) and works on a file. Those are two different implementations of formatting — one in kernel, one in userspace — and they must produce byte-identical volumes or a userspace-formatted volume won't mount.
+
+2. unfs_defrag_req_t carries extents_moved and blocks_freed — fields that presuppose an extent-compaction engine. Nothing in the kernel moves extents.
+
+3. unfs_mkfs_params_t.journal_blocks defaults to 256 — but the journal was removed from the format. unfs_format.h reserves blocks 1–257 and defines no journal constants. A userspace mkfs that honoured this parameter would write data into a range the kernel treats as reserved.
+
+The repo mapping you listed
+Your tree layout says:
+
+
+
+50_UIX/
+├── include/unfs_user.h         ← unfs_uix_unfs_user.h
+├── src/unfs_lib.c              ← unfs_uix_unfs_lib.c
+└── src/unfs_shell.c            ← unfs_uix_unfs_shell.c
+That's a clean split: unfs_user.h is the contract, unfs_lib.c the wrappers, unfs_shell.c the commands. And it's 50_UIX — a separate tree from 30_KIX/32_FS, which is right: userspace must not include kernel headers, and the banner says so.
+
+But note what the repo list is missing: there's no 50_UIX ioctl handler on the kernel side. The userspace half of the contract exists; the kernel half doesn't.
+
+The flow, as it actually is
+
+
+  userspace                     kernel                    status
+  ─────────                     ──────                    ──────
+  unfs-snap-create          →   ioctl(UNFS_IOC_SNAP_CREATE)
+  unfs_lib.c                    uiox_kix_scfs_ioctl.c      ❌ not handled
+                                     │
+                                     ▼
+                                unfs_snap_create()         ⚠️ exists, but
+                                                               COW repoint parked
+
+  unfs-getlabel             →   ioctl(UNFS_IOC_XATTR_GET)
+                                uiox_kix_scfs_ioctl.c      ❌ not handled
+                                     │
+                                     ▼
+                                unfs_xattr_get()           ✅ implemented
+
+  unfs-info                 →   ioctl(UNFS_IOC_FSINFO)     ❌ not handled
+                                     │
+                                     ▼
+                                fs->disk (unfs_sb_t)       ✅ data is there
+
+  unfs-mkfs <dev> <mb>          (userspace only)           ⚠️ separate impl
+                                                            must match kernel
+
+  unfs-fsck <dev>               (nothing)                  ❌ does not exist
+What I'd conclude
+The userspace layer is well-formed and consistent with the kernel's encodings. The magic, block size, name limit and — most importantly — the file-type bits all match. That's a real piece of work done correctly.
+
+But it's calling ahead of the kernel. Five of the eleven ioctls map onto functions that exist and work; the kernel just doesn't route them yet. Two (fsck, defrag) have no implementation on either side. And unfs_mkfs is a second formatter that has to agree byte-for-byte with the kernel's.
+
+So the honest gaps, ordered:
+
+Work
+1	The ioctl handler — teach uiox_kix_scfs_ioctl.c the nine UNFS_IOC_* commands. This is the missing bridge, and it's the highest-value piece because it makes xattr and fsinfo work immediately.
+2	unfs_format.c vs unfs_mkfs — prove they produce identical volumes, or make one call the other.
+3	MAC label — needs InCoreInode to carry i_mac_label/i_mac_flags before userspace can get or set them.
+4	fsck and defrag — neither exists.
+5	journal_blocks in unfs_mkfs_params_t — a parameter for a feature the format doesn't have.
+One thing to guard against: unfs_mkfs_params_t.enable_cow = 1u is hardcoded in unfs_shell.c. Since COW's repoint is parked, a volume formatted with that flag set would claim COW is on while writes don't honour it. Worth either rejecting the flag or documenting it as a no-op until the scheduler lands.
+
+Want me to write the ioctl handler? Item 1 is the one that turns three working kernel functions into three working userspace commands, and I can see both sides of the contract.
+
+
+
+
