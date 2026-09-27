@@ -4,19 +4,30 @@
  * UNFS — mkfs.  Writes a fresh v2 filesystem onto a block device.
  *
  * Writes, in order:
- *   block 0            boot area (left zero)
- *   offset 1024        superblock (1024 bytes)  s_magic = V2
- *   s_groups_blk       group descriptor table
- *   each group         block bitmap, inode bitmap, inode table
- *   root inode         UNFS_ROOT_INO, a directory
- *   root "." / ".."    the two mandatory directory entries
+ *   block 0                  boot area (left zero), then UNFS_BLOCK_SIZE
+ *                            with the superblock at UNFS_SB_OFFSET
+ *   UNFS_GROUP0_DESC         group descriptor table
+ *   UNFS_GROUP0_BBMAP        group 0 block bitmap
+ *   UNFS_GROUP0_BBMAP + 1    group 0 inode bitmap
+ *   UNFS_GROUP0_ITABLE       group 0 inode table
+ *   UNFS_GROUP0_DATA         root directory data block
+ *   root inode               UNFS_ROOT_INO, a directory
+ *   root "." / ".."          the two mandatory directory entries
  *
- * Feature word written: 64BIT | EXTENTS | XATTR | GROUPS.
+ * Layout constants come from unfs_format.h, which the bootloader shares.
  *
- * @version 2.0.0  @date 2026-09-21
+ * Feature word: s_feature_incompat stays 0.  UNFS_SUPPORTED_INCOMPAT is 0,
+ * so writing any bit would make the volume refuse to mount.
+ *
+ * Group descriptor fields are DERIVED, not stored.  unfs_group_desc_t holds
+ * exactly three fields (the three the bootloader reads); first block, block
+ * count, first inode and node count are computed from the layout constants,
+ * and the free counts live in the superblock where unfs_mount.c reads them.
+ *
+ * @version 2.1.0  @date 2026-09-27
  */
-#include "unfs_disk.h"
-#include "unfs_io.h"        /* unfs_bdev_write / unfs_bdev_read, crc32 */
+#include "unfs_format.h"   /* shared with the bootloader */
+#include "unfs_io.h"       /* unfs_bdev_read / unfs_bdev_write, crc32 */
 #include "unfs_errno.h"
 
 #ifndef UNFS_DEFAULT_BLOCKS_PER_GROUP
@@ -32,13 +43,6 @@ static void mem_zero(void *p, uiox_uint32_t n)
     while (n--) *d++ = 0u;
 }
 
-static int zero_block(uiox_uint32_t dev, uiox_uint32_t blk)
-{
-    static uiox_uint8_t zero[UNFS_BLOCK_SIZE];
-    mem_zero(zero, UNFS_BLOCK_SIZE);
-    return unfs_bdev_write(dev, blk, zero);
-}
-
 static int write_block(uiox_uint32_t dev, uiox_uint32_t blk, const void *buf)
 {
     return unfs_bdev_write(dev, blk, buf);
@@ -46,18 +50,19 @@ static int write_block(uiox_uint32_t dev, uiox_uint32_t blk, const void *buf)
 
 static void bitmap_set_free(uiox_uint8_t *bm, uiox_uint32_t bit)
 {
-    bm[bit >> 3] |= (uiox_uint8_t)(1u << (bit & 7u));   /* 1 = free */
+    bm[bit >> 3] &= (uiox_uint8_t)~(1u << (bit & 7u));
 }
+
 static void bitmap_set_used(uiox_uint8_t *bm, uiox_uint32_t bit)
 {
-    bm[bit >> 3] &= (uiox_uint8_t)~(1u << (bit & 7u));  /* 0 = used */
+    bm[bit >> 3] |= (uiox_uint8_t)(1u << (bit & 7u));
 }
 
 int unfs_format(uiox_uint32_t dev, uiox_uint32_t total_blocks,
                 uiox_uint32_t *root_ino_out)
 {
-    unfs_sb_disk_t sb;
-    uiox_uint32_t  i;
+    unfs_sb_t     sb;
+    uiox_uint32_t i;
 
     if (total_blocks < 64u) return UNFS_EINVAL;
 
@@ -67,61 +72,51 @@ int unfs_format(uiox_uint32_t dev, uiox_uint32_t total_blocks,
     uiox_uint32_t inodes_per_group = UNFS_DEFAULT_INODES_PER_GROUP;
 
     uiox_uint32_t ncg = (total_blocks + blocks_per_group - 1u) / blocks_per_group;
-    if (ncg == 0u)  ncg = 1u;
-    if (ncg > UNFS_MAX_GROUPS) {
-        blocks_per_group = (total_blocks + UNFS_MAX_GROUPS - 1u) / UNFS_MAX_GROUPS;
-        ncg = (total_blocks + blocks_per_group - 1u) / blocks_per_group;
-    }
+    if (ncg == 0u) ncg = 1u;
 
     uiox_uint32_t inodes_total = ncg * inodes_per_group;
-    uiox_uint32_t inode_blocks =
-        (inodes_total * UNFS_INODE_BYTES + UNFS_BLOCK_SIZE - 1u) / UNFS_BLOCK_SIZE;
 
     uiox_uint32_t groups_blk = 1u;
     uiox_uint32_t groups_blocks =
-        (ncg * (uiox_uint32_t)sizeof(unfs_group_disk_t) + UNFS_BLOCK_SIZE - 1u)
+        (ncg * (uiox_uint32_t)sizeof(unfs_group_desc_t) + UNFS_BLOCK_SIZE - 1u)
         / UNFS_BLOCK_SIZE;
     if (groups_blocks == 0u) groups_blocks = 1u;
 
-    uiox_uint32_t inode_first_blk = groups_blk + groups_blocks;
+    uiox_uint32_t inode_first_blk = UNFS_GROUP0_ITABLE;
 
-    sb.s_magic          = UNFS_MAGIC;      /* V2 = "UNFT" */
-    sb.s_version        = 2u;
+    /* ── superblock ──────────────────────────────────────────────────── */
+    sb.s_magic          = UNFS_MAGIC;
+    sb.s_version_major  = UNFS_VERSION_MAJOR;
+    sb.s_version_minor  = UNFS_VERSION_MINOR;
     sb.s_block_size     = UNFS_BLOCK_SIZE;
-    sb.s_blocks_total   = total_blocks;
-    sb.s_blocks_free    = total_blocks;
-    sb.s_inodes_total   = inodes_total;
-    sb.s_inodes_free    = inodes_total;
+    sb.s_block_count    = total_blocks;
+    sb.s_free_blocks    = total_blocks;
+    sb.s_inode_count    = inodes_total;
+    sb.s_free_inodes    = inodes_total;
     sb.s_inode_size     = UNFS_INODE_SIZE;
-    sb.s_inode_first_blk= inode_first_blk;
-    sb.s_inode_blocks   = inode_blocks;
-    sb.s_ncg            = ncg;
-    sb.s_groups_blk     = groups_blk;
-    sb.s_root_ino       = UNFS_ROOT_INO;
-    sb.s_state          = UNFS_STATE_CLEAN;
-    sb.s_mtime_lo = sb.s_mtime_hi = 0u;
-    sb.s_wtime_lo = sb.s_wtime_hi = 0u;
-    sb.s_feature_compat    = 0u;
-    sb.s_feature_incompat  = UNFS_FEAT_INCOMPAT_64BIT
-                           | UNFS_FEAT_INCOMPAT_EXTENTS
-                           | UNFS_FEAT_INCOMPAT_XATTR
-                           | UNFS_FEAT_INCOMPAT_GROUPS;
-    sb.s_feature_ro_compat = 0u;
-    for (i = 0u; i < 4u; i++) sb.s_uuid[i] = 0u;
-    mem_zero(sb.s_volume_name, 16);
+    sb.s_inodes_per_group  = inodes_per_group;
+    sb.s_blocks_per_group  = blocks_per_group;
+    sb.s_group_count    = ncg;
+    sb.s_clean          = 1u;
+    sb.s_mount_time_ns  = 0u;
+    sb.s_write_time_ns  = 0u;
+    sb.s_mount_count    = 0u;
+    sb.s_max_mount_count = 0u;
+    sb.s_checksum_type  = 1u;   /* CRC32 */
+    sb.s_compress       = 0u;
+    mem_zero(sb.s_uuid, (uiox_uint32_t)sizeof(sb.s_uuid));
+    mem_zero(sb.s_volume_name, (uiox_uint32_t)sizeof(sb.s_volume_name));
 
-    uiox_uint32_t meta_blocks = 1u + groups_blocks;
-    for (i = 0u; i < ncg; i++) meta_blocks += 2u;
-    meta_blocks += inode_blocks;
-    if (meta_blocks >= total_blocks) return UNFS_ENOSPC;
-    sb.s_blocks_free = total_blocks - meta_blocks;
+    uiox_uint32_t meta_blocks = UNFS_GROUP0_DATA;
+    sb.s_free_blocks = total_blocks - meta_blocks;
 
-    uiox_uint32_t blk   = inode_first_blk;
-    uiox_uint32_t ino   = 1u;
+    /* ── group descriptors + bitmaps + inode table ───────────────────── */
+    uiox_uint32_t blk = inode_first_blk;
+    uiox_uint32_t ino = 1u;
     uiox_uint8_t  bmbuf[UNFS_BLOCK_SIZE];
 
     for (i = 0u; i < ncg; i++) {
-        unfs_group_disk_t gd;
+        unfs_group_desc_t gd;
         mem_zero(&gd, sizeof(gd));
 
         uiox_uint32_t first_blk = (i == 0u) ? blk : (i * blocks_per_group);
@@ -129,15 +124,11 @@ int unfs_format(uiox_uint32_t dev, uiox_uint32_t total_blocks,
                                 ? (total_blocks - first_blk)
                                 : blocks_per_group;
 
-        gd.g_first_block = first_blk;
-        gd.g_nblocks     = nblocks;
-        gd.g_first_ino   = ino;
-        gd.g_ninodes     = inodes_per_group;
-        gd.g_free_inodes = inodes_per_group;
-        gd.g_inode_tbl_blk = inode_first_blk + ((ino - 1u) * UNFS_INODE_BYTES)
-                             / UNFS_BLOCK_SIZE;
+        gd.bg_block_bitmap = (i == 0u) ? (first_blk + 1u) : first_blk;
+        gd.bg_inode_bitmap = gd.bg_block_bitmap + 1u;
+        gd.bg_inode_table  = UNFS_GROUP0_ITABLE
+                             + ((ino - 1u) * UNFS_INODE_BYTES) / UNFS_BLOCK_SIZE;
 
-        gd.g_bitmap_blk = (i == 0u) ? (first_blk + 1u) : first_blk;
         mem_zero(bmbuf, UNFS_BLOCK_SIZE);
         for (uiox_uint32_t b = 0u; b < nblocks && b < UNFS_BLOCK_SIZE * 8u; b++)
             bitmap_set_free(bmbuf, b);
@@ -145,28 +136,33 @@ int unfs_format(uiox_uint32_t dev, uiox_uint32_t total_blocks,
             for (uiox_uint32_t b = 0u; b < (meta_blocks - 2u * ncg); b++)
                 bitmap_set_used(bmbuf, b);
         }
-        if (write_block(dev, gd.g_bitmap_blk, bmbuf) != UNFS_OK)
+        if (write_block(dev, gd.bg_block_bitmap, bmbuf) != UNFS_OK)
             return UNFS_EIO;
 
-        gd.g_inode_bmp_blk = gd.g_bitmap_blk + 1u;
         mem_zero(bmbuf, UNFS_BLOCK_SIZE);
         for (uiox_uint32_t n = 0u; n < inodes_per_group; n++)
             bitmap_set_free(bmbuf, n);
         bitmap_set_used(bmbuf, 0u);
         if (i == 0u) bitmap_set_used(bmbuf, UNFS_ROOT_INO - 1u);
-        if (write_block(dev, gd.g_inode_bmp_blk, bmbuf) != UNFS_OK)
+        if (write_block(dev, gd.bg_inode_bitmap, bmbuf) != UNFS_OK)
             return UNFS_EIO;
 
-        gd.g_free_blocks = nblocks - 2u;
+        /* Free counts live in the SUPERBLOCK — unfs_group_desc_t has no
+         * field for them, and this is where unfs_mount.c reads them. */
+        uiox_uint32_t grp_free_blocks = nblocks - 2u;
         if (i == 0u)
-            gd.g_free_blocks -= (meta_blocks - 2u * ncg) - 2u;
-        if (i == 0u) gd.g_free_inodes = inodes_per_group - 2u;
-        else         gd.g_free_inodes = inodes_per_group;
+            grp_free_blocks -= (meta_blocks - 2u * ncg) - 2u;
+
+        uiox_uint32_t grp_free_inodes = inodes_per_group;
+        if (i == 0u) grp_free_inodes -= 2u;   /* "." and ".." */
+
+        sb.s_free_blocks += grp_free_blocks;
+        sb.s_free_inodes += grp_free_inodes;
 
         uiox_uint8_t gblock[UNFS_BLOCK_SIZE];
         mem_zero(gblock, UNFS_BLOCK_SIZE);
         (void)unfs_bdev_read(dev, groups_blk, gblock);
-        uiox_uint32_t off = (i * (uiox_uint32_t)sizeof(unfs_group_disk_t))
+        uiox_uint32_t off = (i * (uiox_uint32_t)sizeof(unfs_group_desc_t))
                           % UNFS_BLOCK_SIZE;
         uiox_uint8_t *dst = gblock + off;
         uiox_uint8_t *src = (uiox_uint8_t *)&gd;
@@ -179,70 +175,63 @@ int unfs_format(uiox_uint32_t dev, uiox_uint32_t total_blocks,
         blk  = first_blk + nblocks;
     }
 
+    /* ── root inode + its data block ─────────────────────────────────── */
+    uiox_uint32_t root_data_blk = 0u;
+    uiox_uint8_t  bm[UNFS_BLOCK_SIZE];
+
     {
-        unfs_inode_disk_t ri;
+        unfs_inode_t ri;
         mem_zero(&ri, sizeof(ri));
-        ri.i_mode     = IFDIR | 0755u;
+        ri.i_mode     = UNFS_IFDIR | 0755u;
         ri.i_nlink    = 2u;
         ri.i_uid      = 0u;
         ri.i_gid      = 0u;
-        ri.i_size_lo  = UNFS_BLOCK_SIZE;
-        ri.i_size_hi  = 0u;
+        ri.i_size     = UNFS_BLOCK_SIZE;
         ri.i_blocks   = UNFS_BLOCK_SIZE / 512u;
-        ri.i_flags    = UNFS_IFLAG_EXTENTS;
-        ri.i_seq      = 1u;
+        ri.i_flags    = 0u;
 
-        uiox_uint32_t root_data_blk = 0u;
-        uiox_uint8_t  bm[UNFS_BLOCK_SIZE];
-        uiox_group_disk_t gd0;
-        {
-            uiox_uint8_t gblock[UNFS_BLOCK_SIZE];
-            if (unfs_bdev_read(dev, groups_blk, gblock) != UNFS_OK)
-                return UNFS_EIO;
-            uiox_uint8_t *p = gblock;
-            uiox_uint8_t *q = (uiox_uint8_t *)&gd0;
-            for (uiox_uint32_t k = 0u; k < (uiox_uint32_t)sizeof(gd0); k++)
-                q[k] = p[k];
-        }
-        if (unfs_bdev_read(dev, gd0.g_bitmap_blk, bm) != UNFS_OK)
+        /* Group 0's block bitmap is the constant UNFS_GROUP0_BBMAP.  The
+         * first FREE bit is the group's first data block. */
+        if (unfs_bdev_read(dev, UNFS_GROUP0_BBMAP, bm) != UNFS_OK)
             return UNFS_EIO;
-        for (uiox_uint32_t b = 0u; b < gd0.g_nblocks; b++) {
+
+        for (uiox_uint32_t b = 0u; b < UNFS_GROUP0_DATA; b++) {
             if (bm[b >> 3] & (uiox_uint8_t)(1u << (b & 7u))) {
-                root_data_blk = gd0.g_first_block + b;
+                root_data_blk = UNFS_GROUP0_DATA + b;
                 bitmap_set_used(bm, b);
                 break;
             }
         }
         if (root_data_blk == 0u) return UNFS_ENOSPC;
-        if (write_block(dev, gd0.g_bitmap_blk, bm) != UNFS_OK) return UNFS_EIO;
+        if (write_block(dev, UNFS_GROUP0_BBMAP, bm) != UNFS_OK) return UNFS_EIO;
 
-        ri.i_ext[0].e_start_lo = 0u;
-        ri.i_ext[0].e_start_hi = 0u;
-        ri.i_ext[0].e_phys     = root_data_blk;
-        ri.i_ext[0].e_len      = 1u;
-        ri.i_ext[0].e_flags    = UNFS_EXT_LAST;
+        ri.i_extents[0].e_logical  = 0u;
+        ri.i_extents[0].e_physical = root_data_blk;
+        ri.i_extents[0].e_len      = 1u;
+        ri.i_extents[0].e_flags    = UNFS_EXT_LEAF;
 
         uiox_uint8_t dbuf[UNFS_BLOCK_SIZE];
         mem_zero(dbuf, UNFS_BLOCK_SIZE);
-        unfs_dirent_disk_t *d0 = (unfs_dirent_disk_t *)dbuf;
-        d0->d_ino    = UNFS_ROOT_INO;
-        d0->d_namlen = 1u;
-        d0->d_type   = UNFS_DT_DIR;
-        d0->d_name[0]= '.';
-        d0->d_reclen = (uiox_uint16_t)(sizeof(unfs_dirent_disk_t));
+        unfs_dirent_t *d0 = (unfs_dirent_t *)dbuf;
+        d0->d_ino      = UNFS_ROOT_INO;
+        d0->d_name_len = 1u;
+        d0->d_type     = UNFS_DT_DIR;
+        d0->d_name[0]  = '.';
+        d0->d_rec_len  = (uiox_uint16_t)(sizeof(unfs_dirent_t) + 2u);
 
-        unfs_dirent_disk_t *d1 = (unfs_dirent_disk_t *)(dbuf + d0->d_reclen);
-        d1->d_ino    = UNFS_ROOT_INO;
-        d1->d_namlen = 2u;
-        d1->d_type   = UNFS_DT_DIR;
-        d1->d_name[0]= '.'; d1->d_name[1] = '.';
-        d1->d_reclen = (uiox_uint16_t)(UNFS_BLOCK_SIZE - d0->d_reclen);
+        unfs_dirent_t *d1 = (unfs_dirent_t *)(dbuf + d0->d_rec_len);
+        d1->d_ino      = UNFS_ROOT_INO;
+        d1->d_name_len = 2u;
+        d1->d_type     = UNFS_DT_DIR;
+        d1->d_name[0]  = '.';
+        d1->d_name[1]  = '.';
+        d1->d_rec_len  = (uiox_uint16_t)(UNFS_BLOCK_SIZE - d0->d_rec_len);
 
         if (write_block(dev, root_data_blk, dbuf) != UNFS_OK) return UNFS_EIO;
 
         uiox_uint32_t root_slot_blk =
-            inode_first_blk + ((UNFS_ROOT_INO - 1u) * UNFS_INODE_BYTES)
-                             / UNFS_BLOCK_SIZE;
+            UNFS_GROUP0_ITABLE + ((UNFS_ROOT_INO - 1u) * UNFS_INODE_BYTES)
+                                / UNFS_BLOCK_SIZE;
         uiox_uint32_t root_slot_off =
             ((UNFS_ROOT_INO - 1u) * UNFS_INODE_BYTES) % UNFS_BLOCK_SIZE;
 
@@ -256,13 +245,14 @@ int unfs_format(uiox_uint32_t dev, uiox_uint32_t total_blocks,
         if (write_block(dev, root_slot_blk, ibuf) != UNFS_OK) return UNFS_EIO;
     }
 
+    /* ── superblock into block 0 ─────────────────────────────────────── */
     {
         uiox_uint8_t sblk[UNFS_SB_SIZE];
         mem_zero(sblk, UNFS_SB_SIZE);
         uiox_uint8_t *p = (uiox_uint8_t *)&sb;
         for (uiox_uint32_t k = 0u; k < sizeof(sb) && k < UNFS_SB_SIZE; k++)
             sblk[k] = p[k];
-        sb.s_checksum = unfs_crc32(sblk, UNFS_SB_SIZE);
+        sb.s_sb_checksum = unfs_crc32(sblk, UNFS_SB_SIZE);
         p = (uiox_uint8_t *)&sb;
         for (uiox_uint32_t k = 0u; k < sizeof(sb) && k < UNFS_SB_SIZE; k++)
             sblk[k] = p[k];

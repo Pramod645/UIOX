@@ -32,6 +32,7 @@
 
 #include "bcache.h"
 #include "uiox_klibc.h"
+#include "uiox_soc_stdio.h"
 
 /* ═════════════════════════════════════════════════════════════════════
  * The pool

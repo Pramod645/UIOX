@@ -1,7 +1,7 @@
 # =============================================================================
-# 30_KIX/32_FS/Makefile  — v2.1.0
+# 30_KIX/32_FS/Makefile  — v2.2.0
 #
-# Builds the three layers into one archive:  build/<arch>/libfs.a
+# Builds the four layers into one archive:  build/<arch>/libfs.a
 #
 # Usage:
 #   make arm64 / arm32 / riscv64 / x86_64
@@ -10,22 +10,33 @@
 #   make info[-<arch>]
 #   make srclist          ← what the globs actually resolved to
 #
-# ── the three layers, all children of 32_FS ────────────────────────────
+# ── the four layers, all children of 32_FS ─────────────────────────────
 #   00_buffcache/src/*.c    block buffer cache   (Bach Ch.3)
 #   01_fsa/src/*.c          inode level          (Bach Ch.4)
 #   10_scfs/src/*.c         syscall bodies       (Bach Ch.5)
+#   10_unfs/src/*.c         on-disk format + storage backend  ◀ v2.2.0
 #
 # Not built here, though present in the tree:
-#   02_jrnal/    the journal — separate concern, built when wired
 #   03_netfs/    9P client   — not part of the on-disk path
-#   10_unfs/     storage backend — sits UNDER 01_fsa once integrated
 #   $(MFDIR)src/ retired uiox_fs_init.c lived here
+#
+#   10_unfs is built FIRST, ahead of 01_fsa and 10_scfs, because it now
+#   supplies the mount path and the mkfs writer — not just a layout
+#   header.  See the v2.2.0 note below for why the earlier "header
+#   only" arrangement stopped being enough.
 #
 # ── the include graph, which points DOWNWARD only ──────────────────────
 #   00_buffcache  →  its own include/
 #   01_fsa        →  its own include/  +  00_buffcache/include
 #                   +  10_unfs/include   ◀ v2.1.0
-#   10_scfs       →  its own include/  +  01_fsa/include + 00_buffcache/include
+#   10_scfs       →  10_unfs/include + 01_fsa/include + 00_buffcache/include
+#                   +  its own include/  ◀ v2.2.0
+#   10_unfs       →  its own include/  +  00_buffcache/include
+#                   +  01_fsa/include    ◀ v2.2.0
+#
+# 10_scfs gained 10_unfs/include in v2.2.0: its syscall bodies now carry
+# UNFS_IF* type codes and UNFS_MAX_NAME, so the format header has to
+# resolve there too.
 #
 # No layer includes the one above it.  An upward -I means an inverted
 # dependency, and this Makefile will not hide it.
@@ -53,6 +64,21 @@
 #     consumes a LAYOUT header from 10_unfs.  It does not call into
 #     10_unfs code, which is why 10_unfs is still not in FS_SRCS_C.
 #
+# ── v2.2.0 changes ────────────────────────────────────────────────────
+#   · 10_unfs/src/*.c added to FS_SRCS_C and to vpath.  v2.1.0 built the
+#     layer's header but none of its code, so:
+#
+#         unfs_format()   unfs_mount()   unfs_iget()  …
+#
+#     had no object in libfs.a at all.  Anything calling them linked
+#     against nothing.
+#
+#   · 10_unfs moved to the FRONT of FS_SRCS_C.  Layer order in the
+#     archive follows the dependency order the directory numbers already
+#     encode; archiving it first keeps `ar t` readable top-down.
+#
+#   · info-<arch> now prints UNFS_DIR alongside the other three.
+#
 # ── v2.0.0 changes from the tree's previous version ────────────────────
 #   · 00_buffcache (lower-case c) added to SRCS and vpath — its sources
 #     are in a FLAT src/, not buffers/src/
@@ -64,7 +90,7 @@
 #   · srclist target added — a silent empty glob is the failure mode this
 #     guards against
 #
-# @version 2.1.0  @date 2026-09-26
+# @version 2.2.0  @date 2026-09-27
 # =============================================================================
 
 MFDIR     := $(dir $(abspath $(lastword $(MAKEFILE_LIST))))
@@ -114,7 +140,9 @@ COMMON_CFLAGS := \
 # -nostdinc: <stdio.h> is unreachable on purpose.  uiox_klibc.h (in
 # ../common) supplies printf/memset/memcpy as macros over uiox_*; the BSP
 # SoC stdio header supplies early_puts.  An undeclared call is -Werror.
-#######◀ v2.1.0 — unfs_format.h is in 10_unfs/include, so that directory must be searched.  It is
+# v2.1.0: unfs_format.h lives in 10_unfs/include, so that directory must
+# be searched.  v2.2.0 leaves this list alone — the layer's sources are
+# now globbed in, and they resolve through the same -I set.
 COMMON_INCLUDES := \
   -I$(COMMONDIR)          \
   -I$(MFDIR)include       \
@@ -124,14 +152,17 @@ COMMON_INCLUDES := \
   -I$(UNFS_DIR)/include   \
   -I$(SOCINC)
 
-# ── the three layers, in dependency order ─────────────────────────────
+# ── the four layers, in dependency order ──────────────────────────────
+# 10_unfs defines the on-disk format and its storage entry points;
 # 00_buffcache supplies buffers to 01_fsa, which 10_scfs calls into.
 FS_SRCS_C :=
+FS_SRCS_C += $(wildcard $(UNFS_DIR)/src/*.c)    # v2.2.0 — was header-only
 FS_SRCS_C += $(wildcard $(BCDIR)/src/*.c)
 FS_SRCS_C += $(wildcard $(FSA_DIR)/src/*.c)
 FS_SRCS_C += $(wildcard $(SCFS_DIR)/src/*.c)
 
 vpath %.c \
+  $(UNFS_DIR)/src \
   $(BCDIR)/src    \
   $(FSA_DIR)/src  \
   $(SCFS_DIR)/src
@@ -232,6 +263,7 @@ info-arm64:
 	@echo "  BCDIR    = $(BCDIR)"
 	@echo "  FSA_DIR  = $(FSA_DIR)"
 	@echo "  SCFS_DIR = $(SCFS_DIR)"
+	@echo "  UNFS_DIR = $(UNFS_DIR)"
 info-arm32:   ; @echo "HOST=$(UNAME_S) ARCH=arm32   CC=$(ARM32_CC)"
 info-riscv64: ; @echo "HOST=$(UNAME_S) ARCH=riscv64 CC=$(RV64_CC)"
 info-x86_64:  ; @echo "HOST=$(UNAME_S) ARCH=x86_64  CC=$(X86_CC)"

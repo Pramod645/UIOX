@@ -11,7 +11,7 @@
  *
  * @version 2.0.0  @date 2026-09-21
  */
-#include "unfs_disk.h"
+#include "unfs_format.h"   /* the survivor — unfs_disk.h was removed */
 #include "unfs_io.h"
 #include "unfs_errno.h"
 #include "uiox_kix_scfs_mount.h"
@@ -36,20 +36,23 @@ static void mem_copy(void *d, const void *s, uiox_uint32_t n)
 static void sb_inflate(const unfs_sb_disk_t *d, super_block_t *k)
 {
     mem_zero(k, sizeof(*k));
-    k->s_isize           = d->s_inode_blocks;
-    k->s_fsize           = d->s_blocks_total;
+    /* Field names are unfs_sb_t's, not the removed header's.  Its names
+     * (s_inode_blocks, s_blocks_total, s_blocks_free, s_ncg, s_wtime_lo)
+     * do not exist here; the equivalents follow. */
+    k->s_isize           = (uiox_uint32_t)(d->s_inode_count / UNFS_INODES_PER_BLOCK);
+    k->s_fsize           = (uiox_uint32_t)d->s_block_count;
     k->s_nfree           = 0u;
     k->s_ninode          = 0u;
-    k->s_time            = unfs_mk64(d->s_wtime_lo, d->s_wtime_hi);
-    k->s_tfree           = d->s_blocks_free;
-    k->s_tinode          = d->s_inodes_free;
+    k->s_time            = d->s_write_time_ns;
+    k->s_tfree           = d->s_free_blocks;
+    k->s_tinode          = d->s_free_inodes;
     k->s_fname[0]='U'; k->s_fname[1]='N'; k->s_fname[2]='F';
     k->s_fname[3]='S'; k->s_fname[4]=0;
-    k->s_ncg             = d->s_ncg;
-    k->s_bsize           = d->s_block_size;
-    k->s_feature_compat    = d->s_feature_compat;
-    k->s_feature_incompat  = d->s_feature_incompat;
-    k->s_feature_ro_compat = d->s_feature_ro_compat;
+    k->s_ncg             = d->s_group_count;
+    k->s_bsize           = (uiox_uint32_t)d->s_block_size;
+    k->s_feature_compat    = 0u;   /* UNFS writes no compat features yet  */
+    k->s_feature_incompat  = 0u;
+    k->s_feature_ro_compat = 0u;
 }
 
 static int read_groups(uiox_uint32_t dev, const unfs_sb_disk_t *d,
@@ -69,14 +72,13 @@ static int read_groups(uiox_uint32_t dev, const unfs_sb_disk_t *d,
         unfs_group_disk_t gd;
         mem_copy(&gd, gblock + off, sizeof(gd));
 
-        k->s_groups[i].g_first_block   = gd.g_first_block;
-        k->s_groups[i].g_nblocks       = gd.g_nblocks;
-        k->s_groups[i].g_free_blocks   = gd.g_free_blocks;
-        k->s_groups[i].g_first_ino     = gd.g_first_ino;
-        k->s_groups[i].g_ninodes       = gd.g_ninodes;
-        k->s_groups[i].g_free_inodes   = gd.g_free_inodes;
-        k->s_groups[i].g_bitmap_blk    = gd.g_bitmap_blk;
-        k->s_groups[i].g_inode_bmp_blk = gd.g_inode_bmp_blk;
+        /* unfs_group_desc_t carries exactly three fields — the three the
+         * BOOTLOADER reads.  The free counts the removed header stored
+         * here come from the superblock instead, and the bitmaps are
+         * located from the group index, so nothing is lost. */
+        k->s_groups[i].g_bitmap_blk    = gd.bg_block_bitmap;
+        k->s_groups[i].g_inode_bmp_blk = gd.bg_inode_bitmap;
+        k->s_groups[i].g_first_block   = gd.bg_inode_table;
     }
     return UNFS_OK;
 }
@@ -91,7 +93,7 @@ int unfs_kern_mount(super_block_t *sb, uiox_uint32_t dev)
     unfs_sb_disk_t d;
     mem_copy(&d, blk0 + UNFS_SB_OFFSET, sizeof(d));
 
-    if (d.s_magic != UNFS_MAGIC_V1 && d.s_magic != UNFS_MAGIC_V2)
+    if (d.s_magic != UNFS_MAGIC)
         return UNFS_EBADMAGIC;
 
     {
@@ -106,24 +108,24 @@ int unfs_kern_mount(super_block_t *sb, uiox_uint32_t dev)
     }
 
     if (d.s_block_size != UNFS_BLOCK_SIZE)   return UNFS_EBADSB;
-    if (d.s_inode_size != UNFS_INODE_SIZE &&
-        d.s_inode_size != UNFS_INODE_BYTES)  return UNFS_EBADSB;
-    if (d.s_blocks_total == 0u)              return UNFS_EBADSB;
-    if (d.s_root_ino == UNFS_NIL_INO)        return UNFS_EBADSB;
+    if (d.s_inode_size != UNFS_INODE_SIZE)   return UNFS_EBADSB;
+    if (d.s_block_count == 0u)               return UNFS_EBADSB;
+    if (UNFS_ROOT_INO == UNFS_NIL_INO)       return UNFS_EBADSB;
 
     int ro = 0;
 
-    if (d.s_magic == UNFS_MAGIC_V1) {
-        ro = 1;
-    } else {
-        if (d.s_feature_incompat & ~(uiox_uint32_t)UNFS_SUPPORTED_INCOMPAT)
-            return UNFS_ENOTSUP;
+    /* ONE magic: the bootloader does not version it, so there is no v1/v2
+     * split and no read-only legacy path.  What remains is the incompat
+     * check, which is what actually guards a future feature word. */
+    if (UNFS_SUPPORTED_INCOMPAT == 0u) {
+        /* nothing optional is understood, so any bit set is a refusal */
+        if (d.s_feature_incompat != 0u) return UNFS_ENOTSUP;
     }
 
     sb_inflate(&d, sb);
     if (ro) sb->s_ronly = 1u;
 
-    if (d.s_magic == UNFS_MAGIC_V2) {
+    {
         int rc = read_groups(dev, &d, sb);
         if (rc != UNFS_OK) return rc;
     }

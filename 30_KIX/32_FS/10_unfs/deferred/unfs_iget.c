@@ -16,7 +16,7 @@
  *
  * @version 2.0.0  @date 2026-09-21
  */
-#include "unfs_disk.h"
+#include "unfs_format.h"   /* the survivor — unfs_disk.h was removed */
 #include "unfs_io.h"
 #include "unfs_errno.h"
 #include "uiox_kix_scfs_inode.h"
@@ -58,12 +58,17 @@ int unfs_read_inode(uiox_uint32_t dev, uiox_uint32_t inum,
     uiox_uint8_t blk0[UNFS_BLOCK_SIZE];
     if (unfs_bdev_read(dev, 0u, blk0) != UNFS_OK) return UNFS_EIO;
 
+    /* The superblock occupies block 0 IN FULL — UNFS_SB_OFFSET is 0.
+     * The removed header put it at byte 1024, which read the wrong 4 KB. */
     unfs_sb_disk_t sb;
     mem_copy(&sb, blk0 + UNFS_SB_OFFSET, sizeof(sb));
-    if (sb.s_magic != UNFS_MAGIC_V1 && sb.s_magic != UNFS_MAGIC_V2)
+    if (sb.s_magic != UNFS_MAGIC)
         return UNFS_EBADMAGIC;
 
-    uiox_uint32_t table_blk = sb.s_inode_first_blk + blk;
+    /* The inode table is group-0 absolute: UNFS_GROUP0_ITABLE (261) plus
+     * the block index within the table.  The removed header read a
+     * disk-supplied s_inode_first_blk, which unfs_sb_t does not carry. */
+    uiox_uint32_t table_blk = UNFS_GROUP0_ITABLE + blk;
 
     uiox_uint8_t ibuf[UNFS_BLOCK_SIZE];
     if (unfs_bdev_read(dev, table_blk, ibuf) != UNFS_OK) return UNFS_EIO;
@@ -86,7 +91,7 @@ int unfs_write_inode_disk(uiox_uint32_t dev, uiox_uint32_t inum,
     unfs_sb_disk_t sb;
     mem_copy(&sb, blk0 + UNFS_SB_OFFSET, sizeof(sb));
 
-    uiox_uint32_t table_blk = sb.s_inode_first_blk + blk;
+    uiox_uint32_t table_blk = UNFS_GROUP0_ITABLE + blk;
 
     uiox_uint8_t ibuf[UNFS_BLOCK_SIZE];
     if (unfs_bdev_read(dev, table_blk, ibuf) != UNFS_OK)
@@ -105,21 +110,22 @@ static void unfs_inflate_inode(const unfs_inode_disk_t *d, inode_t *ip)
     ip->i_uid    = (uiox_uint16_t)d->i_uid;
     ip->i_gid    = (uiox_uint16_t)d->i_gid;
 
-    /* conversion 1: 64-bit size from two halves */
-    ip->i_size   = unfs_mk64(d->i_size_lo, d->i_size_hi);
-
-    /* conversion 2: 64-bit timestamps from two halves each */
-    ip->i_atime  = unfs_mk64(d->i_atime_lo, d->i_atime_hi);
-    ip->i_mtime  = unfs_mk64(d->i_mtime_lo, d->i_mtime_hi);
-    ip->i_ctime  = unfs_mk64(d->i_ctime_lo, d->i_ctime_hi);
-    ip->i_btime  = unfs_mk64(d->i_btime_lo, d->i_btime_hi);
+    /* Size and timestamps are SINGLE uint64_t fields in unfs_inode_t.
+     * The removed header split each into _lo/_hi halves for 32-bit
+     * alignment; this struct does not, so there is nothing to reassemble.
+     * i_btime has no counterpart — UNFS records three times, not four. */
+    ip->i_size   = d->i_size;
+    ip->i_atime  = d->i_atime_ns;
+    ip->i_mtime  = d->i_mtime_ns;
+    ip->i_ctime  = d->i_ctime_ns;
 
     /* conversion 3: extent model.  i_addr[] stays zero — UNFS never uses
      * Bach's block-address array; extents live on disk and are re-read by
      * the backend's read/truncate ops when needed. */
+    /* i_generation and i_seq have no home in unfs_inode_t either — the
+     * struct carries i_flags for the on-disk flags word.  The extent
+     * model is the one conversion that does survive, via IEXTENTS. */
     ip->i_flag      |= IEXTENTS;
-    ip->i_generation = d->i_generation;
-    ip->i_seq        = d->i_seq;
 
     ip->i_pipe         = (struct uiox_pipe_buffer *)0;
     ip->i_pipe_readers = 0;

@@ -17,7 +17,6 @@
  */
 
  #include "unfs_fs.h"
- #include "uiox_soc_string.h"
  #include "uiox_soc_stdio.h"
  
  /* ─────────────────────────────────────────────────────────────────────

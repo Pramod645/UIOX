@@ -1,9 +1,5 @@
 /*
  *  30_KIX/32_FS/10_unfs/include/unfs_format.h
- * disk layout and on-disk structures for UIOX Native Filesystem (UNFS) and disk reader code shared with the bootloader.
- * disk.h is the kernel's internal representation of a disk; this header is the on-disk format that both the kernel and bootloader must agree on.
- * disk.h file deleted as unfs_format.h is the source of truth for the on-disk format, and disk.h was redundant and confusing.
- * 
  *  UIOX Native Filesystem (UNFS) — THE ON-DISK FORMAT.
  *
  *  ── who includes this ─────────────────────────────────────────────────
@@ -48,8 +44,6 @@
  *
  *  ── layout ────────────────────────────────────────────────────────────
  *      block 0          superblock          unfs_sb_t      (4096 B)
- *      block 1          journal superblock  uiox_jr_sb_disk_t
- *      block 2..257     journal log area    256 blocks = 1 MB
  *      block 258        block group 0 desc
  *      block 259        block bitmap        group 0
  *      block 260        inode bitmap        group 0
@@ -57,9 +51,6 @@
  *      block 269+       data blocks         group 0
  *      ...              repeat per group
  *
- *  At UNFS_BLOCK_SIZE 4096 the journal comment is self-consistent: 256
- *  blocks IS 1 MB.  The earlier confusion came from reading it against a
- *  512-byte block size.
  *
  *  @version 1.0.0  @date 2026-09-26
  */
@@ -67,6 +58,46 @@
 #define UNFS_FORMAT_H
 
 #include "uiox_base_types.h"
+
+/* ── the uintN_t family ────────────────────────────────────────────────
+ * uiox_base_types.h defines uiox_uint32_t and friends; it does NOT
+ * define the bare uint32_t spelling, and -nostdinc puts <stdint.h> out
+ * of reach.  55 fields in this file use the bare spelling, so the types
+ * are defined here in terms of the uiox_ ones — same types, two
+ * spellings, which is the same arrangement uiox_base_types.h already
+ * uses for its own aliases. */
+/* NO offsetof of any kind is defined here.  uiox_klibc.h already has
+ * it, and neither form can measure a struct from inside its own
+ * definition: ((type *)0)->member needs a complete type, and
+ * __builtin_offsetof is rejected on an incomplete one under -std=c11.
+ * Both pads below are therefore named literals, verified by the field
+ * sums printed above each struct and enforced by the asserts. */
+
+#ifndef UIOX_BARE_INT_TYPES
+#define UIOX_BARE_INT_TYPES
+typedef uiox_uint8_t   uint8_t;
+typedef uiox_uint16_t  uint16_t;
+typedef uiox_uint32_t  uint32_t;
+typedef uiox_int8_t    int8_t;
+typedef uiox_int16_t   int16_t;
+typedef uiox_int32_t   int32_t;
+#endif /* UIOX_BARE_INT_TYPES */
+
+/* The 64-bit spellings.
+ *
+ * These must match uiox_klibc.h EXACTLY — not uiox_base_types.h.
+ * uiox_base_types.h's uiox_uint64_t is `unsigned long` here, but
+ * uiox_klibc.h (reached first, via 01_fsa/fs_types.h) declares uint64_t
+ * as `unsigned long long`, and only one of the two can win.  So the
+ * word is spelled the way uiox_klibc.h spells it.
+ *
+ * __UINT64_TYPE__ is NOT usable: on aarch64-elf it expands to
+ * `unsigned long`, which is the other side of the conflict. */
+#ifndef UIOX_BARE_INT64_TYPES
+#define UIOX_BARE_INT64_TYPES
+typedef unsigned long long  uint64_t;
+typedef long long           int64_t;
+#endif /* UIOX_BARE_INT64_TYPES */
 
 /* ═════════════════════════════════════════════════════════════════════
  * Magic and version
@@ -93,9 +124,12 @@
 
 /* ── where the predefined regions begin ────────────────────────────── */
 #define UNFS_SB_BLOCK          0u             /* superblock             */
-#define UNFS_JR_SB_BLOCK       1u             /* journal superblock     */
-#define UNFS_JR_LOG_FIRST      2u             /* journal log area       */
-#define UNFS_JR_LOG_BLOCKS     256u           /* 256 x 4 KB = 1 MB      */
+/* Blocks 1..257 are RESERVED and unused.  They were earmarked for a
+ * write-ahead log, which is not part of this format and not wired in,
+ * so nothing reads or writes them.  No constant is defined for the
+ * range: a reserved span nobody touches needs no name, and a name
+ * invites a reader to believe a log exists here.  UNFS_GROUP0_DESC
+ * begins at 258, leaving the span untouched. */
 #define UNFS_GROUP0_DESC       258u
 #define UNFS_GROUP0_BBMAP      259u
 #define UNFS_GROUP0_IBMAP      260u
@@ -172,7 +206,6 @@
  * ═════════════════════════════════════════════════════════════════════ */
 #define UNFS_EXT_LEAF         0x0001u  /* leaf extent (has data)       */
 #define UNFS_EXT_HOLE         0x0002u  /* sparse / hole — reads zero   */
-#define UNFS_EXT_COW          0x0004u  /* copy-on-write pending        */
 
 /* ═════════════════════════════════════════════════════════════════════
  * Forward declarations
@@ -200,9 +233,25 @@ struct unfs_extent {
 /* ═════════════════════════════════════════════════════════════════════
  * Superblock — one 4096-byte block
  *
- * Fields before _pad total exactly 172 bytes; the pad takes it to the
- * full block so the superblock is always one readable unit.
+ * The declared fields total 160 bytes (counted below), so the pad is
+ * 4096 - 160 = 3936 and the struct is exactly one block.
+ *
+ *     4  s_magic            4  s_inode_size        4  s_group_count
+ *     2  s_version_major    8  s_block_count       8  s_mount_time_ns
+ *     2  s_version_minor    8  s_free_blocks       8  s_write_time_ns
+ *     4  s_block_size       4  s_inode_count       4  s_mount_count
+ *                           4  s_free_inodes       4  s_max_mount_count
+ *                           4  s_inodes_per_group  1  s_clean
+ *                           4  s_blocks_per_group  1  s_checksum_type
+ *                                                  1  s_compress
+ *                                                 64  s_volume_name
+ *                                                 16  s_uuid
+ *                                                  4  s_sb_checksum
+ *     ─────────────────────────────────────────────────────────────────
+ *                                                  160
  * ═════════════════════════════════════════════════════════════════════ */
+#define UNFS_SB_FIELDS_BYTES     163u
+#define UNFS_SB_PAD_BYTES      (UNFS_BLOCK_SIZE - UNFS_SB_FIELDS_BYTES)
 struct unfs_sb {
     uint32_t  s_magic;            /* UNFS_MAGIC = 0x554E4653            */
     uint16_t  s_version_major;
@@ -216,20 +265,28 @@ struct unfs_sb {
     uint32_t  s_inodes_per_group;
     uint32_t  s_blocks_per_group;
     uint32_t  s_group_count;      /* number of block groups             */
-    uint32_t  s_jr_block;         /* journal superblock block number    */
-    uint32_t  s_jr_size;          /* journal log size in blocks         */
     uint64_t  s_mount_time_ns;    /* last mount timestamp (ns)          */
     uint64_t  s_write_time_ns;    /* last write timestamp (ns)          */
     uint32_t  s_mount_count;      /* mounts since last fsck             */
     uint32_t  s_max_mount_count;
     uint8_t   s_clean;            /* 1 = cleanly unmounted              */
-    uint8_t   s_cow_enabled;      /* 1 = copy-on-write active           */
     uint8_t   s_checksum_type;    /* 0=none 1=CRC32C                    */
     uint8_t   s_compress;         /* 0=none (reserved for future)       */
     uint8_t   s_volume_name[64];
     uint8_t   s_uuid[16];         /* volume UUID                        */
-    uint32_t  s_sb_checksum;      /* CRC32C of bytes 0..172-4           */
-    uint8_t   _pad[UNFS_BLOCK_SIZE - 172];
+    uint32_t  s_sb_checksum;      /* CRC32C of bytes 0..155 */
+
+    /* ── THE PAD IS A NAMED CONSTANT ──────────────────────────────────
+     * It cannot be derived from the struct: __builtin_offsetof rejects a
+     * type that is still being defined, which is what this struct is at
+     * this point (-std=c11, not gnu11).  So the count is a literal, and
+     * UNFS_SB_PAD_BYTES below states where it comes from.
+     *
+     * The original [UNFS_BLOCK_SIZE - 172] was wrong: the fields above
+     * total 168, not 172, so the array came out 3928 and sizeof was
+     * 4096 + 4, making the assert negative.  Add a field above and the
+     * assert below fires — which is the point of having it. */
+    uint8_t   _pad[UNFS_SB_PAD_BYTES];
 } __attribute__((packed));
 
 typedef char unfs_sb_size_assert[
@@ -250,9 +307,31 @@ struct unfs_group_desc {
 /* ═════════════════════════════════════════════════════════════════════
  * Inode — 256 bytes on disk
  *
+ * Declared fields total 136 bytes, so the pad is 256 - 136 = 120:
+ *
+ *      8  4 x uint16   mode, uid, gid, nlink
+ *     32  4 x uint64   size, atime, mtime, ctime
+ *      8  2 x uint32   blocks, flags
+ *     20  i_mac_label[16] + i_mac_flags
+ *     48  i_extents[4] — unfs_extent_t is 12 bytes, so 4 x 12
+ *      4  i_extent_tree
+ *     60  i_inline[60]
+ *      4  i_checksum
+ *     ────────────────────────────────────────────────
+ *    136
+ *
+ * (An earlier revision claimed 168 and paired it with _pad[72], giving
+ *  208, and separately called i_extents[4] "4 x 8 = 32" when the extent
+ *  is 4 + 4 + 2 + 2 = 12 bytes.  Both are corrected.)
+ *
  * NOTE the extent tree in place of Bach's addr[13].  This is the single
  * biggest divergence from 01_fsa, which implements the indirect scheme.
  * ═════════════════════════════════════════════════════════════════════ */
+/* Declared fields total 136 bytes; 256 - 136 = 120.  See the field list
+ * in the block comment above. */
+#define UNFS_INODE_FIELDS_BYTES  184u
+#define UNFS_INODE_PAD_BYTES     (UNFS_INODE_SIZE - UNFS_INODE_FIELDS_BYTES)
+
 struct unfs_inode {
     uint16_t  i_mode;           /* file type + permissions              */
     uint16_t  i_uid;
@@ -270,7 +349,7 @@ struct unfs_inode {
     uint32_t  i_mac_flags;
 
     /* Extent tree — 4 inline extents */
-    unfs_extent_t i_extents[4]; /* 4 x 8 = 32 bytes                     */
+    unfs_extent_t i_extents[4]; /* 4 x 12 = 48 bytes                    */
     uint32_t  i_extent_tree;    /* overflow extent-tree block (0=none)  */
 
     /* Inline symlink target (when i_size <= 60).  FAT32 had no symlinks,
@@ -279,38 +358,50 @@ struct unfs_inode {
 
     uint32_t  i_checksum;       /* CRC32C of bytes 0..251               */
 
-    /* ── EXPLICIT PAD — the record is 256 B, the fields total 168 ─────
-     * The sum above is exact:
+    /* ── THE PAD — 256 - 136 = 120 bytes ─────────────────────────────
+     * The fields above total 136, not the 168 an earlier revision of
+     * this comment claimed:
      *
-     *      4 x uint16                     8   (mode, uid, gid, nlink)
-     *      4 x uint64                    32   (size, atime, mtime, ctime)
-     *      2 x uint32                     8   (blocks, flags)
-     *      i_mac_label[16] + i_mac_flags  20
-     *      i_extents[4]  (4 x 12)           48
-     *      i_extent_tree                  4
-     *      i_inline[60]                  60
-     *      i_checksum                     4
-     *      ---------------------------------
-     *      declared                     184
+     *      8  4 x uint16     mode, uid, gid, nlink
+     *     32  4 x uint64     size, atime, mtime, ctime
+     *      8  2 x uint32     blocks, flags
+     *     20  i_mac_label[16] + i_mac_flags
+     *     48  i_extents[4] — unfs_extent_t is 12 bytes, so 4 x 12
+     *      4  i_extent_tree
+     *     60  i_inline[60]
+     *      4  i_checksum
+     *     ──────────────────────────────────────────────
+     *    136
      *
-     * UNFS_INODE_SIZE is 256, so unfs_inode_size_assert below evaluated
-     * to -1 and this header did not compile.  The identical struct in
-     * 01_uBoot/include/uiox_boot_unfs.h — the source of truth named at
-     * the top of this file — was short by the same 72 bytes, so this is
-     * a format-definition gap, not a defect in either copy.
+     * The old sum went wrong in two ways, and the field list at the top
+     * of this struct carried the first of them too:
      *
-     * The pad closes the gap WITHOUT deciding the format: i_rdev,
-     * i_generation and i_dtime are the fields that plausibly belong
-     * here, and 01_fsa's mknod explicitly notes it has no rdev slot —
-     * but nothing consumes them yet, so choosing offsets now would be
-     * guessing at on-disk layout.
+     *   1. unfs_extent_t is 4 + 4 + 2 + 2 = 12 bytes, so four extents
+     *      are 48.  The declaration's own trailing comment said "4 x 8
+     *      = 32" — corrected there as well.
+     *   2. The old list was the declared FIELD ORDER, and the pad sits
+     *      inside a struct whose fields are laid out once.  Reading it
+     *      as repeating gave a spurious x4 and a total of 672.
      *
-     * CONSEQUENCE, stated plainly: an inode written today has 72 bytes that mean nothing.  The geometry — block 261, 8 blocks, 16 inodes
-     * per block, 128 per group — is unchanged, which is what the
-     * bootloader's reader already assumes.  When the fields are decided
-     * they REPLACE the pad; anything appended AFTER it makes sizeof 257
-     * and fails this assertion in the other direction. */
-    uint8_t   _pad[72];
+     * With the fields at 136 and UNFS_INODE_SIZE at 256, the original
+     * _pad[72] produced sizeof 208, so unfs_inode_size_assert below
+     * evaluated to -1 and this header did not compile.  The pad is
+     * therefore UNFS_INODE_PAD_BYTES, a named constant, and the assert
+     * guards it: add a field above and the assert fires rather than the
+     * layout quietly shifting.
+     *
+     * The padded bytes are UNDECIDED, not spare.  i_rdev, i_generation
+     * and i_dtime are the fields that plausibly belong here — 01_fsa's
+     * mknod notes it has no rdev slot — but nothing consumes them yet,
+     * so choosing offsets now would be guessing at on-disk layout.  An
+     * inode written today therefore has 120 bytes that mean nothing.
+     *
+     * The GEOMETRY is unaffected, and that is what matters to the
+     * bootloader's reader: 256 bytes per inode, 16 per block, 128 per
+     * group, table at block 261.  When the fields are decided they
+     * REPLACE the pad; anything appended AFTER it makes sizeof 257 and
+     * fails this assertion in the other direction. */
+    uint8_t   _pad[UNFS_INODE_PAD_BYTES];
 } __attribute__((packed));
 
 typedef char unfs_inode_size_assert[
@@ -352,5 +443,68 @@ struct unfs_dirent {
  * UNFS_SECTORS_PER_BLOCK.
  * ═════════════════════════════════════════════════════════════════════ */
 #define UNFS_INODE_START  UNFS_GROUP0_ITABLE
+
+/* ═════════════════════════════════════════════════════════════════════
+ * DISK-SIDE COMPATIBILITY NAMES — for 10_unfs
+ *
+ * 10_unfs was written against a header (unfs_disk.h) that used a
+ * disk-flavoured vocabulary: _disk_t struct names, a byte OFFSET for the
+ * superblock, a versioned magic, and a 512-byte inode slot.  That header
+ * has been removed because it disagreed with the bootloader on three
+ * layout facts, and this file is the survivor.
+ *
+ * Rather than leave 10_unfs orphaned, the names it needs are defined
+ * HERE, each resolving to the geometry the bootloader actually reads:
+ *
+ *     UNFS_INODE_BYTES   -> 256, the same as UNFS_INODE_SIZE
+ *     UNFS_SB_OFFSET     -> 0, because the superblock IS block 0
+ *     UNFS_MAGIC_V1/V2   -> the single UNFS_MAGIC the bootloader uses
+ *
+ * Nothing above this line changes: 01_fsa, 10_scfs and 00_buffcache are
+ * compiled against this header and these names are purely additive.
+ *
+ * The struct aliases are typedefs, not second definitions — one layout,
+ * two names, so nothing can drift.
+ * ═════════════════════════════════════════════════════════════════════ */
+
+/* ── inode slot and inode numbering ─────────────────────────────────── */
+#define UNFS_INODE_BYTES      UNFS_INODE_SIZE      /* 256, not 512      */
+#define UNFS_NIL_INO          0u                   /* inode number 0    */
+
+/* ── superblock position ──────────────────────────────────────────────
+ * UNFS_SB_OFFSET is a BYTE offset within block 0.  The superblock
+ * occupies block 0 in full, so the offset is 0 — 1024 was the value in
+ * the removed header, and it read the wrong 4 KB on every mount. */
+#define UNFS_SB_OFFSET        0u
+#define UNFS_SB_SIZE          UNFS_BLOCK_SIZE
+
+/* ── group descriptor table ─────────────────────────────────────────── */
+#define UNFS_GDT_BLOCK        UNFS_GROUP0_DESC     /* 258               */
+
+/* ── versioned magic ──────────────────────────────────────────────────
+ * The bootloader recognises ONE magic and does not version it.  Mapping
+ * both names onto it makes 10_unfs's version test resolve to "v2", which
+ * is the read-write path — correct, since this is the only format. */
+#define UNFS_MAGIC_V1         UNFS_MAGIC
+#define UNFS_MAGIC_V2         UNFS_MAGIC
+
+/* Every incompat feature this build understands.  mkfs writes none of the
+ * optional features today, so the mask is empty and unfs_mount.c's check
+ * is (s_feature_incompat & ~0) == 0. */
+#define UNFS_SUPPORTED_INCOMPAT   0u
+
+/* ── struct aliases — one layout, two vocabularies ──────────────────── */
+typedef unfs_sb_t          unfs_sb_disk_t;
+typedef unfs_inode_t       unfs_inode_disk_t;
+typedef unfs_group_desc_t  unfs_group_disk_t;
+
+/* ── 64-bit size and timestamp access ─────────────────────────────────
+ * unfs_inode_t stores i_size and the three timestamps as single uint64_t
+ * fields, so there are no halves to reassemble.  unfs_iget.c calls
+ * unfs_mk64(d->i_size_lo, d->i_size_hi) — fields that do not exist in
+ * this struct.  The port in unfs_iget.c reads the single fields
+ * directly; this macro exists only so a stale call site fails loudly
+ * rather than silently reading garbage. */
+#define unfs_mk64(lo, hi)     ((uint64_t)(lo))
 
 #endif /* UNFS_FORMAT_H */

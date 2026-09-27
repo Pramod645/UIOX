@@ -53,6 +53,7 @@
 #define UIOX_FS_TYPES_H
 
 #include "uiox_klibc.h"     /* uint*_t, bool, size_t, NULL */
+#include "uiox_soc_stdio.h"
 #include "unfs_format.h"    /* the on-disk format — UNFS owns it */
 
 /* ═════════════════════════════════════════════════════════════════════
