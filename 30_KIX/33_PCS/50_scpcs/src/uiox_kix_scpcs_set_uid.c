@@ -33,28 +33,28 @@
  *
  * @version 1.0.0  @date 2026-09-29
  */
-#include "../include/uiox_kix_scps.h"
+#include "../include/uiox_kix_scpcs.h"
 
 int64_t uiox_kix_scpcs_set_uid(uiox_uint64_t uid)
 {
     uiox_kix_psa_proc_t *p = uiox_kix_scps_current();
     uiox_uint32_t        u;
 
-    if (!p) return SCPS_ESRCH;
-    if (uid > 0xFFFFFFFFu) return SCPS_EINVAL;
+    if (!p) return SCPCS_ESRCH;
+    if (uid > 0xFFFFFFFFu) return SCPCS_EINVAL;
     u = (uiox_uint32_t)uid;
 
     if (p->p_euid == 0u) {                  /* privileged */
         p->p_uid  = (uiox_uint16_t)u;
         p->p_euid = (uiox_uint16_t)u;
-        return SCPS_EOK;
+        return SCPCS_EOK;
     }
 
     if (u == (uiox_uint32_t)p->p_uid ||
         u == (uiox_uint32_t)p->p_euid) {    /* re-asserting self */
         p->p_euid = (uiox_uint16_t)u;
-        return SCPS_EOK;
+        return SCPCS_EOK;
     }
 
-    return SCPS_EPERM;                      /* may not take a new identity */
+    return SCPCS_EPERM;                      /* may not take a new identity */
 }

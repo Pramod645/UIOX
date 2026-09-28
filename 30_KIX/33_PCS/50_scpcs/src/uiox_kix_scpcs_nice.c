@@ -27,7 +27,7 @@
  *
  * @version 1.0.0  @date 2026-09-29
  */
-#include "../include/uiox_kix_scps.h"
+#include "../include/uiox_kix_scpcs.h"
 
 /* Upper bound on the internal (lower-is-better) priority scale.  If
  * 40psa ever publishes a named constant for this, use it instead. */
@@ -37,15 +37,15 @@
 
 int64_t uiox_kix_scpcs_nice(uiox_uint64_t inc)
 {
-    uiox_kix_psa_proc_t *p = uiox_kix_scps_current();
+    uiox_kix_psa_proc_t *p = uiox_kix_scpcs_current();
     int32_t n;
     int32_t d;
 
-    if (!p) return SCPS_ESRCH;
+    if (!p) return SCPCS_ESRCH;
 
     /* POSIX's user-visible range is -20..19; 40 is the run of it and
      * refuses anything wider rather than clamping silently. */
-    if (inc > 40u) return SCPS_EINVAL;
+    if (inc > 40u) return SCPCS_EINVAL;
 
     d = (int32_t)inc;
     n = (int32_t)p->p_sched.p_nice - d;   /* the inversion, made visible */

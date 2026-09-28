@@ -30,16 +30,16 @@
  *
  * @version 1.0.0  @date 2026-09-29
  */
-#include "../include/uiox_kix_scps.h"
+#include "../include/uiox_kix_scpcs.h"
 
 int64_t uiox_kix_scpcs_times(uiox_uintptr_t buf_out)
 {
-    if (!uiox_kix_scps_current()) return SCPS_ESRCH;
+    if (!uiox_kix_scpcs_current()) return SCPCS_ESRCH;
 
     /* A NULL buffer is legal per POSIX and asks only whether times() is
      * callable — but answering it with success would claim the timer
      * record holds measured values. */
-    if (buf_out != 0u) return SCPS_EFAULT;   /* no copy_to_user */
+    if (buf_out != 0u) return SCPCS_EFAULT;   /* no copy_to_user */
 
-    return SCPS_ENOSYS;   /* nothing charges the timer fields yet */
+    return SCPCS_ENOSYS;   /* nothing charges the timer fields yet */
 }

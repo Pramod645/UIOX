@@ -29,7 +29,7 @@
  *
  * @version 1.0.0  @date 2026-09-29
  */
-#include "../include/uiox_kix_scps.h"
+#include "../include/uiox_kix_scpcs.h"
 
 #ifndef SIG_BLOCK
 #define SIG_BLOCK   0
@@ -47,12 +47,12 @@ int64_t uiox_kix_scpcs_sig_procmask(uiox_uint64_t how, uiox_uintptr_t set,
     (void)set;
     (void)oldset;
 
-    if (!uiox_kix_scps_current()) return SCPS_ESRCH;
+    if (!uiox_kix_scpcs_current()) return SCPCS_ESRCH;
 
     if (how != (uiox_uint64_t)SIG_BLOCK   &&
         how != (uiox_uint64_t)SIG_UNBLOCK &&
         how != (uiox_uint64_t)SIG_SETMASK)
         return SCPS_EINVAL;
 
-    return SCPS_ENOSYS;
+    return SCPCS_ENOSYS;
 }

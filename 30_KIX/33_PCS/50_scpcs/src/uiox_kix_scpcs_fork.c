@@ -53,13 +53,13 @@
  *
  * @version 1.0.0  @date 2026-09-29
  */
-#include "../include/uiox_kix_scps.h"
+#include "../include/uiox_kix_scpcs.h"
 
 int64_t uiox_kix_scpcs_fork(void)
 {
-    if (!uiox_kix_scps_current()) return SCPS_ESRCH;
+    if (!uiox_kix_scps_current()) return SCPCS_ESRCH;
 
     /* The callee returns 0 to parent AND child, so its value cannot be
      * used as a PID. */
-    return SCPS_ENOSYS;
+    return SCPCS_ENOSYS;
 }

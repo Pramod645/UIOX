@@ -23,14 +23,14 @@
  *
  * @version 1.0.0  @date 2026-09-29
  */
-#include "../include/uiox_kix_scps.h"
+#include "../include/uiox_kix_scpcs.h"
 
 int64_t uiox_kix_scpcs_sig_pending(uiox_uintptr_t set)
 {
-    uiox_kix_psa_proc_t *p = uiox_kix_scps_current();
+    uiox_kix_psa_proc_t *p = uiox_kix_scpcs_current();
 
-    if (!p) return SCPS_ESRCH;
-    if (set != 0u) return SCPS_EFAULT;   /* no copy_to_user */
+    if (!p) return SCPCS_ESRCH;
+    if (set != 0u) return SCPCS_EFAULT;   /* no copy_to_user */
 
     return (int64_t)(p->p_sig & p->p_sigmask);
 }

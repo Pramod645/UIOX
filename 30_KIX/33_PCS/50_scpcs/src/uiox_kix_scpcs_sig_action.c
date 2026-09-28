@@ -26,7 +26,7 @@
  *
  * @version 1.0.0  @date 2026-09-29
  */
-#include "../include/uiox_kix_scps.h"
+#include "../include/uiox_kix_scpcs.h"
 
 int64_t uiox_kix_scpcs_sig_action(uiox_uint64_t sig, uiox_uintptr_t act,
                                   uiox_uintptr_t oldact)
@@ -34,15 +34,15 @@ int64_t uiox_kix_scpcs_sig_action(uiox_uint64_t sig, uiox_uintptr_t act,
     (void)act;      /* no copy in  — see banner */
     (void)oldact;   /* no copy out */
 
-    if (!uiox_kix_scps_current()) return SCPS_ESRCH;
+    if (!uiox_kix_scpcs_current()) return SCPCS_ESRCH;
 
     if (sig == 0u || sig > (uiox_uint64_t)UIOX_KIX_PSA_NSIG)
-        return SCPS_EINVAL;
+        return SCPCS_EINVAL;
 
     /* the two dispositions nothing may change */
     if (sig == (uiox_uint64_t)UIOX_KIX_PSA_SIGKILL ||
         sig == (uiox_uint64_t)UIOX_KIX_PSA_SIGSTOP)
-        return SCPS_EINVAL;
+        return SCPCS_EINVAL;
 
-    return SCPS_ENOSYS;
+    return SCPCS_ENOSYS;
 }

@@ -34,11 +34,11 @@
 
 int64_t uiox_kix_scpcs_alarm(uiox_uint64_t seconds)
 {
-    if (!uiox_kix_scps_current()) return SCPS_ESRCH;
+    if (!uiox_kix_scps_current()) return SCPCS_ESRCH;
 
     /* Cancelling (zero seconds) needs the outstanding callout's identity
      * just as much as setting does. */
-    if (seconds == 0u) return SCPS_ENOSYS;
+    if (seconds == 0u) return SCPCS_ENOSYS;
 
-    return SCPS_ENOSYS;   /* no per-process alarm state */
+    return SCPCS_ENOSYS;   /* no per-process alarm state */
 }

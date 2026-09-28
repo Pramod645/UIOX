@@ -35,25 +35,25 @@
  *
  * @version 1.0.0  @date 2026-09-29
  */
-#include "../include/uiox_kix_scps.h"
+#include "../include/uiox_kix_scpcs.h"
 
 extern int                 kernel_kill(uiox_uint32_t pid, int signum);
 extern uiox_kix_psa_proc_t *uiox_kix_psa_proc_find(uiox_uint32_t pid);
 
 int64_t uiox_kix_scpcs_kill(uiox_uint64_t pid, uiox_uint64_t sig)
 {
-    if (!uiox_kix_scps_current()) return SCPS_ESRCH;
+    if (!uiox_kix_scps_current()) return SCPCS_ESRCH;
 
     /* Signal 0 is POSIX's existence check, not a signal to deliver.
      * Refusing it keeps the return value meaningful rather than
      * quietly reporting success for a delivery that never happens. */
-    if (sig == 0u) return SCPS_EINVAL;
-    if (sig > (uiox_uint64_t)UIOX_KIX_PSA_NSIG) return SCPS_EINVAL;
+    if (sig == 0u) return SCPCS_EINVAL;
+    if (sig > (uiox_uint64_t)UIOX_KIX_PSA_NSIG) return SCPCS_EINVAL;
 
-    if (pid == 0u || pid > 0x7FFFFFFFu) return SCPS_EINVAL;
+    if (pid == 0u || pid > 0x7FFFFFFFu) return SCPCS_EINVAL;
 
-    if (!uiox_kix_psa_proc_find((uiox_uint32_t)pid)) return SCPS_ESRCH;
+    if (!uiox_kix_psa_proc_find((uiox_uint32_t)pid)) return SCPCS_ESRCH;
 
     (void)kernel_kill;   /* present, does not deliver — see banner */
-    return SCPS_ENOSYS;
+    return SCPCS_ENOSYS;
 }

@@ -13,12 +13,12 @@
  *
  * @version 1.0.0  @date 2026-09-29
  */
-#include "../include/uiox_kix_scps.h"
+#include "../include/uiox_kix_scpcs.h"
 
-int64_t uiox_kix_scps_get_pid(void)
+int64_t uiox_kix_scpcs_get_pid(void)
 {
-    uiox_kix_psa_proc_t *p = uiox_kix_scps_current();
+    uiox_kix_psa_proc_t *p = uiox_kix_scpcs_current();
 
-    if (!p) return SCPS_ESRCH;
+    if (!p) return SCPCS_ESRCH;
     return (int64_t)p->p_pid;
 }

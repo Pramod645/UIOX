@@ -37,7 +37,7 @@
  *
  * @version 1.0.0  @date 2026-09-29
  */
-#include "../include/uiox_kix_scps.h"
+#include "../include/uiox_kix_scpcs.h"
 
 int64_t uiox_kix_scpcs_execve(uiox_uintptr_t path, uiox_uintptr_t argv,
                               uiox_uintptr_t envp)
@@ -45,11 +45,11 @@ int64_t uiox_kix_scpcs_execve(uiox_uintptr_t path, uiox_uintptr_t argv,
     (void)argv;   /* NULL is legal and nothing dereferences it */
     (void)envp;
 
-    if (!uiox_kix_scps_current()) return SCPS_ESRCH;
+    if (!uiox_kix_scps_current()) return SCPCS_ESRCH;
 
     /* one byte, byte-aligned: just enough to prove the string is
      * inside the user window */
-    if (uiox_kix_scps_check_user_ptr(path, 1u, 1u) != 0) return SCPS_EFAULT;
+    if (uiox_kix_scps_check_user_ptr(path, 1u, 1u) != 0) return SCPCS_EFAULT;
 
-    return SCPS_ENOSYS;
+    return SCPCS_ENOSYS;
 }

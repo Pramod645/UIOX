@@ -32,10 +32,10 @@
  *
  * @version 1.0.0  @date 2026-09-29
  */
-#include "../include/uiox_kix_scps.h"
+#include "../include/uiox_kix_scpcs.h"
 
-#define SCPS_CLOCK_REALTIME   0u
-#define SCPS_CLOCK_MONOTONIC  1u
+#define SCPCS_CLOCK_REALTIME   0u
+#define SCPCS_CLOCK_MONOTONIC  1u
 
 /* The kernel time shape.  Restated so this file needs no second include
  * path — it MUST match what the scheduler's time syscall declares. */
@@ -49,25 +49,25 @@ int64_t uiox_kix_scpcs_clock_get_time(uiox_uint64_t clock_id,
     scps_xtime_t ts;
     int          rc;
 
-    if (clock_id != (uiox_uint64_t)SCPS_CLOCK_REALTIME &&
-        clock_id != (uiox_uint64_t)SCPS_CLOCK_MONOTONIC)
+    if (clock_id != (uiox_uint64_t)SCPCS_CLOCK_REALTIME &&
+        clock_id != (uiox_uint64_t)SCPCS_CLOCK_MONOTONIC)
         return SCPS_EINVAL;
 
-    if (!uiox_kix_scps_current()) return SCPS_ESRCH;
+    if (!uiox_kix_scps_current()) return SCPCS_ESRCH;
 
     /* A named output buffer is validated even though it cannot be
      * written: refusing a bad address is still the right answer, and it
      * keeps this consistent with the rest of the layer. */
     if (out != 0u) {
         if (uiox_kix_scps_check_user_ptr(out, sizeof(scps_xtime_t), 8u) != 0)
-            return SCPS_EFAULT;
+            return SCPCS_EFAULT;
     }
 
     ts.tv_sec  = 0;
     ts.tv_nsec = 0u;
 
     rc = sys_clock_gettime(clock_id, &ts);
-    if (rc != 0) return SCPS_EINVAL;
+    if (rc != 0) return SCPCS_EINVAL;
 
     if (ts.tv_sec < 0)            ts.tv_sec = 0;
     if (ts.tv_sec > 0xFFFFFFFFLL) ts.tv_sec = 0xFFFFFFFFLL;

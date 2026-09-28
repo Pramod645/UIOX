@@ -29,20 +29,20 @@
  *
  * @version 1.0.0  @date 2026-09-29
  */
-#include "../include/uiox_kix_scps.h"
+#include "../include/uiox_kix_scpcs.h"
 
 int64_t uiox_kix_scpcs_nano_sleep(uiox_uintptr_t req, uiox_uintptr_t rem)
 {
-    if (!uiox_kix_scps_current()) return SCPS_ESRCH;
+    if (!uiox_kix_scpcs_current()) return SCPCS_ESRCH;
 
     /* req is mandatory: a sleep with no requested duration is not a
      * request, and the struct is read by the caller's own code. */
-    if (uiox_kix_scps_check_user_ptr(req, 16u, 8u) != 0) return SCPS_EFAULT;
+    if (uiox_kix_scpcs_check_user_ptr(req, 16u, 8u) != 0) return SCPCS_EFAULT;
 
     /* rem is optional — it receives the unslept remainder — so NULL is
      * legal and only a non-NULL value is validated. */
     if (rem != 0u &&
-        uiox_kix_scps_check_user_ptr(rem, 16u, 8u) != 0) return SCPS_EFAULT;
+        uiox_kix_scpcs_check_user_ptr(rem, 16u, 8u) != 0) return SCPCS_EFAULT;
 
-    return SCPS_ENOSYS;   /* nothing wakes a timed sleep */
+    return SCPCS_ENOSYS;   /* nothing wakes a timed sleep */
 }

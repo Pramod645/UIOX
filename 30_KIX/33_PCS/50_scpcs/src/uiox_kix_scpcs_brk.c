@@ -48,14 +48,14 @@ int64_t uiox_kix_scpcs_brk(uiox_uint64_t new_brk)
 {
     uintptr_t old;
 
-    if (!uiox_kix_scps_current()) return SCPS_ESRCH;
+    if (!uiox_kix_scps_current()) return SCPCS_ESRCH;
 
     /* the model is 32-bit; a wider request cannot be honoured and must
      * not be silently truncated into an address that is merely wrong */
-    if (new_brk > 0xFFFFFFFFu) return SCPS_EINVAL;
+    if (new_brk > 0xFFFFFFFFu) return SCPCS_EINVAL;
 
     old = kernel_brk((uintptr_t)new_brk);
-    if (old == (uintptr_t)-1) return SCPS_ENOMEM;
+    if (old == (uintptr_t)-1) return SCPCS_ENOMEM;
 
     return (int64_t)old;
 }

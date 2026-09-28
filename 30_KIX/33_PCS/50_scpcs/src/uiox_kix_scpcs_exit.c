@@ -43,7 +43,7 @@
  *
  * @version 1.0.0  @date 2026-09-29
  */
-#include "../include/uiox_kix_scps.h"
+#include "../include/uiox_kix_scpcs.h"
 
 extern int kernel_exit(int status);
 
@@ -51,14 +51,14 @@ int64_t uiox_kix_scpcs_exit(uiox_uint64_t exit_code)
 {
     uiox_kix_psa_proc_t *p = uiox_kix_scps_current();
 
-    if (!p) return SCPS_ESRCH;
-    if (exit_code > 0xFFu) return SCPS_EINVAL;   /* status is 8 bits */
+    if (!p) return SCPCS_ESRCH;
+    if (exit_code > 0xFFu) return SCPCS_EINVAL;   /* status is 8 bits */
 
     /* A process already in the terminal state has nothing left to do.
      * The state diagram refuses every transition out of ZOMBIE, so
      * falling through to the callee would fail there anyway. */
-    if (p->p_state == UIOX_KIX_PSA_PROC_ZOMBIE) return SCPS_EOK;
+    if (p->p_state == UIOX_KIX_PSA_PROC_ZOMBIE) return SCPCS_EOK;
 
     (void)kernel_exit((int)exit_code);
-    return SCPS_EOK;
+    return SCPCS_EOK;
 }

@@ -35,11 +35,11 @@
  *
  * @version 1.0.0  @date 2026-09-29
  */
-#include "../include/uiox_kix_scps.h"
+#include "../include/uiox_kix_scpcs.h"
 
 int64_t uiox_kix_scpcs_pause(void)
 {
-    if (!uiox_kix_scps_current()) return SCPS_ESRCH;
+    if (!uiox_kix_scpcs_current()) return SCPCS_ESRCH;
 
     /* Intended body, once delivery exists:
      *
@@ -48,5 +48,5 @@ int64_t uiox_kix_scpcs_pause(void)
      *                           1);                       // interruptible
      *   return SCPS_EINTR;
      */
-    return SCPS_ENOSYS;
+    return SCPCS_ENOSYS;
 }

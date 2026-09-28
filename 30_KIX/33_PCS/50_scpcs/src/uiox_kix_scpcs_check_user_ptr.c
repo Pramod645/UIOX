@@ -35,7 +35,7 @@
  *
  * @version 1.0.0  @date 2026-09-29
  */
-#include "../include/uiox_kix_scps.h"
+#include "../include/uiox_kix_scpcs.h"
 
 #define SCPS_USER_BASE   ((uiox_uint64_t)0x00001000ull)  /* skip NULL page */
 #define SCPS_USER_TOP    ((uiox_uint64_t)0xC0000000ull)  /* 32-bit VA model */
@@ -47,13 +47,13 @@ int uiox_kix_scps_check_user_ptr(uiox_uintptr_t p, uiox_uint64_t len,
     uiox_uint64_t end;
 
     if (len == 0u) return 0;          /* nothing named, nothing to check */
-    if (a  < SCPS_USER_BASE) return SCPS_EFAULT;
+    if (a  < SCPS_USER_BASE) return SCPCS_EFAULT;
 
     end = a + len;
-    if (end < a) return SCPS_EFAULT;  /* the sum wrapped                */
-    if (end > SCPS_USER_TOP) return SCPS_EFAULT;
+    if (end < a) return SCPCS_EFAULT;  /* the sum wrapped                */
+    if (end > SCPS_USER_TOP) return SCPCS_EFAULT;
 
-    if (align && (a % align) != 0u) return SCPS_EFAULT;
+    if (align && (a % align) != 0u) return SCPCS_EFAULT;
 
     return 0;
 }

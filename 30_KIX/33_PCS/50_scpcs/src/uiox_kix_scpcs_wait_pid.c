@@ -48,7 +48,7 @@
  *
  * @version 1.0.0  @date 2026-09-29
  */
-#include "../include/uiox_kix_scps.h"
+#include "../include/uiox_kix_scpcs.h"
 
 extern int kernel_wait(int *status_ptr);
 
@@ -60,17 +60,17 @@ int64_t uiox_kix_scpcs_wait_pid(uiox_uint64_t pid, uiox_uintptr_t status_out,
 
     (void)options;   /* WNOHANG and WUNTRACED are not modelled */
 
-    if (!uiox_kix_scps_current()) return SCPS_ESRCH;
-    if (pid > 0x7FFFFFFFu) return SCPS_EINVAL;
+    if (!uiox_kix_scps_current()) return SCPCS_ESRCH;
+    if (pid > 0x7FFFFFFFu) return SCPCS_EINVAL;
 
     if (status_out != 0u) {
         if (uiox_kix_scps_check_user_ptr(status_out, sizeof(int), 4u) != 0)
             return SCPS_EFAULT;
-        return SCPS_EFAULT;   /* no copy_to_user to complete it */
+        return SCPCS_EFAULT;   /* no copy_to_user to complete it */
     }
 
     id = kernel_wait(&status);
-    if (id < 0) return SCPS_ECHILD;
+    if (id < 0) return SCPCS_ECHILD;
 
     return (int64_t)id;
 }

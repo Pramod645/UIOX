@@ -26,11 +26,11 @@
  *
  * @version 1.0.0  @date 2026-09-29
  */
-#include "../include/uiox_kix_scps.h"
+#include "../include/uiox_kix_scpcs.h"
 
 extern uiox_kix_psa_proc_t *uiox_kix_psa_current_proc;
 
-uiox_kix_psa_proc_t *uiox_kix_scps_current(void)
+uiox_kix_psa_proc_t *uiox_kix_scpcs_current(void)
 {
     return uiox_kix_psa_current_proc;
 }
