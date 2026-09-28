@@ -1,14 +1,14 @@
-| File | Algorithms / Structures |
-| --- | --- |
-| include/process.h | proc_t, proc_state_t, signals, scheduling params, timers |
-| include/region.h | region_t, pregion_t, pte_t, region types/flags |
-| include/context.h | reg_context_t, sys_context_t, interrupt vector table |
-| include/proc_algo.h | u_area_t, syscall table, sleep hash, all prototypes |
-| src/process.c | proc_alloc/free/find, proc_set_state, sched_enqueue/pick |
-| src/region.c | allocreg, attachreg, growreg, loadreg, freereg, detachreg, dupreg |
-| src/context.c | inthand, context_save/restore/switch, intr_register |
-| src/syscall.c | syscall (algorithm 2), syscall_register, global u area |
-| src/sleep_wakeup.c | proc_sleep (algorithm 10), proc_wakeup (algorithm 11) |
+
+uiox_kix_psa_process.h   ->  process.c, region.c, sleep_wakeup.c, context.c   (all include it)
+uiox_kix_psa_region.h    ->  region.c, process.c
+uiox_kix_psa_context.h   ->  context.c, process.c
+
+void uiox_kix_psa_proc_wakeup(uintptr_t wchan);
+int  uiox_kix_psa_proc_sleep(uintptr_t wchan, int priority, int interruptible);
+Any caller includes proc_algo.h. A separate sleep_wakeup.h would declare the same two prototypes a second time — two places to keep in step, and a redefinition the moment they diverge.
 
 
-#based on PrcsStruct.txt
+Applied to the two files you named
+uiox_kix_psa_proc_algo.h has no .c because its entire content is declarations: the u area type, the sleep hash, the abort-flag struct, and prototypes for functions defined elsewhere. There is nothing to define. In C, a header with a .c twin usually means module with a companion implementation; here the header is a layer-wide interface, so it sits above the sources rather than beside one.
+
+uiox_kix_psa_sleep_wakeup.c has no .h because its two functions are already declared in that same layer-wide header, and no other file declares anything of its own that callers need.
