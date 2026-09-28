@@ -1,28 +1,34 @@
 /*SCPS:System call Process System*/
 /*
-The fork system call creates a new process, the exit call terminates process execution, and the wait call allows a parent process
-to synchronize its execution with the exit of a child process. Signals inform processes of asynchronous events. Because the kernel synchronizes execution of
-exit and wait via signals, the chapter presents signals before exit and wait . The exec system call allows a process to invoke a .. new" program, overlaying its address space with the executable image of a file. The brk system call allows a process to allocate more memory dynamically; similarly, the system allows the user stack to grow dynamically by allocating more space when necessary, using the same mechanisms as for brk .
+The fork system call creates a new process, the exit call terminates process execution, and the wait 
+call allows a parent process
+to synchronize its execution with the exit of a child process. Signals inform processes of 
+asynchronous events. Because the kernel synchronizes execution of
+exit and wait via signals, the chapter presents signals before exit and wait . 
+The exec system call allows a process to invoke a .. new" program, overlaying its address space 
+with the executable image of a file. The brk system call allows a process to allocate more memory 
+dynamically; similarly, the system allows the user stack to grow dynamically by allocating more space 
+when necessary, using the same mechanisms as for brk .
 
 //Almost all calls use sleep and wakeup
 //exec interacts with the file system algorithms
-
+----------------------------------------------------------
 1.System Calls dealing with memory Managment
 2.System calls Dealing with Synchronization
 3.Miscellaneous
-
-System Calls dealing with memory Managment
+---------------------------------------------------
+1-->System Calls dealing with memory Managment
 1. fork:   a.dupreg, b.attachreg
 2. exec:   a.detechreg, b.allocreg, c. attachreg, d.growreg, e.loadreg, f.mapreg
 3. brk:    a.growreg
 4. exit:   a.detechreg 
 
-System calls Dealing with Synchronization
+2--->System calls Dealing with Synchronization
 5. wait:
 6. signal
 7. kill
 
-Miscellaneous
+3-->Miscellaneous
 8. setpgrp
 9. setuid
 */
