@@ -162,6 +162,13 @@ Along with uix_sys.h (the numbers) and the entry-point declaration your trap han
 
 If you want, I can check the ARM32 and x86_64 conventions in the same file — the comment mentions all three arches, but the pasted excerpt only shows the ARM64 block. That would tell me whether x8/svc is the only shape the context type has to serve, or one of three.
 
+===============================
+That last one is a real hole, not a style question. A userspace gettimeofday() would hand the kernel an arbitrary address and the kernel would write to it. The gate exists, but this path skips it.
 
+Two ways to close it, and I'd want your pick:
 
+A. The adapter calls uiox_kix_scpcs_check_user_ptr(a0, sizeof(TimeVal), 8) itself, returning EFAULT on failure. Then every timing row is self-guarding and the order of calls stops mattering.
 
+B. SCiX does the check before dispatching to any subsystem, so no wrapper needs to. That's cleaner layering but a bigger change to the thin layer.
+
+My own preference is A — it keeps the guarantee local to the call that writes the pointer, and it matches how the rest of 50_scpcs already behaves.
