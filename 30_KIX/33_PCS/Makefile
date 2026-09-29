@@ -1,27 +1,46 @@
 # =============================================================================
-# 30_KIX/33_PCS/Makefile  — v2.0.0
+# 30_KIX/33_PCS/Makefile  — v3.0.0
 #
 # UIOX Process-Control Subsystem — master Makefile (Linux + macOS).
 # Builds libpcs.a for the selected architecture.
 #
-# Usage (matches 10_BSP/Makefile pattern):
-#   make arm64 / arm32 / riscv64 / x86_64
-#   make all                     # all four arches
+#   make arm64 | arm32 | riscv64 | x86_64
+#   make all                              # all four
 #   make clean[-arm64|-arm32|-riscv64|-x86_64]
 #   make info[-arm64|-arm32|-riscv64|-x86_64]
 #
-# Freestanding build: -nostdinc enforced.
-# All system headers replaced by 33_PCS/include/uiox_klibc.h.
+# Freestanding build: -nostdinc enforced.  System headers are replaced by
+# 33_PCS/include/uiox_klibc.h.
 #
-# @version 2.0.0  @date 2026-07-23
+# ── v3.0.0 CHANGES ───────────────────────────────────────────────────────────
+# The layer was renamed and re-scoped since v2.0.0, so this Makefile follows:
+#
+#   40_procStruct  ->  40_psa     (PSA — Process system Architecture)
+#                      files: uiox_kix_psa_*.c / .h
+#
+#   50_scps        ->  50_scpcs  (SCPCS — System Call Process Control System)
+#                      files: uiox_kix_scpcs_*.c
+#
+# The two directories are the whole process layer, and this Makefile builds
+# BOTH into libpcs.a — 40_psa the algorithms, 50_scpcs the syscall boundary
+# above them.
+#
+# v2.0.0 also listed files under 33_PCS/src/ that this version does not
+# assume: uiox_proc_init.c, uiox_sys_call_init.c, uiox_uaccess.c,
+# uiox_syscall.c, uiox_sys_fd.c, uiox_sys_mmap.c, uiox_ioctl_soc.c.
+# If any of those exist in your tree, uncomment its line in PCS_SRCS_C below.
+# They are commented rather than listed because a missing source is a hard
+# make error, and this file should build on what is actually present.
+#
+# @version 3.0.0  @date 2026-09-29
 # =============================================================================
 
 # ── Makefile-relative base ────────────────────────────────────────────────────
 # All paths anchored here so make works correctly from any CWD.
-MFDIR    := $(dir $(abspath $(lastword $(MAKEFILE_LIST))))
+MFDIR     := $(dir $(abspath $(lastword $(MAKEFILE_LIST))))
 COMMONDIR := $(abspath $(MFDIR)../common)
 
-# ── Host OS detection (matches 10_BSP pattern: UNAME_S) ──────────────────────
+# ── Host OS detection ─────────────────────────────────────────────────────────
 UNAME_S := $(shell uname -s)
 
 ifeq ($(UNAME_S),Darwin)
@@ -54,10 +73,12 @@ endif
 BSPDIR ?= $(abspath $(MFDIR)../../10_BSP)
 SOCINC  = $(BSPDIR)/03_SoC/include
 
-# ── PCS include roots ─────────────────────────────────────────────────────────
-PCSINC := $(MFDIR)include
+# ── The two layer directory names, in ONE place ──────────────────────────────
+# If either is renamed again, these two lines are the whole change.
+PSADIR   := $(MFDIR)40_psa
+SCPCSDIR := $(MFDIR)50_scpcs
 
-# ── Common compiler flags (matches 10_BSP COMMON_CFLAGS_BASE) ────────────────
+# ── Common compiler flags ─────────────────────────────────────────────────────
 COMMON_CFLAGS := \
   -std=c11              \
   -Wall -Wextra -Werror \
@@ -69,58 +90,81 @@ COMMON_CFLAGS := \
   -nostdinc             \
   -Os -g
 
-# ── Common include paths (all PCS-internal) ───────────────────────────────────
+# ── Include paths ─────────────────────────────────────────────────────────────
+# Both layer include dirs are here because each needs the other's headers:
+# 50_scpcs/../include/uiox_kix_scpcs.h includes uiox_kix_psa_process.h, and
+# 40_psa sources include their own four headers.
 COMMON_INCLUDES := \
-  -I$(COMMONDIR)                           \
-  -I$(PCSINC)                          \
-  -I$(MFDIR)40_procStruct/include      \
-  -I$(MFDIR)50_scps/include            \
-  -I$(MFDIR)01_schedular/include       \
-  -I$(MFDIR)02_MemMngnt/include        \
+  -I$(COMMONDIR)                    \
+  -I$(MFDIR)include                 \
+  -I$(PSADIR)/include               \
+  -I$(SCPCSDIR)/include             \
+  -I$(MFDIR)01_schedular/include    \
+  -I$(MFDIR)02_MemMngnt/include     \
   -I$(SOCINC)
 
 # ── Source files ──────────────────────────────────────────────────────────────
+#
+# 40_psa  — the algorithms.  Four sources, matching its four headers.
 PCS_SRCS_C := \
-  $(MFDIR)40_procStruct/src/uiox_task.c    \
-  $(MFDIR)02_MemMngnt/src/mm.c             \
-  $(MFDIR)src/uiox_proc_init.c             \
-  $(MFDIR)50_scps/src/uiox_sys_call.c
+  $(PSADIR)/src/uiox_kix_psa_process.c       \
+  $(PSADIR)/src/uiox_kix_psa_region.c        \
+  $(PSADIR)/src/uiox_kix_psa_context.c       \
+  $(PSADIR)/src/uiox_kix_psa_sleep_wakeup.c
 
-  # In 33_PCS/Makefile — add to SRCS list alongside existing files:
-#SRCS += $(MFDIR)src/uiox_uaccess.c
-#SRCS += $(MFDIR)src/uiox_syscall.c
-#SRCS += $(MFDIR)src/uiox_ioctl_soc.c
-#SRCS += $(MFDIR)src/uiox_mmap.c
+#
+# 50_scpcs — the syscall boundary.  A wildcard rather than 25 named lines,
+# because this layer is deliberately one function per file and listing them
+# means editing this Makefile every time one is added.  The wildcard picks up
+# all of them, and still works if the set is ever regrouped.
+PCS_SRCS_C += $(wildcard $(SCPCSDIR)/src/uiox_kix_scpcs_*.c)
 
-# Add to 33_PCS/Makefile SRCS:
-#SRCS += $(MFDIR)src/uiox_uaccess.c
-#SRCS += $(MFDIR)src/uiox_syscall.c
-#SRCS += $(MFDIR)src/uiox_sys_fd.c
-#SRCS += $(MFDIR)src/uiox_sys_mmap.c
-#SRCS += $(MFDIR)src/uiox_ioctl_soc.c
-#SRCS += $(MFDIR)src/uiox_sys_call_init.c
+#
+# Sources elsewhere in 33_PCS that were part of the old 17-syscall layout.
+# Commented, because this file must build on what exists.  Uncomment any that
+# are present in your tree:
+#
+#PCS_SRCS_C += $(MFDIR)src/uiox_proc_init.c
+#PCS_SRCS_C += $(MFDIR)src/uiox_sys_call_init.c
+#PCS_SRCS_C += $(MFDIR)src/uiox_uaccess.c
+#PCS_SRCS_C += $(MFDIR)src/uiox_syscall.c
+#PCS_SRCS_C += $(MFDIR)src/uiox_sys_fd.c
+#PCS_SRCS_C += $(MFDIR)src/uiox_sys_mmap.c
+#PCS_SRCS_C += $(MFDIR)src/uiox_ioctl_soc.c
 
-
+#
+# Supporting subsystems the process layer calls into.  Same rule: commented
+# unless confirmed present.  A wildcard is used where the whole directory is
+# wanted, so a missing directory expands to nothing instead of failing.
+#
+#PCS_SRCS_C += $(MFDIR)02_MemMngnt/src/mm.c
+#PCS_SRCS_C += $(MFDIR)02_MemMngnt/src/page_fault.c
+#PCS_SRCS_C += $(MFDIR)src/uiox_task.c
+#
 PCS_SRCS_C += $(wildcard $(MFDIR)01_schedular/src/*.c)
-PCS_SRCS_C += $(wildcard $(MFDIR)02_MemMngnt/src/uiox_timer*.c)
 
-# ── vpath — compiler finds sources by basename (matches 10_BSP pattern) ──────
-vpath %.c \
-  $(MFDIR)40_procStruct/src \
-  $(MFDIR)02_MemMngnt/src   \
-  $(MFDIR)01_schedular/src  \
-  $(MFDIR)50_scps/src       \
-  $(MFDIR)src
+# ── Object mapping ────────────────────────────────────────────────────────────
+# Objects mirror the source path under build/<arch>/, so
+#   40_psa/src/uiox_kix_psa_region.c  ->  build/arm64/40_psa/src/uiox_kix_psa_region.o
+# The directory part is preserved by the pattern rule below.
+BUILD_BASE  = $(MFDIR)build
+
+# ── vpath ─────────────────────────────────────────────────────────────────────
+# NOT used in this version.  v2.0.0 used vpath with basenames, which cannot
+# work once two directories hold same-named files — and the layers here are
+# named apart precisely to avoid that.  Keeping the full path in _OBJS makes
+# the object layout self-describing and the failure messages readable.
+vpath %.c $(PSADIR)/src $(SCPCSDIR)/src
 
 ARFLAGS := rcs
 
 # =============================================================================
-# Per-architecture named targets  (same pattern as 10_BSP/Makefile)
+# Per-architecture named targets
 # =============================================================================
 
 .PHONY: arm64
 arm64: _do_arm64
-	@echo "[PCS] arm64 done → build/arm64/"
+	@echo "[PCS] arm64 done -> build/arm64/"
 
 .PHONY: _do_arm64
 _do_arm64:
@@ -136,7 +180,7 @@ _do_arm64:
 
 .PHONY: arm32
 arm32: _do_arm32
-	@echo "[PCS] arm32 done → build/arm32/"
+	@echo "[PCS] arm32 done -> build/arm32/"
 
 .PHONY: _do_arm32
 _do_arm32:
@@ -152,7 +196,7 @@ _do_arm32:
 
 .PHONY: riscv64
 riscv64: _do_riscv64
-	@echo "[PCS] riscv64 done → build/riscv64/"
+	@echo "[PCS] riscv64 done -> build/riscv64/"
 
 .PHONY: _do_riscv64
 _do_riscv64:
@@ -166,9 +210,13 @@ _do_riscv64:
 	    ARCH_CFLAGS="-march=rv64imafdc_zicsr_zifencei -mabi=lp64d -mcmodel=medany" \
 	    ARCH_CPUDEF="-D__riscv -D__riscv_xlen=64"
 
+# x86_64: -mno-sse / -mno-sse2 ban floating point, because the return path
+# uses SSE registers.  Any source using float will fail here — the same rule
+# that forced the thermal-sensor rewrite.  Kept, because this arch is the one
+# that catches it.
 .PHONY: x86_64
 x86_64: _do_x86_64
-	@echo "[PCS] x86_64 done → build/x86_64/"
+	@echo "[PCS] x86_64 done -> build/x86_64/"
 
 .PHONY: _do_x86_64
 _do_x86_64:
@@ -185,16 +233,18 @@ _do_x86_64:
 # =============================================================================
 # Internal _build target
 # =============================================================================
-_BUILD_DIR = $(MFDIR)build/$(_ARCH)
-
-_ARCH_INC   = $(BSPDIR)/10_Arch/$(_ARCH)/include
+_ARCH     ?= arm64
+_BUILD_DIR = $(BUILD_BASE)/$(_ARCH)
+_ARCH_INC  = $(BSPDIR)/10_Arch/$(_ARCH)/include
 
 _CFLAGS_ALL = $(COMMON_CFLAGS)    \
-              $(COMMON_INCLUDES)   \
-              -I$(_ARCH_INC)       \
-              $(ARCH_CFLAGS)       \
+              $(COMMON_INCLUDES)  \
+              -I$(_ARCH_INC)      \
+              $(ARCH_CFLAGS)      \
               $(ARCH_CPUDEF)
 
+# Objects keep their layer path under the arch build dir, so two layers with
+# same-named files cannot collide and a .o name tells you where it came from.
 _OBJS = $(patsubst $(MFDIR)%.c,$(_BUILD_DIR)/%.o,$(PCS_SRCS_C))
 
 DEPFLAGS = -MMD -MP -MF $(@:.o=.d)
@@ -202,25 +252,29 @@ DEPFLAGS = -MMD -MP -MF $(@:.o=.d)
 
 .PHONY: _build
 _build: $(_BUILD_DIR)/libpcs.a
-	@echo "[PCS] _build done: $(_ARCH)"
+	@echo "[PCS] _build done: $(_ARCH)  ($(words $(_OBJS)) objects)"
 
 $(_BUILD_DIR)/libpcs.a: $(_OBJS)
 	@mkdir -p $(dir $@)
 	$(AR) $(ARFLAGS) $@ $^
 	@echo "  [AR]  $@"
 
+# The pattern keeps the full relative path, which is what lets the two layers
+# coexist.  -I of the source's own directory is added per file so a source can
+# include its neighbour the way uiox_kix_scpcs.h includes uiox_kix_psa_process.h.
 $(_BUILD_DIR)/%.o: $(MFDIR)%.c
 	@mkdir -p $(dir $@)
-	$(CC) $(_CFLAGS_ALL) $(DEPFLAGS) -c $< -o $@
+	$(CC) $(_CFLAGS_ALL) -I$(dir $<) $(DEPFLAGS) -c $< -o $@
 	@echo "  [CC]  $<"
 
 # =============================================================================
-# Convenience targets  (matches 10_BSP pattern)
+# Convenience targets
 # =============================================================================
 
 .PHONY: all
 all: arm64 arm32 riscv64 x86_64
-	@echo "" && echo "[PCS] all builds complete"
+	@echo ""
+	@echo "[PCS] all builds complete"
 
 .PHONY: clean-arm64 clean-arm32 clean-riscv64 clean-x86_64 clean
 clean-arm64:   ; rm -rf $(MFDIR)build/arm64
@@ -230,7 +284,7 @@ clean-x86_64:  ; rm -rf $(MFDIR)build/x86_64
 clean: clean-arm64 clean-arm32 clean-riscv64 clean-x86_64
 	@echo "[CLN] all build outputs removed"
 
-.PHONY: info-arm64 info-arm32 info-riscv64 info-x86_64
+.PHONY: info-arm64 info-arm32 info-riscv64 info-x86_64 info
 info-arm64:
 	@echo "HOST=$(UNAME_S) ARCH=arm64   CC=$(ARM64_CC)"
 info-arm32:
@@ -240,94 +294,20 @@ info-riscv64:
 info-x86_64:
 	@echo "HOST=$(UNAME_S) ARCH=x86_64  CC=$(X86_CC)"
 
-
-
-
-
-
-# =============================================================================
-# 30_KIX/33_PCS/Makefile  — v1.3.0
-# Added: uaccess, syscall, fd, mmap, ioctl, sys_call_init
-# =============================================================================
-
-MFDIR      := $(dir $(abspath $(lastword $(MAKEFILE_LIST))))
-BUILD_BASE  = $(MFDIR)build
-
-CC          ?= gcc
-AR          ?= ar
-ARCH_CFLAGS ?=
-ARCH_CPUDEF ?=
-_ARCH       ?= arm64
-
-_BUILD_DIR := $(BUILD_BASE)/$(_ARCH)
-
-COMMON_CFLAGS := \
-  -std=c11 -Wall -Wextra -Werror          \
-  -ffreestanding -fno-builtin             \
-  -fno-stack-protector                    \
-  -ffunction-sections -fdata-sections     \
-  -nostdinc -Os -g                        \
-  $(ARCH_CFLAGS) $(ARCH_CPUDEF)           \
-  -I$(MFDIR)include                       \
-  -I$(MFDIR)../common                     \
-  -I$(MFDIR)../32_FS/include              \
-  -I$(MFDIR)../32_FS/02_journal           \
-  -I$(MFDIR)../31_BufferCache/00_FileBuff/include \
-  -I$(MFDIR)../02_FwHal/include           \
-  -I$(MFDIR)00_IPC/include                \
-  -I$(MFDIR)50_scps/include               \
-  -I$(MFDIR)40_procStruct/include
-
-SRCS := \
-  $(MFDIR)src/uiox_proc_init.c           \
-  $(MFDIR)src/uiox_sys_call_init.c       \
-  $(MFDIR)src/uiox_uaccess.c             \
-  $(MFDIR)src/uiox_syscall.c             \
-  $(MFDIR)src/uiox_sys_fd.c              \
-  $(MFDIR)src/uiox_sys_mmap.c            \
-  $(MFDIR)src/uiox_ioctl_soc.c           \
-  $(MFDIR)02_MemMngnt/src/mm.c           \
-  $(MFDIR)02_MemMngnt/src/page_fault.c   \
-  $(MFDIR)01_schedular/src/sched.c       \
-  $(MFDIR)01_schedular/src/timer.c       \
-  $(MFDIR)00_IPC/src/msg.c               \
-  $(MFDIR)00_IPC/src/shm.c               \
-  $(MFDIR)00_IPC/src/sem.c               \
-  $(MFDIR)50_scps/src/fork.c             \
-  $(MFDIR)50_scps/src/exec.c             \
-  $(MFDIR)50_scps/src/exit_wait.c        \
-  $(MFDIR)50_scps/src/signal.c           \
-  $(MFDIR)03_ksign/src/uiox_ksign.c      \
-  $(MFDIR)04_fboot/src/uiox_fboot.c      \
-  $(MFDIR)05_sec/src/uiox_sec.c          \
-  $(MFDIR)06_kpatch/src/uiox_kpatch.c
-
-OBJS := $(patsubst $(MFDIR)%.c,$(_BUILD_DIR)/%.o,$(SRCS))
-LIB  := $(_BUILD_DIR)/libpcs.a
-
-.PHONY: arm64 arm32 riscv64 x86_64
-arm64 arm32 riscv64 x86_64:
-	$(MAKE) -f $(MFDIR)Makefile _build \
-	    _ARCH=$@                       \
-	    CC="$(CC)" AR="$(AR)"          \
-	    ARCH_CFLAGS="$(ARCH_CFLAGS)"   \
-	    ARCH_CPUDEF="$(ARCH_CPUDEF)"
-
-.PHONY: _build
-_build: $(LIB)
-	@echo "[PCS] $(_BUILD_DIR)/libpcs.a"
-
-$(LIB): $(OBJS)
-	@mkdir -p $(dir $@)
-	$(AR) rcs $@ $^
-
-$(_BUILD_DIR)/%.o: $(MFDIR)%.c
-	@mkdir -p $(dir $@)
-	@echo "  [CC]  $<"
-	$(CC) $(COMMON_CFLAGS) -I$(dir $<) -MMD -MP -c $< -o $@
-
--include $(wildcard $(BUILD_BASE)/$(_ARCH)/*.d)
-
-.PHONY: clean
-clean:
-	rm -rf $(BUILD_BASE)
+# ── info — what this Makefile will actually build ────────────────────────────
+# The one target worth running first, because it prints the file list rather
+# than assuming it.  If a path is wrong, you see it here instead of at link.
+.PHONY: info
+info:
+	@echo "PSADIR   = $(PSADIR)"
+	@echo "SCPCSDIR = $(SCPCSDIR)"
+	@echo ""
+	@echo "40_psa sources:"
+	@for f in $(PSADIR)/src/uiox_kix_psa_*.c ; do \
+	    [ -f "$$f" ] && echo "  OK   $$f" || echo "  MISS $$f" ; done
+	@echo ""
+	@echo "50_scpcs sources:"
+	@for f in $(wildcard $(SCPCSDIR)/src/uiox_kix_scpcs_*.c) ; do \
+	    [ -f "$$f" ] && echo "  OK   $$f" || echo "  MISS $$f" ; done
+	@echo ""
+	@echo "object count: $(words $(_OBJS))"

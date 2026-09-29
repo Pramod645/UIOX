@@ -133,6 +133,22 @@ typedef struct uiox_kix_psa_proc {
     uiox_kix_psa_proc_timer_t  p_timers;   /* CPU accounting, struct tms shape */
     int                        p_flag;     /* P_* status bits                  */
     int                        p_exit_code;/* status a parent collects         */
+
+    /* ── alarm state ───────────────────────────────────────────────
+     * alarm() is a PROCESS syscall, so the outstanding alarm is
+     * per-process state and lives here — not on the scheduler's
+     * wrapper, which holds scheduling POLICY rather than anything a
+     * syscall reads and writes.
+     *
+     * The pair are the two halves POSIX alarm needs and neither can
+     * be derived from the other: p_alarm_expire is WHEN it fires, and
+     * p_alarm_active distinguishes "an alarm is set" from "the
+     * deadline has passed but nothing cleared it".  A single deadline
+     * field could not tell those apart.
+     *
+     * A new alarm REPLACES the old, which is why arming writes both. */
+    uint64_t                   p_alarm_expire;  /* jiffies it fires at       */
+    int                        p_alarm_active;  /* 1 = an alarm is armed     */
     struct uiox_kix_psa_proc  *p_next;     /* ready-queue / sleep-hash forward */
     struct uiox_kix_psa_proc  *p_prev;     /* ... and backward                 */
 } uiox_kix_psa_proc_t;

@@ -93,10 +93,14 @@
  * They arrive here rather than at a third dispatcher because
  * 01_schedular is part of the process control subsystem.
  * ──────────────────────────────────────────────────────────────────── */
-extern int   sys_gettimeofday(void *tv);
-extern int   sys_adjtimex(int64_t delta_sec, int32_t delta_nsec);
-extern int   sys_setitimer(void *p, const void *new_val, void *old_val);
-extern int   sys_clock_settime(int id, const void *in);
+extern int   uiox_kix_time_service_gettimeofday(void *tv);
+extern int   uiox_kix_time_service_adjtimex(int64_t delta_sec, int32_t delta_nsec);
+extern int   uiox_kix_time_service_setitimer(void *p, const void *new_val,
+                                             void *old_val);
+extern int   uiox_kix_time_service_getitimer(void *p, void *value);
+extern int   uiox_kix_time_service_clock_settime(int id, const void *in);
+extern int   uiox_kix_time_service_clock_getres(int id, void *out_res);
+extern int   uiox_kix_time_service_clock_gettime(int id, void *out);
 
 /* A structural view of 01_schedular's XTime { int64_t sec; uint32_t
  * nsec; } so this file can size a pointer check without including
@@ -242,7 +246,7 @@ static int64_t scpcs_call_gettimeofday(uiox_uintptr_t a0, uiox_uintptr_t a1,
                                       sizeof(scpcs_timeval_view_t), 4u))
         return SCPCS_EFAULT;
 
-    return (int64_t)sys_gettimeofday((void *)(uintptr_t)a0);
+    return (int64_t)uiox_kix_time_service_gettimeofday((void *)(uintptr_t)a0);
 }
 
 /* setitimer(which, new_val, old_val)
@@ -267,9 +271,9 @@ static int64_t scpcs_call_setitimer(uiox_uintptr_t a0, uiox_uintptr_t a1,
                                       sizeof(scpcs_itimerval_view_t), 8u))
         return SCPCS_EFAULT;
 
-    return (int64_t)sys_setitimer((void *)(uintptr_t)a0,
-                                  (const void *)(uintptr_t)a1,
-                                  (void *)(uintptr_t)a2);
+    return (int64_t)uiox_kix_time_service_setitimer((void *)(uintptr_t)a0,
+                                                   (const void *)(uintptr_t)a1,
+                                                   (void *)(uintptr_t)a2);
 }
 
 /* clock_settime(clock_id, tp)
@@ -300,8 +304,8 @@ static int64_t scpcs_call_clock_settime(uiox_uintptr_t a0, uiox_uintptr_t a1,
 
     if (p->p_euid != 0u) return SCPCS_EPERM;
 
-    return (int64_t)sys_clock_settime((int)a0,
-                                      (const void *)(uintptr_t)a1);
+    return (int64_t)uiox_kix_time_service_clock_settime(
+                       (int)a0, (const void *)(uintptr_t)a1);
 }
 
 /* adjtimex(delta_sec, delta_nsec)
@@ -329,7 +333,52 @@ static int64_t scpcs_call_adjtimex(uiox_uintptr_t a0, uiox_uintptr_t a1,
     if (nsec <= -1000000000 || nsec >= 1000000000)
         return SCPCS_EINVAL;
 
-    return (int64_t)sys_adjtimex((int64_t)a0, nsec);
+    return (int64_t)uiox_kix_time_service_adjtimex((int64_t)a0, nsec);
+}
+
+
+/* clock_getres(clock_id, res)
+ *
+ * res is MANDATORY and is WRITTEN THROUGH — the resolution, one tick.
+ * It reached the gettime wrapper before, which returned a TIME where a
+ * RESOLUTION was asked for; the two are different questions and a
+ * caller sizing a buffer on the answer would size it wrongly. */
+static int64_t scpcs_call_clock_getres(uiox_uintptr_t a0, uiox_uintptr_t a1,
+                                       uiox_uintptr_t a2, uiox_uintptr_t a3,
+                                       uiox_uintptr_t a4, uiox_uintptr_t a5)
+{
+    (void)a2; (void)a3; (void)a4; (void)a5;
+
+    if (a1 == 0u) return SCPCS_EFAULT;
+    if (uiox_kix_scpcs_check_user_ptr(a1, sizeof(scpcs_xtime_view_t), 8u))
+        return SCPCS_EFAULT;
+
+    return (int64_t)uiox_kix_time_service_clock_getres(
+                       (int)a0, (void *)(uintptr_t)a1);
+}
+
+/* getitimer(which, value)
+ *
+ * value is MANDATORY and is WRITTEN THROUGH.  This reached the setitimer
+ * wrapper before, which CANCELS the previous alarm before arming — so a
+ * poll would have destroyed the timer it was asked to report. */
+static int64_t scpcs_call_getitimer(uiox_uintptr_t a0, uiox_uintptr_t a1,
+                                    uiox_uintptr_t a2, uiox_uintptr_t a3,
+                                    uiox_uintptr_t a4, uiox_uintptr_t a5)
+{
+    uiox_kix_psa_proc_t *p;
+
+    (void)a2; (void)a3; (void)a4; (void)a5;
+
+    p = uiox_kix_scps_current();
+    if (!p) return SCPCS_ESRCH;
+
+    if (a1 == 0u) return SCPCS_EFAULT;
+    if (uiox_kix_scpcs_check_user_ptr(a1, sizeof(scpcs_itimerval_view_t), 8u))
+        return SCPCS_EFAULT;
+
+    return (int64_t)uiox_kix_time_service_getitimer(
+                       (void *)(uintptr_t)p, (void *)(uintptr_t)a1);
 }
 
 /* ── The table ───────────────────────────────────────────────────────
@@ -382,10 +431,10 @@ static const uiox_kix_scpcs_entry_t
     [SYS_GETTIMEOFDAY]    = { scpcs_call_gettimeofday,   "gettimeofday"   },
     [SYS_SETTIMEOFDAY]    = { scpcs_call_clock_settime,  "settimeofday"   },
     [SYS_SETITIMER]       = { scpcs_call_setitimer,      "setitimer"      },
-    [SYS_GETITIMER]       = { scpcs_call_setitimer,      "getitimer"      },
+    [SYS_GETITIMER]       = { scpcs_call_getitimer,      "getitimer"      },
     [SYS_CLOCK_GETTIME]   = { scpcs_call_clock_get_time, "clock_gettime"  },
     [SYS_CLOCK_SETTIME]   = { scpcs_call_clock_settime,  "clock_settime"  },
-    [SYS_CLOCK_GETRES]    = { scpcs_call_clock_get_time, "clock_getres"   },
+    [SYS_CLOCK_GETRES]    = { scpcs_call_clock_getres,   "clock_getres"   },
     [SYS_NANOSLEEP]       = { scpcs_call_nano_sleep,     "nanosleep"      },
 
     /* ── signals, priority, misc ────────────────────────────────── */
