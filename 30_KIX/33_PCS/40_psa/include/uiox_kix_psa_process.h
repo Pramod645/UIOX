@@ -149,6 +149,28 @@ typedef struct uiox_kix_psa_proc {
      * A new alarm REPLACES the old, which is why arming writes both. */
     uint64_t                   p_alarm_expire;  /* jiffies it fires at       */
     int                        p_alarm_active;  /* 1 = an alarm is armed     */
+
+    /* ── swap residency ────────────────────────────────────────────
+     * Set by the swapper in 02_MemMngnt when this process is written
+     * out, and read when it is brought back in.
+     *
+     *   p_swap_time  when it was swapped out, in jiffies.  Bach's
+     *                swapper picks the process "swapped out longest",
+     *                which is the SMALLEST value here.
+     *
+     *   p_swap_blk   the first block of the contiguous run this
+     *                process occupies on the swap device.
+     *
+     * The block number has to be recorded because the resource map is
+     * the only thing that knows the EXTENT — given a start and a size
+     * it can return the run, but given a process it cannot.  Without
+     * this field a swap-in releases no blocks, and the map empties
+     * while the device still reports free space.
+     *
+     * Zero means "not on the swap device": block 0 is never handed out,
+     * because a map's first unit starts above it. */
+    uint64_t                   p_swap_time;     /* jiffies swapped out       */
+    uint32_t                   p_swap_blk;      /* first block on the device */
     struct uiox_kix_psa_proc  *p_next;     /* ready-queue / sleep-hash forward */
     struct uiox_kix_psa_proc  *p_prev;     /* ... and backward                 */
 } uiox_kix_psa_proc_t;
