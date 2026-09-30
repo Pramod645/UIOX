@@ -102,6 +102,38 @@ extern int   uiox_kix_time_service_clock_settime(int id, const void *in);
 extern int   uiox_kix_time_service_clock_getres(int id, void *out_res);
 extern int   uiox_kix_time_service_clock_gettime(int id, void *out);
 
+/* ── The 33_PCS/00IPC entry points ───────────────────────────────────
+ * Declared rather than included, for the same reason the time service
+ * is: this file must not drag another subsystem's types in.
+ *
+ * IPC is a SIBLING of 50_scpcs inside 33_PCS — not a layer above or
+ * below.  Its calls arrive here rather than at a fourth table, because
+ * a fourth table would be a fourth place deciding what a number means.
+ *
+ * The System V calls take a key and flags, not a process; the three that
+ * DO touch a process entry take the ones the wrappers resolve from
+ * uiox_kix_scps_current(). */
+extern int      uiox_kix_msg_get(int key, int flag);
+extern int      uiox_kix_msg_ctl(int msgqid, int cmd, void *buf);
+extern int      uiox_kix_msg_snd(int msgqid, const void *msg,
+                                 uiox_size_t count, int flag, void *sender);
+extern int      uiox_kix_msg_rcv(int msgqid, void *out_msg,
+                                 uiox_size_t maxcount, long type,
+                                 int flag, void *receiver);
+
+extern int      uiox_kix_sem_get(int key, int nsems, int flag);
+extern int      uiox_kix_sem_ctl(int semid, int semnum, int cmd, int val);
+extern int      uiox_kix_sem_op(int semid, void *ops, int nops, void *caller);
+
+extern int      uiox_kix_shm_get(int key, uiox_size_t size, int flag);
+extern void    *uiox_kix_shm_at(int shmid, void *va_hint, int flags,
+                                void *attaches, int *attach_count);
+extern int      uiox_kix_shm_dt(void *va, void *attaches, int *attach_count);
+extern int      uiox_kix_shm_ctl(int shmid, int cmd, void *buf);
+
+extern int      uiox_kix_ptrace(int req, void *debugger, void *tracee,
+                                uiox_uint64_t addr, uiox_uint64_t *data);
+
 /* A structural view of 01_schedular's XTime { int64_t sec; uint32_t
  * nsec; } so this file can size a pointer check without including
  * sched_types.h.  The layout MUST match — same two fields, same order. */
@@ -381,6 +413,153 @@ static int64_t scpcs_call_getitimer(uiox_uintptr_t a0, uiox_uintptr_t a1,
                        (void *)(uintptr_t)p, (void *)(uintptr_t)a1);
 }
 
+/* ══ The 00IPC adapters ══════════════════════════════════════════════
+ * System V IPC takes no process pointer for its queue and set calls —
+ * the caller is identified by the descriptor it holds.  The three that
+ * do take one (msgsnd, msgrcv, semop) resolve it here, so a caller does
+ * not pass a process handle through the syscall.
+ * ──────────────────────────────────────────────────────────────────── */
+
+static int64_t scpcs_call_msg_get(uiox_uintptr_t a0, uiox_uintptr_t a1,
+                                  uiox_uintptr_t a2, uiox_uintptr_t a3,
+                                  uiox_uintptr_t a4, uiox_uintptr_t a5)
+{
+    (void)a2; (void)a3; (void)a4; (void)a5;
+    return (int64_t)uiox_kix_msg_get((int)a0, (int)a1);
+}
+
+static int64_t scpcs_call_msg_ctl(uiox_uintptr_t a0, uiox_uintptr_t a1,
+                                  uiox_uintptr_t a2, uiox_uintptr_t a3,
+                                  uiox_uintptr_t a4, uiox_uintptr_t a5)
+{
+    (void)a3; (void)a4; (void)a5;
+    if (a2 != 0u &&
+        uiox_kix_scpcs_check_user_ptr(a2, sizeof(int) * 16u, 8u))
+        return SCPCS_EFAULT;
+    return (int64_t)uiox_kix_msg_ctl((int)a0, (int)a1,
+                                     (void *)(uintptr_t)a2);
+}
+
+static int64_t scpcs_call_msg_snd(uiox_uintptr_t a0, uiox_uintptr_t a1,
+                                  uiox_uintptr_t a2, uiox_uintptr_t a3,
+                                  uiox_uintptr_t a4, uiox_uintptr_t a5)
+{
+    (void)a4; (void)a5;
+    if (!uiox_kix_scps_current()) return SCPCS_ESRCH;
+    if (a1 == 0u) return SCPCS_EFAULT;
+    if (uiox_kix_scpcs_check_user_ptr(a1, 8u, 8u)) return SCPCS_EFAULT;
+    return (int64_t)uiox_kix_msg_snd((int)a0, (void *)(uintptr_t)a1,
+                                     (uiox_size_t)a2, (int)a3,
+                                     (void *)uiox_kix_scps_current());
+}
+
+static int64_t scpcs_call_msg_rcv(uiox_uintptr_t a0, uiox_uintptr_t a1,
+                                  uiox_uintptr_t a2, uiox_uintptr_t a3,
+                                  uiox_uintptr_t a4, uiox_uintptr_t a5)
+{
+    (void)a5;
+    if (!uiox_kix_scps_current()) return SCPCS_ESRCH;
+    if (a1 == 0u) return SCPCS_EFAULT;
+    if (uiox_kix_scpcs_check_user_ptr(a1, 8u, 8u)) return SCPCS_EFAULT;
+    return (int64_t)uiox_kix_msg_rcv((int)a0, (void *)(uintptr_t)a1,
+                                     (uiox_size_t)a2, (long)a3, (int)a4,
+                                     (void *)uiox_kix_scps_current());
+}
+
+static int64_t scpcs_call_sem_get(uiox_uintptr_t a0, uiox_uintptr_t a1,
+                                  uiox_uintptr_t a2, uiox_uintptr_t a3,
+                                  uiox_uintptr_t a4, uiox_uintptr_t a5)
+{
+    (void)a3; (void)a4; (void)a5;
+    return (int64_t)uiox_kix_sem_get((int)a0, (int)a1, (int)a2);
+}
+
+static int64_t scpcs_call_sem_ctl(uiox_uintptr_t a0, uiox_uintptr_t a1,
+                                  uiox_uintptr_t a2, uiox_uintptr_t a3,
+                                  uiox_uintptr_t a4, uiox_uintptr_t a5)
+{
+    (void)a4; (void)a5;
+    return (int64_t)uiox_kix_sem_ctl((int)a0, (int)a1, (int)a2, (int)a3);
+}
+
+static int64_t scpcs_call_sem_op(uiox_uintptr_t a0, uiox_uintptr_t a1,
+                                 uiox_uintptr_t a2, uiox_uintptr_t a3,
+                                 uiox_uintptr_t a4, uiox_uintptr_t a5)
+{
+    uiox_kix_psa_proc_t *p = uiox_kix_scps_current();
+    (void)a3; (void)a4; (void)a5;
+
+    if (!p) return SCPCS_ESRCH;
+    if (a1 == 0u || a2 == 0u) return SCPCS_EFAULT;
+    /* a2 entries of SemBuf, whose size this file does not know */
+    if (uiox_kix_scpcs_check_user_ptr(a1, sizeof(int) * 3u, 4u))
+        return SCPCS_EFAULT;
+    return (int64_t)uiox_kix_sem_op((int)a0, (void *)(uintptr_t)a1,
+                                    (int)a2, (void *)p);
+}
+
+static int64_t scpcs_call_shm_get(uiox_uintptr_t a0, uiox_uintptr_t a1,
+                                  uiox_uintptr_t a2, uiox_uintptr_t a3,
+                                  uiox_uintptr_t a4, uiox_uintptr_t a5)
+{
+    (void)a3; (void)a4; (void)a5;
+    if (a1 == 0u) return SCPCS_EINVAL;   /* a zero-size region */
+    return (int64_t)uiox_kix_shm_get((int)a0, (uiox_size_t)a1, (int)a2);
+}
+
+static int64_t scpcs_call_shm_at(uiox_uintptr_t a0, uiox_uintptr_t a1,
+                                 uiox_uintptr_t a2, uiox_uintptr_t a3,
+                                 uiox_uintptr_t a4, uiox_uintptr_t a5)
+{
+    void *va;
+    (void)a4; (void)a5;
+
+    /* shmat is variadic through this boundary: the SysV form takes a
+     * caller-owned attach table, which a syscall has no way to pass.
+     * NULL here means "use the kernel's chosen address and record
+     * nothing" — a caller using the table form calls the function
+     * directly rather than through a number. */
+    va = uiox_kix_shm_at((int)a0, (void *)(uintptr_t)a1, (int)a2,
+                         (void *)0, (int *)0);
+    if (!va) return SCPCS_ENOMEM;
+    return (int64_t)(uiox_uintptr_t)va;
+}
+
+static int64_t scpcs_call_shm_dt(uiox_uintptr_t a0, uiox_uintptr_t a1,
+                                 uiox_uintptr_t a2, uiox_uintptr_t a3,
+                                 uiox_uintptr_t a4, uiox_uintptr_t a5)
+{
+    (void)a1; (void)a2; (void)a3; (void)a4; (void)a5;
+    if (a0 == 0u) return SCPCS_EFAULT;
+    return (int64_t)uiox_kix_shm_dt((void *)(uintptr_t)a0, (void *)0, (int *)0);
+}
+
+static int64_t scpcs_call_shm_ctl(uiox_uintptr_t a0, uiox_uintptr_t a1,
+                                  uiox_uintptr_t a2, uiox_uintptr_t a3,
+                                  uiox_uintptr_t a4, uiox_uintptr_t a5)
+{
+    (void)a3; (void)a4; (void)a5;
+    if (a2 != 0u &&
+        uiox_kix_scpcs_check_user_ptr(a2, sizeof(int) * 16u, 8u))
+        return SCPCS_EFAULT;
+    return (int64_t)uiox_kix_shm_ctl((int)a0, (int)a1,
+                                     (void *)(uintptr_t)a2);
+}
+
+static int64_t scpcs_call_ptrace(uiox_uintptr_t a0, uiox_uintptr_t a1,
+                                 uiox_uintptr_t a2, uiox_uintptr_t a3,
+                                 uiox_uintptr_t a4, uiox_uintptr_t a5)
+{
+    (void)a4; (void)a5;
+    if (a4 != 0u &&
+        uiox_kix_scpcs_check_user_ptr(a4, sizeof(uiox_uint64_t), 8u))
+        return SCPCS_EFAULT;
+    return (int64_t)uiox_kix_ptrace((int)a0, (void *)(uintptr_t)a1,
+                                    (void *)(uintptr_t)a2,
+                                    (uiox_uint64_t)a3,
+                                    (uiox_uint64_t *)(uintptr_t)a4);
+}
+
 /* ── The table ───────────────────────────────────────────────────────
  * Designated initialisers, so a row's position and its BSD number are
  * the same thing by construction — the number cannot drift from its
@@ -446,7 +625,29 @@ static const uiox_kix_scpcs_entry_t
     [SYS_GETPGID]         = { scpcs_call_get_pgrp,       "getpgid"        },
     [SYS_GETPPID]         = { scpcs_call_get_ppid,       "getppid"        },
     [SYS_ALARM]           = { scpcs_call_alarm,          "alarm"          },
-    [SYS_ADJTIME]         = { scpcs_call_adjtimex,       "adjtimex"       }
+    [SYS_ADJTIME]         = { scpcs_call_adjtimex,       "adjtimex"       },
+
+    /* ── System V IPC — 33_PCS/00IPC ──────────────────────────────
+     * A SIBLING of this layer inside 33_PCS, routed here rather than at
+     * a fourth table.  The numbers are BSD's, as the rest of this table
+     * is.
+     *
+     * The INITS are not rows: msg_init, sem_init_subsystem and shm_init
+     * are called once at boot, not by a number.  A syscall number that
+     * initialised a subsystem would let a user program re-zero the
+     * kernel's own tables. */
+    [SYS_PTRACE]          = { scpcs_call_ptrace,          "ptrace"         },
+    [SYS_SEMGET]          = { scpcs_call_sem_get,         "semget"         },
+    [SYS_MSGGET]          = { scpcs_call_msg_get,         "msgget"         },
+    [SYS_MSGSND]          = { scpcs_call_msg_snd,         "msgsnd"         },
+    [SYS_MSGRCV]          = { scpcs_call_msg_rcv,         "msgrcv"         },
+    [SYS_SHMAT]           = { scpcs_call_shm_at,          "shmat"          },
+    [SYS_SHMDT]           = { scpcs_call_shm_dt,          "shmdt"          },
+    [SYS_SHMGET]          = { scpcs_call_shm_get,         "shmget"         },
+    [SYS_SEMOP]           = { scpcs_call_sem_op,          "semop"          },
+    [SYS_SEMCTL]          = { scpcs_call_sem_ctl,         "semctl"         },
+    [SYS_SHMCTL]          = { scpcs_call_shm_ctl,         "shmctl"         },
+    [SYS_MSGCTL]          = { scpcs_call_msg_ctl,         "msgctl"         }
 };
 
 /* ────────────────────────────────────────────────────────────────────
