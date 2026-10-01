@@ -51,7 +51,7 @@ int64_t uiox_kix_scpcs_clock_get_time(uiox_uint64_t clock_id,
 
     if (clock_id != (uiox_uint64_t)SCPCS_CLOCK_REALTIME &&
         clock_id != (uiox_uint64_t)SCPCS_CLOCK_MONOTONIC)
-        return SCPS_EINVAL;
+        return SCPCS_EINVAL;
 
     if (!uiox_kix_scps_current()) return SCPCS_ESRCH;
 

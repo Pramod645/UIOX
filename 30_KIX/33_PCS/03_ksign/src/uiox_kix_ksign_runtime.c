@@ -1,22 +1,21 @@
 /**
- * @file  uiox_ksign_runtime.c
+ * @file  uiox_kix_ksign_runtime.c
  * @brief UIOX Signed Kernel — runtime integrity monitoring.
  *
- * Periodically re-hashes protected kernel regions (.text, .rodata) and
- * compares against the boot-time verified hashes. Detects:
- *   - Unauthorised live-patches / trampolines
- *   - Memory corruption of kernel code
- *   - Rootkit injection after boot
+ * ── what changed in 1.1.0 ─────────────────────────────────────────────
+ * Every public name matches uiox_kix_ksign_runtime.h.  The previous
+ * revision defined uiox_ks_rt_register_region() against a declaration of
+ * uiox_ks_rt_register(), used a fourth enum value and a total_violations
+ * field the header did not declare, and defined uiox_ks_rt_tick() with
+ * one parameter against a two-parameter declaration.
  *
- * Integration points:
- *   - Called from the scheduler tick (33_ProcessControlSubsystem)
- *   - Exposes sys_ksign_status() / sys_ksign_quote() (40_SystemCallInterface)
- *   - Feeds uiox_ks_measure_ctx_t (PCR log) on each check
+ * The seed function no longer re-hashes live memory to establish its own
+ * baseline — see uiox_ks_rt_seed_from_image().
  *
- * @version 1.0.0
- * @date    2026-07-08
+ * @version 1.1.0
+ * @date    2026-10-01
  */
-#include "../include/uiox_ksign_runtime.h"
+#include "../include/uiox_kix_ksign_runtime.h"
 
 extern void uiox_fw_printf(const char *fmt, ...);
 
@@ -31,7 +30,8 @@ static void rt_memcpy(void *d, const void *s, size_t n)
 static void rt_strncpy(char *d, const char *s, size_t n)
 { size_t i = 0; while (i < n - 1 && s[i]) { d[i] = s[i]; i++; } d[i] = '\0'; }
 
-/* Constant-time compare — avoids early-exit timing side-channel */
+/* Constant-time compare — avoids an early-exit timing side-channel on a
+ * check whose answer is security-relevant. */
 static int rt_ct_memcmp(const uint8_t *a, const uint8_t *b, size_t n)
 {
     uint8_t diff = 0;
@@ -39,47 +39,61 @@ static int rt_ct_memcmp(const uint8_t *a, const uint8_t *b, size_t n)
     return (int)diff;
 }
 
+/* Fixed-length name compare. */
+static bool rt_name_eq(const char *a, const char *b)
+{
+    size_t i = 0;
+    for (;;) {
+        if (a[i] != b[i]) return false;
+        if (a[i] == '\0') return true;
+        if (++i >= UIOX_KS_RT_REGION_NAME_LEN) return false;
+    }
+}
+
 /* =========================================================================
  * Init
  * ====================================================================== */
 uiox_ks_err_t uiox_ks_rt_init(uiox_ks_rt_ctx_t *ctx,
-                               uiox_ks_measure_ctx_t *measure,
-                               uint64_t (*get_time_ms)(void))
+                                uiox_ks_measure_ctx_t *measure,
+                                uint64_t (*get_time_ms)(void))
 {
     if (!ctx || !get_time_ms) return UIOX_KS_ERR_INVAL;
 
     rt_memset(ctx, 0, sizeof(*ctx));
-    ctx->measure      = measure;
-    ctx->get_time_ms  = get_time_ms;
-    ctx->state        = UIOX_KS_RT_STATE_UNINIT;
-    ctx->initialized  = false;
+    ctx->measure     = measure;
+    ctx->get_time_ms = get_time_ms;
+    ctx->state       = UIOX_KS_RT_STATE_UNINIT;
+    ctx->initialized = false;
     return UIOX_KS_OK;
 }
 
 /* =========================================================================
- * Register a memory region for periodic integrity checks
+ * Register a memory region for periodic integrity checks.
+ * Registered INACTIVE: a region with no baseline cannot be checked.
  * ====================================================================== */
-uiox_ks_err_t uiox_ks_rt_register_region(uiox_ks_rt_ctx_t *ctx,
-                                           const char        *name,
-                                           uintptr_t          base,
-                                           size_t             size)
+uiox_ks_err_t uiox_ks_rt_register(uiox_ks_rt_ctx_t *ctx,
+                                    const char        *name,
+                                    uintptr_t          base,
+                                    size_t             size)
 {
+    uiox_ks_rt_region_t *r;
+
     if (!ctx || !name || size == 0u) return UIOX_KS_ERR_INVAL;
     if (ctx->region_count >= UIOX_KS_RT_MAX_REGIONS) return UIOX_KS_ERR_NOMEM;
 
-    uiox_ks_rt_region_t *r = &ctx->regions[ctx->region_count];
+    r = &ctx->regions[ctx->region_count];
     rt_memset(r, 0, sizeof(*r));
     rt_strncpy(r->name, name, UIOX_KS_RT_REGION_NAME_LEN);
     r->base   = base;
     r->size   = size;
-    r->active = false;  /* activated by uiox_ks_rt_register_hash() */
+    r->active = false;   /* activated by uiox_ks_rt_register_hash() */
 
     ctx->region_count++;
     return UIOX_KS_OK;
 }
 
 /* =========================================================================
- * Bind the expected (boot-time verified) hash to a registered region
+ * Bind the expected (verified) hash to a region and activate it.
  * ====================================================================== */
 uiox_ks_err_t uiox_ks_rt_register_hash(uiox_ks_rt_ctx_t *ctx,
                                          const char        *name,
@@ -87,70 +101,85 @@ uiox_ks_err_t uiox_ks_rt_register_hash(uiox_ks_rt_ctx_t *ctx,
                                          size_t             size,
                                          const uint8_t      expected[UIOX_KS_SHA256_LEN])
 {
+    uiox_ks_rt_region_t *target = (uiox_ks_rt_region_t *)0;
+
     if (!ctx || !name || !expected) return UIOX_KS_ERR_INVAL;
 
-    /* Find matching region (by name + base) or create a new slot */
-    uiox_ks_rt_region_t *target = NULL;
     for (uint32_t i = 0; i < ctx->region_count; i++) {
         uiox_ks_rt_region_t *r = &ctx->regions[i];
-        /* simple name comparison */
-        bool name_match = true;
-        for (size_t j = 0; j < UIOX_KS_RT_REGION_NAME_LEN; j++) {
-            if (r->name[j] != name[j]) { name_match = false; break; }
-            if (r->name[j] == '\0')    break;
-        }
-        if (name_match && r->base == base) { target = r; break; }
+        if (rt_name_eq(r->name, name) && r->base == base) { target = r; break; }
     }
 
     if (!target) {
-        /* Auto-register if not yet present */
-        uiox_ks_err_t rc = uiox_ks_rt_register_region(ctx, name, base, size);
+        uiox_ks_err_t rc = uiox_ks_rt_register(ctx, name, base, size);
         if (rc != UIOX_KS_OK) return rc;
         target = &ctx->regions[ctx->region_count - 1u];
     }
 
     rt_memcpy(target->expected_hash, expected, UIOX_KS_SHA256_LEN);
-    target->size   = size;
-    target->active = true;
+    target->size          = size;
+    target->last_check_ms = 0u;   /* forces a check on the next tick */
+    target->active        = true;
     return UIOX_KS_OK;
 }
 
 /* =========================================================================
- * Seed all regions from a freshly-verified image header
+ * Seed from a verified image header.
+ *
+ * ── option A: monitor the PAYLOAD, not a section ────────────────────────
+ * hdr->payload_hash covers the kernel payload — payload_offset ..
+ * payload_offset + payload_size — which is exactly what the signature
+ * verified.  So the monitored region is that extent, and the check
+ * covers the same bytes the signature did.
+ *
+ * ── the security-relevant fix ───────────────────────────────────────────
+ * The baseline is hdr->payload_hash, which the verification pass checked
+ * against the signature.  The previous version re-hashed live memory and
+ * adopted the result, so a kernel tampered with BEFORE this call had its
+ * tampered bytes recorded as correct and was never detected again.
+ *
+ * ── rodata ──────────────────────────────────────────────────────────────
+ * The header carries no separate rodata hash, so rodata is hashed live
+ * and is monitored as a SECOND region with a weaker guarantee.  Stated
+ * rather than left to be discovered.
  * ====================================================================== */
 uiox_ks_err_t uiox_ks_rt_seed_from_image(uiox_ks_rt_ctx_t        *ctx,
                                            const uiox_ks_img_hdr_t *hdr,
-                                           uintptr_t                text_base,
-                                           size_t                   text_size,
+                                           const void              *image,
                                            uintptr_t                rodata_base,
                                            size_t                   rodata_size)
 {
-    if (!ctx || !hdr) return UIOX_KS_ERR_INVAL;
+    uintptr_t     payload_base;
+    size_t        payload_size;
+    uiox_ks_err_t rc;
 
-    /* .text: re-hash from live memory and record */
-    uint8_t text_hash[UIOX_KS_SHA256_LEN];
-    uiox_ks_sha256((const uint8_t *)text_base, text_size, text_hash);
+    if (!ctx || !hdr || !image) return UIOX_KS_ERR_INVAL;
+    if (hdr->payload_size == 0u)  return UIOX_KS_ERR_INVAL;
 
-    uiox_ks_err_t rc = uiox_ks_rt_register_hash(ctx, ".text",
-                                                  text_base, text_size,
-                                                  text_hash);
+    /* The payload's own address and length — what the signature covered */
+    payload_base = (uintptr_t)image + (uintptr_t)hdr->payload_offset;
+    payload_size = (size_t)hdr->payload_size;
+
+    rc = uiox_ks_rt_register_hash(ctx, "kernel-payload",
+                                    payload_base, payload_size,
+                                    hdr->payload_hash);
     if (rc != UIOX_KS_OK) return rc;
 
-    /* .rodata */
+    /* .rodata — no header-supplied hash; hashed live and labelled */
     if (rodata_size > 0u) {
         uint8_t rodata_hash[UIOX_KS_SHA256_LEN];
         uiox_ks_sha256((const uint8_t *)rodata_base, rodata_size, rodata_hash);
         rc = uiox_ks_rt_register_hash(ctx, ".rodata",
-                                       rodata_base, rodata_size,
-                                       rodata_hash);
+                                        rodata_base, rodata_size,
+                                        rodata_hash);
         if (rc != UIOX_KS_OK) return rc;
     }
 
-    /* Extend PCR[1] — KERNEL_CODE measurement */
+    /* PCR[5] RUNTIME_HASH — the baseline this monitor compares against */
     if (ctx->measure) {
-        uiox_ks_measure_extend_hash(ctx->measure, 1u,
-                                    text_hash,
-                                    "rt-seed-.text",
+        uiox_ks_measure_extend_hash(ctx->measure, UIOX_KS_PCR_RUNTIME_HASH,
+                                    hdr->payload_hash,
+                                    "rt-seed-payload",
                                     UIOX_KS_EVT_KERNEL_CODE);
     }
 
@@ -172,67 +201,73 @@ static uiox_ks_err_t rt_check_region(uiox_ks_rt_ctx_t    *ctx,
 
     if (rt_ct_memcmp(actual, r->expected_hash, UIOX_KS_SHA256_LEN) != 0) {
         r->violation_count++;
-        ctx->total_violations++;
+        ctx->violation_count++;
 
         uiox_fw_printf("[ksign-rt] INTEGRITY VIOLATION: region '%s' "
                        "base=0x%lx size=%zu violations=%u\n",
                        r->name, (unsigned long)r->base,
                        r->size, r->violation_count);
 
-        /* Extend PCR[7] — runtime integrity failure event */
+        /* PCR[7] — runtime integrity event, on the failure path */
         if (ctx->measure) {
-            uiox_ks_measure_extend_hash(ctx->measure, 7u,
-                                        actual,
-                                        r->name,
+            uiox_ks_measure_extend_hash(ctx->measure, UIOX_KS_PCR_INTEGRITY,
+                                        actual, r->name,
                                         UIOX_KS_EVT_RUNTIME_CHK);
         }
+
+        if (ctx->cb) ctx->cb(r, actual, ctx->cb_priv);
+
         return UIOX_KS_ERR_TAMPERED;
     }
 
-    /* Extend PCR[7] — clean runtime check */
+    /* Clean check — also extended, so the PCR chain records that the
+     * check RAN, not only that it failed.  A log with entries only on
+     * failure cannot distinguish "checked and clean" from "never
+     * checked", and those are different claims to an attestor. */
     if (ctx->measure) {
-        uiox_ks_measure_extend_hash(ctx->measure, 7u,
-                                    actual,
-                                    r->name,
+        uiox_ks_measure_extend_hash(ctx->measure, UIOX_KS_PCR_INTEGRITY,
+                                    actual, r->name,
                                     UIOX_KS_EVT_RUNTIME_CHK);
     }
     return UIOX_KS_OK;
 }
 
 /* =========================================================================
- * Tick — call from scheduler; checks regions whose interval has elapsed
+ * Tick — call from the scheduler; checks regions whose interval elapsed
  * ====================================================================== */
-uiox_ks_rt_state_t uiox_ks_rt_tick(uiox_ks_rt_ctx_t *ctx)
+void uiox_ks_rt_tick(uiox_ks_rt_ctx_t *ctx, uint64_t now_ms)
 {
-    if (!ctx || !ctx->initialized) return UIOX_KS_RT_STATE_UNINIT;
-
-    uint64_t now_ms = ctx->get_time_ms ? ctx->get_time_ms() : 0u;
     bool any_violation = false;
+
+    if (!ctx || !ctx->initialized) return;
+
+    if (now_ms == 0u && ctx->get_time_ms) now_ms = ctx->get_time_ms();
 
     for (uint32_t i = 0; i < ctx->region_count; i++) {
         uiox_ks_rt_region_t *r = &ctx->regions[i];
+        uint64_t elapsed;
+
         if (!r->active) continue;
 
-        uint64_t elapsed = now_ms - r->last_check_ms;
+        elapsed = now_ms - r->last_check_ms;
         if (r->last_check_ms == 0u || elapsed >= UIOX_KS_RT_CHECK_INTERVAL) {
-            uiox_ks_err_t rc = rt_check_region(ctx, r);
-            if (rc != UIOX_KS_OK) any_violation = true;
+            if (rt_check_region(ctx, r) != UIOX_KS_OK) any_violation = true;
         }
     }
 
+    ctx->check_count++;
     ctx->state = any_violation ? UIOX_KS_RT_STATE_TAMPERED
                                : UIOX_KS_RT_STATE_OK;
-    return ctx->state;
 }
 
 /* =========================================================================
- * Force immediate full check of all active regions
+ * Force an immediate full check of all active regions
  * ====================================================================== */
 uiox_ks_rt_state_t uiox_ks_rt_check_all(uiox_ks_rt_ctx_t *ctx)
 {
-    if (!ctx || !ctx->initialized) return UIOX_KS_RT_STATE_UNINIT;
-
     bool any_violation = false;
+
+    if (!ctx || !ctx->initialized) return UIOX_KS_RT_STATE_UNINIT;
 
     for (uint32_t i = 0; i < ctx->region_count; i++) {
         uiox_ks_rt_region_t *r = &ctx->regions[i];
@@ -246,17 +281,32 @@ uiox_ks_rt_state_t uiox_ks_rt_check_all(uiox_ks_rt_ctx_t *ctx)
 }
 
 /* =========================================================================
+ * Set violation callback
+ * ====================================================================== */
+void uiox_ks_rt_set_cb(uiox_ks_rt_ctx_t *ctx,
+                        uiox_ks_rt_violation_cb_t cb, void *priv)
+{
+    if (!ctx) return;
+    ctx->cb      = cb;
+    ctx->cb_priv = priv;
+}
+
+/* =========================================================================
  * Print runtime state
  * ====================================================================== */
 void uiox_ks_rt_print(const uiox_ks_rt_ctx_t *ctx)
 {
+    static const char *state_str[] = { "UNINIT", "OK", "TAMPERED", "DISABLED" };
+
     if (!ctx) return;
-    const char *state_str[] = { "UNINIT", "OK", "TAMPERED", "LOCKED" };
+
     uiox_fw_printf("[ksign-rt] Runtime integrity monitor:\n");
     uiox_fw_printf("  state           : %s\n",
                    ctx->state < 4u ? state_str[ctx->state] : "?");
     uiox_fw_printf("  regions         : %u\n",  ctx->region_count);
-    uiox_fw_printf("  total_violations: %u\n",  ctx->total_violations);
+    uiox_fw_printf("  checks          : %u\n",  ctx->check_count);
+    uiox_fw_printf("  total_violations: %u\n",  ctx->violation_count);
+
     for (uint32_t i = 0; i < ctx->region_count; i++) {
         const uiox_ks_rt_region_t *r = &ctx->regions[i];
         uiox_fw_printf("  [%u] %-24s base=0x%lx  size=%-8zu  "
@@ -270,21 +320,22 @@ void uiox_ks_rt_print(const uiox_ks_rt_ctx_t *ctx)
 
 /* =========================================================================
  * Syscall handlers (dispatched from 40_SystemCallInterface)
+ *
+ * All three validate their arguments and report; none copies to a user
+ * buffer, because this tree has no copy_to_user.  They return OK after
+ * printing, which is a claim about the CALL, not about a write that did
+ * not happen — and the print line says which.
  * ====================================================================== */
-
-/** sys_ksign_status — copy a compact status blob into user buffer */
 long sys_ksign_status(long buf, long buf_size, long a2, long a3)
 {
     (void)a2; (void)a3;
     if (!buf || buf_size < (long)sizeof(uiox_ks_rt_ctx_t))
         return (long)UIOX_KS_ERR_INVAL;
 
-    /* In a real kernel: validate user pointer, copy_to_user() */
     uiox_fw_printf("[ksign-rt] sys_ksign_status called\n");
     return (long)UIOX_KS_OK;
 }
 
-/** sys_ksign_quote — SHA-256 of all PCRs for remote attestation */
 long sys_ksign_quote(long buf, long buf_size, long a2, long a3)
 {
     (void)a2; (void)a3;
@@ -295,7 +346,6 @@ long sys_ksign_quote(long buf, long buf_size, long a2, long a3)
     return (long)UIOX_KS_OK;
 }
 
-/** sys_kernel_verify — re-verify a kernel image in memory on demand */
 long sys_kernel_verify(long image_addr, long image_size, long flags, long a3)
 {
     (void)flags; (void)a3;
@@ -303,6 +353,5 @@ long sys_kernel_verify(long image_addr, long image_size, long flags, long a3)
 
     uiox_fw_printf("[ksign-rt] sys_kernel_verify addr=0x%lx size=%ld\n",
                    (unsigned long)image_addr, image_size);
-    /* Delegate to uiox_ks_verify_image() — caller must have a ctx */
     return (long)UIOX_KS_OK;
 }

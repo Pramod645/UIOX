@@ -52,7 +52,7 @@ int64_t uiox_kix_scpcs_sig_procmask(uiox_uint64_t how, uiox_uintptr_t set,
     if (how != (uiox_uint64_t)SIG_BLOCK   &&
         how != (uiox_uint64_t)SIG_UNBLOCK &&
         how != (uiox_uint64_t)SIG_SETMASK)
-        return SCPS_EINVAL;
+        return SCPCS_EINVAL;
 
     return SCPCS_ENOSYS;
 }

@@ -1,5 +1,5 @@
 /**
- * @file  uiox_ksign_measure.c
+ * @file  uiox_kix_ksign_measure.c
  * @brief UIOX Signed Kernel — TPM-style PCR measurement log.
  *
  * PCR extend semantics (identical to TPM 2.0):
@@ -18,7 +18,7 @@
  * @version 1.0.0
  * @date    2026-07-08
  */
-#include "../include/uiox_ksign_measure.h"
+#include "../include/uiox_kix_ksign_measure.h"
 
 extern void uiox_fw_printf(const char *fmt, ...);
 

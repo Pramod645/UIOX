@@ -46,7 +46,7 @@ int64_t uiox_kix_scpcs_pause(void)
      *   uiox_kix_psa_proc_sleep(&pause_wchan,
      *                           UIOX_KIX_PSA_PZERO + 1,   // above threshold
      *                           1);                       // interruptible
-     *   return SCPS_EINTR;
+     *   return SCPCS_EINTR;
      */
     return SCPCS_ENOSYS;
 }

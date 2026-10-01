@@ -1,5 +1,5 @@
 /**
- * @file  uiox_ksign_image.h
+ * @file  uiox_kix_ksign_image.h
  * @brief UIOX Signed Kernel — signed image format.
  *
  * Signed image layout (on-disk / in flash):
@@ -13,13 +13,26 @@
  * The header overlaps with uiox_fw_secboot.h uiox_signed_img_hdr_t for
  * compatibility with the existing Stage 0d verification path.
  *
- * @version 1.0.0
+ * ── what changed in 1.1.0 ─────────────────────────────────────────────
+ *   The signature section has its own magic (UIOX_KS_SIG_MAGIC) as of
+ *   format version 2.  Version 1 wrote UIOX_KS_IMG_MAGIC there, which is
+ *   the same constant the image header carries — so the section check
+ *   compared two structures that could not be told apart.
+ *
+ *   A _Static_assert pins the header to 512 bytes.  _pad is computed by
+ *   hand and subtracts a literal 4 for sig_alg, an enum whose size is
+ *   implementation-defined; a toolchain that sized it differently would
+ *   shift every field after it and the signer and verifier would
+ *   silently disagree about the format.
+ *
+ * @version 1.1.0
+ * @date    2026-10-01
  */
 
- #ifndef UIOX_KSIGN_IMAGE_H
- #define UIOX_KSIGN_IMAGE_H
+ #ifndef UIOX_KIX_KSIGN_IMAGE_H
+ #define UIOX_KIX_KSIGN_IMAGE_H
  
- #include "uiox_ksign_key.h"
+ #include "uiox_kix_ksign_key.h"
  
  #ifdef __cplusplus
  extern "C" {
@@ -74,6 +87,20 @@
                     32u - 4u];
  } uiox_ks_img_hdr_t;
  
+ /* The header MUST be exactly 512 bytes: the payload begins at
+  * payload_offset and the signing tool writes this same struct, so the
+  * signer and the verifier must agree on the layout byte for byte.
+  *
+  * _pad is computed by hand and subtracts a literal 4 for sig_alg — an
+  * enum whose size is implementation-defined.  A toolchain that sized it
+  * differently would shift every field after it and the two sides would
+  * silently disagree about the format.  This turns that into a compile
+  * error instead of a misparse at boot. */
+ #if defined(__STDC_VERSION__) && (__STDC_VERSION__ >= 201112L)
+ _Static_assert(sizeof(uiox_ks_img_hdr_t) == UIOX_KS_IMG_HDR_SIZE,
+                "uiox_ks_img_hdr_t must be exactly 512 bytes");
+ #endif
+ 
  /* Image flags */
  #define UIOX_KS_FLAG_DEBUG_ALLOWED  (1u << 0)  /**< Debug mode OK       */
  #define UIOX_KS_FLAG_TEST_SIGNED    (1u << 1)  /**< Test/dev key used   */
@@ -82,10 +109,14 @@
  
  /* =========================================================================
   * Signature section (.uiox_sig) — appended after kernel binary
+  *
+  * magic is UIOX_KS_SIG_MAGIC in format version 2, and UIOX_KS_IMG_MAGIC
+  * in version 1.  uiox_ks_img_get_sig_section accepts either according to
+  * the header's format_version.
   * ====================================================================== */
  
  typedef struct __attribute__((packed)) {
-     uint32_t  magic;                    /**< UIOX_KS_IMG_MAGIC           */
+     uint32_t  magic;                    /**< UIOX_KS_SIG_MAGIC (v2)      */
      uint32_t  sig_count;                /**< Number of signatures        */
      /* Followed by sig_count × uiox_ks_sig_entry_t */
  } uiox_ks_sig_section_hdr_t;
@@ -104,7 +135,8 @@
   * Image API
   * ====================================================================== */
  
- /** Parse and validate the image header at @buf. */
+ /** Parse and validate the image header at @buf.  Accepts format
+  *  versions 1 and 2. */
  uiox_ks_err_t uiox_ks_img_parse_hdr (const void *buf, size_t buf_len,
                                          uiox_ks_img_hdr_t *out_hdr);
  
@@ -129,5 +161,5 @@
  #ifdef __cplusplus
  }
  #endif
- #endif /* UIOX_KSIGN_IMAGE_H */
+ #endif /* UIOX_KIX_KSIGN_IMAGE_H */
  

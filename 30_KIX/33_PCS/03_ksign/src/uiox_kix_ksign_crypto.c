@@ -1,11 +1,11 @@
 /**
- * @file  uiox_ksign_crypto.c
+ * @file  uiox_kix_ksign_crypto.c
  * @brief UIOX Signed Kernel — SHA-256, SHA-384, HMAC, RSA/ECDSA stubs.
  *        Zero libc — all primitives inline.
  * @date  2026-07-07
  */
 
- #include "../include/uiox_ksign_crypto.h"
+ #include "../include/uiox_kix_ksign_crypto.h"
 
  /* ── No-libc helpers ────────────────────────────────────────── */
  

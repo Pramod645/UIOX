@@ -1,5 +1,5 @@
 /**
- * @file  uiox_ksign_crypto.h
+ * @file  uiox_kix_ksign_crypto.h
  * @brief UIOX Signed Kernel — cryptographic primitives.
  *
  * Provides SHA-256/SHA-384, RSA-PKCS#1 v1.5 verification stub,
@@ -13,10 +13,10 @@
  * @version 1.0.0
  */
 
- #ifndef UIOX_KSIGN_CRYPTO_H
- #define UIOX_KSIGN_CRYPTO_H
+ #ifndef UIOX_KIX_KSIGN_CRYPTO_H
+ #define UIOX_KIX_KSIGN_CRYPTO_H
  
- #include "uiox_ksign_types.h"
+ #include "uiox_kix_ksign_types.h"
  
  #ifdef __cplusplus
  extern "C" {
@@ -132,5 +132,5 @@
  #ifdef __cplusplus
  }
  #endif
- #endif /* UIOX_KSIGN_CRYPTO_H */
+ #endif /* UIOX_KIX_KSIGN_CRYPTO_H */
  

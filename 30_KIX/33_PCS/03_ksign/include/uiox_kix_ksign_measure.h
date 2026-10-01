@@ -1,13 +1,13 @@
 /**
- * @file  uiox_ksign_measure.h
+ * @file  uiox_kix_ksign_measure.h
  * @brief UIOX Signed Kernel — TPM-style PCR measurement log.
  * @version 1.0.0
  */
 
- #ifndef UIOX_KSIGN_MEASURE_H
- #define UIOX_KSIGN_MEASURE_H
+ #ifndef UIOX_KIX_KSIGN_MEASURE_H
+ #define UIOX_KIX_KSIGN_MEASURE_H
  
- #include "uiox_ksign_types.h"
+ #include "uiox_kix_ksign_types.h"
  
  #ifdef __cplusplus
  extern "C" {
@@ -98,5 +98,5 @@
  #ifdef __cplusplus
  }
  #endif
- #endif /* UIOX_KSIGN_MEASURE_H */
+ #endif /* UIOX_KIX_KSIGN_MEASURE_H */
  
