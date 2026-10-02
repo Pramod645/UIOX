@@ -13,19 +13,27 @@
  * The header overlaps with uiox_fw_secboot.h uiox_signed_img_hdr_t for
  * compatibility with the existing Stage 0d verification path.
  *
- * ── what changed in 1.1.0 ─────────────────────────────────────────────
- *   The signature section has its own magic (UIOX_KS_SIG_MAGIC) as of
- *   format version 2.  Version 1 wrote UIOX_KS_IMG_MAGIC there, which is
- *   the same constant the image header carries — so the section check
- *   compared two structures that could not be told apart.
+ * ── what changed in 1.1.1 ─────────────────────────────────────────────
+ *   The 512-byte padding is now DERIVED, not hand-computed.
  *
- *   A _Static_assert pins the header to 512 bytes.  _pad is computed by
- *   hand and subtracts a literal 4 for sig_alg, an enum whose size is
- *   implementation-defined; a toolchain that sized it differently would
- *   shift every field after it and the signer and verifier would
- *   silently disagree about the format.
+ *   The previous version put a fixed list of subtractions in _pad[...]:
  *
- * @version 1.1.0
+ *       512 - 48 - 48 - 4 - 4 - 4 - 8 - 8 - 8 - 8 - 32 - 48 - 8 - 4
+ *           - 32 - 4 - 8 - 32 - 4
+ *
+ *   That list came to 212 bytes of padding when the fields before it
+ *   actually occupied 260, so sizeof(uiox_ks_img_hdr_t) was 472 — and the
+ *   _Static_assert caught it.  472 is not a cosmetic error: the signing
+ *   tool and the verifier both write and read this struct, so a 40-byte
+ *   disagreement is a format that cannot work.
+ *
+ *   offsetof() cannot fix it from inside the struct — the typedef does not
+ *   exist until the closing brace.  So the field layout is declared once as
+ *   uiox_ks_img_hdr_fields_t, its size is measured, and _pad is set to
+ *   512 minus that.  The two declarations are kept identical by the assert
+ *   below: if they diverge, the assert fails rather than the format.
+ *
+ * @version 1.1.1
  * @date    2026-10-01
  */
 
@@ -46,6 +54,19 @@
  #define UIOX_KS_SIG_SECTION_MAX (4u * 1024u)  /**< Max 4 KB sig section */
  #define UIOX_KS_IMG_NAME_LEN    48u
  
+ /* ── The field layout, WITHOUT padding ───────────────────────────────
+  * Declared separately so the padding can be computed from it.  offsetof()
+  * cannot be used inside the struct it refers to, because the typedef does
+  * not exist until the closing brace — the first attempt at this fix failed
+  * for exactly that reason.
+  *
+  * This shadow has the same fields in the same order, so its packed size is
+  * the real struct's size minus its padding.  Keep the two in step: the
+  * _Static_assert below enforces the total, so a field added to one and not
+  * the other fails the build rather than shifting the format.
+  *
+  * Every field is packed, so no compiler alignment padding is inserted and
+  * the measured size is the plain sum of the members. */
  typedef struct __attribute__((packed)) {
      /* Identification */
      uint32_t  magic;                    /**< UIOX_KS_IMG_MAGIC           */
@@ -81,24 +102,76 @@
  
      /* Flags */
      uint32_t  flags;
-     /* Reserved / padding to 512 bytes */
-     uint8_t   _pad[512u - 48u - 48u - 4u - 4u - 4u - 8u - 8u -
-                    8u - 8u - 32u - 48u - 8u - 4u - 32u - 4u - 8u -
-                    32u - 4u];
+ } uiox_ks_img_hdr_fields_t;
+ 
+ /* Reserved / padding to exactly 512 bytes.
+  *
+  * Derived from the shadow's size rather than a hand-written list of
+  * subtractions: the previous list came to 212 bytes of padding when the
+  * fields before it occupied 260, which made the struct 472.  This form
+  * cannot drift — add a field to the shadow and the remainder adjusts.
+  *
+  * If this expression ever goes negative the build fails at the array
+  * declaration, which is the correct failure: 512 bytes is a format
+  * constraint, not a target. */
+ #define UIOX_KS_IMG_PAD_LEN \
+     (UIOX_KS_IMG_HDR_SIZE - (uint32_t)sizeof(uiox_ks_img_hdr_fields_t))
+ 
+ /* ── The struct as it is written and read ────────────────────────────
+  * Field-for-field the shadow above, plus the padding. */
+ typedef struct __attribute__((packed)) {
+     /* Identification */
+     uint32_t  magic;                    /**< UIOX_KS_IMG_MAGIC           */
+     uint32_t  format_version;           /**< UIOX_KS_FORMAT_VERSION      */
+     char      name[UIOX_KS_IMG_NAME_LEN]; /**< "uiox-kernel-arm64"      */
+ 
+     /* Target architecture */
+     uint32_t  arch;                     /**< 0=ARM64, 1=ARM32, 2=x86_64 */
+     uint32_t  min_kernel_version;       /**< Anti-rollback floor         */
+     uint32_t  kernel_version;           /**< This kernel's version       */
+ 
+     /* Payload addresses */
+     uint64_t  load_addr;                /**< Physical load address        */
+     uint64_t  entry_addr;               /**< Kernel entry point           */
+ 
+     /* Hash coverage */
+     uint64_t  payload_offset;           /**< Byte offset of kernel binary */
+     uint64_t  payload_size;             /**< Size of kernel binary        */
+     uint8_t   payload_hash[UIOX_KS_SHA256_LEN];  /**< SHA-256(payload)  */
+     uint8_t   payload_hash384[UIOX_KS_SHA384_LEN];/**< SHA-384(payload) */
+ 
+     /* Signature section location (appended after payload) */
+     uint64_t  sig_section_offset;       /**< Offset of .uiox_sig data    */
+     uint32_t  sig_section_size;
+ 
+     /* Signing key reference */
+     uint8_t   signing_key_id[UIOX_KS_KEY_ID_LEN]; /**< SHA-256(pubkey) */
+     uiox_ks_alg_t sig_alg;
+ 
+     /* Build info */
+     uint64_t  build_time;               /**< Unix timestamp of signing   */
+     char      build_id[32];             /**< Git commit or build UUID    */
+ 
+     /* Flags */
+     uint32_t  flags;
+ 
+     /* Reserved / padding to exactly 512 bytes */
+     uint8_t   _pad[UIOX_KS_IMG_PAD_LEN];
  } uiox_ks_img_hdr_t;
  
  /* The header MUST be exactly 512 bytes: the payload begins at
   * payload_offset and the signing tool writes this same struct, so the
   * signer and the verifier must agree on the layout byte for byte.
   *
-  * _pad is computed by hand and subtracts a literal 4 for sig_alg — an
-  * enum whose size is implementation-defined.  A toolchain that sized it
-  * differently would shift every field after it and the two sides would
-  * silently disagree about the format.  This turns that into a compile
-  * error instead of a misparse at boot. */
+  * This is the check that caught the 472-byte version.  It stays because
+  * the padding above is derived rather than constant, so adding a field to
+  * the shadow changes _pad and this assert verifies the total still lands
+  * on the format's fixed size. */
  #if defined(__STDC_VERSION__) && (__STDC_VERSION__ >= 201112L)
  _Static_assert(sizeof(uiox_ks_img_hdr_t) == UIOX_KS_IMG_HDR_SIZE,
                 "uiox_ks_img_hdr_t must be exactly 512 bytes");
+ _Static_assert(sizeof(uiox_ks_img_hdr_fields_t) <= UIOX_KS_IMG_HDR_SIZE,
+                "uiox_ks_img_hdr_fields_t exceeds the 512-byte header");
  #endif
  
  /* Image flags */

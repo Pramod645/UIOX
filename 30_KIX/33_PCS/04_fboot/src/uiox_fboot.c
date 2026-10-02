@@ -4,7 +4,7 @@
  *
  * Integrates:
  *   02_FwHal        — uiox_fw_printf, hardware timer
- *   12_ksign        — FW_VERIFY phase feeds uiox_ks_boot_entry()
+ *   03_ksign        — FW_VERIFY phase feeds uiox_ks_boot_entry()
  *   33_PCS          — uiox_fb_defer_run_all() called after shell spawn
  *   40_SCI          — SYS_BOOT_STATUS, SYS_BOOT_SNAP_SAVE, SYS_BOOT_SNAP_CLEAR
  *

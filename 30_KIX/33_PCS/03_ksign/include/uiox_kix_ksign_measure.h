@@ -8,6 +8,8 @@
  #define UIOX_KIX_KSIGN_MEASURE_H
  
  #include "uiox_kix_ksign_types.h"
+ #include "uiox_kix_ksign_crypto.h"   /* uiox_ks_sha256_ctx_t, uiox_ks_sha256() */
+
  
  #ifdef __cplusplus
  extern "C" {

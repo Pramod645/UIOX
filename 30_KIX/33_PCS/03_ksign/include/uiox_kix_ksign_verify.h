@@ -42,6 +42,8 @@
  #define UIOX_KIX_KSIGN_VERIFY_H
  
  #include "uiox_kix_ksign_image.h"
+ #include "uiox_kix_ksign_measure.h"   /* uiox_ks_measure_ctx_t, UIOX_KS_EVT_* */
+
  
  #ifdef __cplusplus
  extern "C" {

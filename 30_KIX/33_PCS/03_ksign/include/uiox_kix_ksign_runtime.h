@@ -29,6 +29,8 @@
  #define UIOX_KIX_KSIGN_RUNTIME_H
  
  #include "uiox_kix_ksign_measure.h"
+ #include "uiox_kix_ksign_image.h"   /* uiox_ks_img_hdr_t, for the seed function */
+
  
  #ifdef __cplusplus
  extern "C" {

@@ -2,18 +2,31 @@
  * @file  uiox_fboot_types.h
  * @brief UIOX Fast Boot — base types, error codes, phase IDs, timing.
  *
- * FIX: Replaced #include <stdint.h>, <stdbool.h>, <stddef.h> with
- * #include "uiox_fw_types.h" — this is a freestanding build (-nostdinc)
- * so system headers are unavailable.  uiox_fw_types.h provides all
- * primitive types via compiler built-ins.
+ * The system includes are gone — this is a freestanding build, so
+ * <stdint.h> / <stdbool.h> / <stddef.h> are not available.
  *
- * @version 1.0.0
- * @date    2026-07-08
+ * Types come from uiox_base_types.h, the BSP authority, which defines
+ * the uiox_-prefixed names unconditionally and the plain ones (uint8_t,
+ * size_t, bool, uintptr_t ...) only under UIOX_BASETYPES_COMPAT.  The
+ * switch is set here, at the point of use, the way every
+ * 10_BSP/10_Arch header does it — the plain typedefs must not coexist
+ * with <stdint.h> in one translation unit, and only the including file
+ * can know whether they would.
+ *
+ * (This replaces "uiox_fw_types.h", which does not exist in
+ *  10_BSP/03_SoC/include — that directory holds uiox_base_types.h and
+ *  uiox_soc_types.h.)
+ *
+ * @version 1.0.1
+ * @date    2026-10-02
  */
 #ifndef UIOX_FBOOT_TYPES_H
 #define UIOX_FBOOT_TYPES_H
 
-#include "uiox_fw_types.h"   /* uint8/16/32/64_t, bool, size_t, uintptr_t */
+#ifndef UIOX_BASETYPES_COMPAT
+#  define UIOX_BASETYPES_COMPAT
+#endif
+#include "uiox_base_types.h"   /* uint8/16/32/64_t, bool, size_t, uintptr_t */
 
 #ifdef __cplusplus
 extern "C" {

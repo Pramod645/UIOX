@@ -327,8 +327,14 @@ void uiox_ks_boot_entry(const void *image,
  * ====================================================================== */
 void uiox_ks_scheduler_tick(void)
 {
-    uiox_ks_rt_state_t state = uiox_ks_rt_tick(&g_rt_ctx, 0u);
-    if (state == UIOX_KS_RT_STATE_TAMPERED) {
+    uiox_ks_rt_ctx_t *ctx = uiox_ksign_get_rt_ctx();
+
+    uiox_ks_rt_tick(ctx, 0u);
+
+    /* The tick has no return value — it records the outcome in the
+     * context's state.  Read it back rather than expecting a return:
+     * rt_tick sets UIOX_KS_RT_STATE_OK or _TAMPERED on every call. */
+    if (ctx->state == UIOX_KS_RT_STATE_TAMPERED) {
         uiox_fw_printf("[ksign] CRITICAL: runtime integrity violation "
                        "detected on scheduler tick!\n");
         /* Policy decision: panic, log-only, or notify an audit subsystem.

@@ -2,9 +2,31 @@
  * @file  uiox_fboot_snapshot.c
  * @brief UIOX Fast Boot — suspend-to-disk snapshot save / restore.
  * @date  2026-07-08
+ *
+ * ── what changed in 1.0.1 ─────────────────────────────────────────────
+ *   1. uiox_fb_plat_sha256() now delegates to uiox_ks_sha256().  The
+ *      former body was FNV-1a — 32 bits of non-cryptographic hash in a
+ *      32-byte buffer — and that digest is the last check between a
+ *      corrupt snapshot partition and the indirect jump to
+ *      *(resume_fn_t *)ctx->ram_base.  A collision is trivial to
+ *      construct, and the input is the entire image.
+ *
+ *   2. uiox_fb_snap_restore() validated nothing before reading.  It hashed
+ *      image_size bytes from snap_part_base + sizeof(hdr) without proving
+ *      that extent lies inside the partition, and handed raw_size to the
+ *      decompressor without proving it fits RAM.  Both are now checked
+ *      first, in subtraction form so a hostile header cannot wrap the test.
+ *
+ *   3. uiox_fb_snap_capture() guarded snap_part_size against underflow —
+ *      avail = snap_part_size - sizeof(hdr) wrapped to a huge size_t if the
+ *      partition was smaller than a header.
+ *
+ * @version 1.0.1
+ * @date    2026-10-02
  */
 #include "../include/uiox_fboot_snapshot.h"
 #include "../include/uiox_fboot_timer.h"
+#include "uiox_kix_ksign_crypto.h"   /* uiox_ks_sha256 — the snapshot hash */
 
 extern void uiox_fw_printf(const char *fmt, ...);
 
@@ -17,7 +39,12 @@ static void sn_memcpy(void *d, const void *s, size_t n)
   while (n--) *dp++ = *sp++; }
 
 static int sn_memcmp(const uint8_t *a, const uint8_t *b, size_t n)
-{ uint8_t diff = 0; while (n--) diff |= (*a++ ^ *b++); return (int)diff; }
+{
+    uint8_t diff = 0;
+    while (n--)
+        diff |= (*a++ ^ *b++);
+    return (int)diff;
+}
 
 /* ── Platform hooks (override in BSP) ───────────────────────────────── */
 
@@ -49,23 +76,29 @@ uiox_fb_err_t uiox_fb_plat_flash_write(uintptr_t   part_base,
 
 /**
  * @brief Compute SHA-256 of @len bytes at @data into @digest[32].
- *        Reuses uiox_ksign SHA-256 when linked together.
+ *
+ * ── this digest guards an indirect jump ───────────────────────────────
+ * uiox_fb_snap_restore() verifies this output against the snapshot
+ * header, then calls *(resume_fn_t *)ctx->ram_base.  That is the last
+ * check between a corrupt or hostile snapshot partition and control
+ * transfer into arbitrary memory, so the hash is load-bearing.
+ *
+ * The previous body was FNV-1a: 4 bytes of 32-bit non-cryptographic
+ * hash in a 32-byte buffer with the other 28 zeroed.  It now delegates
+ * to 03_ksign.
+ *
+ * uiox_ks_sha256() is a STRONG symbol in
+ * 03_ksign/src/uiox_kix_ksign_crypto.c, so any image linking this
+ * archive must also link libksign.a — without it this becomes an
+ * undefined reference at link time, not a compile error here.
+ *
+ * Declared weak so a BSP with hardware SHA-256 can override it.
  */
 __attribute__((weak))
 void uiox_fb_plat_sha256(const uint8_t *data, size_t len,
                            uint8_t digest[UIOX_FB_SNAP_HASH_LEN])
 {
-    /* Minimal FNV-1a stub — replace with real SHA-256 in production */
-    uint32_t h = 0x811c9dc5u;
-    for (size_t i = 0; i < len; i++) {
-        h ^= data[i];
-        h *= 0x01000193u;
-    }
-    sn_memset(digest, 0, UIOX_FB_SNAP_HASH_LEN);
-    digest[0] = (uint8_t)(h >> 24);
-    digest[1] = (uint8_t)(h >> 16);
-    digest[2] = (uint8_t)(h >>  8);
-    digest[3] = (uint8_t)(h);
+    uiox_ks_sha256(data, len, digest);
 }
 
 /**
@@ -148,6 +181,26 @@ uiox_fb_err_t uiox_fb_snap_restore(uiox_fb_snap_ctx_t *ctx)
 
     const uiox_fb_snap_hdr_t *h = &ctx->hdr;
 
+    /* ── Validate the header against BOTH regions before touching either.
+     *
+     * image_size drives the hash read below and the decompress call; the
+     * pointer is snap_part_base + sizeof(*h), so a value past the end of
+     * the partition reads whatever follows it in physical memory, and the
+     * hash comparison then "passes" over those bytes.
+     *
+     * raw_size drives how much a real LZ4 decompressor writes.  The stub
+     * checks src_len against dst_cap, but a production decompressor
+     * expands according to the stored raw size — so this has to be
+     * validated against ram_size BEFORE the call, not by comparing the
+     * returned length afterwards.
+     *
+     * Both are subtractions rather than add-compare, so a hostile header
+     * setting a field to its maximum cannot wrap the test. */
+    if (h->image_size > ctx->snap_part_size - sizeof(*h))
+        return UIOX_FB_ERR_IO;
+    if (h->raw_size > ctx->ram_size)
+        return UIOX_FB_ERR_IO;
+
     uiox_fw_printf("[fboot-snap] Restoring %llu B → RAM 0x%lx...\n",
                    (unsigned long long)h->image_size,
                    (unsigned long)ctx->ram_base);
@@ -202,6 +255,11 @@ uiox_fb_err_t uiox_fb_snap_capture(uiox_fb_snap_ctx_t *ctx,
                                      uint32_t kernel_version)
 {
     if (!ctx || !ctx->initialized) return UIOX_FB_ERR_INVAL;
+
+    /* A partition no larger than its own header leaves no room for a
+     * payload, and avail below would wrap to a huge size_t. */
+    if (ctx->snap_part_size <= sizeof(uiox_fb_snap_hdr_t))
+        return UIOX_FB_ERR_INVAL;
 
     uiox_fw_printf("[fboot-snap] Capturing %zu B of RAM...\n",
                    ctx->ram_size);

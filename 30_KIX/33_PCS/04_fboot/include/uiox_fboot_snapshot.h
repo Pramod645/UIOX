@@ -10,8 +10,14 @@
  * Savings: DDR training (~300 ms) + kernel decompress (~150 ms) +
  *          driver init (~400 ms) ≈ 850 ms saved per boot.
  *
- * @version 1.0.0
- * @date    2026-07-08
+ * ── header fields are validated before use ────────────────────────────
+ * uiox_fb_snap_restore() checks image_size against snap_part_size and
+ * raw_size against ram_size BEFORE reading the partition or calling the
+ * decompressor — a corrupt header must not be able to drive a read past
+ * the partition or a write past RAM.
+ *
+ * @version 1.0.1
+ * @date    2026-10-02
  */
 #ifndef UIOX_FBOOT_SNAPSHOT_H
 #define UIOX_FBOOT_SNAPSHOT_H

@@ -56,7 +56,10 @@ uiox_fb_err_t uiox_fb_timer_init(uiox_fb_timer_t *t)
 uint64_t uiox_fb_timer_ticks_to_us(const uiox_fb_timer_t *t, uint64_t ticks)
 {
     if (!t || t->freq_hz == 0u) return 0u;
-    /* Avoid 64-bit overflow: ticks * 1_000_000 / freq */
+    /* Split to avoid overflowing ticks * 1_000_000:
+     *   (ticks / freq) * 1e6  +  (ticks % freq) * 1e6 / freq
+     * The whole-seconds part is exact; the remainder part is exact too,
+     * since (ticks % freq) < freq. */
     return (ticks / t->freq_hz) * 1000000u
          + (ticks % t->freq_hz) * 1000000u / t->freq_hz;
 }

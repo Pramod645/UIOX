@@ -9,13 +9,14 @@
  *
  * Execution order: sorted by priority (lowest integer = first).
  *
- * @version 1.0.0
- * @date    2026-07-08
+ * @version 1.0.1
+ * @date    2026-10-02
  */
 #ifndef UIOX_FBOOT_DEFER_H
 #define UIOX_FBOOT_DEFER_H
 
 #include "uiox_fboot_types.h"
+#include "uiox_fboot_timer.h"   /* uiox_fb_timer_t — uiox_fb_defer_run_all */
 
 #ifdef __cplusplus
 extern "C" {
@@ -57,7 +58,7 @@ uiox_fb_err_t uiox_fb_defer_register(uiox_fb_defer_ctx_t *ctx,
  *        Called after UIOX_FB_PHASE_SHELL_READY.
  *        In a threaded build, this runs on a low-priority background thread.
  */
-uiox_fb_err_t uiox_fb_defer_run_all(uiox_fb_defer_ctx_t *ctx,
+uiox_fb_err_t uiox_fb_defer_run_all(uiox_fb_defer_ctx_t   *ctx,
                                       const uiox_fb_timer_t *timer);
 
 /** Query whether all deferred inits are complete. */

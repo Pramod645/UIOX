@@ -95,6 +95,12 @@ long sys_boot_snap_save (long kver, long a1,      long a2, long a3);
 long sys_boot_snap_clear(long a0,   long a1,      long a2, long a3);
 
 /* =========================================================================
+ * Global context registration (used by the syscall handlers, which are
+ * defined in uiox_fboot.c alongside the pipeline they front)
+ * ====================================================================== */
+void uiox_fb_set_global_ctx(uiox_fb_master_ctx_t *ctx);
+
+/* =========================================================================
  * Error string helper
  * ====================================================================== */
 const char *uiox_fb_err_str(uiox_fb_err_t e);

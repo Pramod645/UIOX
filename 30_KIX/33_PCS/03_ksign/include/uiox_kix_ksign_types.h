@@ -19,9 +19,11 @@
  #ifndef UIOX_KIX_KSIGN_TYPES_H
  #define UIOX_KIX_KSIGN_TYPES_H
  
- #include <stdint.h>
- #include <stdbool.h>
- #include <stddef.h>
+ #ifndef UIOX_BASETYPES_COMPAT
+ #  define UIOX_BASETYPES_COMPAT
+ #endif
+ #include "uiox_base_types.h"
+ 
  
  #ifdef __cplusplus
  extern "C" {

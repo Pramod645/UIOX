@@ -1,0 +1,253 @@
+# =============================================================================
+# 30_KIX/33_PCS/Makefile_sec  — v1.0.0
+#
+# UIOX Security — builds libsec.a for the selected architecture.
+#
+# PARALLEL TO 05_sec/, not inside it.  Built from 33_PCS/ by an explicit -f,
+# the same way 03_ksign and 06_kpatch are.
+#
+#   make -f Makefile_sec arm64 | arm32 | riscv64 | x86_64
+#   make -f Makefile_sec all
+#   make -f Makefile_sec clean[-<arch>]
+#   make -f Makefile_sec info
+#
+# ── FOUR sources into 05_sec/build/<arch>/libsec.a ──────────────────────────
+#
+#   src/uiox_kix_sec_aslr.c         entropy, randomise_mm, kstack, mmap_hint
+#   src/uiox_kix_sec_mac_policy.c   policy load/validate, type/rule add, seal
+#   src/uiox_kix_sec_mac.c          check(), label parse/format, transitions,
+#                                   VFS hooks, audit log, the five sys_* handlers
+#   src/uiox_kix_sec_sec.c          master init, default boot policy, print
+#
+# ── the 03_ksign dependency, and why it is on the include path ───────────────
+# uiox_kix_sec_mac_policy.c calls uiox_ks_sha256() to verify a policy blob's
+# hash.  That is a STRONG symbol in 03_ksign/src/uiox_kix_ksign_crypto.c, so a
+# build of this archive needs libksign.a linked as well — the -I below only
+# makes the prototype visible; the definition has to come from the archive.
+#
+# BUILD ORDER: ksign first, then sec.
+#     make -f Makefile_ksign arm64
+#     make -f Makefile_sec   arm64
+#
+# A caller that overrides uiox_mac_plat_sha256() with its own (the function is
+# __attribute__((weak))) still needs the include if it wants the type, but does
+# not need the archive.
+#
+# @version 1.0.0  @date 2026-10-02
+# =============================================================================
+
+# ── Roots, all anchored at 33_PCS/ ───────────────────────────────────────────
+MFDIR     := $(dir $(abspath $(lastword $(MAKEFILE_LIST))))
+SECTop    := $(MFDIR)05_sec
+KSIGNTOP  := $(MFDIR)03_ksign
+COMMONDIR := $(abspath $(MFDIR)../common)
+
+# ── Host OS detection ─────────────────────────────────────────────────────────
+UNAME_S := $(shell uname -s)
+
+ifeq ($(UNAME_S),Darwin)
+  ARM64_CC := aarch64-elf-gcc
+  ARM64_AR := aarch64-elf-ar
+  ARM32_CC := arm-none-eabi-gcc
+  ARM32_AR := arm-none-eabi-ar
+  RV64_CC  := riscv64-elf-gcc
+  RV64_AR  := riscv64-elf-ar
+  X86_CC   := x86_64-elf-gcc
+  X86_AR   := x86_64-elf-ar
+else
+  ARM64_CC := aarch64-linux-gnu-gcc
+  ARM64_AR := aarch64-linux-gnu-ar
+  ARM32_CC := arm-linux-gnueabihf-gcc
+  ARM32_AR := arm-linux-gnueabihf-ar
+  RV64_CC  := riscv64-linux-gnu-gcc
+  RV64_AR  := riscv64-linux-gnu-ar
+  X86_CC   := x86_64-linux-gnu-gcc
+  X86_AR   := x86_64-linux-gnu-ar
+endif
+
+# ── BSP paths ─────────────────────────────────────────────────────────────────
+# uiox_kix_sec_types.h includes uiox_base_types.h, which lives under 10_BSP.
+BSPDIR ?= $(abspath $(MFDIR)../../10_BSP)
+SOCINC  = $(BSPDIR)/03_SoC/include
+
+# ── Include paths ─────────────────────────────────────────────────────────────
+# KSIGNTOP/include is here for uiox_kix_ksign_crypto.h — the SHA-256
+# prototype the policy verifier calls.
+SEC_INCLUDES := \
+  -I$(SECTop)/include    \
+  -I$(KSIGNTOP)/include  \
+  -I$(COMMONDIR)         \
+  -I$(SOCINC)
+
+# ── Compiler flags ────────────────────────────────────────────────────────────
+COMMON_CFLAGS := \
+  -std=c11              \
+  -Wall -Wextra -Werror \
+  -ffreestanding        \
+  -fno-builtin          \
+  -fno-stack-protector  \
+  -ffunction-sections   \
+  -fdata-sections       \
+  -DUIOX_BASETYPES_COMPAT \
+  -Os -g
+
+# ── Sources ───────────────────────────────────────────────────────────────────
+# Named, not wildcarded, so a stray file cannot join the archive silently.
+SEC_SRCS_C := \
+  $(SECTop)/src/uiox_kix_sec_aslr.c        \
+  $(SECTop)/src/uiox_kix_sec_mac_policy.c  \
+  $(SECTop)/src/uiox_kix_sec_mac.c         \
+  $(SECTop)/src/uiox_kix_sec_sec.c
+
+BUILD_BASE = $(SECTop)/build
+ARFLAGS    := rcs
+
+# =============================================================================
+# Per-architecture targets
+# =============================================================================
+
+.PHONY: arm64
+arm64: _do_arm64
+	@echo "[SEC] arm64 done -> 05_sec/build/arm64/"
+
+.PHONY: _do_arm64
+_do_arm64:
+	@command -v $(ARM64_CC) >/dev/null 2>&1 || \
+	    { echo "ERROR: $(ARM64_CC) not found"; \
+	      echo "  Linux: sudo apt install gcc-aarch64-linux-gnu"; \
+	      echo "  macOS: brew install aarch64-elf-gcc"; exit 1; }
+	$(MAKE) -f $(MFDIR)Makefile_sec _build   \
+	    _ARCH=arm64                            \
+	    CC=$(ARM64_CC) AR=$(ARM64_AR)          \
+	    ARCH_CFLAGS="-march=armv8-a -mabi=lp64 -mlittle-endian" \
+	    ARCH_CPUDEF="-D__aarch64__"
+
+.PHONY: arm32
+arm32: _do_arm32
+	@echo "[SEC] arm32 done -> 05_sec/build/arm32/"
+
+.PHONY: _do_arm32
+_do_arm32:
+	@command -v $(ARM32_CC) >/dev/null 2>&1 || \
+	    { echo "ERROR: $(ARM32_CC) not found"; \
+	      echo "  Linux: sudo apt install gcc-arm-linux-gnueabihf"; \
+	      echo "  macOS: brew install arm-none-eabi-gcc"; exit 1; }
+	$(MAKE) -f $(MFDIR)Makefile_sec _build    \
+	    _ARCH=arm32                            \
+	    CC=$(ARM32_CC) AR=$(ARM32_AR)          \
+	    ARCH_CFLAGS="-march=armv7-a -marm -mfloat-abi=soft -mlittle-endian" \
+	    ARCH_CPUDEF="-D__arm__"
+
+.PHONY: riscv64
+riscv64: _do_riscv64
+	@echo "[SEC] riscv64 done -> 05_sec/build/riscv64/"
+
+.PHONY: _do_riscv64
+_do_riscv64:
+	@command -v $(RV64_CC) >/dev/null 2>&1 || \
+	    { echo "ERROR: $(RV64_CC) not found"; \
+	      echo "  Linux: sudo apt install gcc-riscv64-linux-gnu"; \
+	      echo "  macOS: brew install riscv64-elf-gcc"; exit 1; }
+	$(MAKE) -f $(MFDIR)Makefile_sec _build                       \
+	    _ARCH=riscv64                                            \
+	    CC=$(RV64_CC) AR=$(RV64_AR)                              \
+	    ARCH_CFLAGS="-march=rv64imafdc_zicsr_zifencei -mabi=lp64d -mcmodel=medany" \
+	    ARCH_CPUDEF="-D__riscv -D__riscv_xlen=64"
+
+.PHONY: x86_64
+x86_64: _do_x86_64
+	@echo "[SEC] x86_64 done -> 05_sec/build/x86_64/"
+
+.PHONY: _do_x86_64
+_do_x86_64:
+	@command -v $(X86_CC) >/dev/null 2>&1 || \
+	    { echo "ERROR: $(X86_CC) not found"; \
+	      echo "  Linux: sudo apt install gcc-x86-64-linux-gnu"; \
+	      echo "  macOS: brew install x86_64-elf-gcc"; exit 1; }
+	$(MAKE) -f $(MFDIR)Makefile_sec _build                           \
+	    _ARCH=x86_64                                                 \
+	    CC=$(X86_CC) AR=$(X86_AR)                                    \
+	    ARCH_CFLAGS="-m64 -mno-red-zone -mno-mmx -mno-sse -mno-sse2 -fno-pic -mcmodel=kernel" \
+	    ARCH_CPUDEF="-D__x86_64__"
+
+# =============================================================================
+# Internal _build
+# =============================================================================
+_ARCH      ?= arm64
+_BUILD_DIR  = $(BUILD_BASE)/$(_ARCH)
+
+_CFLAGS_ALL = $(COMMON_CFLAGS)   \
+              $(SEC_INCLUDES)    \
+              $(ARCH_CFLAGS)     \
+              $(ARCH_CPUDEF)
+
+_OBJS = $(patsubst $(SECTop)/%.c,$(_BUILD_DIR)/%.o,$(SEC_SRCS_C))
+
+DEPFLAGS = -MMD -MP -MF $(@:.o=.d)
+-include $(_OBJS:.o=.d)
+
+.PHONY: _build
+_build: $(_BUILD_DIR)/libsec.a
+	@echo "[SEC] _build done: $(_ARCH)  ($(words $(_OBJS)) objects)"
+
+$(_BUILD_DIR)/libsec.a: $(_OBJS)
+	@mkdir -p $(dir $@)
+	$(AR) $(ARFLAGS) $@ $^
+	@echo "  [AR]  $@"
+
+$(_BUILD_DIR)/%.o: $(SECTop)/%.c
+	@mkdir -p $(dir $@)
+	$(CC) $(_CFLAGS_ALL) -I$(dir $<) $(DEPFLAGS) -c $< -o $@
+	@echo "  [CC]  $<"
+
+# =============================================================================
+# Convenience
+# =============================================================================
+
+.PHONY: all
+all: arm64 arm32 riscv64 x86_64
+	@echo ""
+	@echo "[SEC] all builds complete"
+
+.PHONY: clean-arm64 clean-arm32 clean-riscv64 clean-x86_64 clean
+clean-arm64:   ; rm -rf $(BUILD_BASE)/arm64
+clean-arm32:   ; rm -rf $(BUILD_BASE)/arm32
+clean-riscv64: ; rm -rf $(BUILD_BASE)/riscv64
+clean-x86_64:  ; rm -rf $(BUILD_BASE)/x86_64
+clean: clean-arm64 clean-arm32 clean-riscv64 clean-x86_64
+	@echo "[CLN] sec build outputs removed"
+
+.PHONY: info
+info:
+	@echo "MFDIR     = $(MFDIR)"
+	@echo "SECTop    = $(SECTop)"
+	@echo "KSIGNTOP  = $(KSIGNTOP)"
+	@echo "COMMONDIR = $(COMMONDIR)"
+	@echo "SOCINC    = $(SOCINC)"
+	@echo ""
+	@echo "libsec.a sources (4):"
+	@for f in $(SEC_SRCS_C) ; do \
+	    [ -f "$$f" ] && echo "  OK   $$f" || echo "  MISS $$f" ; done
+	@echo ""
+	@echo "headers expected:"
+	@for h in uiox_kix_sec_types.h uiox_kix_sec_aslr.h uiox_kix_sec_sec.h \
+	          uiox_kix_sec_mac.h uiox_kix_sec_mac_policy.h ; do \
+	    [ -f "$(SECTop)/include/$$h" ] && echo "  OK   include/$$h" \
+	                                   || echo "  MISS include/$$h" ; done
+	@echo ""
+	@echo "03_ksign dependency (for uiox_ks_sha256):"
+	@[ -f "$(KSIGNTOP)/include/uiox_kix_ksign_crypto.h" ] \
+	    && echo "  OK   include/uiox_kix_ksign_crypto.h" \
+	    || echo "  MISS include/uiox_kix_ksign_crypto.h"
+	@[ -f "$(KSIGNTOP)/build/$(_ARCH)/libksign.a" ] \
+	    && echo "  OK   build/$(_ARCH)/libksign.a  (link it)" \
+	    || echo "  WARN build/$(_ARCH)/libksign.a absent — build it or override the weak sha256"
+	@echo ""
+	@echo "no system includes should remain:"
+	@found=0 ; \
+	for f in $(SECTop)/include/*.h $(SECTop)/src/*.c ; do \
+	    if [ -f "$$f" ] && grep -q '#include <' "$$f" ; then \
+	        echo "  SYS  $$f" ; found=1 ; fi ; done ; \
+	[ $$found -eq 0 ] && echo "  OK   none"
+	@echo ""
+	@echo "object count: $(words $(_OBJS))"

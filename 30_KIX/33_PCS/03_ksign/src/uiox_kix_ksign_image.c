@@ -20,8 +20,8 @@
 
  extern void uiox_fw_printf(const char *fmt, ...);
  
- static void im_memset(void *d, int v, size_t n)
- { uint8_t *p = (uint8_t *)d; while (n--) *p++ = (uint8_t)v; }
+ //static void im_memset(void *d, int v, size_t n)
+ //{ uint8_t *p = (uint8_t *)d; while (n--) *p++ = (uint8_t)v; }
  
  static void im_memcpy(void *d, const void *s, size_t n)
  { uint8_t *dp = (uint8_t *)d; const uint8_t *sp = (const uint8_t *)s;
