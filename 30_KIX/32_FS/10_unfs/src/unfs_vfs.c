@@ -39,6 +39,9 @@
 #include "unfs_fs.h"        /* unfs_fs_t, the mount state              */
 #include "unfs_alloc.h"     /* unfs_alloc_block, unfs_free_run         */
 #include "vfs.h"            /* the ops table                           */
+#include "namei.h"          /* dir_lookup / dir_add / dir_remove       */
+                            /* — 01_fsa's directory operations, whose  */
+                            /*   addresses the ops table below takes   */
 
 /* The bridge, from unfs_iget.c.  Declared in unfs_fs.h. */
 extern InCoreInode *unfs_iget(uiox_uint8_t dev, uiox_uint32_t inum);

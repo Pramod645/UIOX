@@ -196,8 +196,13 @@ void vfs_free_inode_blocks(InCoreInode *ip)
  * Mount
  * ═════════════════════════════════════════════════════════════════════ */
 
-int vfs_mount(uint8_t dev, const char *fstype)
+//int vfs_mount(uint8_t dev, const char *fstype)
+int vfs_mount(const char *path, const char *fstype, uint32_t dev)
 {
+     /* path   — the mount point, resolved to a dentry and attached
+      * fstype — selects the backend ops table by name
+      * dev    — the device number the backend reads from */
+    (void)path;   /* mount-point attach not yet implemented */
     const uiox_fs_ops_t *ops = vfs_fsops(dev);
     (void)fstype;
 

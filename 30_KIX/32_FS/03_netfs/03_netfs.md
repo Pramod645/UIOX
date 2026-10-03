@@ -126,6 +126,38 @@ None of the three is a small change, and none is needed for the on-disk filesyst
 
 ===============
 
+What netfs actually is
+Per 03_netfs.md, NFS-lite is a remote filesystem client — three protocols behind one VFS bridge:
+
+Layer	Protocol	Transport
+uiox_nfs_rpc	ONC RPC + XDR, 64 KB buffers	uiox_fw_eth / uiox_fw_wifi
+uiox_nfs_proto	NFS v3 (RFC 1813) — GETATTR/LOOKUP/READ/WRITE/READDIR/MKDIR/REMOVE/COMMIT	UDP/TCP over the RPC layer
+uiox_nfs_9p	Plan 9 9P2000 — version/attach/walk/open/read/write/clunk/stat	QEMU -virtfs plan9 socket
+uiox_nfs_virtfs	VirtIO-FS, nodeid-based FUSE ops	QEMU -device vhost-user-fs-pci
+uiox_nfs_cache	30-second attribute TTL, write-back page cache	—
+uiox_nfs_vfs	mount/umount/open/read/write/stat/readdir + SYS_MOUNT shims	plugs into 32_FileSystem namei
+The integration column names uiox_fw_eth, uiox_fw_wifi, 31_BufferCache, 32_FileSystem inode operations, 32_FileSystem namei hook, 40_SystemCallInterface SYS_MOUNT. Every one is a pull, not a push.
+
+====
+Meanwhile, the kernel-side gap list, on the assumption the move was deliberate
+If netfs is meant to be kernel-resident inside 32_FS, then the gaps are these — and they're different from what I listed before:
+
+1. It has no way to reach the block layer, and doesn't need one — but it must still present InCoreInode. A kernel filesystem that namei can walk must hand back 01_fsa's inode type. Netfs's uiox_nfs_vfs_open(path, flags, mode) -> int fd is a syscall shape, not an inode-returning shape. The bridge between struct uiox_nfs_mount/uiox_nfs_attr_t and InCoreInode is the single biggest missing piece.
+
+2. No registration through vfs_register_fs. 10_unfs/10_scfs register an ops table per device. Netfs has mount(params, &idx) with its own params struct — a second mount mechanism parallel to the first. For kernel residency, it needs to fit vfs.h's uioxfileopst/uioxinodeopst shape, or namei can't dispatch into it.
+
+3. Transport is uiox_fw_eth/uiox_fw_wifi — synchronous or not is unknown. Kernel-side, the RPC layer cannot block spin-waiting for a packet. The HAL declares uiox_fw_eth_send(dev, f, l) and uiox_fw_eth_set_rx_cb(dev, cb, p) — callback-based receive. So there's an async receive path and the RPC layer must be built around it. Whether uiox_nfs_rpc.c is written that way is the key question.
+
+4. sys_mount/sys_umount/sys_statfs declared in demo.c with no definitions — the SYS_MOUNT shims the doc claims. Kernel-side these route through 40_SCIX, which is above 32_FS — the same upward-dependency shape as uix_sys.h.
+
+5. uiox_netfs_demo.c must not be in the kernel archive. 15 scenarios, a main-shaped entry.
+
+The one question that decides everything
+Is netfs a filesystem (implements uioxinodeopst, dispatches through vfs.c, hands back InCoreInode) or a filter/translator (a layer that sits between the VFS and the network, with its own object model)?
+
+Your 10_unfs is unambiguously the first. Netfs's headers (uiox_nfs_attr_t, uiox_nfs_mount_t, mount_idx) look like the second. If it's the second, then "moved into the kernel" means it needs an adapter — and that adapter is the work, not the Makefile.
+
+Send the newer doc if it exists, and I'll pin the gap list to what the tree actually decided rather than to a draft its own author has moved past.
 
 
 

@@ -30,6 +30,7 @@
  #include "unfs_alloc.h"
  #include "unfs_io.h"
  #include "bcache.h"
+ #include "uiox_kix_jrnl.h"
  
  /* One bitmap block covers this many blocks. */
  #define UNFS_BITS_PER_BITMAP_BLOCK  (UNFS_BLOCK_SIZE * 8u)
@@ -182,10 +183,12 @@
  {
      unfs_sb_t     sb;
      uiox_uint8_t  bmbuf[UNFS_BLOCK_SIZE];
+     uiox_uint8_t  prebuf[UNFS_BLOCK_SIZE];//for journal
      uiox_uint32_t group;
      uiox_uint32_t start;
      uiox_uint32_t limit;
      uiox_uint32_t k;
+     uiox_jr_ctx_t *jr = uiox_jr_ctx_for((uiox_uint8_t)dev);
  
      if (!out) return UNFS_EINVAL;
      if (want == 0u) { out->count = 0u; return UNFS_EINVAL; }
@@ -203,6 +206,13 @@
          uiox_uint32_t first_data = group_first_data_blk(&sb, group);
  
          if (unfs_bdev_read(dev, bmap_blk, bmbuf) != UNFS_OK) return UNFS_EIO;
+
+          /* Capture the PRE-image HERE, before the bits move.  This is the
+          * only moment the block's on-disk contents exist in the local:
+          * bit_set_used() below modifies bmbuf in place, so a capture
+          * after the loop records the POST-image and the journal then
+          * describes nothing about what changed. */
+         if (jr) memcpy(prebuf, bmbuf, UNFS_BLOCK_SIZE);
  
          /* how many bits this group actually uses */
          limit = sb.s_blocks_per_group;
@@ -219,6 +229,13 @@
  
          /* ── claim it: clear the bits, write the bitmap, then count ── */
          for (k = 0u; k < want; k++) bit_set_used(bmbuf, start + k);
+
+         /* ── the pair, before the write lands ───────────────────────── */
+         if (jr) {
+                 uiox_jr_vfs_get_write_access(jr, bmap_blk, prebuf);
+                 uiox_jr_vfs_dirty_metadata(jr, bmap_blk, bmbuf);
+             }
+     
  
          if (unfs_bdev_write(dev, bmap_blk, bmbuf) != UNFS_OK) return UNFS_EIO;
  
@@ -257,9 +274,12 @@
  {
      unfs_sb_t     sb;
      uiox_uint8_t  bmbuf[UNFS_BLOCK_SIZE];
+     uiox_uint8_t  prebuf[UNFS_BLOCK_SIZE]; //for journal
      uiox_uint32_t group;
      uiox_uint32_t start;
      uiox_uint32_t k;
+
+     uiox_jr_ctx_t *jr = uiox_jr_ctx_for((uiox_uint8_t)dev);//for journal
  
      if (count == 0u) return UNFS_EINVAL;
      if (read_sb(dev, &sb) != UNFS_OK) return UNFS_EIO;
@@ -283,11 +303,18 @@
          uiox_uint32_t bmap_blk = group_bmap_blk(&sb, group);
  
          if (unfs_bdev_read(dev, bmap_blk, bmbuf) != UNFS_OK) return UNFS_EIO;
+
+         if (jr) memcpy(prebuf, bmbuf, UNFS_BLOCK_SIZE); //for journal
  
          for (k = 0u; k < count; k++) {
              if (start + k >= sb.s_blocks_per_group) break;
              bit_set_free(bmbuf, start + k);
          }
+
+         if (jr) { // for journal
+            uiox_jr_vfs_get_write_access(jr, bmap_blk, prebuf);
+            uiox_jr_vfs_dirty_metadata(jr, bmap_blk, bmbuf);
+        }
  
          if (unfs_bdev_write(dev, bmap_blk, bmbuf) != UNFS_OK) return UNFS_EIO;
      }
@@ -336,8 +363,11 @@
  {
      unfs_sb_t     sb;
      uiox_uint8_t  imbuf[UNFS_BLOCK_SIZE];
+     uiox_uint8_t  prebuf[UNFS_BLOCK_SIZE];//for journal
      uiox_uint32_t b;
      uiox_uint32_t limit;
+
+     uiox_jr_ctx_t *jr = uiox_jr_ctx_for((uiox_uint8_t)dev);
  
      if (!ino_out) return UNFS_EINVAL;
      *ino_out = 0u;
@@ -346,6 +376,8 @@
      if (sb.s_inodes_per_group > UNFS_BITS_PER_BITMAP_BLOCK) return UNFS_ENOTSUP;
  
      if (unfs_bdev_read(dev, UNFS_GROUP0_IBMAP, imbuf) != UNFS_OK) return UNFS_EIO;
+
+     if (jr) memcpy(prebuf, imbuf, UNFS_BLOCK_SIZE); //for journal
  
      limit = sb.s_inodes_per_group;
  
@@ -353,6 +385,18 @@
          if (!bit_is_free(imbuf, b)) continue;
  
          bit_set_used(imbuf, b);
+         //start journal 
+         /* THIS ONE MATTERS AS MUCH AS THE BLOCK BITMAP.  ialloc() clears
+          * the bit, then iget()s the inode and iupdate() writes it — the
+          * same two-part update, and the same leak if a crash lands
+          * between. */
+         if (jr) {
+                 uiox_jr_vfs_get_write_access(jr, UNFS_GROUP0_IBMAP, prebuf);
+                 uiox_jr_vfs_dirty_metadata(jr, UNFS_GROUP0_IBMAP, imbuf);
+        }
+
+
+         // end ehe journal section
          if (unfs_bdev_write(dev, UNFS_GROUP0_IBMAP, imbuf) != UNFS_OK)
              return UNFS_EIO;
  
@@ -370,7 +414,10 @@
  {
      unfs_sb_t     sb;
      uiox_uint8_t  imbuf[UNFS_BLOCK_SIZE];
+     uiox_uint8_t  prebuf[UNFS_BLOCK_SIZE]; // for journal
      uiox_uint32_t bit;
+
+     uiox_jr_ctx_t *jr = uiox_jr_ctx_for((uiox_uint8_t)dev); // for journal
  
      if (ino == 0u || ino == UNFS_NIL_INO) return UNFS_EINVAL;
      if (read_sb(dev, &sb) != UNFS_OK) return UNFS_EIO;
@@ -379,8 +426,16 @@
      if (bit >= sb.s_inodes_per_group) return UNFS_EINVAL;
  
      if (unfs_bdev_read(dev, UNFS_GROUP0_IBMAP, imbuf) != UNFS_OK) return UNFS_EIO;
+
+     if (jr) memcpy(prebuf, imbuf, UNFS_BLOCK_SIZE); // for journal
  
-     bit_set_free(imbuf, bit);
+     bit_set_free(imbuf, bit); 
+
+     if (jr) { //for journal
+        uiox_jr_vfs_get_write_access(jr, UNFS_GROUP0_IBMAP, prebuf);
+        uiox_jr_vfs_dirty_metadata(jr, UNFS_GROUP0_IBMAP, imbuf);
+      }
+
      if (unfs_bdev_write(dev, UNFS_GROUP0_IBMAP, imbuf) != UNFS_OK) return UNFS_EIO;
  
      sb.s_free_inodes++;

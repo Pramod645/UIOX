@@ -185,7 +185,22 @@ void          inode_cache_init(void);
  */
 InCoreInode  *iget_dev(uint8_t dev, uint32_t ino);
 InCoreInode  *iget(uint32_t ino);          /* dev = ROOT_DEV (0)      */
-
+/*
+ * The block holding inode @ino on @dev.
+ *
+ * DERIVED, not stored — and derived in exactly ONE place.
+ * inode_disk_read() calls this to find the buffer, and iupdate() calls
+ * it to NAME the block for the journal.  A second copy of the formula
+ * would be a second definition of a derived value.
+ *
+ * The bound is GROUP 0's inode table, NOT unfs_sb_t.s_inode_count: this
+ * is the lowest inode-layer primitive and it is called FROM the
+ * superblock path, so reaching for sb_get(dev) here would be circular at
+ * mount time.
+ *
+ * Returns 0 for an out-of-range inode, which is never a valid block.
+ */
+ uint32_t      inode_block_of(uint8_t dev, uint32_t ino); // added due to Jrnl it waas not for FSA design
 /*
  * Algorithm iput  (§2)
  * Release an in-core inode.

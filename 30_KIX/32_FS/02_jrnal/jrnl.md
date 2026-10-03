@@ -227,3 +227,292 @@ That's a coherent stopping point: the filesystem is whole, two subsystems are co
 Ping me when the scheduler lands — that's what unblocks both COW and the journal, and the glue is small once they're unblocked.
 
 
+==========================================
+
+Files in 02_jrnal — the seven
+Two written as complete files, five carrying edits:
+
+
+
+include/uiox_kix_jrnl_types.h      full file I authored
+include/uiox_kix_jrnl_tx.h         pool field (you added) + accessor prototype
+include/uiox_kix_jrnl.h            registration API + fixed include
+include/uiox_kix_jrnl_recover.h    rename only
+src/uiox_kix_jrnl_tx.c             full file I authored
+src/uiox_kix_jrnl_recover.c        fixed include at line 6
+src/uiox_kix_jrnl.c                ORDERED refusal + two lb->data regions
+Files outside 02_jrnal for journal functionality — five
+These are the wiring. Without them the journal compiles but is never called:
+
+File	Change	Why the journal needs it
+01_fsa/src/inode.c	inode_block_of helper; inode_disk_read gains out_blkno; iupdate brackets its fill	journals the inode block — the hook that makes bmap_alloc's window atomic
+01_fsa/include/inode.h	inode_block_of prototype	declared so bmap.c and the journal can call it
+01_fsa/src/namei.c	dir_add / dir_remove bracket their block writes	journals the directory block
+01_fsa/src/readwrite.c	writei_at brackets under MODE_DATA	journals data blocks — the only mode-dependent hook
+10_unfs/src/unfs_alloc.c	bitmap pre-image captured before bit_set_used	journals the block bitmap — the other half of the allocation pair
+32_FS/src/uiox_fs_init.c	three drafts consolidated, uiox_jr_register added	the call that makes uiox_jr_ctx_for(dev) return anything
+32_FS/Makefile	JRNL_DIR, sources, vpath, -I paths	parked at your instruction
+So that's six files outside the module, not zero. Five source edits plus the Makefile.
+
+What is not touched, and shouldn't be
+bmap.c — I initially proposed a hook there and then established it was unnecessary. readwrite.c:235 calls iupdate(ip) in the same write path, so patch 1's iupdate hook covers the allocation window. bmap.c gets a comment, not code.
+
+And two things the journal still needs that no file provides
+uiox_jr_force_commit has no body. I wrote uiox_kix_jrnl.c with four call sites for it — uiox_jr_stop, uiox_jr_tick, uiox_jr_unmount, and the commit path — but I never read the original's body, so I didn't invent one. Its data half is jr_write_logged_blocks, which I did write.
+
+MAX_DEVICES — uiox_kix_jrnl.c uses it for s_jr[MAX_DEVICES], and it comes from fs_types.h. If it isn't defined there, that's one line.
+
+The honest summary
+Journal functionality spans thirteen files: seven in the module and six outside it. Two of the seven I wrote whole; the rest are patches. Nothing has been compiled, so every claim about correctness rests on reading — and the one thing verified in this whole sequence is the rename, because your grep came back empty.
+
+
+
+
+can you show me what cahnges you have upadted/applied to complete journals and why?File Change Why the journal needs it
+01_fsa/src/inode.c inode_block_of helper; inode_disk_read gains out_blkno; iupdate brackets its fill journals the inode block — the hook that makes bmap_alloc's window atomic
+01_fsa/include/inode.h inode_block_of prototype declared so bmap.c and the journal can call it
+01_fsa/src/namei.c dir_add / dir_remove bracket their block writes journals the directory block
+01_fsa/src/readwrite.c writei_at brackets under MODE_DATA journals data blocks — the only mode-dependent hook
+10_unfs/src/unfs_alloc.c bitmap pre-image captured before bit_set_used journals the block bitmap — the other half of the allocation pair
+32_FS/src/uiox_fs_init.c three drafts consolidated, uiox_jr_register added the call that makes uiox_jr_ctx_for(dev) return anything
+32_FS/Makefile JRNL_DIR, sources, vpath, -I paths
+
+
+Here are the six outside-the-module changes, each written out, with the reason it's needed.
+
+1 — 01_fsa/include/inode.h — the prototype
+Added, beside the other inode API:
+
+c
+
+
+/*
+ * The block holding inode @ino on @dev.  DERIVED, not stored — and
+ * derived in exactly one place.  inode_disk_read computes this to find
+ * the buffer, and the journal needs the same number to name the block it
+ * logs.  A second copy of the formula would be a second definition of a
+ * derived value.
+ *
+ * Returns 0 for an out-of-range inode, which is never a valid block.
+ */
+uint32_t inode_block_of(uint8_t dev, uint32_t ino);
+Why: iupdate and the commit path both need to tell the journal which block they're writing. That number is computed inside inode_disk_read at line 188 and thrown away. Without exporting it, each caller would re-derive the formula — and a drift between the two copies would journal the wrong block while the checksum still matched.
+
+2 — 01_fsa/src/inode.c — three changes
+2a. The helper, lifted
+c
+
+
+uint32_t inode_block_of(uint8_t dev, uint32_t ino)
+{
+    (void)dev;      /* the geometry is per-volume */
+
+    if (ino == 0u || ino > (UNFS_ITABLE_BLOCKS * UNFS_INODES_PER_BLOCK))
+        return 0u;
+
+    return ((ino - 1u) / UNFS_INODES_PER_BLOCK) + UNFS_GROUP0_ITABLE;
+}
+2b. inode_disk_read gives the number back
+c
+
+
+DiskInode *inode_disk_read(uint8_t dev, uint32_t ino,
+                           BufHdr **out_buf, uint32_t *out_blkno)
+and inside, the local computation becomes:
+
+c
+
+
+    blkno = inode_block_of(dev, ino);
+    if (blkno == 0u) return (DiskInode *)0;
+
+    if (out_blkno) *out_blkno = blkno;
+
+    offset = ((ino - 1u) % UNFS_INODES_PER_BLOCK) * (uint32_t)sizeof(DiskInode);
+2c. iupdate brackets its fill
+c
+
+
+void iupdate(InCoreInode *ip)
+{
+    BufHdr    *buf;
+    DiskInode *di;
+    uint32_t   blkno = 0u;
+    uiox_jr_ctx_t *jr;
+
+    if (!ip) return;
+
+    di = inode_disk_read(ip->dev, ip->ino, &buf, &blkno);
+    if (!di) return;
+
+    /* BEFORE the fields move: this is the on-disk PRE-IMAGE. */
+    jr = uiox_jr_ctx_for(ip->dev);
+    if (jr)
+        uiox_jr_vfs_get_write_access(jr, blkno, buf->data);
+
+    di->i_mode  = ip->mode;
+    di->i_nlink = ip->nlink;
+    di->i_uid   = ip->uid;
+    di->i_gid   = ip->gid;
+    di->i_size  = ip->size;
+    memcpy(di->i_extents, ip->i_extents, sizeof ip->i_extents);
+    di->i_extent_tree = ip->i_extent_tree;
+    di->i_atime_ns = (uint64_t)ip->atime;
+    di->i_mtime_ns = (uint64_t)ip->mtime;
+    di->i_ctime_ns = (uint64_t)ip->ctime;
+    di->dev        = ip->dev;
+
+    /* AFTER, still ours: the post-image. */
+    if (jr)
+        uiox_jr_vfs_dirty_metadata(jr, blkno, buf->data);
+
+    bwrite(buf, true, false);
+
+    ip->flags &= (uint8_t)~(IFLAG_ACCESSED | IFLAG_CHANGED | IFLAG_MODIFIED);
+}
+Why: this is the hook that makes bmap_alloc's window atomic. bmap.c:397 warns the block is "allocated but unnamed" between the bitmap clear and the extent placement — and readwrite.c:235 calls iupdate(ip) in the same write path, which persists the extent map. Journalling the inode block makes that pair one unit. Without it, a crash in the window leaks the block permanently: nothing on disk refers to it.
+
+3 — 01_fsa/src/namei.c — the dirent pair
+In dir_add and dir_remove, around each block's modification:
+
+c
+
+
+    BufHdr *buf = bread(dir->dev, sect);
+
+    uiox_jr_ctx_t *jr = uiox_jr_ctx_for(dir->dev);
+    if (jr)
+        uiox_jr_vfs_get_write_access(jr, dir_block_of(dir, sect), buf->data);
+
+    ... modify buf->data ...
+
+    if (jr)
+        uiox_jr_vfs_dirty_metadata(jr, dir_block_of(dir, sect), buf->data);
+
+    bwrite(buf, true, false);
+With the conversion helper:
+
+c
+
+
+static uint32_t dir_block_of(const InCoreInode *dir, uint32_t sect)
+{
+    (void)dir;
+    return sect / (uint32_t)UNFS_SECTORS_PER_BLOCK;
+}
+Why: a dirent update is the third kind of metadata this filesystem writes. mkdir, unlink, rename, mknod all change a directory block, and a crash mid-update leaves a name that resolves to a half-written entry. The dir_block_of conversion matters because bread takes 512-byte sectors and the journal takes 4096-byte UNFS blocks — passing the sector straight through would journal the wrong block by a factor of eight.
+
+4 — 01_fsa/src/readwrite.c — the data hook
+In writei_at, inside the block loop:
+
+c
+
+
+        buf = bread(bm.dev, bm.blkno);
+        if (!buf) break;
+
+        jr = NULL;
+        if (uiox_jr_ctx_for(ip->dev) &&
+            uiox_jr_ctx_for(ip->dev)->mode == UIOX_JR_MODE_DATA)
+            jr = uiox_jr_ctx_for(ip->dev);
+
+        if (jr)
+            uiox_jr_vfs_get_write_access(jr, bm.blkno, buf->data);
+
+        for (i = 0u; i < n; i++)
+            buf->data[bm.blk_offset + i] = (uint8_t)kbuf[done + i];
+
+        if (jr)
+            uiox_jr_vfs_dirty_metadata(jr, bm.blkno, buf->data);
+
+        bwrite(buf, true, false);
+Why: this is the only mode-dependent hook. Under METADATA, a crash can leave the inode pointing at blocks whose contents were never written — a file whose size says 4 KB and whose bytes belong to the previous occupant. MODE_DATA closes that by journalling the contents too, at the cost of doubling the I/O. The guard means METADATA and ORDERED mounts pay nothing but a pointer test.
+
+5 — 10_unfs/src/unfs_alloc.c — the bitmap
+In unfs_alloc_run, capturing the pre-image before the bits move:
+
+c
+
+
+        if (unfs_bdev_read(dev, bmap_blk, bmbuf) != UNFS_OK) return UNFS_EIO;
+
+        if (jr) memcpy(prebuf, bmbuf, UNFS_BLOCK_SIZE);   /* ← before */
+
+        if (!find_run(bmbuf, limit, want, &start)) continue;
+
+        for (k = 0u; k < want; k++) bit_set_used(bmbuf, start + k);
+
+        if (jr) {
+            uiox_jr_vfs_get_write_access(jr, bmap_blk, prebuf);
+            uiox_jr_vfs_dirty_metadata(jr, bmap_blk, bmbuf);
+        }
+
+        if (unfs_bdev_write(dev, bmap_blk, bmbuf) != UNFS_OK) return UNFS_EIO;
+Why: this is the other half of the allocation pair. unfs_alloc_run clears bits in the group bitmap and decrements s_free_blocks; the function's own comment names the ordering and reasons about crash windows — but doesn't journal them. With patch 2's iupdate hook this is the pair that leaks, and it's the one the journal exists to bracket. The pre-image has to be captured before bit_set_used modifies bmbuf, or the read-back is the post-image.
+
+6 — 32_FS/src/uiox_fs_init.c — consolidate and register
+The three drafts collapse into one body, then:
+
+c
+
+
+    /* 4. Journal init. */
+    jrc = uiox_jr_init(&s_root_journal, 0u,
+                       UIOX_JR_MIN_LOG_BLOCKS,
+                       UIOX_JR_MODE_METADATA,
+                       (uint64_t (*)(void))0);
+    if (jrc != UIOX_JR_OK) {
+        early_puts("[fs] journal init failed\n");
+    } else {
+        /* 5. Mount — runs recovery.  Must precede step 6. */
+        jrc = uiox_jr_mount(&s_root_journal, (uiox_jr_recovery_stats_t *)0);
+
+        if (jrc == UIOX_JR_OK) {
+            /* 6. REGISTER. */
+            jrc = uiox_jr_register(&s_root_journal, ROOT_DEV);
+        }
+    }
+Why: uiox_jr_register is what puts the context in s_jr[MAX_DEVICES], and uiox_jr_ctx_for(dev) is what every hook calls to find it. Without this one call, all five hooks above test NULL and do nothing — the journal would compile, link, and never record a byte. The order matters: recovery must run before registration, or a hook would log into a log whose tail is still dirty from the last crash.
+
+And the consolidation itself is required because the file held three definitions of uiox_fs_init. Three in one translation unit is a compile error, and two of them used printf(), which -ffreestanding bans.
+
+7 — 32_FS/Makefile — parked
+makefile
+
+
+JRNL_DIR := $(MFDIR)02_jrnal
+FWHAL    := $(abspath $(MFDIR)../../02_FwHal)
+
+FS_SRCS_C += $(wildcard $(JRNL_DIR)/src/*.c)
+FS_SRCS_C += $(wildcard $(MFDIR)src/*.c)        # uiox_fs_init.c — never in the build
+
+vpath %.c  ... $(JRNL_DIR)/src $(MFDIR)src
+
+COMMON_INCLUDES := ... -I$(JRNL_DIR)/include -I$(FWHAL)/include
+Why: two reasons. The journal's three sources aren't in FS_SRCS_C at all, so they'd never compile into libfs.a. And 02_FwHal/include supplies uiox_fw_printf, which every journal .c file declares extern — without that path, all three fail at the first call.
+
+Two things these six don't cover
+uiox_jr_force_commit has no body. I wrote uiox_kix_jrnl.c with four call sites for it, and its data half (jr_write_logged_blocks) beside them — but I never read the original's body, so I didn't invent one.
+
+Nothing has been compiled. All six edits plus the seven module files are text. The compile is what would tell you whether they're coherent; reading has only told us what's in the files.
+
+=================
+
+Two things these six don't cover
+uiox_jr_force_commit has no body. I wrote uiox_kix_jrnl.c with four call sites for it, and its data half (jr_write_logged_blocks) beside them — but I never read the original's body, so I didn't invent one.
+
+Nothing has been compiled. All six edits plus the seven module files are text. The compile is what would tell you whether they're coherent; reading has only told us what's in the files.
+
+====================
+01_fsa/src/inode.c 
+01_fsa/include/inode.h 
+
+01_fsa/src/namei.c 
+
+01_fsa/src/readwrite.c 
+
+10_unfs/src/unfs_alloc.c 
+
+32_FS/src/uiox_fs_init.c 
+
+32_FS/Makefile J

@@ -496,6 +496,10 @@ void     scfs_ufdt_bind(uint16_t unused_);
 void     scfs_time_set(int64_t t);
 int64_t  scfs_time_now(void);
 
+/* 10_scfs/include/uiox_kix_scfs.h */
+int uiox_kix_scfs_register(uint8_t dev);
+
+
 /* the shared tables, exported so the arch stubs and a debug command can
  * read them */
 extern scfs_file_t   scfs_file_table[NFILE];

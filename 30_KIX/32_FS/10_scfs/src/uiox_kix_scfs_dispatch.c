@@ -52,15 +52,20 @@
  * @version 1.0.0  @date 2026-09-29
  */
 
- #include "fs.h"                      /* the fs_* entry points          */
- #include "uix_sys.h"                 /* the BSD numbers                */
- #include "uix_archSysCall.h"         /* the reg context, by pointer    */
+ //#include "fs.h"                      /* the fs_* entry points          */
+ #include "superblock.h"              /* fs_alloc_begin etc.            */
+ //#include "uix_sys.h"                 /* the BSD numbers                */
+ #include "uiox_kix_scfs_numbers.h"   /* the BSD numbers, local         */
+ //#include "uix_archSysCall.h"         /* the reg context, by pointer    */
+ #include "uiox_kix_scfs.h"           /* the 34 uiox_kix_scfs_* entry
+                                       * points the table below takes
+                                       * their address of                */
  
  /* ── Return convention ──────────────────────────────────────────────
   * Negative is an error, matching the process side so SCiX can pass a
   * value through without asking which subsystem produced it. */
- #define SCFS_ENOSYS   ((int64_t)-38)
- #define SCFS_EINVAL   ((int64_t)-22)
+ //#define SCFS_ENOSYS   ((int64_t)-38)
+ //#define SCFS_EINVAL   ((int64_t)-22)
  
  /* ── The entry-point signature ──────────────────────────────────────
   * Every fs_* function takes the six-slot shape, because that is what
@@ -134,7 +139,7 @@
      [SYS_RENAME]      = { (uiox_kix_scfs_fn_t)(void *)uiox_kix_scfs_rename,  "rename"   },
      [SYS_MKNOD]       = { (uiox_kix_scfs_fn_t)(void *)uiox_kix_scfs_mknod,   "mknod"    },
      [SYS_CHROOT]      = { (uiox_kix_scfs_fn_t)(void *)uiox_kix_scfs_chroot,  "chroot"   },
-     [SYS_GETDENTS]    = { (uiox_kix_scfs_fn_t)(void *)uiox_kix_scfs_getdents,"getdents" },
+     [SYS_GETDENTS]    = { (uiox_kix_scfs_fn_t)(void *)uiox_kix_scfs_getdents64,"getdents" },
  
      /* ── memory mapping, file-backed when it carries an fd ────────
       * mmap is listed here rather than with the process calls because a

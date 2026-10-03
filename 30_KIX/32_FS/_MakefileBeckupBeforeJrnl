@@ -1,8 +1,7 @@
 # =============================================================================
-# 30_KIX/32_FS/Makefile  — v2.3.0
+# 30_KIX/32_FS/Makefile  — v2.2.0
 #
-# Builds the four layers and one peer into one archive:
-#     build/<arch>/libfs.a
+# Builds the four layers into one archive:  build/<arch>/libfs.a
 #
 # Usage:
 #   make arm64 / arm32 / riscv64 / x86_64
@@ -12,68 +11,96 @@
 #   make srclist          ← what the globs actually resolved to
 #
 # ── the four layers, all children of 32_FS ─────────────────────────────
-#   00_bcache/src/*.c       block buffer cache   (Bach Ch.3)
+#   00_buffcache/src/*.c    block buffer cache   (Bach Ch.3)
 #   01_fsa/src/*.c          inode level          (Bach Ch.4)
 #   10_scfs/src/*.c         syscall bodies       (Bach Ch.5)
-#   10_unfs/src/*.c         on-disk format + storage backend
+#   10_unfs/src/*.c         on-disk format + storage backend  ◀ v2.2.0
 #
-# ── and one PEER, not a fifth layer ────────────────────────────────────  ◀ v2.3.0
-#   02_jrnal/src/*.c        write-ahead log
+# Not built here, though present in the tree:
+#   03_netfs/    9P client   — not part of the on-disk path
+#   $(MFDIR)src/ retired uiox_fs_init.c lived here
 #
-#   02_jrnal is NOT above the four.  It is a mechanism the layers CALL —
-#   iupdate() journals the inode block, unfs_alloc_run() the block bitmap,
-#   unfs_alloc_inode_bit() the inode bitmap, dir_add() the directory
-#   block, writei_at() the data block under MODE_DATA.  Every one of those
-#   hooks is guarded by a NULL test on uiox_jr_ctx_for(dev), so a
-#   filesystem mounted without journaling behaves exactly as before.
+#   10_unfs is built FIRST, ahead of 01_fsa and 10_scfs, because it now
+#   supplies the mount path and the mkfs writer — not just a layout
+#   header.  See the v2.2.0 note below for why the earlier "header
+#   only" arrangement stopped being enough.
 #
-#   That is why 10_unfs/include may include uiox_kix_jrnl.h without
-#   breaking the downward-only rule below: the include is upward in
-#   DIRECTORY terms and lateral in terms of WHO CALLS WHOM.  The test is
-#   direction of calls, not depth in the tree.
+# ── the include graph, which points DOWNWARD only ──────────────────────
+#   00_buffcache  →  its own include/
+#   01_fsa        →  its own include/  +  00_buffcache/include
+#                   +  10_unfs/include   ◀ v2.1.0
+#   10_scfs       →  10_unfs/include + 01_fsa/include + 00_buffcache/include
+#                   +  its own include/  ◀ v2.2.0
+#   10_unfs       →  its own include/  +  00_buffcache/include
+#                   +  01_fsa/include    ◀ v2.2.0
 #
-# ── the include graph ──────────────────────────────────────────────────
-#   00_bcache  →  its own include/
-#   01_fsa     →  its own include/  +  00_bcache/include
-#                 +  10_unfs/include
-#   10_scfs    →  its own include/  +  01_fsa + 00_bcache + 10_unfs
-#   10_unfs    →  its own include/  +  00_bcache/include + 01_fsa/include
-#                 +  02_jrnal/include        ◀ lateral — see above
-#   02_jrnal   →  its own include/  +  01_fsa/include  (inode_block_of)
+# 10_scfs gained 10_unfs/include in v2.2.0: its syscall bodies now carry
+# UNFS_IF* type codes and UNFS_MAX_NAME, so the format header has to
+# resolve there too.
 #
-#   The pair 10_unfs ⇄ 02_jrnal is mutual, and neither is a violation.
-#   Both headers must be self-sufficient — the mutual dependency lives in
-#   the .c files only.  If either header includes the other, that is the
-#   cycle to break.
+# No layer includes the one above it.  An upward -I means an inverted
+# dependency, and this Makefile will not hide it.
 #
-# ── v2.3.0 changes ────────────────────────────────────────────────────
-#   · 02_jrnal/src added to FS_SRCS_C and to vpath.
-#   · $(MFDIR)src added to FS_SRCS_C and to vpath.  uiox_fs_init.c lives
-#     there and was NEVER in the build — the globs covered four layer
-#     directories only, so the file that registers everything and calls
-#     uiox_jr_register() was not compiled into libfs.a at all.
-#   · 02_FwHal/include added to COMMON_INCLUDES.  Every journal .c
-#     declares `extern void uiox_fw_printf(...)`, and that is where the
-#     definition is (02_FwHal/include/uiox_fw.h:73).  Without the path,
-#     all three journal sources fail at the first call.
+# ── v2.1.0 changes ────────────────────────────────────────────────────
+#   · 10_unfs/include added to COMMON_INCLUDES.
+#
+#     01_fsa/include/fs_types.h line 56 is now
+#
+#         #include "unfs_format.h"
+#
+#     because the on-disk format has ONE definition and the bootloader
+#     reads the same header.  unfs_format.h sits in 10_unfs/include, and
+#     that directory was not being searched, so the first 01_fsa source
+#     reached failed with:
+#
+#         fs_types.h:56:10: fatal error: unfs_format.h: No such file
+#         or directory
+#
+#     The -I belongs at the 32_FS level, not inside 01_fsa's Makefile,
+#     because 10_scfs includes 01_fsa's headers transitively and so needs
+#     the same resolution.
+#
+#     NOTE this is a DOWNWARD edge in the sense that matters: 01_fsa
+#     consumes a LAYOUT header from 10_unfs.  It does not call into
+#     10_unfs code, which is why 10_unfs is still not in FS_SRCS_C.
 #
 # ── v2.2.0 changes ────────────────────────────────────────────────────
-#   · 10_unfs/src/*.c added, and 10_unfs moved to the FRONT.
-#   · 10_scfs gained 10_unfs/include.
+#   · 10_unfs/src/*.c added to FS_SRCS_C and to vpath.  v2.1.0 built the
+#     layer's header but none of its code, so:
 #
+#         unfs_format()   unfs_mount()   unfs_iget()  …
+#
+#     had no object in libfs.a at all.  Anything calling them linked
+#     against nothing.
+#
+#   · 10_unfs moved to the FRONT of FS_SRCS_C.  Layer order in the
+#     archive follows the dependency order the directory numbers already
+#     encode; archiving it first keeps `ar t` readable top-down.
+#
+#   · info-<arch> now prints UNFS_DIR alongside the other three.
+#
+# ── v2.0.0 changes from the tree's previous version ────────────────────
+#   · 00_buffcache (lower-case c) added to SRCS and vpath — its sources
+#     are in a FLAT src/, not buffers/src/
+#   · $(MFDIR)src/ glob dropped — it picked up the retired uiox_fs_init.c
+#   · 00_buffcache/include added to the include path so 01_fsa's
+#     buffer.h → bcache.h resolves
+#   · no extra compile rule: 00_buffcache is inside $(MFDIR), so the
+#     generic pattern rule already matches it
+#   · srclist target added — a silent empty glob is the failure mode this
+#     guards against
+#
+# @version 2.2.0  @date 2026-09-27
 # =============================================================================
 
-# ── Roots ─────────────────────────────────────────────────────────────
 MFDIR     := $(dir $(abspath $(lastword $(MAKEFILE_LIST))))
 COMMONDIR := $(abspath $(MFDIR)../common)
 
-BCDIR    := $(MFDIR)00_bcache
+# ── the three generated layers ────────────────────────────────────────
+BCDIR    := $(MFDIR)00_buffcache
 FSA_DIR  := $(MFDIR)01_fsa
 SCFS_DIR := $(MFDIR)10_scfs
 UNFS_DIR := $(MFDIR)10_unfs
-JRNL_DIR := $(MFDIR)02_jrnal
-FWHAL    := $(abspath $(MFDIR)../../02_FwHal)
-#SCIX_DIR := $(abspath $(MFDIR)../../40_SCIX)
 
 UNAME_S := $(shell uname -s)
 ifeq ($(UNAME_S),Darwin)
@@ -123,8 +150,6 @@ COMMON_INCLUDES := \
   -I$(FSA_DIR)/include    \
   -I$(SCFS_DIR)/include   \
   -I$(UNFS_DIR)/include   \
-  -I$(JRNL_DIR)/include   \
-  -I$(FWHAL)/include      \
   -I$(SOCINC)
 
 # ── the four layers, in dependency order ──────────────────────────────
@@ -135,16 +160,12 @@ FS_SRCS_C += $(wildcard $(UNFS_DIR)/src/*.c)    # v2.2.0 — was header-only
 FS_SRCS_C += $(wildcard $(BCDIR)/src/*.c)
 FS_SRCS_C += $(wildcard $(FSA_DIR)/src/*.c)
 FS_SRCS_C += $(wildcard $(SCFS_DIR)/src/*.c)
-FS_SRCS_C += $(wildcard $(JRNL_DIR)/src/*.c)          # ◀ v2.3.0
-FS_SRCS_C += $(wildcard $(MFDIR)src/*.c)              # ◀ v2.3.0
 
 vpath %.c \
   $(UNFS_DIR)/src \
   $(BCDIR)/src    \
   $(FSA_DIR)/src  \
-  $(SCFS_DIR)/src \
-  $(JRNL_DIR)/src \
-  $(MFDIR)src
+  $(SCFS_DIR)/src
 
 ARFLAGS := rcs
 

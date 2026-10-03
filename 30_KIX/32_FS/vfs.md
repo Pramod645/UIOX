@@ -1084,6 +1084,92 @@ REMOVED: the three ops tables and unfs_register(). They declared a dispatch laye
 
 So the design above is a proposal to reinstate them, on SuperBlock rather than on the inode — which is the part that differs from what uiox_vfs.h originally sketched, and the reason it can now work where the first attempt couldn't.
 
+============================================
+
+Who needs each
+File	What it is	Needed by
+01_fsa/include/vfs.h	the ops struct + the vfs_* prototypes	vfs.c (defines them), a backend (fills a table), a caller (uiox_fs_init.c)
+01_fsa/src/vfs.c	the dispatch + the registry	uiox_fs_init.c calls vfs_init(); every 01_fsa call site would call vfs_bmap/vfs_iget
+10_scfs/src/uiox_kix_scfs_vfs.c	scfs_fsops + uiox_kix_scfs_register()	uiox_fs_init.c, once, at bring-up
+10_unfs/src/unfs_vfs.c	unfs_fsops + unfs_register()	the same — but only when UNFS is buildable
+The distinction that matters
+vfs.c has no caller today and cannot get one until three things exist. That's the chain I keep pointing at:
+
+
+
+i_major/i_minor on InCoreInode  →  mknod can make a block node
+                                →  mount has a device to key on
+                                →  vfs_mount_root can do something
+Without step one, vfs_mount_root calls a backend mount that returns SCFS_ENOSYS, and the registry holds tables for volumes that can never be mounted.
+
+But two of the four are needed now, for a different reason
+uiox_kix_scfs_vfs.c and unfs_vfs.c are pure table definitions. They compile the moment their dependencies exist — and writing them is how you find out whether the table's signatures match what 01_fsa actually exports.
+
+That's not busywork. The ops table is twelve function pointers with specific shapes:
+
+c
+
+
+InCoreInode *(*iget) (uint8_t dev, uint32_t ino);
+BmapResult   (*bmap) (InCoreInode *ip, uint32_t byte_off);
+uint32_t     (*dir_lookup)(InCoreInode *dir, const char *name, uint32_t len);
+If iget_dev's real signature is InCoreInode *iget_dev(uint8_t, uint32_t) — it is, from inode.h:187 — the row compiles. If any of the twelve disagree, the compiler names the row, one line to fix. Writing the tables is a type-check of the whole interface, and it costs nothing to defer the dispatch above them.
+
+So the honest split
+Do now	Defer
+the two backend tables	vfs.c's dispatch
+vfs.h's struct (so the tables can name it)	the 01_fsa call-site rewiring
+vfs_register_fs + vfs_init only	vfs_bmap/vfs_iget/… until a second backend mounts
+The tables name existing functions; vfs.c needs callers that don't exist. Same file set, different times.
+
+What I'd need to write the tables accurately
+Three signatures I have not seen:
+
+
+
+grep -n 'iget_dev\|^void *iput\|iupdate\|dir_add\|dir_remove' \
+  /Users/pramodkumar/Hack/WS/UIOX/30_KIX/32_FS/01_fsa/include/*.h | head -20
+grep -n 'unfs_alloc_block\|unfs_free_run\|unfs_iget' \
+  /Users/pramodkumar/Hack/WS/UIOX/30_KIX/32_FS/10_unfs/include/*.h | head
+grep -n 'fs_alloc\b\|fs_free\b\|fs_free_inode_blocks' \
+  /Users/pramodkumar/Hack/WS/UIOX/30_KIX/32_FS/01_fsa/include/superblock.h
+The first gives the 01_fsa set — inode.h:187 showed iget_dev(uint8_t dev, uint32_t ino) and iget(uint32_t ino), but not the rest. The second is the UNFS allocator pair, whose signatures unfs_alloc.h documents but I'd rather read. The third confirms fs_alloc/fs_free take (uint8_t dev) so the SCFS shim's shape is right.
+
+With those, the two tables come back written against your real headers — and the first compile either proves the interface or names the row that disagrees.
+
+=============================
+Written and in the workspace
+The nine 33_PCS files — all in outputs/33_PCS/, ready to copy:
+
+File	Works today?
+include/uiox_uaccess.h	✅ self-contained
+include/uiox_ioctl.h	✅ self-contained
+include/uiox_vdso.h	✅ self-contained
+src/uiox_uaccess.c	✅ — but validate-then-memcpy, not fault-tolerant
+src/uiox_syscall_entry.c	✅ links against 40_SCIX/uix_arch_syscall
+src/uiox_vdso.c	✅ init/update/read run; only map blocked
+src/uiox_mmap.c	⚠️ uiox_mm_map_user_phys returns 0
+src/uiox_sys_mmap.c	⚠️ needs the address half + 32_FS
+src/uiox_ioctl_soc.c	⚠️ seven extern dependencies unverified
+Confirmed on disk
+32_FS/01_fsa/include/vfs.h — 139 lines, complete, the file I wrote (the 430-byte delta was encoding, not content)
+All twelve ops-table rows verified against real declarations in inode.h, namei.h, superblock.h, unfs_alloc.h, unfs_fs.h
+Three rows need shims: SCFS alloc_block (buffer → number), SCFS free_run (one block → a run), UNFS's two are direct
+The BSP contract: arch_irq.S → arch_runtime.c → syscall_dispatch, weak-stubbed in uiox_bsp_stubs.c — no BSP edits needed
+BSD numbers chosen; uiox_syscall.c/.h deliberately not written
+Open when you return
+One inconsistency to resolve: vfs.h's banner says the table lives at SuperBlock.s_fsops, but the implementation I wrote resolves through a file-static array in vfs.c. Pick one before the two backend tables are written against it.
+
+Two known defects carried in the files: the stray /* hmm: see the note */ comment in sys_mmap.c (no note follows), and uiox_vdso_map's fixed-hint constant that only makes sense once mapping works.
+
+The dependency chain, in order: i_major/i_minor on InCoreInode → mknod accepts block devices → mount has a device → vfs_mount_root does something. Everything above that point is written.
+
+Not written: the two backend tables (uiox_kix_scfs_vfs.c, unfs_vfs.c), vfs.c's dispatch, the consolidated uiox_fs_init.c, and the uiox_kernel_main.c comment fix.
+
+A note on this session
+Several findings I raised came from reading pasted text as if it were live code — uiox_mac_check "missing", duplicate weak symbols, arm64's "live" syscall call. Each was disproved by a grep. The ls showing 33_PCS/src/ holding one zero-byte file was the clearest lesson: pasted content isn't evidence of a file. Worth carrying into the next round.
+=======
+
 
 
 

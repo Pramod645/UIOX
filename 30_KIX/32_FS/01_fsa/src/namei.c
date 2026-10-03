@@ -82,6 +82,24 @@
 #include "superblock.h"
 #include "buffer.h"
 #include "uiox_klibc.h"
+#include "uiox_kix_jrnl.h"
+
+/*
+ * dir_block_of — convert a BACHELOR sector to a UNFS block.
+ *
+ * bread()/bwrite() take 512-byte sectors; the journal takes 4096-byte
+ * UNFS blocks.  Passing the sector straight through would journal the
+ * wrong block by a factor of eight, and the checksum would still match —
+ * the "units trap" bmap.c's header names.  Named rather than inlined so
+ * the units are stated once.
+ */
+/*
+ static uint32_t dir_block_of(const InCoreInode *dir, uint32_t sect)
+ {
+     (void)dir;
+     return sect / (uint32_t)UNFS_SECTORS_PER_BLOCK;
+ }
+*/
 
 /* ═════════════════════════════════════════════════════════════
  * Internal: read one 4 KB directory block into 'blk'.
@@ -238,11 +256,18 @@ int dir_add(InCoreInode *dir, const char *name, uint32_t len,
     while (offset < dir->size) {
         BmapResult bm = bmap(dir, offset);
         uint8_t    blk[UNFS_BLOCK_SIZE];
+        uint8_t    pre_blk[UNFS_BLOCK_SIZE];
         uint8_t   *end;
         DirEntry  *de;
 
         if (!bm.valid) break;
         if (!dir_block_read(&bm, blk)) return -1;
+
+        /* The pre-image, before the store below changes blk. */
+         {
+                 uiox_jr_ctx_t *jr = uiox_jr_ctx_for(dir->dev);
+                 if (jr) memcpy(pre_blk, blk, UNFS_BLOCK_SIZE);
+        }
 
         end = blk + (uint32_t)UNFS_BLOCK_SIZE;
         de  = (DirEntry *)blk;
@@ -253,6 +278,17 @@ int dir_add(InCoreInode *dir, const char *name, uint32_t len,
             if (dirent_free(de) && dirent_reclen(de) >= need) {
                 dir_ent_store(de, dirent_reclen(de),
                               ino, type, name, len);
+
+                 /* The pair, before the write-back.  bm.blkno is a UNFS
+                  * block number and the journal takes UNFS block numbers —
+                  * the units already agree, so no conversion. */
+                 {
+                    uiox_jr_ctx_t *jr = uiox_jr_ctx_for(dir->dev);
+                    if (jr) {
+                        uiox_jr_vfs_get_write_access(jr, bm.blkno, pre_blk);
+                        uiox_jr_vfs_dirty_metadata(jr, bm.blkno, blk);
+                    }
+                }
 
                 if (!dir_block_write(bm.dev, bm.blkno, blk)) return -1;
 
@@ -276,6 +312,7 @@ int dir_add(InCoreInode *dir, const char *name, uint32_t len,
     while (offset < dir->size) {
         BmapResult bm = bmap(dir, offset);
         uint8_t    blk[UNFS_BLOCK_SIZE];
+        uint8_t    pre_blk[UNFS_BLOCK_SIZE];
         DirEntry  *last;
         DirEntry  *nw;
         uint32_t   start_off;
@@ -284,6 +321,11 @@ int dir_add(InCoreInode *dir, const char *name, uint32_t len,
 
         if (!bm.valid) break;
         if (!dir_block_read(&bm, blk)) return -1;
+
+        {
+             uiox_jr_ctx_t *jr = uiox_jr_ctx_for(dir->dev);
+             if (jr) memcpy(pre_blk, blk, UNFS_BLOCK_SIZE);
+        }
 
         last = dir_last_entry(blk);
         if (!last) { offset += UNFS_BLOCK_SIZE; continue; }
@@ -306,6 +348,14 @@ int dir_add(InCoreInode *dir, const char *name, uint32_t len,
 
             nw = (DirEntry *)((uint8_t *)last + keep);
             dir_ent_store(nw, spare, ino, type, name, len);
+
+         {
+             uiox_jr_ctx_t *jr = uiox_jr_ctx_for(dir->dev);
+             if (jr) {
+                 uiox_jr_vfs_get_write_access(jr, bm.blkno, pre_blk);
+                 uiox_jr_vfs_dirty_metadata(jr, bm.blkno, blk);
+             }
+         }
 
             if (!dir_block_write(bm.dev, bm.blkno, blk)) return -1;
 
@@ -358,6 +408,7 @@ int dir_remove(InCoreInode *dir, const char *name, uint32_t len)
 {
     uint32_t offset = 0u;
     uint8_t  blk[UNFS_BLOCK_SIZE];
+    uint8_t  pre_blk[UNFS_BLOCK_SIZE];
 
     if (!dir || !name || len == 0u) return -1;
     if ((dir->mode & UNFS_IFMT) != UNFS_IFDIR) return -1;
@@ -370,6 +421,11 @@ int dir_remove(InCoreInode *dir, const char *name, uint32_t len)
         if (!bm.valid) break;
         if (!dir_block_read(&bm, blk)) return -1;
 
+        {
+             uiox_jr_ctx_t *jr = uiox_jr_ctx_for(dir->dev);
+             if (jr) memcpy(pre_blk, blk, UNFS_BLOCK_SIZE);
+        }
+
         end = blk + (uint32_t)UNFS_BLOCK_SIZE;
         de  = (DirEntry *)blk;
 
@@ -379,6 +435,14 @@ int dir_remove(InCoreInode *dir, const char *name, uint32_t len)
             if (de->d_ino != 0u && dirent_match(de, name, len)) {
                 de->d_ino  = 0u;            /* slot free; lengths kept */
                 de->d_type = UNFS_DT_UNKNOWN;
+
+                {
+                    uiox_jr_ctx_t *jr = uiox_jr_ctx_for(dir->dev);
+                    if (jr) {
+                        uiox_jr_vfs_get_write_access(jr, bm.blkno, pre_blk);
+                        uiox_jr_vfs_dirty_metadata(jr, bm.blkno, blk);
+                    }
+                }
 
                 if (!dir_block_write(bm.dev, bm.blkno, blk)) return -1;
 

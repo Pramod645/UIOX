@@ -48,6 +48,7 @@
 #include "superblock.h"
 #include "buffer.h"
 #include "uiox_klibc.h"
+#include "uiox_kix_jrnl.h"      /* uiox_jr_ctx_for, uiox_jr_vfs_* */
 
 /* ─────────────────────────────────────────────────────────────
  * Internal: one iteration's clamp.
@@ -200,6 +201,7 @@ int32_t writei_at(InCoreInode *ip, const char *kbuf, uint32_t count,
         BufHdr    *buf;
         uint32_t   n;
         uint32_t   i;
+        uiox_jr_ctx_t *jr; //for journal
 
         /* ── map, ALLOCATING a block if this offset has none ────────── */
         bm = bmap_alloc(ip, off);
@@ -212,10 +214,30 @@ int32_t writei_at(InCoreInode *ip, const char *kbuf, uint32_t count,
          * overwritten, so breada's second argument would be wasted. */
         buf = bread(bm.dev, bm.blkno);
         if (!buf) break;
+        // this below section is for journal
+          /* ── the mode test, once per block ───────────────────────────
+          * Read outside the two hook calls so the branch is taken once
+          * rather than twice, and so METADATA and ORDERED mounts pay
+          * nothing but a pointer test.  This is the ONLY mode-dependent
+          * hook: the metadata hooks in inode.c, namei.c and unfs_alloc.c
+          * run under every mode. */
+         jr = NULL;
+         if (uiox_jr_ctx_for(ip->dev) &&
+             uiox_jr_ctx_for(ip->dev)->mode == UIOX_JR_MODE_DATA)
+             jr = uiox_jr_ctx_for(ip->dev);
+ 
+         /* ── BEFORE the store: the block's pre-image ────────────────── */
+         if (jr)
+             uiox_jr_vfs_get_write_access(jr, bm.blkno, buf->data);
+         // journal section ends here
 
         /* ── copy the bytes in ─────────────────────────────────────── */
         for (i = 0u; i < n; i++)
             buf->data[bm.blk_offset + i] = (uint8_t)kbuf[done + i];
+         /* ── AFTER, still ours: the post-image ──────────────────────── */
+         if (jr) //for journal
+             uiox_jr_vfs_dirty_metadata(jr, bm.blkno, buf->data); //for journal
+ 
 
         /* ── synchronous write: the buffer is released by bwrite ───── */
         bwrite(buf, true, false);

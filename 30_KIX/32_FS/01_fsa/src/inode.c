@@ -64,6 +64,7 @@
  *  @version 2.0.0  @date 2026-09-24
  */
 #include "inode.h"
+#include "uiox_kix_jrnl.h"      /* uiox_jr_ctx_for, uiox_jr_vfs_* */
 #include "superblock.h"
 #include "uiox_klibc.h"
 
@@ -153,6 +154,23 @@ void inode_cache_init(void)
     printf("[inode] cache init: %u slots\n", (unsigned)MAX_INCACHE);
 }
 
+/*
+ * inode_block_of — the block holding inode @ino on @dev.
+ *
+ * Lifted from what was inode_disk_read()'s own body, so the formula
+ * exists in ONE function and both callers below share it.  The bound is
+ * spelled here rather than in each caller, for the same reason.
+ */
+ uint32_t inode_block_of(uint8_t dev, uint32_t ino)
+ {
+     (void)dev;      /* the geometry is the volume's */
+ 
+     if (ino == 0u || ino > (UNFS_ITABLE_BLOCKS * UNFS_INODES_PER_BLOCK))
+         return 0u;
+ 
+     return ((ino - 1u) / UNFS_INODES_PER_BLOCK) + UNFS_GROUP0_ITABLE;
+ }
+
 /* ─────────────────────────────────────────────────────────────
  * inode_disk_read
  *
@@ -181,10 +199,17 @@ DiskInode *inode_disk_read(uint8_t dev, uint32_t ino, BufHdr **out_buf)
      * mount time — the bound has to be computable before any superblock
      * is loaded.  A later revision can add a per-device limit once the
      * mount path can supply one. */
+    #if 0
     if (ino == 0u || ino > (UNFS_ITABLE_BLOCKS * UNFS_INODES_PER_BLOCK))
         return (DiskInode *)0;
 
     blkno  = ((ino - 1u) / UNFS_INODES_PER_BLOCK) + UNFS_GROUP0_ITABLE;
+    #else //ths is due to journal design, inode_block_of() is used to get the block number of the inode
+     /* One derivation, shared.  inode_block_of() holds the bound AND the
+     * arithmetic, so this function and iupdate() cannot drift apart. */
+    blkno = inode_block_of(dev, ino);
+    if (blkno == 0u) return (DiskInode *)0;
+    #endif
     offset = ((ino - 1u) % UNFS_INODES_PER_BLOCK) * (uint32_t)sizeof(DiskInode);
 
     buf = bread(dev, blkno);                /* ◀ (dev, blkno) */
@@ -201,12 +226,26 @@ void iupdate(InCoreInode *ip)
 {
     BufHdr    *buf;
     DiskInode *di;
+    uint32_t   blkno; //for journal
+    uiox_jr_ctx_t *jr; //for journal
 
     if (!ip) return;
-
+     /* The block number, from the same function inode_disk_read uses
+      * internally.  Asked for here rather than returned by that call, so
+      * no signature changes and no caller is disturbed. */
+    blkno = inode_block_of(ip->dev, ip->ino); //for journal
+ 
     di = inode_disk_read(ip->dev, ip->ino, &buf);
     if (!di) return;
-
+     /* jrnl section this── BEFORE the fields move: this is the on-disk PRE-IMAGE ───────
+      * buf->data + offset still holds the bytes as they are on disk.  The
+      * eleven assignments below overwrite them, and bwrite() at the foot
+      * releases the buffer — so this is the only moment the pre-image
+      * exists. */
+     jr = uiox_jr_ctx_for(ip->dev);
+     if (jr)
+         uiox_jr_vfs_get_write_access(jr, blkno, buf->data);
+ 
     /* DiskInode carries the FORMAT's field names now — i_* — while the
      * in-core struct still uses the short ones.  The mapping is written
      * out rather than renamed away, so the difference stays visible. */
@@ -224,6 +263,10 @@ void iupdate(InCoreInode *ip)
     di->i_mtime_ns = (uint64_t)ip->mtime;
     di->i_ctime_ns = (uint64_t)ip->ctime;
     di->dev        = ip->dev;               /* ◀ in-core only */
+    /* ── AFTER, still ours: the POST-image ─────────────────────────── */
+     if (jr) //for journal
+         uiox_jr_vfs_dirty_metadata(jr, blkno, buf->data); //for journal
+ 
 
     /* Mark the buffer dirty, then write it synchronously.  The buffer
      * layer expresses dirtiness by the bwrite flags, not by a field on

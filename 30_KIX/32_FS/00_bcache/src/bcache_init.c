@@ -156,7 +156,8 @@ void bcache_plat_read_block(uint8_t dev, uint32_t blkno, uint8_t *buf)
         return;
     }
 
-    memcpy(buf, (const void *)addr, BCACHE_SECTOR_SIZE);
+    //memcpy(buf, (const void *)addr, BCACHE_SECTOR_SIZE); to fix error for arm32
+    memcpy(buf, (const void *)(uiox_uintptr_t)addr, BCACHE_SECTOR_SIZE);
 }
 
 void bcache_plat_write_block(uint8_t dev, uint32_t blkno, const uint8_t *buf)
@@ -176,7 +177,9 @@ void bcache_plat_write_block(uint8_t dev, uint32_t blkno, const uint8_t *buf)
         return;
     }
 
-    memcpy((void *)addr, buf, BCACHE_SECTOR_SIZE);
+    //memcpy((void *)addr, buf, BCACHE_SECTOR_SIZE);//to fix error for arm32
+    memcpy((void *)(uiox_uintptr_t)addr, buf, BCACHE_SECTOR_SIZE);
+   
 }
 
 /* ═════════════════════════════════════════════════════════════════════
