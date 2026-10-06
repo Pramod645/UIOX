@@ -15,7 +15,7 @@
  * free list, same UIOX_MAX_PAGES.  The two differed in two ways, and
  * BOTH are now handled here so the survivor is strictly the better one:
  *
- *   1. mm.c used bare uintptr_t; this file uses uix_uintptr_t from
+ *   1. mm.c used bare uintptr_t; this file uses uiox_uintptr_t from
  *      uix_types.h, which is the BSP's own type and the one the rest of
  *      the kernel is written against.
  *
@@ -57,7 +57,7 @@
          memcpy(&(dst), &_q, sizeof(dst)); } while (0)
 
 #define UINTPTR_TO_PTR(dst, src)                                \
-    do { uix_uintptr_t _u = (uix_uintptr_t)(src);               \
+    do { uiox_uintptr_t _u = (uiox_uintptr_t)(src);               \
          memcpy(&(dst), &_u, sizeof(dst)); } while (0)
 
 /* ── Page constants ─────────────────────────────────────────────────
@@ -68,29 +68,29 @@
 
 /* ── Page descriptor ───────────────────────────────────────────────── */
 typedef struct uiox_page {
-    uix_uintptr_t      pg_phys;      /* physical address of this page  */
+    uiox_uintptr_t      pg_phys;      /* physical address of this page  */
     struct uiox_page  *pg_next;      /* free-list link                 */
-    uix_uint32_t       pg_flags;     /* reserved (dirty, pinned ...)   */
-    uix_uint32_t       pg_refcount;  /* 0 = free                       */
+    uiox_uint32_t       pg_flags;     /* reserved (dirty, pinned ...)   */
+    uiox_uint32_t       pg_refcount;  /* 0 = free                       */
 } uiox_page_t;
 
 /* ── Allocator state ────────────────────────────────────────────────── */
 static uiox_page_t  s_pages[UIOX_MAX_PAGES];
 static uiox_page_t *s_free_list = (uiox_page_t *)0;
-static uix_uint32_t s_nr_free   = 0u;
-static uix_uint32_t s_nr_total  = 0u;
-static uix_uint8_t  s_mm_ready  = 0u;
+static uiox_uint32_t s_nr_free   = 0u;
+static uiox_uint32_t s_nr_total  = 0u;
+static uiox_uint8_t  s_mm_ready  = 0u;
 
 /* ── Memory descriptor ───────────────────────────────────────────────
  * Forward-declared here, and this IS the definition: uiox_task_t holds a
  * pointer to it.  Kept as a bare struct rather than a typedef because
  * that is how uiox_task.h refers to it. */
 struct uiox_mm_desc {
-    uix_uintptr_t  mm_pgd_phys;     /* physical addr of page-global-dir */
-    uix_uintptr_t  mm_mmap_base;    /* start of user mmap area          */
-    uix_uintptr_t  mm_mmap_top;     /* end of user mmap area            */
-    uix_uintptr_t  mm_brk_start;    /* start of heap                    */
-    uix_uintptr_t  mm_brk_current;  /* current heap break               */
+    uiox_uintptr_t  mm_pgd_phys;     /* physical addr of page-global-dir */
+    uiox_uintptr_t  mm_mmap_base;    /* start of user mmap area          */
+    uiox_uintptr_t  mm_mmap_top;     /* end of user mmap area            */
+    uiox_uintptr_t  mm_brk_start;    /* start of heap                    */
+    uiox_uintptr_t  mm_brk_current;  /* current heap break               */
 };
 
 /* ────────────────────────────────────────────────────────────────────
@@ -106,13 +106,13 @@ struct uiox_mm_desc {
  *
  * Called once from uiox_proc_init() before any allocation.
  * ──────────────────────────────────────────────────────────────────── */
-void uiox_mm_init(uix_uint64_t dram_base, uix_uint64_t dram_size)
+void uiox_mm_init(uiox_uint64_t dram_base, uiox_uint64_t dram_size)
 {
-    uix_uintptr_t base, top, addr;
-    uix_uint32_t  i;
+    uiox_uintptr_t base, top, addr;
+    uiox_uint32_t  i;
 
-    base = (uix_uintptr_t)((dram_base + UIOX_PAGE_SIZE - 1u) & UIOX_PAGE_MASK);
-    top  = (uix_uintptr_t)((dram_base + dram_size) & UIOX_PAGE_MASK);
+    base = (uiox_uintptr_t)((dram_base + UIOX_PAGE_SIZE - 1u) & UIOX_PAGE_MASK);
+    top  = (uiox_uintptr_t)((dram_base + dram_size) & UIOX_PAGE_MASK);
 
     if (top <= base) return;   /* region smaller than one page */
 
@@ -178,8 +178,8 @@ void *phys_alloc_page(void)
  * ──────────────────────────────────────────────────────────────────── */
 void phys_free_page(void *page)
 {
-    uix_uintptr_t phys;
-    uix_uint32_t  i;
+    uiox_uintptr_t phys;
+    uiox_uint32_t  i;
 
     if (!page || !s_mm_ready) return;
 
@@ -203,5 +203,5 @@ void phys_free_page(void *page)
 /* ────────────────────────────────────────────────────────────────────
  * uiox_mm_free_pages / uiox_mm_total_pages — diagnostics.
  * ──────────────────────────────────────────────────────────────────── */
-uix_uint32_t uiox_mm_free_pages(void)  { return s_nr_free;  }
-uix_uint32_t uiox_mm_total_pages(void) { return s_nr_total; }
+uiox_uint32_t uiox_mm_free_pages(void)  { return s_nr_free;  }
+uiox_uint32_t uiox_mm_total_pages(void) { return s_nr_total; }
