@@ -1,5 +1,5 @@
 /**
- * @file  uiox_boot_handoff.c
+ * @file  01_uBoot/src/uiox_boot_handoff.c
  * @brief UIOX Bootloader — ELF64 loader, boot-args builder, kernel jump.
  * @date  2026-06-12
  */
@@ -90,6 +90,7 @@
                          uint64_t dtb_pa,
                          uint64_t args_pa,
                          const uiox_mem_map_t *mem_map,
+                         const uiox_soc_runtime_t *soc,
                          const char *cmdline,
                          uiox_arch_t arch)
  {
@@ -103,6 +104,11 @@
      args->args_pa       = args_pa;
      args->arch          = arch;
      uiox_boot_memcpy(&args->mem_map, mem_map, sizeof(*mem_map));
+    
+     /* the map uiox_boot_dt_apply() already extracted — copied, not
+      * re-derived.  A NULL soc leaves the zeroed struct, whose
+      * sourced_from_dt of 0 tells the kernel the probe did not run. */
+     if (soc) uiox_boot_memcpy(&args->soc, soc, sizeof(*soc));
  
      /* Copy cmdline */
      size_t clen = uiox_boot_strlen(cmdline);
@@ -125,11 +131,13 @@
                     uint64_t dtb_pa,
                     uint64_t args_pa,
                     const uiox_mem_map_t *mem_map,
+                    const uiox_soc_runtime_t *soc,
                     const char *cmdline)
  {
      uiox_boot_args_t *args = (uiox_boot_args_t *)(__UINTPTR_TYPE__)args_pa;
      build_args(args, kernel_entry, dtb_pa, args_pa,
-                mem_map, cmdline,
+                /*mem_map, cmdline,*/
+                mem_map, soc, cmdline,
  #if   defined(__aarch64__)
                 UIOX_ARCH_ARM64
  #elif defined(__arm__)

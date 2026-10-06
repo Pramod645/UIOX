@@ -1,5 +1,5 @@
 /**
- * @file  uiox_boot_handoff.h
+ * @file  01_uBoot/include/uiox_boot_handoff.h
  * @brief UIOX Bootloader — ELF64 loader, boot-args struct, kernel jump.
  * @version 1.0.0
  * @date    2026-06-12
@@ -75,6 +75,7 @@
      uint64_t         initrd_size;
      uint64_t         args_pa;         /**< Self physical address          */
      uiox_mem_map_t   mem_map;
+     uiox_soc_runtime_t soc;       /**< added for kernel to access during runtime */
      char             cmdline[UIOX_IMAGE_CMDLINE_MAX];
      uiox_arch_t      arch;
      uint8_t          _pad[28];        /**< Pad to 512 bytes               */
@@ -109,6 +110,7 @@
                          uint64_t dtb_pa,
                          uint64_t args_pa,
                          const uiox_mem_map_t *mem_map,
+                         const uiox_soc_runtime_t *soc,
                          const char *cmdline)
       __attribute__((noreturn));
  

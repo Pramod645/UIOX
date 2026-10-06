@@ -293,6 +293,7 @@
                        final_dtb,
                        (uint64_t)UIOX_ARGS_PA,
                        &mem_map,
+                       &soc,
                        cmdline);
  
      for (;;)

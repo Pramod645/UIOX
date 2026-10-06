@@ -1,5 +1,5 @@
 /*
- * uiox_kernel_main.c
+ * 30_KIX/common/uiox_kernel_main.c
  *
  * UIOX Kernel Entry Point — all four architectures.
  *
@@ -535,4 +535,21 @@ uint64_t uiox_kernel_get_dtb_pa(void)
 const uiox_boot_args_t *uiox_kernel_get_boot_args(void)
 {
     return g_boot_args;
+}
+
+ /* ── the SoC address map, for any layer that needs a device base or IRQ ─
+  * Populated by the bootloader (01_uBoot/src/uiox_boot_main.c, stage 2.5)
+  * and carried here in uiox_boot_args_t.soc.
+  *
+  * Returns NULL when the probe did not run — no DTB (x86), no /soc node,
+  * or a DTB-less boot.  Callers MUST test: a zeroed uiox_soc_runtime_t is
+  * indistinguishable from a machine whose bases are genuinely at address 0,
+  * which is why the sourced_from_dt flag is what this checks rather than a
+  * zero comparison. */
+/* add beside uiox_kernel_get_boot_args(), at the foot of the file */
+const uiox_soc_runtime_t *uiox_kernel_get_soc(void)
+{
+    const uiox_boot_args_t *ba = uiox_kernel_get_boot_args();
+    return (ba && ba->soc.sourced_from_dt) ? &ba->soc
+                                           : (const uiox_soc_runtime_t *)0;
 }
