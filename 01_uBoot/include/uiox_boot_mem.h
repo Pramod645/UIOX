@@ -67,8 +67,15 @@ typedef struct {
     uint64_t timer_base;
     uint64_t virtio_base;
     uint64_t virtio_stride;
+    /* ── the interrupt lines, parsed but previously discarded ─────────
+     * soc_prop() already reads the `interrupts` property into x->irq0 for
+     * every node; it was simply not copied for these two.  Without them a
+     * driver that needs a line number carries a literal — the same defect
+     * as a literal base address. */
+    uint32_t virtio_irq;        /* NIC interrupt line, from `interrupts`   */
     uint64_t ahci_base;
     uint64_t storage_base;
+    uint32_t storage_irq;       /* storage line, from uiox, `interrupts`    */
     uint32_t uart_irq;
     uint32_t timer_irq;
     uint8_t  sourced_from_dt;

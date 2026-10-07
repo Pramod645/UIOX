@@ -153,14 +153,46 @@ static void soc_commit(struct soc_ctx *x)
         if (!m->uart0_base) { m->uart0_base = x->reg_base; m->uart_irq = x->irq0; }
         m->sourced_from_dt = 1u;
     } else if (pfx(x->compat, "riscv,plic")) {
+        /* unguarded: a device tree carries one PLIC, and there is no
+         * second node whose ordering could matter */
         m->plic_base = x->reg_base; m->sourced_from_dt = 1u;
     } else if (pfx(x->compat, "sifive,clint")) {
         m->clint_base = x->reg_base; m->sourced_from_dt = 1u;
     } else if (pfx(x->compat, "virtio,mmio")) {
-        if (!m->virtio_base) { m->virtio_base = x->reg_base; m->virtio_stride = x->reg_size; }
+        //if (!m->virtio_base) { m->virtio_base = x->reg_base; m->virtio_stride = x->reg_size; }
+      /* the NIC's line number matters as much as its base — the driver
+      * takes an irq parameter, and a literal there is the same defect as
+      * a literal base.  irq0 is parsed from the `interrupts` property
+      * above; it was just not copied for this node. */
+     if (!m->virtio_base) {
+             m->virtio_base   = x->reg_base;
+             m->virtio_stride = x->reg_size;
+             m->virtio_irq    = x->irq0;
+         }
         m->sourced_from_dt = 1u;
     } else if (pfx(x->compat, "uiox,")) {
-        m->storage_base = x->reg_base; m->sourced_from_dt = 1u;
+        //m->storage_base = x->reg_base; m->sourced_from_dt = 1u;
+        //m->storage_base = x->reg_base;
+        //m->storage_irq  = x->irq0;
+        //m->sourced_from_dt = 1u;
+        //m->storage_base = x->reg_base; m->sourced_from_dt = 1u;
+        /* ── first match wins ───────────────────────────────────────────
+         * Every other branch in this function guards on the field being
+         * unset — uart0_base for arm,pl011 / sifive,uart, virtio_base for
+         * virtio,mmio.  Without the guard here, two uiox, nodes mean the
+         * LAST one wins for storage while the FIRST wins for everything
+         * else, so the parser has two different rules depending on which
+         * node you are looking at.
+         *
+         * A device tree normally lists one boot-storage node, but a board
+         * with both eMMC and an NVMe root would legitimately carry two,
+         * and the ordering would then decide which one the kernel thinks
+         * it booted from. */
+        if (!m->storage_base) {
+            m->storage_base = x->reg_base;
+            m->storage_irq  = x->irq0;
+        }
+        m->sourced_from_dt = 1u;
     }
 }
 

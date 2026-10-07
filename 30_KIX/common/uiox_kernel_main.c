@@ -52,11 +52,16 @@
  *       │       └─▶ uiox_soc_init()       — SoC detect + clock + PM
  *       ├─▶ uiox_ks_boot_entry()          — 33_PCS/03_ksign: verify + PCR extend
  *       ├─▶ uiox_fb_shell_ready()         — 33_PCS/04_fboot: timing milestone
+ *       ├─▶ uiox_fs_init()                — 32_FS: page cache, VFS, SCFS, journal
  *       ├─▶ uiox_proc_init()              — 33_PCS: scheduler + process table
  *       │       ├─▶ uiox_sched_init()     — 33_PCS/01_schedular
  *       │       ├─▶ uiox_timer_init()     — 33_PCS timer
  *       │       ├─▶ uiox_kp_engine_init() — 33_PCS/06_kpatch: live patch engine
  *       │       └─▶ uiox_sec_init()       — 33_PCS/05_sec: ASLR + MAC
+ *       ├─▶ uiox_netif_subsystem_init()   — 34_DSS: interface table
+ *       ├─▶ uiox_socket_subsystem_init()  — 34_DSS: socket table
+ *       ├─▶ uiox_eth_boot_init()          — 34_DSS: the NIC, over 02_FwHal
+ *       ├─▶ uiox_drv_emmc_bind()          — 34_DSS: the block device
  *       └─▶ uiox_shell_start()            — 50_UIX/01_shell: first prompt
  *
  * Subsystems now in kernel (moved from 50_UIX):
@@ -64,11 +69,11 @@
  *   33_PCS/04_fboot   — fast-boot snapshot + deferred-init scheduling
  *   33_PCS/05_sec     — ASLR + MAC security policy
  *   33_PCS/06_kpatch  — live kernel text patching engine
- *   32_FS/02_journal  — filesystem journal (transaction, commit, checkpoint)
+ *   32_FS/02_jrnal    — filesystem journal (transaction, commit, checkpoint)
  *   32_FS/03_netfs    — in-kernel NFS/RPC client
  *
- * @version 1.2.0
- * @date    2026-07-26
+ * @version 1.4.0
+ * @date    2026-10-07
  */
 
 /*
@@ -91,20 +96,14 @@
 #include "uiox_boot_handoff.h"  /* uiox_boot_args_t, uiox_boot_handoff_*    */
 #include "uiox_boot_types.h"    /* remaining boot enums/structs/macros       */
 #include "uiox_fboot.h"         /* uiox_fb_master_ctx_t, fb_init/ready/report*/
-
-
-/* Add near the top of uiox_kernel_main.c includes: */
-#include "uiox_syscall.h"
-#include "uiox_uaccess.h"
-
-/* In kernel_common_init(), after uiox_proc_init(): */
-early_puts("[kernel] uiox_syscall_dispatch ready\r\n");
-/*
- * The arch vector table calls uiox_syscall_dispatch() directly
- * via arch_syscall_entry() — no registration needed here.
- * This line confirms the symbol is linked and the table is live.
- */
-
+#include "uiox_fw_net.h"        /* uiox_fw_net_type_t — eth boot call       */
+#include "uiox_fw_storage.h"    /* uiox_fw_stor_dev_t, uiox_fw_stor_get()   */
+#include "uiox_syscall.h"       /* uiox_syscall_dispatch — called by the
+                                 * arch vector table's arch_syscall_entry().
+                                 * No registration here: the table is wired
+                                 * by the arch vectors, not at init.       */
+#include "uiox_uaccess.h"       /* copy_from_user / copy_to_user           */
+#include "inode.h"              /* ROOT_DEV — the root device index        */
 
 /*
  * Static build only: forward-declare the two BSP symbols we need without
@@ -128,6 +127,24 @@ extern int uiox_bsp_init(const uiox_bsp_config_t *cfg);
 /* ── Forward declarations of subsystem init functions ────────────────── */
 extern int  arch_init(void);          /* 10_Arch/<arch>/src/arch_init.c     */
 extern void uiox_proc_init(void);     /* 33_PCS — scheduler + process table */
+
+/* ── 34_DSS — the device subsystem, driven from kernel_common_init() ───
+ * Declared rather than included: the four DSS layers are separate
+ * libraries in the umbrella Makefile, so a missing one shows up as an
+ * unresolved symbol at link time rather than a missing header here.
+ *
+ * Note there is no body I could reach for uiox_eth_boot_init yet — its
+ * driver file (30_DeviceDrivers/01_Com/eth/uiox_drv_fwnet_eth.c) is
+ * written but not yet in the build, so this link will fail until that
+ * lands.  That is the honest state, not an oversight to paper over. */
+extern void uiox_netif_subsystem_init(void);      /* 30_DeviceDrivers/eth   */
+extern void uiox_socket_subsystem_init(void);     /* 34_CAS/eth             */
+extern int  uiox_eth_boot_init(uintptr_t base, uint32_t irq,
+                               uiox_fw_net_type_t type);
+extern int  uiox_drv_emmc_bind(uint8_t dev, uiox_fw_stor_dev_t *fw);
+
+/* From uiox_kernel_main.c itself — the SoC map the bootloader carried. */
+const uiox_soc_runtime_t *uiox_kernel_get_soc(void);
 
 /* Forward declaration so weak stubs below can call early_puts()
  * before its static definition appears later in this file.        */
@@ -223,6 +240,13 @@ void uiox_sec_init(void)
     early_puts("[kernel]   uiox_sec_init: stub (33_PCS/05_sec not built)\r\n");
 }
 
+__attribute__((weak))
+int uiox_fs_init(void)
+{
+    early_puts("[kernel]   uiox_fs_init: stub (32_FS not built)\r\n");
+    return 0;
+}
+
 /* ── Kernel BSS / stack symbols (provided by the linker script) ───────── */
 extern uint8_t _bss_start[];
 extern uint8_t _bss_end[];
@@ -276,6 +300,14 @@ static void stack_setup(void)
 #endif
 }
 
+/* ── pre-console UART ────────────────────────────────────────────────────
+ * The addresses below are compile-time literals ON PURPOSE.  This function
+ * runs before kernel_common_init(), so g_boot_args is not set and the DTB
+ * has not been probed — uiox_kernel_get_soc() would return NULL here.
+ *
+ * Drivers use soc->uart0_base from the SoC map; these literals are the
+ * fallback that makes the first banner print at all.  Do not "fix" them to
+ * read the map: early boot output would be lost. */
 static void early_putc(char c)
 {
 #if defined(__aarch64__) || defined(__arm__)
@@ -371,9 +403,45 @@ static void __attribute__((noreturn)) kernel_common_init(void)
     uiox_fb_shell_ready(&fb_ctx);
     uiox_fb_report(&fb_ctx);
 
+    /* 32_FS — filesystem: page cache, VFS, SCFS register, journal, then
+     *        the (not yet attempted) root mount.  Weak above, so the link
+     *        succeeds whether or not 32_FS is in this build. */
+    early_puts("[kernel] uiox_fs_init()...\r\n");
+    (void)uiox_fs_init();
+
     /* 33_PCS — scheduler, process table, security, live patching */
     early_puts("[kernel] uiox_proc_init()...\r\n");
     uiox_proc_init();
+
+    /* ── 34_DSS — the device subsystem ───────────────────────────────
+     * Tables first, then the devices themselves.
+     *
+     * uiox_kernel_get_soc() returns NULL when the bootloader found no
+     * /soc node — on x86, or a thin device tree.  Each driver then keeps
+     * its compile-time literal: discovered beats declared, but a literal
+     * is the honest fallback rather than a fabricated address. */
+    early_puts("[kernel] uiox_netif_subsystem_init()...\r\n");
+    uiox_netif_subsystem_init();
+    uiox_socket_subsystem_init();
+
+    {
+        const uiox_soc_runtime_t *soc = uiox_kernel_get_soc();
+
+#if defined(UIOX_HAVE_ETH)
+        early_puts("[kernel] uiox_eth_boot_init()...\r\n");
+        (void)uiox_eth_boot_init(soc ? soc->virtio_base : 0x0a003e00UL,
+                                 soc ? soc->virtio_irq  : 31u,
+                                 UIOX_FW_NET_LOOPBACK);
+#endif
+
+#if defined(UIOX_HAVE_EMMC)
+        /* The block device needs no address from the map:
+         * uiox_fw_virtio.c registered it with s_dev.base = s_base. */
+        (void)uiox_drv_emmc_bind(ROOT_DEV, uiox_fw_stor_get(0u));
+#endif
+
+        (void)soc;      /* unused when no device class is compiled in */
+    }
 
     /* 50_UIX/01_shell — first user shell (only remaining 50_UIX entry) */
     early_puts("[kernel] uiox_shell_start()...\r\n");
@@ -537,16 +605,16 @@ const uiox_boot_args_t *uiox_kernel_get_boot_args(void)
     return g_boot_args;
 }
 
- /* ── the SoC address map, for any layer that needs a device base or IRQ ─
-  * Populated by the bootloader (01_uBoot/src/uiox_boot_main.c, stage 2.5)
-  * and carried here in uiox_boot_args_t.soc.
-  *
-  * Returns NULL when the probe did not run — no DTB (x86), no /soc node,
-  * or a DTB-less boot.  Callers MUST test: a zeroed uiox_soc_runtime_t is
-  * indistinguishable from a machine whose bases are genuinely at address 0,
-  * which is why the sourced_from_dt flag is what this checks rather than a
-  * zero comparison. */
-/* add beside uiox_kernel_get_boot_args(), at the foot of the file */
+/* ── the SoC address map, for any layer that needs a device base or IRQ ─
+ * Populated by the bootloader (01_uBoot/src/uiox_boot_main.c, stage 2.5)
+ * and carried here in uiox_boot_args_t.soc.  This is what replaces the
+ * hardcoded literals — 0x09000000 for the UART, 0x0a003e00 for the NIC —
+ * with values the device tree actually reported.
+ *
+ * Returns NULL when the probe did not run — no DTB (x86), no /soc node,
+ * or a DTB-less boot.  Callers MUST test: a zeroed uiox_soc_runtime_t is
+ * indistinguishable from a machine whose bases are genuinely at address 0,
+ * which is why this checks sourced_from_dt rather than a zero comparison. */
 const uiox_soc_runtime_t *uiox_kernel_get_soc(void)
 {
     const uiox_boot_args_t *ba = uiox_kernel_get_boot_args();

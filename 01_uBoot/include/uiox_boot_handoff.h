@@ -78,7 +78,21 @@
      uiox_soc_runtime_t soc;       /**< added for kernel to access during runtime */
      char             cmdline[UIOX_IMAGE_CMDLINE_MAX];
      uiox_arch_t      arch;
-     uint8_t          _pad[28];        /**< Pad to 512 bytes               */
+     //uint8_t          _pad[28];        /**< Pad to 512 bytes               */
+     /* tail padding — alignment only, NOT a size target.  "Pad to 512
+      * bytes" was never met and never checked: mem_map alone is
+      * UIOX_MEM_MAX_REGIONS (32) * sizeof(uiox_mem_region_t) (24) = 768,
+      * before cmdline[256], soc, or anything else.
+      *
+      * Nothing depends on the total.  The only sizeof use in the tree is
+      * uiox_boot_main.c:127, and it is additive — a larger struct simply
+      * reserves more.
+      *
+      * If a fixed size is ever wanted, express this as TARGET - fields via
+      * named constants plus a _Static_assert, the way unfs_format.h does
+      * (its line 387 records the identical bug: "_pad[72] produced
+      * sizeof 208"). */
+     uint8_t          _pad[28];
  } uiox_boot_args_t;
  
  /* =========================================================================
