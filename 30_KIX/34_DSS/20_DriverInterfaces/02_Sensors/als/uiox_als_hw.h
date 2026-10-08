@@ -179,7 +179,9 @@
      /* Pending IRQ */
      volatile uint32_t pending_irq;
      /* Private (ops vtable) */
-     void            *priv;
+     const void            *ops;
+     void                 *drv_priv;
+
  } uiox_als_hw_t;
  
  /* Pending IRQ bits */
@@ -256,6 +258,31 @@
  
  static inline uint32_t uiox_als_caps(const uiox_als_hw_t *hw)
  { return hw ? hw->caps : 0u; }
+/* ═══════════════════════════ INSERTED ═══════════════════════════ */
+/* =========================================================================
+ * Event — interrupt-driven
+ *
+ * uiox_als_if_irq_handle() allocates one of these and sets e->type from
+ * the IRQ bit it matched.  Nothing defined the enum or the pool, so both
+ * land here.
+ * ====================================================================== */
+typedef enum {
+    UIOX_ALS_EVT_NONE = 0,
+    UIOX_ALS_EVT_DATA_READY,     /* IRQ_DATA_READY     */
+    UIOX_ALS_EVT_THRESH_HIGH,    /* IRQ_THRESH_HIGH    */
+    UIOX_ALS_EVT_THRESH_LOW,     /* IRQ_THRESH_LOW     */
+} uiox_als_evt_type_t;
+
+typedef struct {
+    uiox_als_evt_type_t type;
+    uint32_t            timestamp_ms;
+    uiox_als_gain_t     gain;      /* gain at the interrupt  */
+    uiox_als_itime_t    itime;     /* integration time       */
+} uiox_als_evt_t;
+
+uiox_als_evt_t *uiox_als_evt_alloc(void);
+void            uiox_als_evt_free (uiox_als_evt_t *e);
+/* ═══════════════════════════ END INSERT ═════════════════════════ */
  
  #ifdef __cplusplus
  }

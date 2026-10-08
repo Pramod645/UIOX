@@ -48,7 +48,9 @@
      uint32_t     irq;
      uint32_t     caps;          /* UIOX_CAM_CAP_* */
      uint8_t      max_lanes;     /* e.g., 2 or 4 for CSI-2 */
-     void        *priv;          /* driver private */
+     const void        *ops;
+     void             *drv_priv;
+
  } uiox_cam_hw_t;
  
  typedef struct {

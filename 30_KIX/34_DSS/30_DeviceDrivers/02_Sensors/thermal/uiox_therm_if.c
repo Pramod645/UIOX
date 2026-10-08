@@ -12,7 +12,6 @@
      memset(tif, 0, sizeof(*tif));
      tif->hw     = hw;
      tif->primed = true;
-     uiox_therm_buf_init();
      return 0;
  }
  

@@ -8,7 +8,6 @@
  #define UIOX_ALS_IF_H
  
  #include "uiox_als_hw.h"
- #include "uiox_als_buf.h"
  
  #ifdef __cplusplus
  extern "C" {

@@ -118,7 +118,9 @@
      bool               fault;
      int8_t             die_temp_c;    /**< Last read die temperature       */
  
-     void              *priv;
+     const void              *ops;
+     void                   *drv_priv;
+
  } uiox_pmic_hw_t;
  
  /* =========================================================================

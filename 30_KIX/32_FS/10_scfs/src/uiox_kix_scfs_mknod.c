@@ -1,5 +1,5 @@
 /*
- *  30_KIX/32_FS/10_scfs/src/uiox_kix_scfs_mknod.c
+ *  30_KIX/32FileSystem/10_scfs/src/uiox_kix_scfs_mknod.c
  *
  *  SCFS - Algorithm make new node (mknod).  CORRECTED.
  *
@@ -25,21 +25,36 @@
  *    release new node inode (algorithm iput);
  *  }
  *
- *  -- the device-number gap -----------------------------------------
- *  The first cut wrote ip->i_major and ip->i_minor.  Neither exists.
- *  InCoreInode carries no device-number fields and unfs_inode_t does not
- *  either, so Bach's step 7 HAS NOWHERE TO WRITE.  A device node created
- *  here would have no way to name its driver.
+ *  -- the device-number gap, and how it closed ------------------------
+ *  v1.2 wrote ip->i_major and ip->i_minor.  Neither exists, so Bach's
+ *  step 7 had nowhere to write and a CHAR or BLOCK node was REFUSED with
+ *  ENOSYS: creating one would have produced a node that resolves and
+ *  reaches no driver.
  *
- *  Two consequences, both stated rather than hidden:
+ *  v1.3 supplies the fields.  InCoreInode now carries
  *
- *    - a CHAR or BLOCK node is REFUSED, because the numbers that make it
- *      useful cannot be stored.  Creating one would produce a node that
- *      resolves and reads nothing.
+ *      uint16_t idev_class;   which subsystem owns the node
+ *      uint16_t idev_unit;    which instance of that class
  *
- *    - a FIFO has no device numbers to store, so it is created normally
- *      and works.  A DIRECTORY is refused: that is mkdir's job, because
- *      mkdir also writes '.' and '..'.
+ *  which REPLACE the major/minor pair.  uiox_devclass_t already packs a
+ *  class's family into the high nibble and the class into the low 12
+ *  bits, so one 16-bit field names the subsystem with nothing for anyone
+ *  to allocate and keep unique — and that same (cls, unit) pair is the
+ *  seed of uiox_dev_dev_t and of the binding registry ioctl() resolves
+ *  through.  See 34_DSS/include/uiox_devclass.h.
+ *
+ *  Where the pair comes from: the NAME, not the arguments.  mknod's own
+ *  (major, minor) are two 8-bit values and cannot hold a class — CHG
+ *  alone is 0x3003 — so uiox_dev_parse() reads the node component the way
+ *  a user writes it.  Backwards compatibility is not a concern: the
+ *  arguments were never storable, so no caller could have relied on them.
+ *
+ *      /dev/chg0   -> UIOX_DEVCLASS_CHG, unit 0
+ *      /dev/kbd2   -> UIOX_DEVCLASS_KBD, unit 2
+ *
+ *  A name that names no class is refused with ENOENT.  A node that
+ *  resolves but reaches no driver is worse than no node: it opens, it
+ *  reads nothing, and the failure surfaces far from its cause.
  *
  *  -- CHANGED: the dirent calls, and one missing helper --------------
  *  dir_lookup() and dir_add() take an explicit name LENGTH now, because
@@ -54,9 +69,16 @@
  *
  *      mknod.c:116: implicit declaration of function 'scfs_strlen'
  *
- *  @version 1.2.0  @date 2026-09-26
+ *  -- CHANGED in this revision ----------------------------------------
+ *  scfs_create_node() tested the mode with a renamed macro; see
+ *  scfs_table.c.  Not this file.
+ *
+ *  @version 1.3.0  @date 2026-10-08
  */
 #include "uiox_kix_scfs_internal.h"
+
+/* The device vocabulary and uiox_dev_parse(). */
+#include "uiox_devclass.h"
 
 /* -- the length of one path component, in bytes ------------------------
  * Local, and bounded: a name read off disk is not NUL-terminated, so a
@@ -68,6 +90,17 @@ static uint32_t scfs_name_len(const char *name)
 
     while (n < (uint32_t)UNFS_NAME_MAX && name[n] != '\0') n++;
     return n;
+}
+
+/* -- the dirent type for an inode type ---------------------------------
+ * d_type and i_mode are unrelated numeric systems: the inode wants
+ * UNFS_IF*, the directory entry wants UNFS_DT_*.  Map rather than cast.
+ * -------------------------------------------------------------------- */
+static uint8_t scfs_dtype_of(uint16_t type)
+{
+    if (type == SCFS_S_IFCHR) return (uint8_t)UNFS_DT_CHR;
+    if (type == SCFS_S_IFBLK) return (uint8_t)UNFS_DT_BLK;
+    return (uint8_t)UNFS_DT_FIFO;
 }
 
 int uiox_kix_scfs_mknod(const char *path, uint16_t mode,
@@ -82,30 +115,25 @@ int uiox_kix_scfs_mknod(const char *path, uint16_t mode,
     uint32_t     nlen;
     int          rc;
 
-    (void)major; (void)minor;   /* no inode field to hold them - see above */
+    uiox_devclass_t cls  = UIOX_DEVCLASS_NONE;
+    uint16_t        unit = 0u;
+    int             is_dev;
+
+    /* The two arguments Bach passes are no longer read: a class needs 16
+     * bits and they carry 8 each.  The name supplies the pair instead. */
+    (void)major; (void)minor;
 
     if (!path) return SCFS_EFAULT;
 
     type = (uint16_t)(mode & SCFS_S_IFMT);
 
-    /* -- 1. the privilege rule, and the device-number gap ------------- */
-    if (type == SCFS_S_IFCHR || type == SCFS_S_IFBLK) {
-        /* Bach writes the major and minor numbers into the inode here.
-         * There is no such field, so the node cannot be made to name its
-         * driver.  ENOSYS rather than a node that resolves to nothing. */
-        return SCFS_ENOSYS;
-    }
+    /* -- 1. which node types this call creates ----------------------- */
+    is_dev = (type == SCFS_S_IFCHR || type == SCFS_S_IFBLK);
 
-    if (type != SCFS_S_IFIFO && type != SCFS_S_IFDIR) {
-        /* Anything else is not a node Bach's mknod creates: a regular
-         * file is open(O_CREAT)'s job, a symlink has its own call. */
-        return SCFS_EINVAL;
-    }
-
-    if (type == SCFS_S_IFDIR) {
-        /* A directory is mkdir's job; mknod may make one, but only with
-         * the '.' and '..' entries mkdir writes - which this path would
-         * skip.  Refuse rather than make a directory with no parent link. */
+    if (!is_dev && type != SCFS_S_IFIFO) {
+        /* A regular file is open(O_CREAT)'s job, a symlink its own call,
+         * a directory mkdir's — mknod may make one, but only with the '.'
+         * and '..' entries mkdir writes, which this path would skip. */
         return SCFS_EINVAL;
     }
 
@@ -115,6 +143,16 @@ int uiox_kix_scfs_mknod(const char *path, uint16_t mode,
 
     nlen = scfs_name_len(name);
     if (nlen == 0u) return SCFS_EINVAL;
+
+    /* A special file must name the subsystem it belongs to BEFORE the
+     * inode is allocated: refusing here costs nothing, whereas refusing
+     * after ialloc would mean freeing an inode that was just written. */
+    if (is_dev) {
+        rc = uiox_dev_parse(name, nlen, &cls, &unit);
+        if (rc == -ENOENT) return SCFS_ENODEV;   /* names no known class */
+        if (rc == -ERANGE) return SCFS_EINVAL;   /* index out of range   */
+        if (rc != 0)       return SCFS_EINVAL;
+    }
 
     dir = namei(parent, scfs_cwd_get(), 0u, 0u);        /* 01_fsa */
     if (!dir) return SCFS_ENOENT;
@@ -128,10 +166,11 @@ int uiox_kix_scfs_mknod(const char *path, uint16_t mode,
     }
 
     /* -- 4. assign a free inode (algorithm ialloc) -------------------- */
-    /* A FIFO is the only type this path reaches with the checks above.
-     * The value is the ON-DISK encoding (UNFS_IF*), not the old FileType
-     * nibble - (FT_FIFO << 12) is 0x5000, which is not a valid type. */
-    unfs_if = (uint16_t)UNFS_IFIFO;
+    /* The ON-DISK encoding (UNFS_IF*), not the old FileType nibble —
+     * (FT_FIFO << 12) is 0x5000, which is not a valid type. */
+    unfs_if = is_dev ? (uint16_t)((type == SCFS_S_IFCHR) ? UNFS_IFCHR
+                                                         : UNFS_IFBLK)
+                     : (uint16_t)UNFS_IFIFO;
 
     ip = ialloc(unfs_if, scfs_apply_umask((uint16_t)(mode & 0777u)), 0u, 0u);
     if (!ip) { iput(dir); return SCFS_ENOSPC; }
@@ -139,10 +178,9 @@ int uiox_kix_scfs_mknod(const char *path, uint16_t mode,
     ip->nlink = 1;
 
     /* -- 5. create the directory entry (algorithm dir_add) ------------ */
-    /* The type is the DIRENT encoding (UNFS_DT_*), not the inode one -
-     * d_type and i_mode are unrelated numeric systems. */
+    /* The DIRENT encoding — d_type and i_mode are unrelated systems. */
     if (dir_add(dir, name, nlen, ip->ino,
-                (uint8_t)UNFS_DT_FIFO) != 0) {          /* 01_fsa */
+                scfs_dtype_of(type)) != 0) {            /* 01_fsa */
         iput(ip);
         iput(dir);
         return SCFS_EIO;
@@ -151,10 +189,18 @@ int uiox_kix_scfs_mknod(const char *path, uint16_t mode,
     /* -- 6. release the parent (algorithm iput) ----------------------- */
     iput(dir);                                          /* 01_fsa */
 
-    /* -- 7. the device numbers - SKIPPED, no field --------------------
-     * Bach writes major and minor here for a special file.  The only
-     * type that reaches this point is a FIFO, which has no device
-     * numbers.  See the header note. */
+    /* -- 7. the device identity (Bach: major, minor) ------------------ */
+    if (is_dev) {
+        /* Bach writes the two numbers here.  The class and unit take
+         * their place: together they are the key uiox_dev_lookup() is
+         * indexed by, which is what lets ioctl() on this node reach the
+         * driver.  A plain file or a FIFO has no subsystem behind it, so
+         * both fields keep their zeroed value — UIOX_DEVCLASS_NONE for
+         * the class — and ioctl() answers ENOTTY on the mode alone. */
+        ip->idev_class = (uint16_t)cls;
+        ip->idev_unit  = unit;
+        ip->flags |= IFLAG_CHANGED;
+    }
 
     /* A node has no data blocks; the ialloc'd inode is already empty. */
     ip->size = 0;
@@ -167,6 +213,8 @@ int uiox_kix_scfs_mknod(const char *path, uint16_t mode,
     return SCFS_OK;
 }
 
-/* sys_* alias - the consolidated syscalls.c owns this; keep one. */
+/* sys_* alias - the consolidated syscalls.c owns this; keep one.  The
+ * (major, minor) pair is still in the signature because the dispatch
+ * table's SYS_MKNOD entry passes three arguments; it is ignored. */
 int sys_mknod(const char *path, uint16_t mode, uint8_t major, uint8_t minor)
 { return uiox_kix_scfs_mknod(path, mode, major, minor); }

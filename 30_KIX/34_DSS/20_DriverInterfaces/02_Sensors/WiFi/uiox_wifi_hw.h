@@ -160,7 +160,9 @@
      uint8_t   tx_rate_idx;      /**< Current TX rate index                 */
      bool      associated;
  
-     void     *priv;
+     const void     *ops;
+     void          *drv_priv;
+
  } uiox_wifi_hw_t;
  
  /* =========================================================================

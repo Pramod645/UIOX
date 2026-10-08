@@ -24,7 +24,6 @@
      memset(rif, 0, sizeof(*rif));
      rif->hw     = hw;
      rif->primed = true;
-     uiox_rtc_buf_init();
      return 0;
  }
  
@@ -127,4 +126,30 @@
  void uiox_rtc_if_stats_get(const uiox_rtc_if_t *rif,
                               uiox_rtc_if_stats_t *out)
  { if (!rif || !out) return; memcpy(out, &rif->stats, sizeof(*out)); }
- 
+ /* ═══════════════════════════ INSERTED ═══════════════════════════ */
+#define UIOX_RTC_EVT_POOL_MAX   8u
+
+static uiox_rtc_evt_t  s_rtc_evt_pool[UIOX_RTC_EVT_POOL_MAX];
+static bool            s_rtc_evt_used[UIOX_RTC_EVT_POOL_MAX];
+
+uiox_rtc_evt_t *uiox_rtc_evt_alloc(void)
+{
+    for (uint32_t i = 0u; i < UIOX_RTC_EVT_POOL_MAX; i++) {
+        if (!s_rtc_evt_used[i]) {
+            s_rtc_evt_used[i] = true;
+            memset(&s_rtc_evt_pool[i], 0, sizeof(s_rtc_evt_pool[i]));
+            return &s_rtc_evt_pool[i];
+        }
+    }
+    return (uiox_rtc_evt_t *)0;
+}
+
+void uiox_rtc_evt_free(uiox_rtc_evt_t *e)
+{
+    if (!e) return;
+    if (e < s_rtc_evt_pool ||
+        e >= s_rtc_evt_pool + UIOX_RTC_EVT_POOL_MAX)
+        return;
+    s_rtc_evt_used[e - s_rtc_evt_pool] = false;
+}
+/* ═══════════════════════════ END INSERT ═════════════════════════ */

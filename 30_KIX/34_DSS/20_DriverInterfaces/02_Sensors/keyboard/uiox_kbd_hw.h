@@ -118,7 +118,9 @@
      /* Backlight PWM */
      uint8_t   backlight_level; /**< 0..255                                 */
  
-     void     *priv;            /**< Driver-private data                    */
+     const void     *ops;
+     void          *drv_priv;
+
  } uiox_kbd_hw_t;
  
  /* =========================================================================

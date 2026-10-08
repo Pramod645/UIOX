@@ -175,6 +175,36 @@
  #define UIOX_CHG_FAULT_BOOST        (1u << 5)  /**< OTG boost fault        */
  #define UIOX_CHG_FAULT_NTC_COLD     (1u << 6)  /**< NTC cold (< 0 °C)     */
  #define UIOX_CHG_FAULT_NTC_HOT      (1u << 7)  /**< NTC hot (> 60 °C)     */
+/* ═══════════════════════════ INSERTED ═══════════════════════════ */
+/* =========================================================================
+ * Event — state transitions
+ *
+ * uiox_chg_if_poll() allocates one of these and sets e->type from the
+ * transitions it detects.  Nothing defined the enum or the pool.
+ * ====================================================================== */
+typedef enum {
+    UIOX_CHG_EVT_NONE = 0,
+    UIOX_CHG_EVT_PLUG_IN,            /* src changed to non-NONE      */
+    UIOX_CHG_EVT_PLUG_OUT,           /* src changed to NONE          */
+    UIOX_CHG_EVT_CHRG_START,         /* chrg -> FAST                 */
+    UIOX_CHG_EVT_CHRG_DONE,          /* chrg -> DONE                 */
+    UIOX_CHG_EVT_FAULT,              /* faults became non-zero       */
+    UIOX_CHG_EVT_FAULT_CLEAR,        /* faults returned to NONE      */
+} uiox_chg_evt_type_t;
+
+typedef struct {
+    uiox_chg_evt_type_t type;
+    uiox_chg_src_t      src;         /* input source at the transition */
+    uiox_chg_chrg_t     chrg;        /* charge state at the transition */
+    uint32_t            fault_flags; /* UIOX_CHG_FAULT_* bitmap        */
+    uint32_t            timestamp_ms;
+    int32_t             vbus_mv;     /* cached ADC: VBUS               */
+    int32_t             ibat_ma;     /* cached ADC: IBAT               */
+} uiox_chg_evt_t;
+
+uiox_chg_evt_t *uiox_chg_evt_alloc(void);
+void            uiox_chg_evt_free (uiox_chg_evt_t *e);
+/* ═══════════════════════════ END INSERT ═════════════════════════ */
  
  /* =========================================================================
   * Hardware device descriptor
@@ -206,7 +236,9 @@
      /* Pending IRQ bitmask */
      volatile uint32_t pending_irq;
      /* Private (ops vtable) */
-     void           *priv;
+     const void           *ops;
+     void                *drv_priv;
+
  } uiox_chg_hw_t;
  
  /* Pending IRQ bits */

@@ -128,7 +128,9 @@
      volatile bool         dma_half;     /**< Half-complete flag            */
      volatile bool         dma_done;     /**< Full-complete flag            */
  
-     void                 *priv;
+     const void                 *ops;
+     void                      *drv_priv;
+
  } uiox_spk_hw_t;
  
  /* =========================================================================

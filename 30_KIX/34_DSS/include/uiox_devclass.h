@@ -219,6 +219,17 @@ typedef struct {
     int   (*probe) (const uiox_dev_dev_t *dev);   /* is it present?      */
     int   (*init)  (uiox_dev_dev_t *dev);         /* bring it up         */
     void  (*deinit)(uiox_dev_dev_t *dev);
+
+    /* Device-dependent get/set, reached from ioctl(2) on a special-file
+     * descriptor.  On the HEAD, not per family, so 32_FS's dispatch reads
+     * it at one offset whatever the family is — a REG sensor and an EVENT
+     * keyboard implement the same slot and differ only in the commands
+     * they accept.  NULL means the class has no device-dependent
+     * characteristics to set, and the filesystem answers ENOTTY.
+     *
+     * cmd and arg are passed through uninterpreted: the number space
+     * belongs to the driver, and nothing above it validates them. */
+    int   (*ioctl) (uiox_dev_dev_t *dev, uint32_t cmd, void *arg);
 } uiox_dev_ops_t;
 
 /* ═════════════════════════════════════════════════════════════════════
@@ -285,6 +296,51 @@ typedef struct {
     int (*read_reg)   (uiox_dev_dev_t *dev, uint8_t reg, void *val, uint16_t n);
     int (*write_reg)  (uiox_dev_dev_t *dev, uint8_t reg, const void *val, uint16_t n);
 } uiox_busdev_ops_t;
+
+/* ═════════════════════════════════════════════════════════════════════
+ * SECTION 9 — the name parser and the binding registry
+ *
+ * The lookup 32_FS's ioctl needs: given the (cls, unit) an inode names,
+ * return the uiox_dev_dev_t a driver bound.  Kept out of section 4
+ * because the struct is the vocabulary and this is the mechanism.
+ *
+ * (cls, unit) is a total key with no collisions: cls is unique per class
+ * by the packing in section 1, and unit disambiguates instances of one
+ * class.  A linear scan is therefore correct and needs no hashing — the
+ * table is at most UIOX_DEV_MAX long and bound once, at probe time.
+ *
+ * bind() is called by a driver once it has filled its descriptor; the
+ * pointer is stored, NOT copied, so the descriptor must be static.
+ * Returns 0, -EEXIST if (cls, unit) is already bound, -ENOSPC if the
+ * table is full.
+ * ═════════════════════════════════════════════════════════════════════ */
+
+/* Node name -> (class, unit).  Called by mknod when it creates a special
+ * file: the name is the only thing that can carry the class, because
+ * mknod's own (major, minor) arguments are two 8-bit values and a class
+ * needs 16 — CHG alone is 0x3003.
+ *
+ * Parses "chg0" as the class prefix "chg" followed by optional decimal
+ * digits for the unit; "emmc" with no suffix is unit 0.  A trailing
+ * non-digit is a non-match, so "eth0" parses and "ether" does not.
+ *
+ * Returns 0, or:
+ *   -ENOENT  the name matches no class in the table
+ *   -ERANGE  the instance index exceeds UIOX_DEVINDEX_MASK
+ *   -EINVAL  a NULL or empty argument
+ *
+ * Defined in 34_DSS/src/uiox_devparse.c. */
+int uiox_dev_parse(const char *name, uint32_t nlen,
+                   uiox_devclass_t *out_cls, uint16_t *out_unit);
+
+#define UIOX_DEV_MAX   32u
+
+int             uiox_dev_bind  (const uiox_dev_dev_t *dev);
+uiox_dev_dev_t *uiox_dev_lookup(uiox_devclass_t cls, uint16_t unit);
+
+/* Forget every binding.  For a re-probe, not for shutdown — the drivers
+ * own their descriptors and do not learn about this. */
+void            uiox_dev_unbind_all(void);
 
 #ifdef __cplusplus
 }

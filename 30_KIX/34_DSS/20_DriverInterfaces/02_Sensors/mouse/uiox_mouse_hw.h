@@ -92,7 +92,9 @@
      uint8_t               resolution_dpi; /**< Sensor resolution class    */
      volatile bool         irq_pending;
      bool                  connected;
-     void                 *priv;
+     const void                 *ops;
+     void                      *drv_priv;
+
  } uiox_mouse_hw_t;
  
  /* =========================================================================

@@ -144,7 +144,9 @@
      bool                 fault;
      uint32_t             fault_addr;
  
-     void                *priv;
+     const void                *ops;
+     void                     *drv_priv;
+
  } uiox_gpu_hw_t;
  
  /* =========================================================================

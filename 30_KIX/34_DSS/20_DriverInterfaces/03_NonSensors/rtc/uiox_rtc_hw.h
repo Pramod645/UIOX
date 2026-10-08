@@ -155,7 +155,9 @@
      /* IRQ status */
      volatile uint32_t pending_irq; /**< Bitmask of pending IRQ flags      */
      /* Private (ops pointer) */
-     void           *priv;
+     const void           *ops;
+     void                *drv_priv;
+
  } uiox_rtc_hw_t;
  
  /* Pending IRQ bits (mirrors Register C) */
@@ -208,6 +210,30 @@
      /* ISR */
      void (*isr)          (uiox_rtc_hw_t *hw);
  } uiox_rtc_hw_ops_t;
+
+ /* ═══════════════════════════ INSERTED ═══════════════════════════ */
+/* =========================================================================
+ * Event — one per RTC interrupt source
+ *
+ * uiox_rtc_if_irq_handle() reads Register C and sets e->type from the
+ * AF / PF / UF bits.  Nothing defined the enum or the pool.
+ * ====================================================================== */
+typedef enum {
+    UIOX_RTC_EVT_NONE = 0,
+    UIOX_RTC_EVT_ALARM,          /* RTC_REG_C_AF */
+    UIOX_RTC_EVT_PERIODIC,       /* RTC_REG_C_PF */
+    UIOX_RTC_EVT_UPDATE,         /* RTC_REG_C_UF */
+} uiox_rtc_evt_type_t;
+
+typedef struct {
+    uiox_rtc_evt_type_t type;
+    uint8_t             flags;     /* raw Register C byte */
+    uint32_t            timestamp_ms;
+} uiox_rtc_evt_t;
+
+uiox_rtc_evt_t *uiox_rtc_evt_alloc(void);
+void            uiox_rtc_evt_free (uiox_rtc_evt_t *e);
+/* ═══════════════════════════ END INSERT ═════════════════════════ */
  
  /* =========================================================================
   * HAL public API

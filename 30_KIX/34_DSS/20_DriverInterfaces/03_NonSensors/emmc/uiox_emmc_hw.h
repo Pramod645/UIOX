@@ -337,7 +337,9 @@
      /* Pending IRQ */
      volatile uint32_t    pending_irq;
      /* Private (ops vtable) */
-     void                *priv;
+     const void                *ops;
+     void                     *drv_priv;
+
  } uiox_emmc_hw_t;
  
  /* Pending IRQ bits */

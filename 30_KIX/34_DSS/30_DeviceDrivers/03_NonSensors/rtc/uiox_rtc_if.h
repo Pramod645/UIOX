@@ -8,7 +8,6 @@
  #define UIOX_RTC_IF_H
  
  #include "uiox_rtc_hw.h"
- #include "uiox_rtc_buf.h"
  #include "uiox_klibc.h"
  
  #ifdef __cplusplus

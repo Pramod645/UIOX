@@ -12,7 +12,6 @@
      memset(pif, 0, sizeof(*pif));
      pif->hw     = hw;
      pif->primed = true;
-     uiox_pmic_buf_init();
      return 0;
  }
  

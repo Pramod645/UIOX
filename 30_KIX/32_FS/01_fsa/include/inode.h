@@ -162,6 +162,36 @@ typedef struct InCoreInode {
     time_t           ctime;
 
     uint8_t          dev;          /* device this inode lives on     */
+     /* ── Device identity ──────────────────────────────────────────────
+     * Which subsystem owns this special file, and which instance of it.
+     *
+     * These REPLACE the major/minor pair.  A major number exists to index
+     * a switch table, and a minor number to pick a unit within a driver —
+     * two fields, one indirection, and a number space somebody has to
+     * allocate and keep unique across the whole tree.  UIOX already has
+     * that key: uiox_devclass_t packs the family into the high nibble and
+     * the class into the low 12 bits (see 34_DSS/include/uiox_devclass.h),
+     * and uiox_dev_dev_t carries the same (cls, unit) pair.  So one
+     * uint16_t names the subsystem and one names the instance, with no
+     * registry of allocated numbers and no switch table to index.
+     *
+     *   0x3F00  idev_class   REG | CHG       (family 3, class 3)
+     *   0x0000  idev_unit    the first charger
+     *
+     * The filesystem does not interpret either field.  It hands both to
+     * uiox_dev_lookup() and gets a descriptor or nothing — which is what
+     * keeps 32_FS from needing to know how many device classes exist.
+     *
+     * Meaningful only for S_IFCHR and S_IFBLK.  For a plain file or a
+     * directory both stay UIOX_DEVCLASS_NONE / 0, and ioctl() answers
+     * ENOTTY on the mode alone without consulting them.
+     *
+     * In-core only: no equivalent lives on DiskInode, so a device node
+     * gets its class and unit from the path that created it — mknod
+     * knows "/dev/chg0" is CHG unit 0 — and no on-disk format changes.
+     * DiskInode's 256-byte assert is therefore untouched. */
+    uint16_t         idev_class;   /* which subsystem owns it        */
+    uint16_t         idev_unit;    /* which instance of that class   */
 
     /* ── Hash / free list links ─────────────────────────────────── */
     struct InCoreInode *hash_next;

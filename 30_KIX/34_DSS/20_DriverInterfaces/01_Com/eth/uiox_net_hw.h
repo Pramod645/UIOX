@@ -112,7 +112,9 @@
      uint16_t            tx_tail;    /**< Next TX descriptor to reclaim       */
      uint16_t            rx_head;    /**< Next RX descriptor to fill          */
  
-     void               *priv;       /**< Driver private data                 */
+     const void               *ops;
+     void                    *drv_priv;
+
  } uiox_hw_dev_t;
  
  /* =========================================================================

@@ -8,7 +8,6 @@
  #define UIOX_PMIC_IF_H
  
  #include "uiox_pmic_hw.h"
- #include "uiox_pmic_buf.h"
  #include "uiox_klibc.h"
  
  #ifdef __cplusplus

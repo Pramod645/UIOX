@@ -165,7 +165,9 @@ typedef struct {
     bool                icm_ready;    /**< ICM firmware loaded             */
     volatile uint32_t   pending_irq;  /**< IRQ status word                 */
 
-    void               *priv;
+    const void               *ops;
+    void                    *drv_priv;
+
 } uiox_tb4_hw_t;
 
 /* =========================================================================

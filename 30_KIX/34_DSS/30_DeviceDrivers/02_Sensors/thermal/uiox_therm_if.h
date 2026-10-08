@@ -8,7 +8,6 @@
  #define UIOX_THERM_IF_H
  
  #include "uiox_therm_hw.h"
- #include "uiox_therm_buf.h"
  #include "uiox_klibc.h"
  
  

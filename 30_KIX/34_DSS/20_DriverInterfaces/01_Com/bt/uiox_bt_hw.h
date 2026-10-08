@@ -200,7 +200,9 @@
      bool                powered;
      bool                initialised;
  
-     void               *priv;
+     const void               *ops;
+     void                    *drv_priv;
+
  } uiox_bt_hw_t;
  
  /* =========================================================================

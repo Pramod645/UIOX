@@ -9,7 +9,7 @@
  int uiox_bms_hw_init(uiox_bms_hw_t *hw, const uiox_bms_hw_ops_t *ops)
  {
      if (!hw || !ops || !ops->init) return -EINVAL;
-     hw->priv        = (void *)ops;
+     hw->ops        = (void *)ops;
      hw->fault_flags = 0u;
      hw->chg_fet_on  = false;
      hw->dsg_fet_on  = false;
@@ -27,41 +27,41 @@
  
  void uiox_bms_hw_deinit(uiox_bms_hw_t *hw)
  {
-     if (!hw || !hw->priv) return;
-     const uiox_bms_hw_ops_t *ops = (const uiox_bms_hw_ops_t *)hw->priv;
+     if (!hw || !hw->ops) return;
+     const uiox_bms_hw_ops_t *ops = (const uiox_bms_hw_ops_t *)hw->ops;
      if (ops->deinit) ops->deinit(hw);
-     hw->priv        = NULL;
+     hw->ops        = NULL;
      hw->initialised = false;
  }
  
  int uiox_bms_hw_measure_cells(uiox_bms_hw_t *hw)
  {
-     if (!hw || !hw->priv) return -EINVAL;
-     const uiox_bms_hw_ops_t *ops = (const uiox_bms_hw_ops_t *)hw->priv;
+     if (!hw || !hw->ops) return -EINVAL;
+     const uiox_bms_hw_ops_t *ops = (const uiox_bms_hw_ops_t *)hw->ops;
      if (!ops->measure_cells) return -ENOSYS;
      return ops->measure_cells(hw);
  }
  
  int uiox_bms_hw_measure_current(uiox_bms_hw_t *hw)
  {
-     if (!hw || !hw->priv) return -EINVAL;
-     const uiox_bms_hw_ops_t *ops = (const uiox_bms_hw_ops_t *)hw->priv;
+     if (!hw || !hw->ops) return -EINVAL;
+     const uiox_bms_hw_ops_t *ops = (const uiox_bms_hw_ops_t *)hw->ops;
      if (!ops->measure_current) return -ENOSYS;
      return ops->measure_current(hw);
  }
  
  int uiox_bms_hw_measure_temp(uiox_bms_hw_t *hw)
  {
-     if (!hw || !hw->priv) return -EINVAL;
-     const uiox_bms_hw_ops_t *ops = (const uiox_bms_hw_ops_t *)hw->priv;
+     if (!hw || !hw->ops) return -EINVAL;
+     const uiox_bms_hw_ops_t *ops = (const uiox_bms_hw_ops_t *)hw->ops;
      if (!ops->measure_temp) return -ENOSYS;
      return ops->measure_temp(hw);
  }
  
  int uiox_bms_hw_set_chg_fet(uiox_bms_hw_t *hw, bool on)
  {
-     if (!hw || !hw->priv) return -EINVAL;
-     const uiox_bms_hw_ops_t *ops = (const uiox_bms_hw_ops_t *)hw->priv;
+     if (!hw || !hw->ops) return -EINVAL;
+     const uiox_bms_hw_ops_t *ops = (const uiox_bms_hw_ops_t *)hw->ops;
      if (!ops->set_chg_fet) return -ENOSYS;
      int rc = ops->set_chg_fet(hw, on);
      if (rc == 0) hw->chg_fet_on = on;
@@ -70,8 +70,8 @@
  
  int uiox_bms_hw_set_dsg_fet(uiox_bms_hw_t *hw, bool on)
  {
-     if (!hw || !hw->priv) return -EINVAL;
-     const uiox_bms_hw_ops_t *ops = (const uiox_bms_hw_ops_t *)hw->priv;
+     if (!hw || !hw->ops) return -EINVAL;
+     const uiox_bms_hw_ops_t *ops = (const uiox_bms_hw_ops_t *)hw->ops;
      if (!ops->set_dsg_fet) return -ENOSYS;
      int rc = ops->set_dsg_fet(hw, on);
      if (rc == 0) hw->dsg_fet_on = on;
@@ -80,16 +80,16 @@
  
  int uiox_bms_hw_set_balance(uiox_bms_hw_t *hw, uint16_t mask)
  {
-     if (!hw || !hw->priv) return -EINVAL;
-     const uiox_bms_hw_ops_t *ops = (const uiox_bms_hw_ops_t *)hw->priv;
+     if (!hw || !hw->ops) return -EINVAL;
+     const uiox_bms_hw_ops_t *ops = (const uiox_bms_hw_ops_t *)hw->ops;
      if (!ops->set_balance) return -ENOSYS;
      return ops->set_balance(hw, mask);
  }
  
  int uiox_bms_hw_fault_status(uiox_bms_hw_t *hw, uint32_t *flags)
  {
-     if (!hw || !hw->priv || !flags) return -EINVAL;
-     const uiox_bms_hw_ops_t *ops = (const uiox_bms_hw_ops_t *)hw->priv;
+     if (!hw || !hw->ops || !flags) return -EINVAL;
+     const uiox_bms_hw_ops_t *ops = (const uiox_bms_hw_ops_t *)hw->ops;
      if (!ops->fault_status) return -ENOSYS;
      int rc = ops->fault_status(hw, flags);
      if (rc == 0) hw->fault_flags = *flags;
@@ -98,16 +98,16 @@
  
  int uiox_bms_hw_fault_clear(uiox_bms_hw_t *hw, uint32_t flags)
  {
-     if (!hw || !hw->priv) return -EINVAL;
-     const uiox_bms_hw_ops_t *ops = (const uiox_bms_hw_ops_t *)hw->priv;
+     if (!hw || !hw->ops) return -EINVAL;
+     const uiox_bms_hw_ops_t *ops = (const uiox_bms_hw_ops_t *)hw->ops;
      if (!ops->fault_clear) return -ENOSYS;
      return ops->fault_clear(hw, flags);
  }
  
  bool uiox_bms_hw_pack_present(uiox_bms_hw_t *hw)
  {
-     if (!hw || !hw->priv) return false;
-     const uiox_bms_hw_ops_t *ops = (const uiox_bms_hw_ops_t *)hw->priv;
+     if (!hw || !hw->ops) return false;
+     const uiox_bms_hw_ops_t *ops = (const uiox_bms_hw_ops_t *)hw->ops;
      if (ops->pack_present) hw->present = ops->pack_present(hw);
      return hw->present;
  }

@@ -182,7 +182,9 @@ typedef struct {
     /* Backlight (panel with embedded HDMI) */
     uint8_t               bl_level;
 
-    void                 *priv;
+    const void                 *ops;
+    void                      *drv_priv;
+
 } uiox_hdmi_hw_t;
 
 /* =========================================================================

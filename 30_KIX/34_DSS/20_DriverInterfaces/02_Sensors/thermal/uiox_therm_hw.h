@@ -160,7 +160,9 @@
      volatile bool          alert_pending;
      bool                   initialised;
  
-     void                  *priv;
+     const void                  *ops;
+     void                       *drv_priv;
+
  } uiox_therm_hw_t;
  
  /* =========================================================================

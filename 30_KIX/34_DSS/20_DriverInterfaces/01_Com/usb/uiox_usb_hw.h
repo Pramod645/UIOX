@@ -150,7 +150,9 @@
      bool                 suspended;
      bool                 vbus_present;
  
-     void                *priv;
+     const void                *ops;
+     void                     *drv_priv;
+
  } uiox_usb_hw_t;
  
  /* =========================================================================

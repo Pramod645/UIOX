@@ -1428,6 +1428,7 @@ typedef struct {
     int  (*event_read)(dev, void *rec, uint16_t maxlen);
     void (*isr)(dev);
 } uiox_event_ops_t;
+===========================================================================
 Family 4 — register (als, thermal, bms, chg, pmic, rtc, fan) — no buffer
 
 Interface	bus transactions — i2c_transfer(addr, reg, buf, n)
@@ -1443,6 +1444,47 @@ typedef struct {
     int (*read_reg)(dev, uint8_t reg, void *val, uint16_t n);
     int (*write_reg)(dev, uint8_t reg, const void *val, uint16_t n);
 } uiox_busdev_ops_t;
+
+What family 4 actually needs
+Per uiox_devclass.h's design, these seven have no buffer and one shared vtable:
+
+c
+
+
+typedef struct {
+    int (*init)       (uiox_dev_dev_t *dev);
+    void (*deinit)    (uiox_dev_dev_t *dev);
+    int (*read_reg)   (uiox_dev_dev_t *dev, uint8_t reg, void *val, uint16_t n);
+    int (*write_reg)  (uiox_dev_dev_t *dev, uint8_t reg, const void *val, uint16_t n);
+} uiox_busdev_ops_t;
+So the work is not seven driver files — it's:
+
+#	Piece	Why
+1	The bus layer — how read_reg reaches I²C	seven classes share it; without it each driver grows its own transfer
+2	Seven small drivers — each a table of (unit, bus_addr) plus class-specific decoding	the actual per-device logic
+3	The 31_drvbuff deletions — seven _buf.c/_buf.h pairs
+
+
+als	✅	✅	✅	✅
+chg	☝️	☝️	⏳	⏳
+rtc	☝️	☝️	⏳	⏳
+thermal bms pmic fan	—	—	⏳ ×4	⏳ ×4
+
+
+
+Family 4 — the closing set
+#	Item	Files	State
+OPS() → ->ops	als_hw.c, chg_hw.c, rtc_hw.c	✅ done	
+als event enum + struct + pool	als_hw.h, als_if.c	block written	
+chg event enum + struct + pool	chg_hw.h, chg_if.c	block written	
+rtc event enum + struct + pool	rtc_hw.h, rtc_if.c	block written	
+_buf cleanup, all seven	—	✅ done	
+thermal/bms/pmic/fan	—	✅ need nothing	
+
+
+
+
+=======================================================================
 Family 5 — MMIO/commands (gpu, hdmi, monitor, camera) — none, or a frame buffer
 
 Interface	command/MMIO, except camera which produces frames
@@ -1500,3 +1542,57 @@ Output	a hotplug event → uiox_devprobe → whichever family the attached devic
 That's the cleanest reading of the diagram you just confirmed: a tunnel sits between hardware control and the other drivers, because it creates them.
 
 ========
+Why inode.h came up — and where I overstepped
+The chain needed a way to get from an open descriptor to the right driver. My route was InCoreInode.idev_class → registry → uiox_dev_dev_t → ops->ioctl. That route does touch inode.h, because the class/unit has to live somewhere the filesystem can read.
+
+But here's the part I should own: that's one design choice, not the only one — and I presented it as though it followed from the ioctl requirement. It doesn't.
+
+The EX-ISYS requirement is "a descriptor must reach its driver's ioctl." Three ways to satisfy it:
+
+Route	Touches inode.h?	Cost
+(a) class/unit on the inode	✅ yes	inode grows; may touch the on-disk format
+(b) bind at open(), store f_dev on scfs_file_t	❌ no	one field on the file-table entry
+(c) resolve by name at ioctl time	❌ no	a name lookup, weaker under rename
+Route (b) keeps inode.h untouched entirely. scfs_file_t already exists and already carries f_locked; adding f_dev costs one pointer and no format change at all. The device is known at open() — that's when the path resolves — so that's the natural place to record it.
+
+I jumped to (a) because uiox_devclass.h's comment mentioned idev_class/idev_unit, and I treated that as the design rather than a design. Reading it back, that comment is describing an intent that was never implemented — and I should have flagged it as one option among three, not the path.
+
+
+
+
+mknod("/dev/chg0", S_IFCHR|0600, …)
+    │  uiox_dev_parse("chg0") → CHG, unit 0
+    │  ip->idev_class / ip->idev_unit written        ← step 7 now real
+    ▼
+open("/dev/chg0")  →  fd
+    ▼
+ioctl(fd, UIOX_CHG_IOC_SET_ICHG, &ma)
+    ├─ scfs_getf(fd)                        ✅
+    ├─ mode & S_IFMT → CHR, so not ENOTTY   ✅
+    ├─ uiox_dev_lookup(CHG, 0)              ✅
+    │     → NULL ? ENODEV
+    ├─ dev->ops → head->ioctl               ✅
+    │     → absent ? ENOTTY
+    └─ head->ioctl(dev, cmd, arg)           ✅ driver runs
+
+
+
+Edits, consolidated:
+
+File	Edit
+als/uiox_als_hw.h	event enum + struct + decls
+als/uiox_als_hw.c	OPS() → ->ops ,,, could not find this :als/uiox_als_hw.c	OPS() → ->ops
+als/uiox_als_if.c	s_als_evt_pool + alloc/free
+
+
+chg/uiox_chg_hw.h	event enum + struct + decls
+chg/uiox_chg_hw.c	OPS() → ->ops
+chg/uiox_chg_if.c	s_chg_evt_pool + alloc/free
+
+rtc/uiox_rtc_hw.h	event enum + struct + decls
+rtc/uiox_rtc_hw.c	OPS() → ->ops
+rtc/uiox_rtc_if.c	s_rtc_evt_pool + alloc/free
+
+thermal, bms, pmic, fan — no edits at all. Their _buf cleanup was already done, and their subsystems push stack events, so the event types live in 34_CAS rather than needing to be defined here.
+=================================
+

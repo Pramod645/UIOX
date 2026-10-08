@@ -120,7 +120,9 @@
      bool               present;
      bool               initialised;
  
-     void              *priv;
+     const void              *ops;
+     void                   *drv_priv;
+
  } uiox_bms_hw_t;
  
  /* =========================================================================

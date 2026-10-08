@@ -13,7 +13,6 @@
      bif->hw      = hw;
      bif->adc_gain= 365u;   /* default 365 µV/LSB for BQ76940 */
      bif->primed  = true;
-     uiox_bms_buf_init();
      return 0;
  }
  

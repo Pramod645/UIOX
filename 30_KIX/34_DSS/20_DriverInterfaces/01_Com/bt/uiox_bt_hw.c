@@ -9,7 +9,7 @@
  int uiox_bt_hw_init(uiox_bt_hw_t *hw, const uiox_bt_hw_ops_t *ops)
  {
      if (!hw || !ops || !ops->init) return -EINVAL;
-     hw->priv               = (void *)ops;
+     hw->ops               = (void *)ops;
      hw->powered            = false;
      hw->initialised        = false;
      hw->rx_len             = 0;
@@ -20,16 +20,16 @@
  
  void uiox_bt_hw_deinit(uiox_bt_hw_t *hw)
  {
-     if (!hw || !hw->priv) return;
-     const uiox_bt_hw_ops_t *ops = (const uiox_bt_hw_ops_t *)hw->priv;
+     if (!hw || !hw->ops) return;
+     const uiox_bt_hw_ops_t *ops = (const uiox_bt_hw_ops_t *)hw->ops;
      if (ops->deinit) ops->deinit(hw);
-     hw->priv = NULL;
+     hw->ops = NULL;
  }
  
  int uiox_bt_hw_power(uiox_bt_hw_t *hw, bool on)
  {
-     if (!hw || !hw->priv) return -EINVAL;
-     const uiox_bt_hw_ops_t *ops = (const uiox_bt_hw_ops_t *)hw->priv;
+     if (!hw || !hw->ops) return -EINVAL;
+     const uiox_bt_hw_ops_t *ops = (const uiox_bt_hw_ops_t *)hw->ops;
      if (!ops->power) return -ENOSYS;
      int rc = ops->power(hw, on);
      if (rc == 0) hw->powered = on;
@@ -39,8 +39,8 @@
  int uiox_bt_hw_hci_write(uiox_bt_hw_t *hw,
                            const uint8_t *buf, uint16_t len)
  {
-     if (!hw || !hw->priv || !buf || !len) return -EINVAL;
-     const uiox_bt_hw_ops_t *ops = (const uiox_bt_hw_ops_t *)hw->priv;
+     if (!hw || !hw->ops || !buf || !len) return -EINVAL;
+     const uiox_bt_hw_ops_t *ops = (const uiox_bt_hw_ops_t *)hw->ops;
      if (!ops->hci_write) return -ENOSYS;
      return ops->hci_write(hw, buf, len);
  }
@@ -48,8 +48,8 @@
  int uiox_bt_hw_hci_read(uiox_bt_hw_t *hw,
                           uint8_t *buf, uint16_t max_len)
  {
-     if (!hw || !hw->priv || !buf) return -EINVAL;
-     const uiox_bt_hw_ops_t *ops = (const uiox_bt_hw_ops_t *)hw->priv;
+     if (!hw || !hw->ops || !buf) return -EINVAL;
+     const uiox_bt_hw_ops_t *ops = (const uiox_bt_hw_ops_t *)hw->ops;
      if (!ops->hci_read) return -ENOSYS;
      return ops->hci_read(hw, buf, max_len);
  }
@@ -57,8 +57,8 @@
  int uiox_bt_hw_fw_download(uiox_bt_hw_t *hw,
                              const uint8_t *fw, uint32_t size)
  {
-     if (!hw || !hw->priv || !fw || !size) return -EINVAL;
-     const uiox_bt_hw_ops_t *ops = (const uiox_bt_hw_ops_t *)hw->priv;
+     if (!hw || !hw->ops || !fw || !size) return -EINVAL;
+     const uiox_bt_hw_ops_t *ops = (const uiox_bt_hw_ops_t *)hw->ops;
      if (!ops->fw_download) return -ENOSYS;
      return ops->fw_download(hw, fw, size);
  }

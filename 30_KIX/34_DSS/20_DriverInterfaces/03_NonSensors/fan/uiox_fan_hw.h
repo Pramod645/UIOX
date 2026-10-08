@@ -125,7 +125,9 @@
      volatile uint32_t global_fault;
      bool              initialised;
  
-     void             *priv;
+     const void             *ops;
+     void                  *drv_priv;
+
  } uiox_fan_hw_t;
  
  /* =========================================================================

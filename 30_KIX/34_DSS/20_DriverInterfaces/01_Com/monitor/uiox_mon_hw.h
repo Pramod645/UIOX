@@ -159,7 +159,9 @@
      volatile uint32_t   vblank_count;
      bool                flip_pending;
  
-     void               *priv;
+     const void               *ops;
+     void                    *drv_priv;
+
  } uiox_mon_hw_t;
  
  /* =========================================================================

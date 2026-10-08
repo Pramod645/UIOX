@@ -117,7 +117,9 @@
      bool                powered;
      volatile bool       irq_pending;
  
-     void               *priv;
+     const void               *ops;
+     void                    *drv_priv;
+
  } uiox_tpwd_hw_t;
  
  /* =========================================================================

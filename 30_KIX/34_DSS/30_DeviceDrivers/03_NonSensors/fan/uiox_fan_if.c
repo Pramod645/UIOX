@@ -12,7 +12,6 @@
      memset(fif, 0, sizeof(*fif));
      fif->hw     = hw;
      fif->primed = true;
-     uiox_fan_buf_init();
      return 0;
  }
  

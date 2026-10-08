@@ -16,7 +16,6 @@
      aif->hw          = hw;
      aif->primed      = true;
      aif->continuous  = continuous;
-     uiox_als_buf_init();
      return 0;
  }
  
@@ -131,4 +130,40 @@
  void uiox_als_if_stats_get(const uiox_als_if_t *aif,
                               uiox_als_if_stats_t *out)
  { if (!aif || !out) return; memcpy(out, &aif->stats, sizeof(*out)); }
- 
+/* ═══════════════════════════ INSERTED ═══════════════════════════ */
+/* ═════════════════════════════════════════════════════════════════════
+ * Event pool
+ *
+ * The als_if_irq_handle() path borrows a slot and hands it to the caller,
+ * who owns it until als_evt_free().  Static storage — there is no
+ * free-store this early in boot.
+ *
+ * A foreign pointer passed to _free() is ignored rather than indexed
+ * through: the subtraction would otherwise walk outside the array.
+ * ═════════════════════════════════════════════════════════════════════ */
+#define UIOX_ALS_EVT_POOL_MAX   8u
+
+static uiox_als_evt_t  s_als_evt_pool[UIOX_ALS_EVT_POOL_MAX];
+static bool            s_als_evt_used[UIOX_ALS_EVT_POOL_MAX];
+
+uiox_als_evt_t *uiox_als_evt_alloc(void)
+{
+    for (uint32_t i = 0u; i < UIOX_ALS_EVT_POOL_MAX; i++) {
+        if (!s_als_evt_used[i]) {
+            s_als_evt_used[i] = true;
+            memset(&s_als_evt_pool[i], 0, sizeof(s_als_evt_pool[i]));
+            return &s_als_evt_pool[i];
+        }
+    }
+    return (uiox_als_evt_t *)0;   /* pool exhausted — caller counts it */
+}
+
+void uiox_als_evt_free(uiox_als_evt_t *e)
+{
+    if (!e) return;
+    if (e < s_als_evt_pool ||
+        e >= s_als_evt_pool + UIOX_ALS_EVT_POOL_MAX)
+        return;
+    s_als_evt_used[e - s_als_evt_pool] = false;
+}
+/* ═══════════════════════════ END INSERT ═════════════════════════ */ 

@@ -124,7 +124,9 @@
      volatile bool         dma_half;
      volatile bool         dma_done;
  
-     void                 *priv;
+     const void                 *ops;
+     void                      *drv_priv;
+
  } uiox_mic_hw_t;
  
  /* =========================================================================

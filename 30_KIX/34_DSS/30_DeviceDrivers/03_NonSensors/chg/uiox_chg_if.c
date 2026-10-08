@@ -12,7 +12,6 @@
      memset(cif, 0, sizeof(*cif));
      cif->hw     = hw;
      cif->primed = true;
-     uiox_chg_buf_init();
      return 0;
  }
  
@@ -171,4 +170,31 @@
  void uiox_chg_if_stats_get(const uiox_chg_if_t *cif,
                               uiox_chg_if_stats_t *out)
  { if (!cif || !out) return; memcpy(out, &cif->stats, sizeof(*out)); }
+ /* ═══════════════════════════ INSERTED ═══════════════════════════ */
+#define UIOX_CHG_EVT_POOL_MAX   8u
+
+static uiox_chg_evt_t  s_chg_evt_pool[UIOX_CHG_EVT_POOL_MAX];
+static bool            s_chg_evt_used[UIOX_CHG_EVT_POOL_MAX];
+
+uiox_chg_evt_t *uiox_chg_evt_alloc(void)
+{
+    for (uint32_t i = 0u; i < UIOX_CHG_EVT_POOL_MAX; i++) {
+        if (!s_chg_evt_used[i]) {
+            s_chg_evt_used[i] = true;
+            memset(&s_chg_evt_pool[i], 0, sizeof(s_chg_evt_pool[i]));
+            return &s_chg_evt_pool[i];
+        }
+    }
+    return (uiox_chg_evt_t *)0;
+}
+
+void uiox_chg_evt_free(uiox_chg_evt_t *e)
+{
+    if (!e) return;
+    if (e < s_chg_evt_pool ||
+        e >= s_chg_evt_pool + UIOX_CHG_EVT_POOL_MAX)
+        return;
+    s_chg_evt_used[e - s_chg_evt_pool] = false;
+}
+/* ═══════════════════════════ END INSERT ═════════════════════════ */
  
