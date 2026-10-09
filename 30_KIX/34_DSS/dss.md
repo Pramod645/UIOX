@@ -1412,6 +1412,7 @@ Interface	uiox_hw_ops_t shape — tx_submit / rx_poll
 Driver	uiox_drv_fwnet_eth.c for eth; one per class
 Buffer	31_drvbuff/01_Com/<dev>/ — unkeyed pool, in-flight ownership
 Headroom	only eth needs it (128 B); the rest are 0
+==================================================================================
 Family 3 — char, event (kbd, mouse, touchpwd, usb-hid)
 
 Interface	event-shaped — "is a record waiting?", not tx_submit
@@ -1428,6 +1429,27 @@ typedef struct {
     int  (*event_read)(dev, void *rec, uint16_t maxlen);
     void (*isr)(dev);
 } uiox_event_ops_t;
+
+3.  kbd, mouse, touchpwd	                char, event	                31_drvbuff (small)
+
+
+Three design choices, stated in the file
+The instances are static. uiox_dev_bind() stores the pointer, not a copy, so the descriptors must outlive the call. File-scope static is the simplest thing that does.
+
+The HAL ops are parameters, not built here. This file doesn't know whether the board has a PS/2 controller or an I2C keyboard — 02_FwHal supplies them. That keeps one bind usable across boards.
+
+Each class is optional in the probe. Passing NULL skips it, and one failure doesn't stop the others — a machine with a keyboard and no mouse should still boot.
+
+The complete family-3 set
+File	State
+uiox_kbd_if.h · uiox_mouse_if.h · uiox_tpwd_if.h — IOC enums	✅ delivered
+uiox_kbd_if_ioctl.c · uiox_mouse_if_ioctl.c · uiox_tpwd_if_ioctl.c	✅ delivered
+kbd_event.c · mouse_event.c · tpwd_event.c — adapters	✅ delivered
+uiox_devfam3_bind.c	✅ delivered
+uiox_kix_scfs_read.c — device branch	⚠️ delivered, needs the offset fix
+31_drvbuff/* — all three rings	✅ no change — verified complete
+uiox_devclass.h · uiox_devtable.c · uiox_devparse.c · inode.h · uiox_kix_scfs_ioctl.c · uiox_kix_scfs_mknod.c	✅ delivered (ioctl path)
+
 ===========================================================================
 Family 4 — register (als, thermal, bms, chg, pmic, rtc, fan) — no buffer
 
@@ -1595,4 +1617,11 @@ rtc/uiox_rtc_if.c	s_rtc_evt_pool + alloc/free
 
 thermal, bms, pmic, fan — no edits at all. Their _buf cleanup was already done, and their subsystems push stack events, so the event types live in 34_CAS rather than needing to be defined here.
 =================================
+Why family 3's events differ from family 4's
+This is the design difference the files make clear:
 
+Family 4 (REG)	Family 3 (EVENT)
+Event storage	s_als_evt_pool[8] — alloc/free, driver-owned	uiox_kbd_ringbuf_t rb — push, caller-owned
+Producer	uiox_als_if_irq_handle() returns *evt	uiox_kbd_if_scan(kif, rb, ts) pushes into rb
+Drain	nobody (34_CAS did)	nobody — no read path
+Family 3's ring buffer is passed in by the caller — uiox_kbd_if_scan(kif, rb, ts_ns) — so the buffer exists outside the driver. That's fine for an in-kernel consumer that owns the ring, but it leaves nothing for read() to hand userspace.
