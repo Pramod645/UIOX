@@ -1,5 +1,5 @@
 /**
- * @file    uiox_wifi_buf.c
+ * @file    30_KIX/34_DSS/31_drvbuff/02_Sensors/WiFi/uiox_wifi_buf.c
  * @brief   UIOX WiFi frame buffer pool implementation.
  * @date    2026-05-28
  */

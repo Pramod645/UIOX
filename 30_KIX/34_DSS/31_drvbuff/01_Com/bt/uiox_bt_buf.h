@@ -1,5 +1,5 @@
 /**
- * @file    uiox_bt_buf.h
+ * @file    30_KIX/34_DSS/31_drvbuff/01_Com/bt/uiox_bt_buf.h
  * @brief   UIOX Bluetooth HCI packet buffer pool.
  * @date    2026-06-09
  */

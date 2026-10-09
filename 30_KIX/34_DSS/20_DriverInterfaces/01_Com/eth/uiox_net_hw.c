@@ -1,26 +1,31 @@
 /**
  * @file    uiox_net_hw.c
- * @brief   UIOX Network HAL — generic hardware lifecycle management.
+ * @brief   UIOX Network HAL - generic hardware lifecycle management.
  *
  * Concrete DMA register sequences live in the per-controller drivers
  * (e.g. uiox_drv_gmac.c). This file wires up the vtable, validates
- * arguments, and delegates to the ops pointers stored in dev->priv.
+ * arguments, and delegates to the ops pointer stored in dev->ops.
  *
  * Freestanding fixes (v1.1):
- *   REMOVED: static s_ops[] / s_dev_count — unused, caused -Werror=unused-variable
- *            ops vtable is stored in dev->priv by uiox_hw_init()
+ *   REMOVED: static s_ops[] / s_dev_count - unused, caused -Werror=unused-variable
+ *            ops vtable is stored in dev->ops by uiox_hw_init()
+ *
+ * v1.2.0: dev->priv -> dev->ops at BOTH sites.  uiox_hw_dev_t declares
+ *         `ops` and `drv_priv`; there is no `priv`.  The write in init()
+ *         and the read in hw_ops() must name the SAME member or the
+ *         descriptor holds a pointer nothing reads.
  */
 #include "uiox_net_hw.h"
 #include "uiox_klibc.h"
 
 /* -------------------------------------------------------------------------
- * Internal helper — recover ops pointer from dev->priv
+ * Internal helper - recover ops pointer from dev->ops
  * ---------------------------------------------------------------------- */
 
 static inline const uiox_hw_ops_t *hw_ops(const uiox_hw_dev_t *dev)
 {
-    /* ops pointer stored in priv by uiox_hw_init */
-    return (const uiox_hw_ops_t *)dev->priv;
+    /* ops pointer stored in .ops by uiox_hw_init */
+    return (const uiox_hw_ops_t *)dev->ops;         /* was ->priv */
 }
 
 /* -------------------------------------------------------------------------
@@ -32,8 +37,8 @@ int uiox_hw_init(uiox_hw_dev_t *dev, const uiox_hw_ops_t *ops)
     if (!dev || !ops || !ops->init)
         return -EINVAL;
 
-    /* Store ops vtable in priv slot 0 */
-    dev->priv = (void *)ops;
+    /* Store ops vtable */
+    dev->ops = (const void *)ops;                   /* was ->priv */
 
     memset(dev->mac_addr, 0, UIOX_HW_MAC_ADDR_LEN);
     dev->link_up = false;
@@ -48,7 +53,7 @@ int uiox_hw_init(uiox_hw_dev_t *dev, const uiox_hw_ops_t *ops)
 
 int uiox_hw_up(uiox_hw_dev_t *dev)
 {
-    if (!dev || !dev->priv)
+    if (!dev || !dev->ops)
         return -EINVAL;
 
     const uiox_hw_ops_t *ops = hw_ops(dev);
@@ -74,7 +79,7 @@ int uiox_hw_up(uiox_hw_dev_t *dev)
 
 void uiox_hw_down(uiox_hw_dev_t *dev)
 {
-    if (!dev || !dev->priv)
+    if (!dev || !dev->ops)
         return;
 
     const uiox_hw_ops_t *ops = hw_ops(dev);

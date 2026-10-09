@@ -129,14 +129,14 @@
      if (!s->reuse_addr) {
          for (int i = 0; i < UIOX_SOCKET_MAX; i++) {
              if (!s_sockets[i].in_use || i == fd) continue;
-             if (s_sockets[i].local_port == addr->port &&
+             if (s_sockets[i].u.ip.local_port == addr->port &&
                  s_sockets[i].proto      == s->proto)
                  return -EADDRINUSE;
          }
      }
  
-     s->local_ip   = addr->addr;
-     s->local_port = addr->port;
+     s->u.ip.local_ip   = addr->addr;
+     s->u.ip.local_port = addr->port;
      return 0;
  }
  
@@ -149,7 +149,7 @@
      uiox_socket_t *s = sock_get(fd);
      if (!s) return -EBADF;
      if (s->type != UIOX_SOCK_STREAM) return -EOPNOTSUPP;
-     if (!s->local_port) return -EINVAL;
+     if (!s->u.ip.local_port) return -EINVAL;
  
      (void)backlog;   /* backlog clamped to UIOX_SOCKET_BACKLOG_MAX */
      s->tcp_state     = UIOX_TCP_LISTEN;
@@ -182,8 +182,8 @@
  
      if (addr_out) {
          addr_out->family = UIOX_AF_INET;
-         addr_out->addr   = ns->remote_ip;
-         addr_out->port   = ns->remote_port;
+         addr_out->addr   = ns->u.ip.remote_ip;
+         addr_out->port   = ns->u.ip.remote_port;
      }
      return new_fd;
  }
@@ -197,8 +197,8 @@
      uiox_socket_t *s = sock_get(fd);
      if (!s || !addr) return -EINVAL;
  
-     s->remote_ip   = addr->addr;
-     s->remote_port = addr->port;
+     s->u.ip.remote_ip   = addr->addr;
+     s->u.ip.remote_port = addr->port;
  
      if (s->type == UIOX_SOCK_DGRAM) return 0;  /* UDP: just record peer */
  
@@ -209,8 +209,8 @@
      uiox_netbuf_t *buf = uiox_netbuf_alloc();
      if (!buf) return -ENOMEM;
  
-     int rc = uiox_proto_tcp_send(s->local_ip,  s->remote_ip,
-                                   s->local_port, s->remote_port,
+     int rc = uiox_proto_tcp_send(s->u.ip.local_ip,  s->u.ip.remote_ip,
+                                   s->u.ip.local_port, s->u.ip.remote_port,
                                    s->tx_seq, 0,
                                    UIOX_TCP_SYN, buf);
      if (rc < 0) { s->tcp_state = UIOX_TCP_CLOSED; return rc; }
@@ -247,11 +247,11 @@
  
      int rc;
      if (s->type == UIOX_SOCK_DGRAM) {
-         rc = uiox_proto_udp_send(s->local_ip,  s->remote_ip,
-                                   s->local_port, s->remote_port, buf);
+         rc = uiox_proto_udp_send(s->u.ip.local_ip,  s->u.ip.remote_ip,
+                                   s->u.ip.local_port, s->u.ip.remote_port, buf);
      } else {
-         rc = uiox_proto_tcp_send(s->local_ip,  s->remote_ip,
-                                   s->local_port, s->remote_port,
+         rc = uiox_proto_tcp_send(s->u.ip.local_ip,  s->u.ip.remote_ip,
+                                   s->u.ip.local_port, s->u.ip.remote_port,
                                    s->tx_seq, s->rx_seq,
                                    UIOX_TCP_ACK | UIOX_TCP_PSH, buf);
          if (rc == 0) s->tx_seq += send_len;
@@ -266,15 +266,15 @@
      if (!s || !dst) return -EINVAL;
  
      /* Temporarily bind remote for send */
-     uint32_t saved_ip   = s->remote_ip;
-     uint16_t saved_port = s->remote_port;
-     s->remote_ip   = dst->addr;
-     s->remote_port = dst->port;
+     uint32_t saved_ip   = s->u.ip.remote_ip;
+     uint16_t saved_port = s->u.ip.remote_port;
+     s->u.ip.remote_ip   = dst->addr;
+     s->u.ip.remote_port = dst->port;
  
      ssize_t rc = uiox_send(fd, data, len, flags);
  
-     s->remote_ip   = saved_ip;
-     s->remote_port = saved_port;
+     s->u.ip.remote_ip   = saved_ip;
+     s->u.ip.remote_port = saved_port;
      return rc;
  }
  
@@ -393,8 +393,8 @@
              /* Send FIN */
              uiox_netbuf_t *buf = uiox_netbuf_alloc();
              if (buf) {
-                 uiox_proto_tcp_send(s->local_ip,  s->remote_ip,
-                                     s->local_port, s->remote_port,
+                 uiox_proto_tcp_send(s->u.ip.local_ip,  s->u.ip.remote_ip,
+                                     s->u.ip.local_port, s->u.ip.remote_port,
                                      s->tx_seq, s->rx_seq,
                                      UIOX_TCP_FIN | UIOX_TCP_ACK, buf);
                  s->tx_seq++;
@@ -437,8 +437,8 @@
          uiox_socket_t *s = &s_sockets[i];
          if (!s->in_use)  continue;
          if (s->proto     != proto)    continue;
-         if (s->local_port != dst_port) continue;
-         if (s->local_ip  != 0 && s->local_ip != dst_ip) continue;
+         if (s->u.ip.local_port != dst_port) continue;
+         if (s->u.ip.local_ip  != 0 && s->u.ip.local_ip != dst_ip) continue;
  
          if (s->rx_count >= UIOX_SOCKET_RX_QMAX) {
              uiox_netbuf_free(buf);
@@ -466,10 +466,10 @@
                  if (new_fd >= 0 &&
                      s->backlog_count < UIOX_SOCKET_BACKLOG_MAX) {
                      uiox_socket_t *ns  = &s_sockets[new_fd];
-                     ns->local_ip       = dst_ip;
-                     ns->local_port     = dst_port;
-                     ns->remote_ip      = src_ip;
-                     ns->remote_port    = src_port;
+                     ns->u.ip.local_ip       = dst_ip;
+                     ns->u.ip.local_port     = dst_port;
+                     ns->u.ip.remote_ip      = src_ip;
+                     ns->u.ip.remote_port    = src_port;
                      ns->tcp_state      = UIOX_TCP_ESTABLISHED;
                      s->backlog[s->backlog_count++] = new_fd;
                  }

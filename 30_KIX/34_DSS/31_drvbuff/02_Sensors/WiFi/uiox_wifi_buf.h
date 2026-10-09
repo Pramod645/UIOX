@@ -1,5 +1,5 @@
 /**
- * @file    uiox_wifi_buf.h
+ * @file    30_KIX/34_DSS/31_drvbuff/02_Sensors/WiFi/uiox_wifi_buf.h
  * @brief   UIOX WiFi MPDU/MSDU frame buffer pool.
  *
  * Two pools:

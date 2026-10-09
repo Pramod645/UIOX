@@ -1,5 +1,5 @@
 /**
- * @file    uiox_mic_buf.h
+ * @file    30_KIX/34_DSS/31_drvbuff/02_Sensors/mic/uiox_mic_buf.h
  * @brief   UIOX Microphone PCM capture buffer pool and ring buffer.
  *
  * Two pools:

@@ -1,5 +1,5 @@
 /**
- * @file    uiox_usb_buf.c
+ * @file    30_KIX/34_DSS/31_drvbuff/01_Com/usb/uiox_usb_buf.c
  * @brief   UIOX USB URB buffer pool implementation.
  * @date    2026-05-28
  */

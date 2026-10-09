@@ -1,5 +1,5 @@
 /**
- * @file    uiox_usb_buf.h
+ * @file    30_KIX/34_DSS/31_drvbuff/01_Com/usb/uiox_usb_buf.h
  * @brief   UIOX USB URB/transfer buffer pool.
  *
  * USB Request Block (URB) pool for zero-copy DMA transfers.

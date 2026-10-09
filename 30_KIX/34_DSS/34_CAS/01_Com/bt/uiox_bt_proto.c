@@ -1,7 +1,6 @@
 /* uiox_bt_proto.c */
 #include "uiox_bt_proto.h"
-#include <string.h>
-#include <errno.h>
+
 
 int uiox_bt_proto_init(uiox_bt_proto_t *proto, uiox_bt_mgr_t *mgr)
 {

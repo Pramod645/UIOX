@@ -1,5 +1,5 @@
 /**
- * @file    uiox_bt_buf.c
+ * @file    30_KIX/34_DSS/31_drvbuff/01_Com/bt/uiox_bt_buf.c
  * @brief   UIOX Bluetooth buffer pool implementation.
  * @date    2026-06-09
  */

@@ -1,5 +1,5 @@
 /**
- * @file    uiox_mic_buf.c
+ * @file    30_KIX/34_DSS/31_drvbuff/02_Sensors/mic/uiox_mic_buf.c
  * @brief   UIOX Microphone buffer pool and ring buffer implementation.
  * @date    2026-06-03
  */

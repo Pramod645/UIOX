@@ -1,5 +1,5 @@
 /**
- * @file    uiox_netbuf.c
+ * @file    30_KIX/34_DSS/31_drvbuff/01_Com/eth/uiox_netbuf.c
  * @brief   UIOX network buffer pool implementation.
  * @date    2026-05-25
  */

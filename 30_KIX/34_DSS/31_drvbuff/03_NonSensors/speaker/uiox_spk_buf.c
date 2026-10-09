@@ -1,5 +1,5 @@
 /**
- * @file    uiox_spk_buf.c
+ * @file    30_KIX/34_DSS/31_drvbuff/03_NonSensors/speaker/uiox_spk_buf.c
  * @brief   UIOX Speaker buffer pool and ring buffer implementation.
  * @date    2026-06-01
  */

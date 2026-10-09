@@ -1,5 +1,5 @@
 /**
- * @file    uiox_spk_buf.h
+ * @file    30_KIX/34_DSS/31_drvbuff/03_NonSensors/speaker/uiox_spk_buf.h
  * @brief   UIOX Speaker PCM audio buffer pool and ring buffer.
  *
  * Two pools:

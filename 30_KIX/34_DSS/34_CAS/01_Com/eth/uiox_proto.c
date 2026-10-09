@@ -6,8 +6,7 @@
 
  #include "uiox_proto.h"
  #include "uiox_socket.h"
- #include <string.h>
- #include <errno.h>
+
  
  /* =========================================================================
   * Routing table
