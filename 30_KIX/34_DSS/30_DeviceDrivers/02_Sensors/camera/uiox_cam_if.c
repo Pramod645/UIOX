@@ -19,7 +19,7 @@ int uiox_cam_if_config(uiox_cam_if_t *cif,
     cif->stride = stride;
 
     /* Program HAL */
-    const uiox_cam_hw_ops_t *ops = (const uiox_cam_hw_ops_t *)hw->priv;
+    const uiox_cam_hw_ops_t *ops = (const uiox_cam_hw_ops_t *)hw->ops;
     if (!ops || !ops->set_csi || !ops->set_format) return -ENOSYS;
 
     int rc = ops->set_csi(hw, lanes, dt, vc);
@@ -36,7 +36,7 @@ int uiox_cam_if_config(uiox_cam_if_t *cif,
 int uiox_cam_if_prime(uiox_cam_if_t *cif, int count)
 {
     if (!cif || !cif->hw) return -EINVAL;
-    const uiox_cam_hw_ops_t *ops = (const uiox_cam_hw_ops_t *)cif->hw->priv;
+    const uiox_cam_hw_ops_t *ops = (const uiox_cam_hw_ops_t *)cif->hw->ops;
     if (!ops || !ops->dma_queue) return -ENOSYS;
 
     int queued = 0;
@@ -55,7 +55,7 @@ int uiox_cam_if_prime(uiox_cam_if_t *cif, int count)
 uiox_cam_frame_t *uiox_cam_if_complete(uiox_cam_if_t *cif)
 {
     if (!cif || !cif->hw) return NULL;
-    const uiox_cam_hw_ops_t *ops = (const uiox_cam_hw_ops_t *)cif->hw->priv;
+    const uiox_cam_hw_ops_t *ops = (const uiox_cam_hw_ops_t *)cif->hw->ops;
     if (!ops || !ops->dma_complete) return NULL;
 
     uintptr_t phys = 0;
@@ -63,28 +63,20 @@ uiox_cam_frame_t *uiox_cam_if_complete(uiox_cam_if_t *cif)
     int rc = ops->dma_complete(cif->hw, &phys, &bytes);
     if (rc <= 0) return NULL;
 
-    /* Map phys back to pool frame (simple scan; replace with map for perf) */
-    extern uiox_cam_frame_t s_desc[]; /* not visible; in real code keep a map */
-    (void)s_desc;
-    (void)bytes;
-
-    /* Minimal approach: walk pool to find matching paddr */
-    /* Since s_desc is static-private, implement a tiny finder: */
-    uiox_cam_frame_t *found = NULL;
-    (void)found;
-    for (int i = 0; i < UIOX_CAM_POOL_FRAMES; i++) {
-        /* We don't have direct access here; in production store a hash/map. */
-        (void)i;
+    uiox_cam_frame_t *f = uiox_cam_buf_find_by_paddr(phys);
+    if (!f) {
+        /* Completion on an address the pool doesn't own — a descriptor
+         * that was never queued, or a stale completion.  Count and drop. */
+        cif->err_fifo++;
+        return NULL;
     }
-    /* Fallback: construct a lightweight frame wrapper when mapping isn't available */
-    static uiox_cam_frame_t temp;
-    memset(&temp, 0, sizeof(temp));
-    temp.paddr = phys;
-    temp.length = bytes;
-    temp.width = cif->width;
-    temp.height = cif->height;
-    temp.stride = cif->stride;
-    temp.fmt = (uint8_t)cif->pixfmt;
-    temp.in_use = 1;
-    return &temp;
+
+    if (bytes > f->length) bytes = f->length;
+    f->length = bytes;
+    f->width  = cif->width;
+    f->height = cif->height;
+    f->stride = cif->stride;
+    f->fmt    = (uint8_t)cif->pixfmt;
+    f->in_use = 1;          /* ownership passes to the caller */
+    return f;
 }

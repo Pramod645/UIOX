@@ -1,5 +1,5 @@
 /**
- * @file    uiox_hdmi_hw.h
+ * @file    30_KIX/34_DSS/20_DriverInterfaces/01_Com/hdmi/uiox_hdmi_hw.h
  * @brief   UIOX HDMI Hardware Abstraction Layer (HAL).
  *
  * Lowest-level interface to HDMI TX hardware. Owns:
@@ -271,6 +271,27 @@ bool uiox_hdmi_hw_connected  (uiox_hdmi_hw_t *hw);
 
 static inline uint32_t uiox_hdmi_caps(const uiox_hdmi_hw_t *hw)
 { return hw ? hw->caps : 0u; }
+
+/* =========================================================================
+ * Firmware binding (02_FwHal / libuioxfw<arch>.a)
+ *
+ * Declared here, defined in uiox_hdmi_fwops.c.  The i2c dev type is
+ * forward-declared so this header does not pull FwHal headers into every
+ * translation unit that includes it.
+ *
+ * Chips with a firmware entry: dw.
+ * ====================================================================== */
+struct uiox_i2c_dev_t;
+
+/**
+ * @brief Bind a 02_FwHal implementation onto this class's hardware ops.
+ *
+ * Fills `uiox_hdmi_hw_t.ops` with the adapter vtable and keeps the firmware-side
+ * device in a static bridge.  Returns 0 on success, negative errno.
+ */
+int uiox_hdmi_fwbind(uiox_hdmi_hw_t *hw, struct uiox_i2c_dev_t *i2c);
+
+/* ================================ end patch =============================== */
 
 #ifdef __cplusplus
 }

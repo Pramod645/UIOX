@@ -1,5 +1,5 @@
 /**
- * @file    uiox_hdmi_hw.c
+ * @file    30_KIX/34_DSS/20_DriverInterfaces/01_Com/hdmi/uiox_hdmi_hw.c
  * @brief   UIOX HDMI HAL — generic hardware lifecycle management.
  * @date    2026-05-28
  */

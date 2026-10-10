@@ -74,7 +74,7 @@
  {
      if (!netif) return -EINVAL;
  
-     int rc = uiox_hw_up(netif->hw);
+     int rc = uiox_net_hw_up(netif->hw);
      if (rc < 0) return rc;
  
      netif->flags |= UIOX_IFF_UP | UIOX_IFF_RUNNING;
@@ -86,7 +86,7 @@
  void uiox_netif_down(uiox_netif_t *netif)
  {
      if (!netif) return;
-     uiox_hw_down(netif->hw);
+     uiox_net_hw_down(netif->hw);
      netif->flags &= ~(UIOX_IFF_UP | UIOX_IFF_RUNNING);
      if (netif->link_cb)
          netif->link_cb(netif, false);

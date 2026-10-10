@@ -11,6 +11,7 @@
 
 #include "uiox_mouse_hw.h"
 #include "uiox_mouse_buf.h"
+#include "uiox_devclass.h"   /* uiox_dev_dev_t — device registry descriptor */
 
 #ifdef __cplusplus
 extern "C" {

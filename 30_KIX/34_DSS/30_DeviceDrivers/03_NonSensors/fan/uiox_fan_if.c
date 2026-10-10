@@ -21,7 +21,7 @@
  
      /* Read device/manufacturer IDs */
      const uiox_fan_hw_ops_t *ops =
-         (const uiox_fan_hw_ops_t *)fif->hw->priv;
+         (const uiox_fan_hw_ops_t *)fif->hw->ops;
      if (ops && ops->reg_read) {
          ops->reg_read(fif->hw, UIOX_REG_DEVICE_ID, &fif->device_id);
          ops->reg_read(fif->hw, UIOX_REG_MFR_ID,    &fif->mfr_id);

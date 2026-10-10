@@ -43,6 +43,32 @@
      uint32_t  error_count;
      uint32_t  comm_errors;
  } uiox_therm_if_stats_t;
+
+ typedef enum {
+     UIOX_THERM_EV_NONE = 0,
+     UIOX_THERM_EV_SENSOR_ERROR,
+     UIOX_THERM_EV_ALERT_HIGH,
+     UIOX_THERM_EV_ALERT_CLEAR,
+     UIOX_THERM_EV_CRITICAL,
+ } uiox_therm_ev_t;
+ 
+ typedef struct {
+     uiox_therm_ev_t type;
+     uint8_t         sensor_id;
+     int16_t         temp_dc;
+     int16_t         threshold_dc;
+     uint32_t        ts_ms;
+     bool            valid;
+ } uiox_therm_event_t;
+ 
+ void uiox_therm_event_push(const uiox_therm_event_t *ev);
+ 
+ typedef struct {
+     uint32_t ts_ms;
+     uint8_t  num_channels;
+     int16_t  temp_dc [UIOX_THERM_MAX_CHANNELS];
+     bool     alert   [UIOX_THERM_MAX_CHANNELS];
+ } uiox_therm_telem_t;
  
  /* =========================================================================
   * Interface descriptor

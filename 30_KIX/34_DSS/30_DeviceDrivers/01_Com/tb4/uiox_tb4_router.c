@@ -60,7 +60,7 @@ int uiox_tb4_router_read_cfg(uiox_tb4_topo_t *topo,
 {
     if (!topo || !r || !val) return -EINVAL;
     const uiox_tb4_hw_ops_t *ops =
-        (const uiox_tb4_hw_ops_t *)topo->tif->hw->priv;
+        (const uiox_tb4_hw_ops_t *)topo->tif->hw->ops;
     if (!ops || !ops->cfg_read) return -ENOSYS;
     return ops->cfg_read(topo->tif->hw, r->route_hi, r->route_lo,
                           offset, val);
@@ -72,7 +72,7 @@ int uiox_tb4_router_write_cfg(uiox_tb4_topo_t *topo,
 {
     if (!topo || !r) return -EINVAL;
     const uiox_tb4_hw_ops_t *ops =
-        (const uiox_tb4_hw_ops_t *)topo->tif->hw->priv;
+        (const uiox_tb4_hw_ops_t *)topo->tif->hw->ops;
     if (!ops || !ops->cfg_write) return -ENOSYS;
     return ops->cfg_write(topo->tif->hw, r->route_hi, r->route_lo,
                            offset, val);

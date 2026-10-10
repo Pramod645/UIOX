@@ -1,5 +1,5 @@
 /**
- * @file    uiox_usb_hw.c
+ * @file    30_KIX/34_DSS/20_DriverInterfaces/01_Com/usb/uiox_usb_hw.c
  * @brief   UIOX USB HAL — generic hardware lifecycle management.
  * @date    2026-05-28
  */

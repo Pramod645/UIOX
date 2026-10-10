@@ -3,7 +3,7 @@
  * @brief   UIOX USB interface driver implementation.
  * @date    2026-05-28
  *
- * v1.1.0: uif->hw->priv -> uif->hw->ops in ep_close().  uiox_usb_hw_t
+ * v1.1.0: uif->hw->ops -> uif->hw->ops in ep_close().  uiox_usb_hw_t
  *         declares `ops` and `drv_priv`; uiox_usb_hw_init() writes hw->ops.
  */
 #include "uiox_usb_if.h"

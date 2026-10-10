@@ -30,7 +30,7 @@
      /* Unmask critical IRQs (OTP, OCP, OVP, WDT) */
      uiox_pmic_hw_irq_clear(pif->hw, 0xFFFFFFFFu);
      const uiox_pmic_hw_ops_t *ops =
-         (const uiox_pmic_hw_ops_t *)pif->hw->priv;
+         (const uiox_pmic_hw_ops_t *)pif->hw->ops;
      if (ops && ops->irq_unmask)
          ops->irq_unmask(pif->hw,
                          UIOX_PMIC_FAULT_OTP | UIOX_PMIC_FAULT_OCP |

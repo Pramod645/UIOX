@@ -1,5 +1,5 @@
 /**
- * @file  uiox_als_hw.c
+ * @file  30_KIX/34_DSS/20_DriverInterfaces/02_Sensors/als/uiox_als_hw.c
  * @brief UIOX ALS HAL implementation.
  * @date  2026-06-11
  */

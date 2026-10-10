@@ -66,7 +66,7 @@
      hif->scrambling = (timing->pixel_clk_khz > 340000u);
  
      /* Program pixel clock */
-     const uiox_hdmi_hw_ops_t *ops = (const uiox_hdmi_hw_ops_t *)hw->priv;
+     const uiox_hdmi_hw_ops_t *ops = (const uiox_hdmi_hw_ops_t *)hw->ops;
      if (ops && ops->pll_set) {
          int rc = ops->pll_set(hw, timing->pixel_clk_khz);
          if (rc < 0) return rc;
@@ -100,7 +100,7 @@
  {
      if (!hif || !hif->hw) return -EINVAL;
      const uiox_hdmi_hw_ops_t *ops =
-         (const uiox_hdmi_hw_ops_t *)hif->hw->priv;
+         (const uiox_hdmi_hw_ops_t *)hif->hw->ops;
  
      /* PHY power on */
      if (ops && ops->phy_power) {
@@ -124,7 +124,7 @@
      if (!hif || !hif->hw) return;
      uiox_hdmi_hw_disable(hif->hw);
      const uiox_hdmi_hw_ops_t *ops =
-         (const uiox_hdmi_hw_ops_t *)hif->hw->priv;
+         (const uiox_hdmi_hw_ops_t *)hif->hw->ops;
      if (ops && ops->phy_power) ops->phy_power(hif->hw, false);
      hif->enabled = false;
  }
@@ -155,7 +155,7 @@
      hif->acr = uiox_hdmi_if_compute_acr(hif->timing.pixel_clk_khz,
                                            a->sample_rate_hz);
      const uiox_hdmi_hw_ops_t *ops =
-         (const uiox_hdmi_hw_ops_t *)hif->hw->priv;
+         (const uiox_hdmi_hw_ops_t *)hif->hw->ops;
      if (ops && ops->set_audio) return ops->set_audio(hif->hw, a);
      return 0;
  }
@@ -165,7 +165,7 @@
  {
      if (!hif || !samples) return -EINVAL;
      const uiox_hdmi_hw_ops_t *ops =
-         (const uiox_hdmi_hw_ops_t *)hif->hw->priv;
+         (const uiox_hdmi_hw_ops_t *)hif->hw->ops;
      if (!ops || !ops->audio_write) return -ENOSYS;
      return ops->audio_write(hif->hw, samples, bytes);
  }

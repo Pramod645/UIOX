@@ -1,5 +1,5 @@
 /**
- * @file    uiox_gpu_hw.c
+ * @file    30_KIX/34_DSS/20_DriverInterfaces/01_Com/gpu/uiox_gpu_hw.c
  * @brief   UIOX GPU HAL — generic hardware lifecycle management.
  * @date    2026-06-01
  */

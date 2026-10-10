@@ -68,4 +68,20 @@
  }
  
  uint16_t uiox_cam_buf_free_count(void) { return s_free_count; }
- 
+ /* -------------------------------------------------------------------------
+ * Physical-address → frame lookup.
+ *
+ * The DMA engine reports completion by physical address only; this maps it
+ * back to the pool descriptor that owns that buffer.  A frame is returned
+ * even while in_use, because the completion path needs the descriptor it
+ * was queued with, not a free one.
+ * ---------------------------------------------------------------------- */
+uiox_cam_frame_t *uiox_cam_buf_find_by_paddr(uintptr_t paddr)
+{
+    for (int i = 0; i < UIOX_CAM_POOL_FRAMES; i++) {
+        uiox_cam_frame_t *f = &s_desc[i];
+        if (f->paddr == paddr)
+            return f;
+    }
+    return NULL;
+}

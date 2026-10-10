@@ -20,7 +20,7 @@
      if (!tif || !tif->primed) return -EINVAL;
  
      const uiox_therm_hw_ops_t *ops =
-         (const uiox_therm_hw_ops_t *)tif->hw->priv;
+         (const uiox_therm_hw_ops_t *)tif->hw->ops;
  
      /* Set alert thresholds in hardware */
      if (tif->hw->t_high_dc)
@@ -43,7 +43,7 @@
      if (!tif) return;
      /* Put sensor into shutdown mode to save power */
      const uiox_therm_hw_ops_t *ops =
-         (const uiox_therm_hw_ops_t *)tif->hw->priv;
+         (const uiox_therm_hw_ops_t *)tif->hw->ops;
      if (ops && ops->set_mode) ops->set_mode(tif->hw, true);
  }
  
@@ -122,7 +122,7 @@
  
      /* Read alert status */
      const uiox_therm_hw_ops_t *ops =
-         (const uiox_therm_hw_ops_t *)tif->hw->priv;
+         (const uiox_therm_hw_ops_t *)tif->hw->ops;
      bool alert = false;
      if (ops && ops->alert_status) ops->alert_status(tif->hw, &alert);
  

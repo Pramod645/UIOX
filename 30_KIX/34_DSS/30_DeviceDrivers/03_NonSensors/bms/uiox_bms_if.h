@@ -76,6 +76,43 @@
      int8_t               adc_offset; /**< ADC offset (mV)                */
      bool                 primed;
  } uiox_bms_if_t;
+
+ typedef enum {
+     UIOX_BMS_EV_NONE = 0,
+     UIOX_BMS_EV_OVP,
+     UIOX_BMS_EV_UVP,
+     UIOX_BMS_EV_OCP_CHG,
+     UIOX_BMS_EV_OCP_DSG,
+     UIOX_BMS_EV_SCP,
+     UIOX_BMS_EV_OTP,
+     UIOX_BMS_EV_UTP,
+     UIOX_BMS_EV_CELL_IMBALANCE,
+ } uiox_bms_ev_t;
+ 
+ typedef struct {
+     uiox_bms_ev_t type;
+     uint32_t      ts_ms;
+     uint32_t      pack_mv;
+     int32_t       current_ma;
+     int16_t       temp_dc;
+     uint32_t      fault_flags;
+     bool          valid;
+ } uiox_bms_event_t;
+ 
+ void uiox_bms_event_push(const uiox_bms_event_t *ev);
+ 
+ typedef struct {
+     uint32_t ts_ms;
+     uint32_t pack_mv;
+     int32_t  current_ma;
+     uint8_t  soc_pct;
+     uint8_t  soh_pct;
+     int32_t  remain_mah;
+     int32_t  full_mah;
+     uint32_t fault_flags;
+     uint32_t cell_mv [UIOX_BMS_MAX_CELLS];
+     int16_t  temp_dc [UIOX_BMS_MAX_TEMPS];
+ } uiox_bms_telem_t;
  
  /* =========================================================================
   * Interface API

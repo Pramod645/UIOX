@@ -40,6 +40,11 @@
 #define ENOSYS   38   /* Function not implemented    */
 #define ENOTSUP  95   /* Operation not supported     */
 #define ETIMEDOUT 110 /* Connection timed out        */
+#define ENOBUFS   105   /* No buffer space available */
+#define EPROTO    71    /* Protocol error             */
+#define EBADMSG   74    /* Bad message                */
+#define ENETDOWN 100   /* Network is down            */
+#define ETIME     62   /* Timer expired              */
 
 
 /* ── §1  Integer types ──────────────────────────────────────── */
@@ -134,9 +139,9 @@ static inline int uiox_strncmp(const char *a, const char *b, size_t n)
     { while (n-- && *a && *a == *b) { a++; b++; }
       return n == (size_t)-1 ? 0 : (unsigned char)*a - (unsigned char)*b; }
 static inline char *uiox_strcpy(char *d, const char *s)
-    { char *r = d; while ((*d++ = *s++)); return r; }
+    { char *r = d; while ((*d++ = *s++)) { }; return r; }
 static inline char *uiox_strncpy(char *d, const char *s, size_t n)
-    { char *r = d; while (n-- && (*d++ = *s++)); while (n-- > 0) *d++ = 0; return r; }
+    { char *r = d; while (n-- && (*d++ = *s++)) { }; while (n-- > 0) *d++ = 0; return r; }
 static inline const char *uiox_strchr(const char *s, int c)
     { while (*s) { if (*s == (char)c) return s; s++; }
       return (c == 0) ? s : NULL; }

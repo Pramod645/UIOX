@@ -1,3 +1,40 @@
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 # =============================================================================
 # 30_KIX/30_DeviceDrivers/Makefile  — v1.3.2
 #
@@ -51,9 +88,10 @@ COMMON_CFLAGS := \
   $(ARCH_CFLAGS) $(ARCH_CPUDEF)            \
   $(DEVICE_DEFS)                           \
   -I$(MFDIR)../common                      \
-  -I$(MFDIR)../20_DriverInterfaces/include \
+  -I$(MFDIR)../include                     \
   -I$(MFDIR)../31_BufferCache/include      \
   -I$(MFDIR)../02_FwHal/include            \
+  -I$(MFDIR)../20_DriverInterfaces/include \
   -I$(MFDIR)../20_DriverInterfaces/01_Com/bt         \
   -I$(MFDIR)../20_DriverInterfaces/01_Com/eth        \
   -I$(MFDIR)../20_DriverInterfaces/01_Com/usb        \
@@ -76,28 +114,28 @@ COMMON_CFLAGS := \
   -I$(MFDIR)../20_DriverInterfaces/03_NonSensors/rtc     \
   -I$(MFDIR)../20_DriverInterfaces/03_NonSensors/speaker \
   -I$(MFDIR)../20_DriverInterfaces/03_NonSensors/emmc    \
-  -I$(MFDIR)../31_BufferCache/01_DrvBuff/WiFI        \
-  -I$(MFDIR)../31_BufferCache/01_DrvBuff/bt          \
-  -I$(MFDIR)../31_BufferCache/01_DrvBuff/eth         \
-  -I$(MFDIR)../31_BufferCache/01_DrvBuff/usb         \
-  -I$(MFDIR)../31_BufferCache/01_DrvBuff/hdmi        \
-  -I$(MFDIR)../31_BufferCache/01_DrvBuff/tb4         \
-  -I$(MFDIR)../31_BufferCache/01_DrvBuff/monitor     \
-  -I$(MFDIR)../31_BufferCache/01_DrvBuff/gpu         \
-  -I$(MFDIR)../31_BufferCache/01_DrvBuff/camera      \
-  -I$(MFDIR)../31_BufferCache/01_DrvBuff/mic         \
-  -I$(MFDIR)../31_BufferCache/01_DrvBuff/keyboard    \
-  -I$(MFDIR)../31_BufferCache/01_DrvBuff/mouse       \
-  -I$(MFDIR)../31_BufferCache/01_DrvBuff/als         \
-  -I$(MFDIR)../31_BufferCache/01_DrvBuff/thermal     \
-  -I$(MFDIR)../31_BufferCache/01_DrvBuff/touchpwd    \
-  -I$(MFDIR)../31_BufferCache/01_DrvBuff/bms         \
-  -I$(MFDIR)../31_BufferCache/01_DrvBuff/chg         \
-  -I$(MFDIR)../31_BufferCache/01_DrvBuff/fan         \
-  -I$(MFDIR)../31_BufferCache/01_DrvBuff/pmic        \
-  -I$(MFDIR)../31_BufferCache/01_DrvBuff/rtc         \
-  -I$(MFDIR)../31_BufferCache/01_DrvBuff/speaker     \
-  -I$(MFDIR)../31_BufferCache/01_DrvBuff/emmc
+  -I$(MFDIR)../31_drvbuff/02_Sensors/WiFI        \
+  -I$(MFDIR)../31_drvbuff/01_Com/bt          \
+  -I$(MFDIR)../31_drvbuff/01_Com/eth         \
+  -I$(MFDIR)../31_drvbuff/01_Com/usb         \
+  -I$(MFDIR)../31_drvbuff/01_Com/hdmi        \
+  -I$(MFDIR)../31_drvbuff/01_Com/tb4         \
+  -I$(MFDIR)../31_drvbuff/01_Com/monitor     \
+  -I$(MFDIR)../31_drvbuff/01_Com/gpu         \
+  -I$(MFDIR)../31_drvbuff/02_Sensors/camera      \
+  -I$(MFDIR)../31_drvbuff/02_Sensors/mic         \
+  -I$(MFDIR)../31_drvbuff/02_Sensors/keyboard    \
+  -I$(MFDIR)../31_drvbuff/02_Sensors/mouse       \
+  -I$(MFDIR)../31_drvbuff/02_Sensors/als         \
+  -I$(MFDIR)../31_drvbuff/02_Sensors/thermal     \
+  -I$(MFDIR)../31_drvbuff/02_Sensors/touchpwd    \
+  -I$(MFDIR)../31_drvbuff/02_Sensors/bms         \
+  -I$(MFDIR)../31_drvbuff/02_Sensors/chg         \
+  -I$(MFDIR)../31_drvbuff/02_Sensors/fan         \
+  -I$(MFDIR)../31_drvbuff/02_Sensors/pmic        \
+  -I$(MFDIR)../31_drvbuff/02_Sensors/rtc         \
+  -I$(MFDIR)../31_drvbuff/03_NonSensors/speaker     \
+  -I$(MFDIR)../31_drvbuff/03_NonSensors/emmc        \
 
 # ── Device-conditional subdirectories ────────────────────────────────────────
 SUBDIRS :=

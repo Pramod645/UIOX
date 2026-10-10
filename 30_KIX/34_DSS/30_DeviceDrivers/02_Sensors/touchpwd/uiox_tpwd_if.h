@@ -31,6 +31,7 @@
 
 #include "uiox_tpwd_hw.h"
 #include "uiox_tpwd_buf.h"
+#include "uiox_devclass.h"   /* uiox_dev_dev_t — device registry descriptor */
 #include "uiox_klibc.h"
 
 #ifdef __cplusplus

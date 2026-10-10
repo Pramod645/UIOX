@@ -88,6 +88,27 @@
  
  /* Convenience */
  static inline uint32_t uiox_cam_caps(const uiox_cam_hw_t *hw) { return hw->caps; }
+
+ /* =========================================================================
+ * Firmware binding (02_FwHal / libuioxfw<arch>.a)
+ *
+ * Declared here, defined in uiox_cam_fwops.c.  The i2c dev type is
+ * forward-declared so this header does not pull FwHal headers into every
+ * translation unit that includes it.
+ *
+ * Chips with a firmware entry: ov5640.
+ * ====================================================================== */
+struct uiox_i2c_dev_t;
+
+/**
+ * @brief Bind a 02_FwHal implementation onto this class's hardware ops.
+ *
+ * Fills `uiox_cam_hw_t.ops` with the adapter vtable and keeps the firmware-side
+ * device in a static bridge.  Returns 0 on success, negative errno.
+ */
+int uiox_cam_fwbind(uiox_cam_hw_t *hw, struct uiox_i2c_dev_t *i2c);
+
+/* ================================ end patch =============================== */
  
  #ifdef __cplusplus
  }

@@ -28,6 +28,7 @@
 
 #include "uiox_kbd_hw.h"
 #include "uiox_kbd_buf.h"
+#include "uiox_devclass.h"   /* uiox_dev_dev_t — device registry descriptor */
 #include "uiox_klibc.h"
 
 #ifdef __cplusplus
@@ -55,6 +56,7 @@ typedef struct {
     uint32_t                 direct_prev;       /**< Previous direct key bits*/
     uint32_t                 scan_count;        /**< Total scan cycles       */
     uint32_t                 change_count;      /**< Total state changes     */
+    uint64_t                 events_dropped;    /**< Pushes refused by a full ring */
 
     /* ── the owned ring ──────────────────────────────────────────────────
      * uiox_kbd_if_scan(kif, rb, ts_ns) takes the ring as a PARAMETER —

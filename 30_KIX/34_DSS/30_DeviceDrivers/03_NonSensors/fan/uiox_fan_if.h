@@ -67,6 +67,40 @@
      uint8_t              mfr_id;
      bool                 primed;
  } uiox_fan_if_t;
+
+ typedef enum {
+     UIOX_FAN_EV_NONE = 0,
+     UIOX_FAN_EV_START,
+     UIOX_FAN_EV_PWM_CHANGE,
+     UIOX_FAN_EV_STALL,
+     UIOX_FAN_EV_STALL_CLEAR,
+     UIOX_FAN_EV_FAULT,
+     UIOX_FAN_EV_SPIN_UP_FAIL,
+     UIOX_FAN_EV_OVERHEAT,
+     UIOX_FAN_EV_WATCHDOG,
+     UIOX_FAN_EV_MANUAL_OVERRIDE,
+     UIOX_FAN_EV_AUTO_RESTORE,
+ } uiox_fan_ev_t;
+ 
+ typedef struct {
+     uiox_fan_ev_t type;
+     uint8_t       fan_id;
+     uint8_t       pwm_duty;
+     uint16_t      rpm;
+     uint32_t      fault_flags;
+     uint32_t      ts_ms;
+     bool          valid;
+ } uiox_fan_event_t;
+ 
+ void uiox_fan_event_push(const uiox_fan_event_t *ev);
+ 
+ typedef struct {
+     uint32_t ts_ms;
+     uint32_t fault_flags;
+     uint16_t rpm [UIOX_FAN_MAX_CHANNELS];
+     uint8_t  pwm [UIOX_FAN_MAX_CHANNELS];
+     int16_t  temp_dc [UIOX_FAN_MAX_TEMP_SENSORS];
+ } uiox_fan_telem_t;
  
  /* =========================================================================
   * Interface API

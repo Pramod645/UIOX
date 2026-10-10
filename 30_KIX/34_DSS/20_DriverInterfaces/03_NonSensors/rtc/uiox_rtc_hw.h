@@ -267,6 +267,27 @@ void            uiox_rtc_evt_free (uiox_rtc_evt_t *e);
  
  static inline uint32_t uiox_rtc_caps(const uiox_rtc_hw_t *hw)
  { return hw ? hw->caps : 0u; }
+
+ /* =========================================================================
+ * Firmware binding (02_FwHal / libuioxfw<arch>.a)
+ *
+ * Declared here, defined in uiox_rtc_fwops.c.  The i2c dev type is
+ * forward-declared so this header does not pull FwHal headers into every
+ * translation unit that includes it.
+ *
+ * Chips with a firmware entry: ds1307, mc146818.
+ * ====================================================================== */
+struct uiox_i2c_dev_t;
+
+/**
+ * @brief Bind a 02_FwHal implementation onto this class's hardware ops.
+ *
+ * Fills `uiox_rtc_hw_t.ops` with the adapter vtable and keeps the firmware-side
+ * device in a static bridge.  Returns 0 on success, negative errno.
+ */
+int uiox_rtc_fwbind(uiox_rtc_hw_t *hw, struct uiox_i2c_dev_t *i2c);
+
+/* ================================ end patch =============================== */
  
  #ifdef __cplusplus
  }

@@ -5,7 +5,7 @@
  * v1.1.0:
  *   · uiox_kbd_if_config() now initialises the owned ring (kif->rx)
  *   · uiox_kbd_if_scan() falls back to kif->rx when rb is NULL
- *   · scan_i2c() and scan_ps2() read hw->ops, not hw->priv — see below
+ *   · scan_i2c() and scan_ps2() read hw->priv, not hw->ops — see below
  */
 #include "uiox_kbd_if.h"
 
@@ -79,8 +79,10 @@ static void scan_matrix(uiox_kbd_if_t      *kif,
                 .modifiers = 0,
                 .ts_ns     = ts_ns,
             };
-            uiox_kbd_buf_push(rb, &ev);
-            kif->change_count++;
+            if (uiox_kbd_buf_push(rb, &ev))
+                kif->change_count++;
+            else
+                kif->events_dropped++;
         }
     }
 }
@@ -111,8 +113,10 @@ static void scan_direct(uiox_kbd_if_t      *kif,
             .scancode = (uint8_t)(0x80u | i),
             .ts_ns    = ts_ns,
         };
-        uiox_kbd_buf_push(rb, &ev);
-        kif->change_count++;
+        if (uiox_kbd_buf_push(rb, &ev))
+            kif->change_count++;
+        else
+            kif->events_dropped++;
     }
 }
 
@@ -120,7 +124,7 @@ static void scan_i2c(uiox_kbd_if_t      *kif,
                       uiox_kbd_ringbuf_t *rb,
                       uint64_t            ts_ns)
 {
-    /* hw->ops, not hw->priv.  uiox_kbd_hw_t declares `ops` and `drv_priv`;
+    /* hw->priv, not hw->ops.  uiox_kbd_hw_t declares `ops` and `drv_priv`;
      * there is no `priv` member, and uiox_kbd_hw_init() writes hw->ops. */
     const uiox_kbd_hw_ops_t *ops =
         (const uiox_kbd_hw_ops_t *)kif->hw->ops;
@@ -143,15 +147,17 @@ static void scan_i2c(uiox_kbd_if_t      *kif,
         .scancode = code,
         .ts_ns    = ts_ns,
     };
-    uiox_kbd_buf_push(rb, &ev);
-    kif->change_count++;
+    if (uiox_kbd_buf_push(rb, &ev))
+        kif->change_count++;
+    else
+        kif->events_dropped++;
 }
 
 static void scan_ps2(uiox_kbd_if_t      *kif,
                       uiox_kbd_ringbuf_t *rb,
                       uint64_t            ts_ns)
 {
-    /* Same correction as scan_i2c — hw->ops, not hw->priv. */
+    /* Same correction as scan_i2c — hw->priv, not hw->ops. */
     const uiox_kbd_hw_ops_t *ops =
         (const uiox_kbd_hw_ops_t *)kif->hw->ops;
     if (!ops || !ops->ps2_recv) return;
@@ -173,8 +179,10 @@ static void scan_ps2(uiox_kbd_if_t      *kif,
         .scancode = sc,
         .ts_ns    = ts_ns,
     };
-    uiox_kbd_buf_push(rb, &ev);
-    kif->change_count++;
+    if (uiox_kbd_buf_push(rb, &ev))
+        kif->change_count++;
+    else
+        kif->events_dropped++;
 }
 
 int uiox_kbd_if_scan(uiox_kbd_if_t      *kif,

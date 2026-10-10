@@ -3,7 +3,7 @@
  * @brief   UIOX Bluetooth HCI transport interface driver implementation.
  * @date    2026-06-09
  *
- * v1.1.0: bif->hw->priv -> bif->hw->ops at two sites.  uiox_bt_hw_t
+ * v1.1.0: bif->hw->ops -> bif->hw->ops at two sites.  uiox_bt_hw_t
  *         declares `ops` and `drv_priv`; there is no `priv` member, and
  *         uiox_bt_hw_init() writes hw->ops.
  */

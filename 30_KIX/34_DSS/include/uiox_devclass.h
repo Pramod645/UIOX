@@ -63,7 +63,8 @@ typedef enum {
  * answer "which vtable is this?" without a lookup table — see the
  * predicates in section 5. */
 #define UIOX_DEVCLASS_(fam, n)  \
-    ((uiox_devclass_t)((((uint32_t)(fam)) << UIOX_DEVFAM_SHIFT) | ((uint32_t)(n))))
+    ((uint32_t)((((uint32_t)(fam)) << UIOX_DEVFAM_SHIFT) | ((uint32_t)(n))))
+
 
 /* ═════════════════════════════════════════════════════════════════════
  * SECTION 2 — the classes, grouped by family

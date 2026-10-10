@@ -3,7 +3,7 @@
  * @brief   UIOX WiFi interface driver implementation.
  * @date    2026-05-28
  *
- * v1.1.0: wif->hw->priv -> wif->hw->ops at two sites.  uiox_wifi_hw_t
+ * v1.1.0: wif->hw->ops -> wif->hw->ops at two sites.  uiox_wifi_hw_t
  *         declares `ops` and `drv_priv`; uiox_wifi_hw_init() writes hw->ops.
  */
 #include "uiox_wifi_if.h"

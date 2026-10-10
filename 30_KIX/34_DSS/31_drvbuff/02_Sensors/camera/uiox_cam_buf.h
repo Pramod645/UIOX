@@ -35,6 +35,9 @@
  void  uiox_cam_buf_ref  (uiox_cam_frame_t *f);
  void  uiox_cam_buf_free (uiox_cam_frame_t *f);
  uint16_t uiox_cam_buf_free_count(void);
+
+ uiox_cam_frame_t *uiox_cam_buf_find_by_paddr(uintptr_t paddr);
+
  
  #ifdef __cplusplus
  }

@@ -115,3 +115,43 @@ File tree (new additions to 02_FwHal/)
     ├── uiox_fw_touchpwd.c
     ├── uiox_fw_usb.c
     └── uiox_fw_wifi.c
+===========
+
+cd /Users/pramodkumar/Hack/WS/UIOX/30_KIX/34_DSS
+
+find 02_FwHal -type f \
+  \( -name '*.c' -o -name '*.h' -o -name 'Makefile' -o -name '*.md' \) \
+  -print0 | sort -z | while IFS= read -r -d '' f; do
+    printf '\n===== FILE: %s =====\n\n' "$f"
+    cat "$f"
+done > fwhal.txt
+
+wc -l fwhal.txt
+
+
+# headers only — the include surface layer 20 would need
+find 02_FwHal -name '*.h' -print0 | sort -z | while IFS= read -r -d '' f; do
+  printf '\n===== FILE: %s =====\n\n' "$f"; cat "$f"
+done > fwhal_headers.txt
+
+# sources + Makefile — what actually gets compiled
+find 02_FwHal \( -name '*.c' -o -name 'Makefile' \) -print0 | sort -z \
+  | while IFS= read -r -d '' f; do
+      printf '\n===== FILE: %s =====\n\n' "$f"; cat "$f"
+    done > /tmp/fwhal_src.txt
+
+wc -l /tmp/fwhal_headers.txt /tmp/fwhal_src.txt
+
+
+cd /Users/pramodkumar/Hack/WS/UIOX/30_KIX/34_DSS
+
+# does any 20_DriverInterfaces file include anything from 02_FwHal?
+grep -rn 'FwHal\|fw_hal\|fw_[a-z]' 20_DriverInterfaces --include='*.c' --include='*.h'
+
+# does 02_FwHal include the hw headers, or the other way round?
+grep -rn '_hw\.h' 02_FwHal --include='*.c' --include='*.h'
+
+
+ls -d /Users/pramodkumar/Hack/WS/UIOX/30_KIX/34_DSS/02_FwHal /Users/pramodkumar/Hack/WS/UIOX/30_KIX/34_DSS/02FwHal 2>/dev/null
+
+

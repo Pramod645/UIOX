@@ -1,5 +1,5 @@
 /**
- * @file    uiox_mon_hw.h
+ * @file    30_KIX/34_DSS/20_DriverInterfaces/01_Com/monitor/uiox_mon_hw.h
  * @brief   UIOX Monitor Hardware Abstraction Layer (HAL).
  *
  * Lowest-level interface to display controller hardware. Owns:
@@ -239,6 +239,28 @@
  
  static inline uint32_t uiox_mon_caps(const uiox_mon_hw_t *hw)
  { return hw ? hw->caps : 0u; }
+
+ /* =========================================================================
+ * Firmware binding (02_FwHal / libuioxfw<arch>.a)
+ *
+ * Declared here, defined in uiox_mon_fwops.c.  The i2c dev type is
+ * forward-declared so this header does not pull FwHal headers into every
+ * translation unit that includes it.
+ *
+ * NOTE: 02_FwHal exports no chip init for this class — the bind
+ * function is present for API symmetry but has no firmware entry to call.
+ * ====================================================================== */
+struct uiox_i2c_dev_t;
+
+/**
+ * @brief Bind a 02_FwHal implementation onto this class's hardware ops.
+ *
+ * Fills `uiox_mon_hw_t.ops` with the adapter vtable and keeps the firmware-side
+ * device in a static bridge.  Returns 0 on success, negative errno.
+ */
+int uiox_mon_fwbind(uiox_mon_hw_t *hw, struct uiox_i2c_dev_t *i2c);
+
+/* ================================ end patch =============================== */
  
  #ifdef __cplusplus
  }

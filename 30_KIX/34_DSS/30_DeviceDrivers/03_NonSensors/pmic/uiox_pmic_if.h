@@ -64,6 +64,41 @@
      uint8_t              variant_id;
      bool                 primed;
  } uiox_pmic_if_t;
+
+ typedef enum {
+     UIOX_PMIC_EV_NONE = 0,
+     UIOX_PMIC_EV_OTP,
+     UIOX_PMIC_EV_OCP,
+     UIOX_PMIC_EV_OVP,
+     UIOX_PMIC_EV_UVP,
+     UIOX_PMIC_EV_WDT,
+     UIOX_PMIC_EV_PGOOD_LOST,
+     UIOX_PMIC_EV_RAIL_ON,
+     UIOX_PMIC_EV_RAIL_OFF,
+     UIOX_PMIC_EV_DVFS_UP,
+     UIOX_PMIC_EV_DVFS_DOWN,
+ } uiox_pmic_ev_t;
+ 
+ typedef struct {
+     uiox_pmic_ev_t type;
+     uint8_t        rail_id;
+     uint32_t       ts_ms;
+     uint32_t       fault_flags;
+     uint32_t       mv;
+     bool           valid;
+ } uiox_pmic_event_t;
+ 
+ void uiox_pmic_event_push(const uiox_pmic_event_t *ev);
+ 
+ typedef struct {
+     uint32_t ts_ms;
+     uint32_t vsys_mv;
+     uint32_t vbat_mv;
+     uint32_t ibat_ma;
+     uint32_t vbus_mv;
+     int8_t   die_temp_c;
+     int8_t   ntc_temp_c;
+ } uiox_pmic_telem_t;
  
  /* =========================================================================
   * Interface API

@@ -22,7 +22,7 @@
  
      /* Read device ID and calibration */
      const uiox_bms_hw_ops_t *ops =
-         (const uiox_bms_hw_ops_t *)bif->hw->priv;
+         (const uiox_bms_hw_ops_t *)bif->hw->ops;
  
      if (ops && ops->reg_read)
          ops->reg_read(bif->hw, UIOX_REG_BMS_DEVICE_ID, &bif->device_id);

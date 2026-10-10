@@ -256,7 +256,7 @@ int uiox_hdmi_sink_select_mode(uiox_hdmi_sink_t *sink,
 int uiox_hdmi_sink_hdcp_start(uiox_hdmi_sink_t *sink, uiox_hdmi_hw_t *hw)
 {
     if (!sink || !hw) return -EINVAL;
-    const uiox_hdmi_hw_ops_t *ops = (const uiox_hdmi_hw_ops_t *)hw->priv;
+    const uiox_hdmi_hw_ops_t *ops = (const uiox_hdmi_hw_ops_t *)hw->ops;
     if (!ops || !ops->hdcp_start) return -ENOSYS;
 
     uint8_t ver = sink->edid.hdcp23 ? 23u : 14u;
@@ -268,7 +268,7 @@ int uiox_hdmi_sink_hdcp_start(uiox_hdmi_sink_t *sink, uiox_hdmi_hw_t *hw)
 void uiox_hdmi_sink_hdcp_stop(uiox_hdmi_sink_t *sink, uiox_hdmi_hw_t *hw)
 {
     if (!sink || !hw) return;
-    const uiox_hdmi_hw_ops_t *ops = (const uiox_hdmi_hw_ops_t *)hw->priv;
+    const uiox_hdmi_hw_ops_t *ops = (const uiox_hdmi_hw_ops_t *)hw->ops;
     if (ops && ops->hdcp_stop) ops->hdcp_stop(hw);
     sink->hdcp_state = UIOX_HDCP_DISABLED;
 }

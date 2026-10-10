@@ -1,5 +1,5 @@
 /**
- * @file    uiox_net_hw.h
+ * @file    30_KIX/34_DSS/20_DriverInterfaces/01_Com/eth/uiox_net_hw.h
  * @brief   UIOX Network Hardware Abstraction Layer (HAL)
  *
  * Provides the lowest-level interface between physical network hardware
@@ -40,7 +40,7 @@
  #define UIOX_HW_PHY_AUTONEG_TIMEOUT_MS  5000
  
  /* =========================================================================
-  * Hardware capability flags  (uiox_hw_dev_t.caps)
+  * Hardware capability flags  (uiox_net_dev_t.caps)
   * ====================================================================== */
  
  #define UIOX_HW_CAP_CHECKSUM_TX     (1u << 0)  /**< HW TX checksum offload  */
@@ -115,7 +115,7 @@
      const void               *ops;
      void                    *drv_priv;
 
- } uiox_hw_dev_t;
+ } uiox_net_dev_t;
  
  /* =========================================================================
   * Hardware operations vtable
@@ -124,19 +124,19 @@
  
  typedef struct {
      /** One-time hardware initialisation (clocks, resets, DMA rings). */
-     int  (*init)       (uiox_hw_dev_t *dev);
+     int  (*init)       (uiox_net_dev_t *dev);
  
      /** Release all hardware resources. */
-     void (*deinit)     (uiox_hw_dev_t *dev);
+     void (*deinit)     (uiox_net_dev_t *dev);
  
      /** Start the MAC/DMA engine and enable IRQs. */
-     int  (*start)      (uiox_hw_dev_t *dev);
+     int  (*start)      (uiox_net_dev_t *dev);
  
      /** Stop the MAC/DMA engine. */
-     void (*stop)       (uiox_hw_dev_t *dev);
+     void (*stop)       (uiox_net_dev_t *dev);
  
      /** Trigger PHY auto-negotiation; block until complete or timeout. */
-     int  (*phy_autoneg)(uiox_hw_dev_t *dev);
+     int  (*phy_autoneg)(uiox_net_dev_t *dev);
  
      /**
       * Submit a TX buffer to the DMA ring.
@@ -144,10 +144,10 @@
       * @param len   Length in bytes (≤ MTU).
       * @return      0 on success, -ENOSPC if ring full.
       */
-     int  (*tx_submit)  (uiox_hw_dev_t *dev, uintptr_t buf, uint16_t len);
+     int  (*tx_submit)  (uiox_net_dev_t *dev, uintptr_t buf, uint16_t len);
  
      /** Reclaim completed TX descriptors; free associated buffers. */
-     void (*tx_reclaim) (uiox_hw_dev_t *dev);
+     void (*tx_reclaim) (uiox_net_dev_t *dev);
  
      /**
       * Poll for a received packet.
@@ -155,18 +155,18 @@
       * @param maxlen Maximum bytes to copy.
       * @return      Bytes received, 0 if no packet ready, <0 on error.
       */
-     int  (*rx_poll)    (uiox_hw_dev_t *dev, void *buf, uint16_t maxlen);
+     int  (*rx_poll)    (uiox_net_dev_t *dev, void *buf, uint16_t maxlen);
  
      /** Top-half interrupt service routine (called from ISR context). */
-     void (*isr)        (uiox_hw_dev_t *dev);
+     void (*isr)        (uiox_net_dev_t *dev);
  
      /** Read a PHY register via MDIO. */
-     uint16_t (*mdio_read) (uiox_hw_dev_t *dev, uint8_t phy, uint8_t reg);
+     uint16_t (*mdio_read) (uiox_net_dev_t *dev, uint8_t phy, uint8_t reg);
  
      /** Write a PHY register via MDIO. */
-     void     (*mdio_write)(uiox_hw_dev_t *dev, uint8_t phy,
+     void     (*mdio_write)(uiox_net_dev_t *dev, uint8_t phy,
                             uint8_t reg, uint16_t val);
- } uiox_hw_ops_t;
+ } uiox_net_hw_ops_t;
  
  /* =========================================================================
   * Public HAL API
@@ -176,19 +176,40 @@
   * @brief  Initialise hardware device using provided ops vtable.
   * @return 0 on success, negative errno on failure.
   */
- int  uiox_hw_init   (uiox_hw_dev_t *dev, const uiox_hw_ops_t *ops);
+ int  uiox_net_hw_init   (uiox_net_dev_t *dev, const uiox_net_hw_ops_t *ops);
  
  /** @brief  Bring the link up (calls phy_autoneg + start). */
- int  uiox_hw_up     (uiox_hw_dev_t *dev);
+ int  uiox_net_hw_up     (uiox_net_dev_t *dev);
  
  /** @brief  Bring the link down gracefully. */
- void uiox_hw_down   (uiox_hw_dev_t *dev);
+ void uiox_net_hw_down   (uiox_net_dev_t *dev);
  
  /** @brief  Query current link state. */
- bool uiox_hw_link_ok(const uiox_hw_dev_t *dev);
+ bool uiox_hw_link_ok(const uiox_net_dev_t *dev);
  
  /** @brief  Return hardware-reported link speed. */
- uiox_hw_speed_t uiox_hw_speed(const uiox_hw_dev_t *dev);
+ uiox_hw_speed_t uiox_hw_speed(const uiox_net_dev_t *dev);
+
+ /* =========================================================================
+ * Firmware binding (02_FwHal / libuioxfw<arch>.a)
+ *
+ * Declared here, defined in uiox_net_fwops.c.  The i2c dev type is
+ * forward-declared so this header does not pull FwHal headers into every
+ * translation unit that includes it.
+ *
+ * Chips with a firmware entry: virtio.
+ * ====================================================================== */
+struct uiox_i2c_dev_t;
+
+/**
+ * @brief Bind a 02_FwHal implementation onto this class's hardware ops.
+ *
+ * Fills `uiox_net_dev_t.ops` with the adapter vtable and keeps the firmware-side
+ * device in a static bridge.  Returns 0 on success, negative errno.
+ */
+int uiox_net_fwbind(uiox_net_dev_t *hw, struct uiox_i2c_dev_t *i2c);
+
+/* ================================ end patch =============================== */
  
  #ifdef __cplusplus
  }

@@ -1,5 +1,5 @@
 /**
- * @file    uiox_tb4_hw.c
+ * @file    30_KIX/34_DSS/20_DriverInterfaces/01_Com/tb4/uiox_tb4_hw.c
  * @brief   UIOX Thunderbolt 4 HAL implementation.
  * @date    2026-06-08
  */

@@ -25,7 +25,7 @@
      if (rc < 0) return rc;
  
      /* Set pixel format */
-     const uiox_mon_hw_ops_t *ops = (const uiox_mon_hw_ops_t *)hw->priv;
+     const uiox_mon_hw_ops_t *ops = (const uiox_mon_hw_ops_t *)hw->ops;
      if (ops && ops->set_pixfmt) {
          rc = ops->set_pixfmt(hw, pixfmt);
          if (rc < 0) return rc;

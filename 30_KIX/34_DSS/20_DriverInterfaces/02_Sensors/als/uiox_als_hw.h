@@ -1,5 +1,5 @@
 /**
- * @file  uiox_als_hw.h
+ * @file  30_KIX/34_DSS/20_DriverInterfaces/02_Sensors/als/uiox_als_hw.h
  * @brief UIOX Ambient Light Sensor Hardware Abstraction Layer (HAL).
  *
  * Supports:
@@ -283,6 +283,27 @@ typedef struct {
 uiox_als_evt_t *uiox_als_evt_alloc(void);
 void            uiox_als_evt_free (uiox_als_evt_t *e);
 /* ═══════════════════════════ END INSERT ═════════════════════════ */
+
+/* =========================================================================
+ * Firmware binding (02_FwHal / libuioxfw<arch>.a)
+ *
+ * Declared here, defined in uiox_als_fwops.c.  The i2c dev type is
+ * forward-declared so this header does not pull FwHal headers into every
+ * translation unit that includes it.
+ *
+ * Chips with a firmware entry: veml7700, opt3001.
+ * ====================================================================== */
+struct uiox_i2c_dev_t;
+
+/**
+ * @brief Bind a 02_FwHal implementation onto this class's hardware ops.
+ *
+ * Fills `uiox_als_hw_t.ops` with the adapter vtable and keeps the firmware-side
+ * device in a static bridge.  Returns 0 on success, negative errno.
+ */
+int uiox_als_fwbind(uiox_als_hw_t *hw, struct uiox_i2c_dev_t *i2c);
+
+/* ================================ end patch =============================== */
  
  #ifdef __cplusplus
  }

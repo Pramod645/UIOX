@@ -1,5 +1,5 @@
 /**
- * @file    uiox_net_hw.c
+ * @file    30_KIX/34_DSS/20_DriverInterfaces/01_Com/eth/uiox_net_hw.c
  * @brief   UIOX Network HAL - generic hardware lifecycle management.
  *
  * Concrete DMA register sequences live in the per-controller drivers
@@ -8,9 +8,9 @@
  *
  * Freestanding fixes (v1.1):
  *   REMOVED: static s_ops[] / s_dev_count - unused, caused -Werror=unused-variable
- *            ops vtable is stored in dev->ops by uiox_hw_init()
+ *            ops vtable is stored in dev->ops by uiox_net_hw_init()
  *
- * v1.2.0: dev->priv -> dev->ops at BOTH sites.  uiox_hw_dev_t declares
+ * v1.2.0: dev->priv -> dev->ops at BOTH sites.  uiox_net_dev_t declares
  *         `ops` and `drv_priv`; there is no `priv`.  The write in init()
  *         and the read in hw_ops() must name the SAME member or the
  *         descriptor holds a pointer nothing reads.
@@ -22,17 +22,17 @@
  * Internal helper - recover ops pointer from dev->ops
  * ---------------------------------------------------------------------- */
 
-static inline const uiox_hw_ops_t *hw_ops(const uiox_hw_dev_t *dev)
+static inline const uiox_net_hw_ops_t *hw_ops(const uiox_net_dev_t *dev)
 {
-    /* ops pointer stored in .ops by uiox_hw_init */
-    return (const uiox_hw_ops_t *)dev->ops;         /* was ->priv */
+    /* ops pointer stored in .ops by uiox_net_hw_init */
+    return (const uiox_net_hw_ops_t *)dev->ops;         /* was ->priv */
 }
 
 /* -------------------------------------------------------------------------
  * Public API
  * ---------------------------------------------------------------------- */
 
-int uiox_hw_init(uiox_hw_dev_t *dev, const uiox_hw_ops_t *ops)
+int uiox_net_hw_init(uiox_net_dev_t *dev, const uiox_net_hw_ops_t *ops)
 {
     if (!dev || !ops || !ops->init)
         return -EINVAL;
@@ -51,12 +51,12 @@ int uiox_hw_init(uiox_hw_dev_t *dev, const uiox_hw_ops_t *ops)
     return ops->init(dev);
 }
 
-int uiox_hw_up(uiox_hw_dev_t *dev)
+int uiox_net_hw_up(uiox_net_dev_t *dev)
 {
     if (!dev || !dev->ops)
         return -EINVAL;
 
-    const uiox_hw_ops_t *ops = hw_ops(dev);
+    const uiox_net_hw_ops_t *ops = hw_ops(dev);
     int rc;
 
     /* Run PHY negotiation first */
@@ -77,12 +77,12 @@ int uiox_hw_up(uiox_hw_dev_t *dev)
     return 0;
 }
 
-void uiox_hw_down(uiox_hw_dev_t *dev)
+void uiox_net_hw_down(uiox_net_dev_t *dev)
 {
     if (!dev || !dev->ops)
         return;
 
-    const uiox_hw_ops_t *ops = hw_ops(dev);
+    const uiox_net_hw_ops_t *ops = hw_ops(dev);
     if (ops->stop)
         ops->stop(dev);
 
@@ -90,12 +90,12 @@ void uiox_hw_down(uiox_hw_dev_t *dev)
     dev->speed   = UIOX_HW_SPEED_UNKNOWN;
 }
 
-bool uiox_hw_link_ok(const uiox_hw_dev_t *dev)
+bool uiox_hw_link_ok(const uiox_net_dev_t *dev)
 {
     return dev ? dev->link_up : false;
 }
 
-uiox_hw_speed_t uiox_hw_speed(const uiox_hw_dev_t *dev)
+uiox_hw_speed_t uiox_hw_speed(const uiox_net_dev_t *dev)
 {
     return dev ? dev->speed : UIOX_HW_SPEED_UNKNOWN;
 }

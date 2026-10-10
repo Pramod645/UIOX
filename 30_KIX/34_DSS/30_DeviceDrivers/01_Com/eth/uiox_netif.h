@@ -103,7 +103,7 @@
      uint32_t            ip4_gw;         /**< Default gateway (host byte order)*/
      uint8_t             mac[UIOX_HW_MAC_ADDR_LEN];
      uint16_t            mtu;
-     uiox_hw_dev_t      *hw;             /**< Underlying hardware device       */
+     uiox_net_dev_t      *hw;             /**< Underlying hardware device       */
      uiox_netif_stats_t  stats;
      uiox_arp_entry_t    arp_cache[UIOX_ARP_CACHE_SIZE];
  
@@ -142,7 +142,7 @@
  /** Return the head of the interface linked list. */
  uiox_netif_t *uiox_netif_list(void);
  
- /** Bring interface up (sets UIOX_IFF_UP, calls uiox_hw_up). */
+ /** Bring interface up (sets UIOX_IFF_UP, calls uiox_net_hw_up). */
  int  uiox_netif_up  (uiox_netif_t *netif);
  
  /** Bring interface down. */

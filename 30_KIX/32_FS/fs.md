@@ -4056,3 +4056,73 @@ Page cache integration	    ❌	                ✅ uiox_pc_read/write
 mkfs / fsck tools	        ❌	                ✅ unfs_mkfs / unfs_fsck
 
 ======================================================================================================================
+# UIOX — 22 Device Classes: Buffer, Route and Syscall Matrix
+
+Date: 2026-10-10 · 6 families · 22 classes
+
+| Family | Device | Cache | drvBuff | No Buff | Access | read()/write() | ioctl() | mmap() |
+|---|---|---|---|---|---|---|---|---|
+| 1 BLOCK | emmc | ✅ | — | — | FS → 00_bcache | ✅ | — | — |
+| 2 STREAM | bt | — | ✅ | — | 34_CAS | ✅ | ✅ | — |
+| 2 STREAM | eth | — | ✅ | — | 34_CAS | ✅ | ✅ | — |
+| 2 STREAM | wifi | — | ✅ | — | 34_CAS | ✅ | ✅ | — |
+| 2 STREAM | usb (dev) | — | ✅ | — | 34_CAS | ✅ | ✅ | — |
+| 2 STREAM | mic | — | ✅ | — | 34_CAS / FS | ✅ | — | — |
+| 2 STREAM | spk | — | ✅ | — | 34_CAS / FS | ✅ | — | — |
+| 3 EVENT | kbd | — | ✅ | — | FS → ring | ✅ | — | — |
+| 3 EVENT | mouse | — | ✅ | — | FS → ring | ✅ | — | — |
+| 3 EVENT | tpwd | — | ✅ | — | FS → ring | ✅ | — | — |
+| 4 REG | als | — | — | ✅ | FS → attr | ✅ | — | — |
+| 4 REG | therm | — | — | ✅ | FS → attr | ✅ | — | — |
+| 4 REG | bms | — | — | ✅ | FS → attr | ✅ | — | — |
+| 4 REG | chg | — | — | ✅ | FS → attr | ✅ | — | — |
+| 4 REG | pmic | — | — | ✅ | FS → attr | ✅ | — | — |
+| 4 REG | rtc | — | — | ✅ | FS → attr | ✅ | ✅ | — |
+| 4 REG | fan | — | — | ✅ | FS → attr | ✅ | — | — |
+| 5 CMD | gpu | — | — | ✅ | direct | — | ✅ | ✅ |
+| 5 CMD | hdmi | — | — | ✅ | direct | — | ✅ | ✅ |
+| 5 CMD | mon | — | — | ✅ | direct | — | ✅ | ✅ |
+| 5 CMD | cam | — | — | ✅ | direct | ✅ | ✅ | ✅ |
+| 6 BUS | tb4 | — | — | ✅ | 34_CAS enum | — | ✅ | — |
+| 6 BUS | usb (host) | — | — | ✅ | 34_CAS enum | — | ✅ | — |
+
+## Counts per mechanism
+
+| Mechanism | Classes | Which families |
+|---|---|---|
+| **read() / write()** | **19** | 1, 2, 3, 4 (all); `cam` in 5 |
+| **ioctl()** | **13** | 2 (all six), 4 (`rtc`), 5 (all four), 6 (both) |
+| **mmap()** | **4** | **only family 5** — `gpu`, `hdmi`, `mon`, `cam` |
+
+## Counts per buffer
+
+| Buffer | Classes | Families |
+|---|---|---|
+| `00_bcache` (cached, keyed) | 1 | 1 BLOCK |
+| `31_drvbuff` (pooled, unkeyed) | 9 | 2 STREAM, 3 EVENT |
+| no buffer | 13 | 4 REG, 5 CMD, 6 BUS |
+
+## The three patterns
+
+**`read()` is near-universal** — 19 of 22. Every family except the two bus classes needs
+`copy_to_user`, which is why that one primitive matters most.
+
+**`mmap()` is family 5 alone.** The four display/camera classes are the only ones carrying
+high-bandwidth data: `read()` for bounded data, `mmap` for frames.
+
+**Family 6 uses neither `read` nor `mmap`.** `tb4` and `usb-host` carry no payload to
+userspace — they enumerate devices into the registry, so `ioctl` is their whole face.
+
+## Family 2's double route
+
+`bt`, `eth`, `wifi`, `usb-dev` show both `read`/`write` **and** `ioctl`: bytes cross via
+`read`/`write` (through the `34_CAS` `_proto` algorithm first), while control —
+associate, connect, key install, link state — goes via `ioctl` on the same fd.
+
+## Dependency per mechanism
+
+| Mechanism | Needs | Present today |
+|---|---|---|
+| `read`/`write` | `copy_to_user` + user-VA range check | absent — no `copy_to_user` anywhere |
+| `ioctl` | the same primitive + a command table | absent |
+| `mmap` | per-process VA + page-table mapping | absent — `uiox_kix_memmap.h` is declarations only |

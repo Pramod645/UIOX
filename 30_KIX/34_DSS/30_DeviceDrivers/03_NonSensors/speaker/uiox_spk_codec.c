@@ -3,7 +3,7 @@
  * @brief   UIOX Speaker codec abstraction implementation.
  * @date    2026-06-01
  *
- * v1.1.0: c->hw->priv -> c->hw->ops in wr() and rd().  uiox_spk_hw_t
+ * v1.1.0: c->hw->ops -> c->hw->ops in wr() and rd().  uiox_spk_hw_t
  *         declares `ops` and `drv_priv`; uiox_spk_hw_init() writes hw->ops.
  */
 #include "uiox_spk_codec.h"
