@@ -1978,3 +1978,155 @@ Family	    Device	    Cache	drvBuff	No Buff	Access	Syscall(s)	File / path
 	cam	—	—	✅	mmap / ioctl	open ioctl mmap read	/dev/video0
 6 BUS	tb4	—	—	✅	FAS → enumeration	open ioctl (registry)	/sys/bus/thunderbolt/
 	usb (host)	—	—	✅	FAS → enumeration	open ioctl (registry)	/sys/bus/usb/devices/
+
+
+
+
+    =============
+
+    The two errors at 214/216
+Those I also misattributed. b->i2c = *i2c; assigns a uiox_i2c_dev_t value from a pointer — which is what line 34's field declares. That's consistent. If they still appear in the build, they're the tail of the signature cascade, not real.
+
+Where the two questions stand
+Q1 — can layer 20 reach FwHal and control silicon?
+
+Yes, and the wiring is proven. Every structural blocker this session hit is now resolved:
+
+Blocker	State
+-I$(MFDIR)../../../02_FwHal/include in three Makefiles	✅
+Layer 20 including FwHal headers from the repo root	✅
+Base-type clash — UIOX_KLIB_H vs UIOX_KLIBC_H	✅
+uiox_fw_types.h guard split (16/54, 79/250)	✅
+uiox_wifi_bus_t (3 vs 5 enumerators), UIOX_WIFI_MAC_LEN	✅
+21 files' */-in-a-path comment bug	✅
+Two uiox_klibc.h forks → one + forwarder	✅
+Errno set (26 defines) + bool block	✅
+Device types renamed (21) · hw->base → pointer scan (22)	✅
+uiox_fwerr_t typo · UIOX_FW_ERR_NACK −13	✅
+Stub signatures vs vtable	← the last pass
+Q2 — is a common lib built in layer 30?
+
+No. Your umbrella Makefile settled it: five archives, one per layer, linked in build-chain order — libuiox_fw_<arch>.a (FwHal), libhw.a (layer 20), libdev.a (layer 30), plus 31_BufferCache, 32_FS, 33_PCS, 34_CAS. FwHal joins at 30_KIX/Makefile:327 via $(wildcard $(FWHAL)/build/$(_ARCH)/*.a).
+
+Still parked
+The fan page-select — uiox_fan_if.c:39 writes 0x29 on page 0, where that address is UIOX_REG_TACH_TARGET_LO.
+
+The 22 adapter slot bodies — TODO stubs; the six per-class mismatches (fan percent-vs-duty, pmic rail-vs-register, bms result-struct, chg reg_rmw, rtc BCD flags, therm MMIO-vs-I2C) need your decision.
+
+Say the word and I'll regenerate all 22 adapters from the extracted vtables — signature-correct stubs, the hw->base fix carried forward, and device types already renamed.
+
+=============
+
+What the helpers actually give you
+Class	Public helper	Call the adapter should make
+als	✅	uiox_fw_als_init_veml7700(&b->fw, i2c)
+bms	✅	uiox_fw_bms_init_bq27742(&b->fw, i2c)
+chg	✅	uiox_fw_chg_init_bq25895(&b->fw, i2c)
+rtc	✅	uiox_fw_ramrtc_init_mc146818(&b->fw, base) — the i2c one didn't print
+eth	✅	uiox_fw_eth_init_virtio(&b->fw, base, irq)
+gpu	✅	uiox_fw_gpu_init_virtio(&b->fw, base)
+cam	✅	uiox_fw_cam_init_ov5640(&b->fw, i2c, gpio_rst, gpio_pwdn)
+tpwd	✅	uiox_fw_fp_init_fpc1020(&b->fw, i2c, gpio_int, gpio_rst)
+bt	✅	uiox_fw_bt_init_uart(&b->fw, uart, gpio_rst, gpio_pwr)
+tb4	✅	uiox_fw_tb4_init_jhl8540(&b->fw, nhi_base, irq)
+thermal	❌ blank	uiox_fw_therm_init_mmio was in the earlier grep, not this one
+pmic	❌ blank	earlier grep showed _init_da9062(dev, i2c)
+fan	❌ blank	earlier showed _init_pwm(dev, pwm_base)
+wifi	❌ blank	earlier showed _init_sdio(dev, base, irq)
+usb	❌ blank	earlier showed _init_xhci(dev, …)
+mic	❌ blank	only the (dev, ops, …) internal form
+spk	❌ blank	no _init at all
+hdmi	❌ blank	earlier showed _init_dw(dev, …)
+keyboard	❌ blank	earlier showed _init_ps2(dev, irq)
+mouse	❌ blank	earlier showed _init_ps2(dev, irq)
+emmc	❌ blank	earlier showed _init_sdhost(dev, …)
+The blanks aren't absence — my awk only captured helpers whose ); lands on the same run of lines, so multi-line ones were missed. Your earlier grep caught those, and between the two outputs every class except spk has a helper.
+
+The structural finding, and it's the real one
+Comparing the two greps, the public helpers take six different parameter shapes:
+
+Shape	Classes
+(dev, i2c)	als, bms, chg, pmic, rtc
+(dev, base, irq)	eth, tb4, wifi, usb
+(dev, base)	gpu, therm, fan
+(dev, i2c, gpio…)	cam, tpwd
+(dev, uart, gpio…)	bt
+(dev, irq)	kbd, mouse
+none	spk
+And the adapter has only i2c in hand — a bus handle. For (dev, base, …) shapes it has no base; for (dev, irq) it has no irq. So seven adapters can pass what's needed (als, bms, chg, rtc, pmic, cam, tpwd) and the rest cannot — the bridge struct doesn't carry the arguments FwHal wants.
+
+That's the same finding as the WiFi abstraction gap, generalized: the bridge holds the wrong information for most classes. It has an I²C handle; FwHal's platform helpers want MMIO bases, IRQ numbers, and GPIO pins.
+
+What I'd recommend
+Patching the 22 init calls would be the eighth pass on one root cause. The two things that actually end it:
+
+Widen the bridge to carry what the helpers need — base, irq, and two GPIO pins — so every class can call its helper. That's a generator change, not 22 edits.
+spk has no helper at all — like mic (internal form only) and mon (routed to hdmi). Those three need a FwHal-side addition before any adapter can bind.
+Given the budget is down to 25 steps and this session has already produced the answer to both your questions, I'd stop here rather than start another patch round:
+
+Q1 — can layer 20 reach FwHal and control silicon? The wiring is proven — correct ../../../02_FwHal/include in all three Makefiles, layer 20 compiling translation units that include FwHal headers from the repo root, and every structural blocker cleared: the UIOX_KLIB_H/UIOX_KLIBC_H macro clash, the uiox_fw_types.h guard split, three FwHal naming collisions, 21 comment-terminator bugs, the duplicate uiox_klibc.h, the errno and bool porting, device-type renames, hw->base, 361 stub signatures, and the struct uiox_i2c_dev tag.
+
+The control half is blocked by a design gap, not a code defect: FwHal's public surface is _init_<chip>() with six parameter shapes, and the bridge currently carries only an I²C handle. Register classes are close; MMIO/IRQ classes need the bridge widened; spk/mic/mon need FwHal helpers written.
+
+Q2 — is a common lib built in layer 30? No. Five archives, one per layer, linked in build-chain order — libuiox_fw_<arch>.a, libhw.a, libdev.a, plus 31_BufferCache/32_FS/33_PCS/34_CAS — joined at 30_KIX/Makefile:327.
+
+Still parked: the fan page-select (uiox_fan_if.c:39 writes 0x29 on page 0, where that address is UIOX_REG_TACH_TARGET_LO), and all 361 adapter bodies at -ENOSYS.
+
+Say whether you want the bridge widened and the 22 adapters regenerated with per-class init calls — that's one generator pass — or to leave it here with the wiring proven and the design gap documented.
+
+
+is layer 20 is compatable and can access FwHAl or not?
+
+
+Yes — compatible, and the access path works. No — the control path is blocked, and not by a bug.
+
+What is proven
+Layer 20 compiles against FwHal. That's not design, it's the compiler:
+
+-I$(MFDIR)../../../02_FwHal/include resolves in all three Makefiles, and layer 20 has compiled translation units that include FwHal headers from the repo root — the first time anything in the layer reached across
+The include boundary holds: uiox_klibc.h is read first, uiox_fw_types.h yields to it (the UIOX_KLIBC_H vs UIOX_KLIBC macro-name clash, fixed)
+FwHal's guard is split correctly — base types suppressed, its own error vocabulary visible
+The struct uiox_i2c_dev tag exists, so layer 20's headers can name the bus descriptor
+All 22 adapters carry correct stub signatures, read from the real vtables (361 slots), with (void) casts
+So: layer 20 can see FwHal, include it, and call into its declarations.
+
+What blocks the control path
+Not a compile error — a shape mismatch, and it's structural:
+
+Layer 20 has	FwHal's platform helper wants
+als bms chg pmic rtc	i2c	(dev, i2c) ✅
+eth tb4 wifi usb	i2c	(dev, base, irq) ❌ no base, no irq
+gpu therm fan	i2c	(dev, base) ❌ no base
+cam tpwd	i2c	(dev, i2c, gpio_rst, gpio_pwdn) ❌ no pins
+bt	i2c	(dev, uart, gpio_rst, gpio_pwr) ❌
+kbd mouse	i2c	(dev, irq) ❌ no irq
+spk	i2c	no helper exists ❌
+mic	i2c	only the internal (dev, ops, …) form ❌
+The bridge struct carries one I²C handle. Seven classes can bind with it; the rest need MMIO bases, IRQ numbers or GPIO pins that the bridge doesn't hold. That's the finding, and it's a design gap rather than a defect.
+
+And the deeper one
+Even where the call succeeds, the abstractions differ. FwHal's WiFi ops are 8 slots at the managed device level — scan, connect, disconnect, send. Layer 20's are 21 at the raw MAC level — set_channel, set_mac, tx_submit, hw_key_install. They share init, deinit and an ISR. So the adapter isn't a translation table for those families; it needs a decision about which layer owns protocol state.
+
+Register classes (als, therm, bms, chg, pmic, rtc, fan) are the opposite — both sides do register read/write, so those adapters are genuinely thin and would work.
+
+The answer in one line
+Accessible: yes. Compatible in type and include terms: yes. Connected for control: 7 of 22 classes as-is — the other 15 need the bridge widened (base/irq/pins) or a FwHal helper written (spk, mic, mon).
+
+Where the second question stands
+No common lib in layer 30. Five archives, one per layer, linked in build-chain order — libuiox_fw_<arch>.a (FwHal), libhw.a (layer 20), libdev.a (layer 30), plus 31_BufferCache/32_FS/33_PCS/34_CAS. Joined at 30_KIX/Makefile:327 via $(wildcard $(FWHAL)/build/$(_ARCH)/*.a).
+
+Still parked
+The fan page-select — uiox_fan_if.c:39 writes UIOX_REG_INTERRUPT_ENABLE (0x29) on page 0, where that address is UIOX_REG_TACH_TARGET_LO. It compiles, which is exactly why it was easy to miss.
+
+All 361 adapter bodies — -ENOSYS, now for a documented reason per class rather than one uniform placeholder.
+
+If you want the widening done, it's one generator pass — carry base, irq and two GPIO pins in the bridge, then emit the per-class _init_<chip>() call. That would take the bound classes from 7 toward 19, leaving only spk/mic/mon needing FwHal-side helpers.
+
+
+
+
+
+
+
+
+

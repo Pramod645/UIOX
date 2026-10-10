@@ -157,7 +157,7 @@
  
  #define UIOX_I2C_MODEL_LEN   32u
  
- typedef struct {
+ typedef struct uiox_i2c_dev{
      uintptr_t        base;
      uint32_t         irq;
      uint32_t         clk_hz;     /**< Input clock Hz (e.g. 100 MHz)    */

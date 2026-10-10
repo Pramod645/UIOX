@@ -1,6 +1,6 @@
 /**
  * @file    uiox_wifi_hw.c
- * @brief   UIOX WiFi HAL — generic hardware lifecycle management.
+ * @brief   UIOX WiFi HAL -- generic hardware lifecycle management.
  * @date    2026-05-28
  */
 

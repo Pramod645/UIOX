@@ -90,7 +90,7 @@ COMMON_CFLAGS := \
   -I$(MFDIR)../common                      \
   -I$(MFDIR)../include                     \
   -I$(MFDIR)../31_BufferCache/include      \
-  -I$(MFDIR)../02_FwHal/include            \
+  -I$(MFDIR)../../../02_FwHal/include            \
   -I$(MFDIR)../20_DriverInterfaces/include \
   -I$(MFDIR)../20_DriverInterfaces/01_Com/bt         \
   -I$(MFDIR)../20_DriverInterfaces/01_Com/eth        \

@@ -9,14 +9,13 @@
  * would silently misreport, so the mapping is explicit.
  *
  * UIOX_FW_ERR_UNSUP is a macro alias for UIOX_FW_ERR_NOT_SUPPORTED and
- * must NOT get its own case — that is a duplicate-case error.
+ * must NOT get its own case -- that is a duplicate-case error.
  */
 #ifndef UIOX_FW_RC_H
 #define UIOX_FW_RC_H
 
+#include "uiox_klibc.h"     /* first: defines UIOX_KLIB_H so FwHal yields */
 #include "uiox_fw_types.h"
-#include "uiox_klibc.h"
-
 static inline int uiox_fw_rc(uiox_fw_err_t e)
 {
     switch (e) {

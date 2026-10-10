@@ -51,7 +51,7 @@ COMMON_CFLAGS := \
   $(ARCH_CFLAGS) $(ARCH_CPUDEF)           \
   $(DEVICE_DEFS)                          \
   -I$(INCDIR)                             \
-  -I$(MFDIR)../02_FwHal/include           \
+  -I$(MFDIR)../../../02_FwHal/include           \
   -I$(MFDIR)../common
 
 # ── Device-conditional subdirectories ────────────────────────────────────────
@@ -124,6 +124,7 @@ ifeq ($(ENABLE_EMMC),yes)
 endif
 
 SRCS := $(foreach d,$(SUBDIRS),$(wildcard $(MFDIR)$(d)/*.c))
+SRCS += $(MFDIR)02_Sensors/als/uiox_als_fwops.c
 OBJS := $(patsubst $(MFDIR)%.c,$(_BUILD_DIR)/%.o,$(SRCS))
 LIB  := $(_BUILD_DIR)/libhw.a
 
@@ -176,7 +177,7 @@ $(_BUILD_DIR)/%.o: $(MFDIR)%.c
 	@echo "  [CC]  $<"
 	$(CC) $(COMMON_CFLAGS) \
 	    -I$(MFDIR)$(dir $*) \
-	    -I$(MFDIR)../02_FwHal/$(dir $*) \
+	    -I$(MFDIR)../../../02_FwHal/$(dir $*) \
 	    -MMD -MP -c $< -o $@
 
 -include $(wildcard $(BUILD_BASE)/$(_ARCH)/*.d)

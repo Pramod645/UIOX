@@ -1,6 +1,6 @@
 /**
  * @file    uiox_spk_hw.c
- * @brief   UIOX Speaker HAL — generic hardware lifecycle management.
+ * @brief   UIOX Speaker HAL -- generic hardware lifecycle management.
  * @date    2026-06-01
  */
 

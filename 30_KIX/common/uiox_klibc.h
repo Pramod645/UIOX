@@ -49,6 +49,34 @@
 #ifndef UIOX_KLIBC_H
 #define UIOX_KLIBC_H
 
+/* ── errno values (Linux numbering) ─────────────────────────── */
+#define EPERM     1   /* Operation not permitted     */
+#define ENOENT    2   /* No such file or directory   */
+#define EIO       5   /* I/O error                   */
+#define ENXIO     6   /* No such device or address   */
+#define EAGAIN   11   /* Try again                   */
+#define ENOMEM   12   /* Out of memory               */
+#define EACCES   13   /* Permission denied           */
+#define EFAULT   14   /* Bad address                 */
+#define EBUSY    16   /* Device or resource busy     */
+#define EEXIST   17   /* File exists                 */
+#define ENODEV   19   /* No such device              */
+#define EINVAL   22   /* Invalid argument            */
+#define ENOSPC   28   /* No space left on device     */
+#define EPIPE    32   /* Broken pipe                 */
+#define ERANGE   34   /* Math result not representable */
+#define ENOSYS   38   /* Function not implemented    */
+#define ETIME    62   /* Timer expired               */
+#define EPROTO   71   /* Protocol error              */
+#define EBADMSG  74   /* Bad message                 */
+#define EOVERFLOW 75  /* Value too large for defined data type */
+#define ENETDOWN 100  /* Network is down             */
+#define ENOBUFS  105  /* No buffer space available   */
+#define ETIMEDOUT 110 /* Connection timed out        */
+#define EREMOTEIO 121 /* Remote I/O error            */
+#define ENOTSUP   95  /* Operation not supported     */
+#define EWOULDBLOCK EAGAIN
+
 /* ── §1  Integer types ──────────────────────────────────────── */
 typedef unsigned char       uint8_t;
 typedef unsigned short      uint16_t;
@@ -62,6 +90,22 @@ typedef uint64_t            uintptr_t;
 typedef int64_t             intptr_t;
 typedef uint64_t            uintmax_t;
 typedef int64_t             intmax_t;
+
+/* ── §2  Boolean ────────────────────────────────────────────── */
+#ifndef __cplusplus
+# ifndef __bool_true_false_are_defined
+#  ifndef bool
+#   define bool _Bool
+#  endif
+#  ifndef true
+#   define true  1
+#  endif
+#  ifndef false
+#   define false 0
+#  endif
+#  define __bool_true_false_are_defined 1
+# endif
+#endif
 
 #define UINT8_MAX   0xFFU
 #define UINT16_MAX  0xFFFFU
@@ -174,7 +218,7 @@ static inline void *uiox_memmove(void *dst, const void *src, size_t n)
 static inline size_t uiox_strlen(const char *s)
     { size_t n = 0; while (*s++) n++; return n; }
 static inline char *uiox_strncpy(char *d, const char *s, size_t n)
-    { char *r = d; while (n-- && (*d++ = *s++)); while (n-- > 0) *d++ = 0; return r; }
+    { char *r = d; while (n-- && (*d++ = *s++)) { }; while (n-- > 0) *d++ = 0; return r; }
 #endif /* UIOX_SOC_STRING_H */
 
 static inline int uiox_strcmp(const char *a, const char *b)
@@ -182,7 +226,7 @@ static inline int uiox_strcmp(const char *a, const char *b)
 static inline int uiox_strncmp(const char *a, const char *b, size_t n)
     { while (n-- && *a && *a == *b) { a++; b++; } return n == (size_t)-1 ? 0 : (unsigned char)*a - (unsigned char)*b; }
 static inline char *uiox_strcpy(char *d, const char *s)
-    { char *r = d; while ((*d++ = *s++)); return r; }
+    { char *r = d; while ((*d++ = *s++)) { }; return r; }
 static inline const char *uiox_strchr(const char *s, int c)
     { while (*s) { if (*s == (char)c) return s; s++; } return (c == 0) ? s : NULL; }
 static inline char *uiox_strsep(char **sp, char sep)

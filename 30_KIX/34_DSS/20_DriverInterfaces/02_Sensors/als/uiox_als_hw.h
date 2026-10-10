@@ -293,7 +293,7 @@ void            uiox_als_evt_free (uiox_als_evt_t *e);
  *
  * Chips with a firmware entry: veml7700, opt3001.
  * ====================================================================== */
-struct uiox_i2c_dev_t;
+struct uiox_i2c_dev;
 
 /**
  * @brief Bind a 02_FwHal implementation onto this class's hardware ops.
@@ -301,7 +301,7 @@ struct uiox_i2c_dev_t;
  * Fills `uiox_als_hw_t.ops` with the adapter vtable and keeps the firmware-side
  * device in a static bridge.  Returns 0 on success, negative errno.
  */
-int uiox_als_fwbind(uiox_als_hw_t *hw, struct uiox_i2c_dev_t *i2c);
+int uiox_als_fwbind(uiox_als_hw_t *hw, struct uiox_i2c_dev *i2c);
 
 /* ================================ end patch =============================== */
  

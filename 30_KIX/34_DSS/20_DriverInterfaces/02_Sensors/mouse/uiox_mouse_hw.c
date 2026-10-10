@@ -1,6 +1,6 @@
 /**
  * @file    uiox_mouse_hw.c
- * @brief   UIOX Mouse HAL — generic hardware lifecycle management.
+ * @brief   UIOX Mouse HAL -- generic hardware lifecycle management.
  * @date    2026-06-01
  */
 

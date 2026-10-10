@@ -250,7 +250,7 @@
  * NOTE: 02_FwHal exports no chip init for this class — the bind
  * function is present for API symmetry but has no firmware entry to call.
  * ====================================================================== */
-struct uiox_i2c_dev_t;
+struct uiox_i2c_dev;
 
 /**
  * @brief Bind a 02_FwHal implementation onto this class's hardware ops.
@@ -258,7 +258,7 @@ struct uiox_i2c_dev_t;
  * Fills `uiox_mon_hw_t.ops` with the adapter vtable and keeps the firmware-side
  * device in a static bridge.  Returns 0 on success, negative errno.
  */
-int uiox_mon_fwbind(uiox_mon_hw_t *hw, struct uiox_i2c_dev_t *i2c);
+int uiox_mon_fwbind(uiox_mon_hw_t *hw, struct uiox_i2c_dev *i2c);
 
 /* ================================ end patch =============================== */
  

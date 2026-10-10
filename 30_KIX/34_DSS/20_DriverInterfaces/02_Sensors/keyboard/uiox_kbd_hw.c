@@ -1,6 +1,6 @@
 /**
  * @file    uiox_kbd_hw.c
- * @brief   UIOX Keyboard HAL — generic hardware lifecycle management.
+ * @brief   UIOX Keyboard HAL -- generic hardware lifecycle management.
  * @date    2026-05-27
  */
 

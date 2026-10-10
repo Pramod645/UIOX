@@ -13,9 +13,12 @@
 #ifndef UIOX_FW_TYPES_H
 #define UIOX_FW_TYPES_H
 
+#ifndef UIOX_KLIBC_H   /* uiox_klibc.h supplies base types + mem helpers */
+
 typedef __INT8_TYPE__    int8_t;
 typedef __INT16_TYPE__   int16_t;
 typedef __INT32_TYPE__   int32_t;
+
 typedef __INT64_TYPE__   int64_t;
 typedef __UINT8_TYPE__   uint8_t;
 typedef __UINT16_TYPE__  uint16_t;
@@ -48,6 +51,8 @@ typedef _Bool bool;
 #define UIOX_FW_VERSION         0x00010000u  /**< v1.0.0                  */
 
 /* Error type */
+#endif /* !UIOX_KLIBC_H -- firmware vocabulary below stays visible */
+
 typedef int32_t uiox_fw_err_t;
 #define UIOX_FW_OK                ((uiox_fw_err_t)  0)
 #define UIOX_FW_ERR_GENERIC       ((uiox_fw_err_t) -1)
@@ -65,8 +70,15 @@ typedef int32_t uiox_fw_err_t;
 #define UIOX_FW_ERR_PERM          ((uiox_fw_err_t)-12)
 #define UIOX_FW_ERR_NACK          ((uiox_fw_err_t)-13)
 #define UIOX_FW_ERR_ARB_LOST      ((uiox_fw_err_t)-14)
+
+
+
+
 #define UIOX_FW_ERR_CRC           ((uiox_fw_err_t)-15)
 #define UIOX_FW_ERR_BADMAGIC      ((uiox_fw_err_t)-16)
+
+#ifndef UIOX_KLIBC_H
+
 
 /* =========================================================================
  * Compiler attributes — all guarded with #ifndef so a prior header
@@ -209,8 +221,8 @@ static inline uint64_t fw_mmio_read64(uintptr_t addr)
 /* =========================================================================
  * No-libc memory helpers
  * FIX: uiox_memcpy body split onto separate lines to fix
- *      -Werror=misleading-indentation (return after while on same line).
  * ====================================================================== */
+
 static inline void *uiox_memset(void *d, int c, size_t n)
 {
     uint8_t *p = (uint8_t *)d;
@@ -236,5 +248,6 @@ static inline int uiox_memcmp(const void *a, const void *b, size_t n)
     }
     return 0;
 }
+#endif /* !UIOX_KLIBC_H */
 
 #endif /* UIOX_FW_TYPES_H */
