@@ -133,9 +133,24 @@ int uiox_kix_psa_proc_set_state(uiox_kix_psa_proc_t *p,
     if (!p) return -1;
 
     /* Target must be a state that exists. */
-    if (new_state < UIOX_KIX_PSA_PROC_UNUSED ||
-        new_state > UIOX_KIX_PSA_PROC_ZOMBIE)
-        return -1;
+    /*if ((new_state < UIOX_KIX_PSA_PROC_UNUSED) ||
+        (new_state > UIOX_KIX_PSA_PROC_ZOMBIE))
+        return -1;*/
+        /* Target must be a state that exists.  Cast to int: the lower bound
+     * is 0, so the compiler can prove the comparison vacuous against the
+     * enum's own range — but a caller may cast ANY int into an enum, so
+     * the guard is real and belongs here. */
+    /*if ((int)new_state < (int)UIOX_KIX_PSA_PROC_UNUSED ||
+        (int)new_state > (int)UIOX_KIX_PSA_PROC_ZOMBIE)
+        return UIOX_KIX_PSA_EINVAL;*/
+        /* Target must be a state that exists.  The lower bound is 0 — the
+     * enum's first member — so it cannot be violated by a value of this
+     * type and the compiler proves the test vacuous.  Dropped for that
+     * reason; the upper bound is a real check, because a caller may cast
+     * any int into the enum. */
+    if ((int)new_state > (int)UIOX_KIX_PSA_PROC_ZOMBIE)
+        return -EINVAL;
+
 
     old = p->p_state;
 

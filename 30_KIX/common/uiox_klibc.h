@@ -90,10 +90,12 @@ typedef long long           int64_t;
 //#if defined(__aarch64__) || defined(__x86_64__) || defined(__riscv)
 #if __SIZEOF_POINTER__ == 8
 typedef uint64_t uintptr_t;
+typedef int64_t intptr_t;
 #else
 typedef uint32_t uintptr_t;
+typedef int32_t intptr_t;
 #endif
-typedef int64_t             intptr_t;
+//typedef int64_t             intptr_t;
 typedef uint64_t            uintmax_t;
 typedef int64_t             intmax_t;
 
@@ -146,9 +148,25 @@ typedef int64_t             intmax_t;
 #define NULL ((void *)0)
 #endif
 
+//typedef uint64_t  size_t;
+//typedef int64_t   ssize_t;
+//typedef int64_t   ptrdiff_t;
+/* Pointer-width by definition.  sizeof yields size_t, so a 64-bit
+ * size_t on a 32-bit target makes every address computation wrong —
+ * silently, wherever the compiler does not happen to warn.
+ * __SIZEOF_POINTER__ is the compiler's own answer and is correct for
+ * every target; the architecture enumeration used elsewhere in this
+ * file omits __arm__ and got ARM32 wrong. */
+#if __SIZEOF_POINTER__ == 8
 typedef uint64_t  size_t;
 typedef int64_t   ssize_t;
 typedef int64_t   ptrdiff_t;
+#else
+typedef uint32_t  size_t;
+typedef int32_t   ssize_t;
+typedef int32_t   ptrdiff_t;
+#endif
+
 
 #ifndef offsetof
 #define offsetof(type, member) __builtin_offsetof(type, member)
