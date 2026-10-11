@@ -13,6 +13,10 @@
  * @date    2026-10-02
  */
 #include "../include/uiox_kix_sec_sec.h"
+#include "uiox_base_types.h"    /* uiox_uintptr_t, uiox_uint64_t */
+
+#include "uiox_base_types.h"    /* uiox_uintptr_t, uiox_uint64_t */
+
 
 extern void uiox_fw_printf(const char *fmt, ...);
 

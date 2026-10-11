@@ -45,13 +45,13 @@ uiox_kix_sys_stats_t uiox_kix_sys_stats;
  *
  * The 64-bit intermediate is required: alpha is up to 999 and old up to
  * a few thousand, so the product overflows 32 bits immediately. */
-static uiox_uint32_t uiox_kix_ewma(uiox_uint32_t alpha,
-                                   uiox_uint32_t old_val,
-                                   uiox_uint32_t sample)
+static uint32_t uiox_kix_ewma(uint32_t alpha,
+                                   uint32_t old_val,
+                                   uint32_t sample)
 {
-    return (uiox_uint32_t)(((uiox_uint64_t)alpha * (uiox_uint64_t)old_val +
-                            (uiox_uint64_t)(UIOX_KIX_LOAD_SCALE - alpha) *
-                            (uiox_uint64_t)sample) / UIOX_KIX_LOAD_SCALE);
+    return (uint32_t)(((uint64_t)alpha * (uint64_t)old_val +
+                            (uint64_t)(UIOX_KIX_LOAD_SCALE - alpha) *
+                            (uint64_t)sample) / UIOX_KIX_LOAD_SCALE);
 }
 
 /* ── uiox_kix_gather_system_stats ────────────────────────────────────
@@ -83,7 +83,7 @@ static uiox_uint32_t uiox_kix_ewma(uiox_uint32_t alpha,
 void uiox_kix_gather_system_stats(void)
 {
     int i;
-    uiox_uint32_t runnable = 0u;
+    uint32_t runnable = 0u;
 
     uiox_kix_sys_stats.ss_total_ticks++;
 

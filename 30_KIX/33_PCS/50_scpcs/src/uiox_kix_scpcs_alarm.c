@@ -34,7 +34,7 @@
 
 int64_t uiox_kix_scpcs_alarm(uiox_uint64_t seconds)
 {
-    if (!uiox_kix_scps_current()) return SCPCS_ESRCH;
+    if (!uiox_kix_scpcs_current()) return SCPCS_ESRCH;
 
     /* Cancelling (zero seconds) needs the outstanding callout's identity
      * just as much as setting does. */

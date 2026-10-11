@@ -7,6 +7,18 @@
  *   p->p   the embedded 40_psa entry (p_state, p_sched, p_timers)
  *   p->s   scheduler-private accounting (s_total_ticks, s_cpu_usage)
  *
+ * ── the run queue holds PSA pointers, not wrappers ──────────────────
+ * RunQueue.heads[] is uiox_kix_psa_proc_t * (uiox_kix_scheduler.h:52),
+ * so a queue walk yields the INNER entry.  The scheduler's own fields
+ * (s_in_memory, s_cpu_usage) live on uiox_sched_proc_t, which EMBEDS
+ * that entry — so they are reached by recovering the wrapper from the
+ * inner pointer, not by dereferencing it.
+ *
+ * The two levels are why this file needs both accessors:
+ *   e->p_state               inner entry, walked directly from heads[]
+ *   SCHED_PROC(e)->s_*       wrapper, recovered by offset
+ * and recalculate_priority() takes the WRAPPER (scheduler.h:129).
+ *
  * ── the seven steps of Algorithm 2, and where each one is ───────────
  *   1. restart clock                  the arch timer re-arms; here the
  *                                     tick counters advance
@@ -30,11 +42,22 @@
  * it needs waking depends on whether any READY_SWAPPED process exists —
  * a test that can be written, but only once 02_MemMngnt owns swap-in.
  *
- * @version 3.0.0  @date 2026-09-29
+ * @version 3.0.1  @date 2026-09-30
  */
 #include "../include/uiox_kix_clock.h"
 #include "../include/uiox_kix_scheduler.h"
 #include "../include/uiox_kix_profiler.h"
+
+/* ── SCHED_PROC — recover the wrapper from the embedded inner entry ───
+ * heads[] stores uiox_kix_psa_proc_t *; the scheduler's s_* fields sit
+ * on the uiox_sched_proc_t that embeds it.  This is the intrusive-
+ * container idiom: subtract the member's offset to get the enclosing
+ * struct.  Defined only if sched_types.h has not supplied one already,
+ * so the two cannot disagree. */
+#ifndef SCHED_PROC
+#define SCHED_PROC(e)  ((uiox_sched_proc_t *)(void *) \
+    ((unsigned char *)(e) - offsetof(uiox_sched_proc_t, p)))
+#endif
 
 /* ── Module-private state ──────────────────────────────────────────── */
 static CalloutTable  callout_table;
@@ -115,21 +138,25 @@ static void process_callouts(void)
 /* ── update_load_avg — Algorithm 2 steps 4 and 7 ─────────────────────
  * Counts runnable processes per second and feeds three EWMAs.  The
  * eligibility test is scheduler.h's, so the number matches what
- * schedule_process would actually pick from. */
+ * schedule_process would actually pick from.
+ *
+ * Step 7's readjust needs the WRAPPER, because recalculate_priority
+ * takes uiox_sched_proc_t * (scheduler.h:129) — hence SCHED_PROC. */
 static void update_load_avg(void)
 {
     int      q;
-    Process *p;
+    uiox_kix_psa_proc_t *p;
     int      q2;
-    Process *p2;
+    uiox_kix_psa_proc_t *p2;
     uint32_t active = 0;
     RunQueue *rq;
 
     rq = get_run_queue();
 
     for (q = 0; q < MAX_PRIORITY_QUEUES; q++)
-        for (p = rq->heads[q]; p; p = (Process *)(void *)p->p.p_next)
-            if (p->p.p_state == UIOX_KIX_PSA_PROC_READY && p->s_in_memory)
+        for (p = rq->heads[q]; p; p = p->p_next)
+            if (p->p_state == UIOX_KIX_PSA_PROC_READY &&
+                SCHED_PROC(p)->s_in_memory)
                 active++;
 
     load_avg.load_1  = ewma_update(LOAD_ALPHA_1,  load_avg.load_1,  active);
@@ -140,9 +167,9 @@ static void update_load_avg(void)
      * priority".  Only READY processes, because a sleeping one has no
      * slice to have used — the test lives in readjust_all_priorities. */
     for (q2 = 0; q2 < MAX_PRIORITY_QUEUES; q2++)
-        for (p2 = rq->heads[q2]; p2; p2 = (Process *)(void *)p2->p.p_next)
-            if (p2->p.p_state == UIOX_KIX_PSA_PROC_READY)
-                recalculate_priority(p2);
+        for (p2 = rq->heads[q2]; p2; p2 = p2->p_next)
+            if (p2->p_state == UIOX_KIX_PSA_PROC_READY)
+                recalculate_priority(SCHED_PROC(p2));
 
     readjust_all_priorities();
 
@@ -154,7 +181,7 @@ static void update_load_avg(void)
 void clock_tick(void)
 {
     int      q;
-    Process *p;
+    uiox_kix_psa_proc_t *p;
     RunQueue *rq;
 
     /* ── Step 1: restart clock ───────────────────────────────────
@@ -187,8 +214,9 @@ void clock_tick(void)
      * scheduler.c counts who is running. */
     rq = get_run_queue();
     for (q = 0; q < MAX_PRIORITY_QUEUES; q++)
-        for (p = rq->heads[q]; p; p = (Process *)(void *)p->p.p_next) {
-            if (p->s_cpu_usage < 255u) p->s_cpu_usage++;
+        for (p = rq->heads[q]; p; p = p->p_next) {
+            uiox_sched_proc_t *sp = SCHED_PROC(p);
+            if (sp->s_cpu_usage < 255u) sp->s_cpu_usage++;
         }
 
     /* ── Step 7: the once-per-second block ──────────────────────────

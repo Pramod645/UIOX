@@ -37,17 +37,17 @@
 #define MAX_TIMER_NODES  256
 
 static TimerNode  s_node_pool[MAX_TIMER_NODES];
-static uiox_uint8_t s_node_used[MAX_TIMER_NODES];   /* 0 = free, 1 = in use */
-static uiox_uint8_t s_pool_ready = 0;
+static uint8_t s_node_used[MAX_TIMER_NODES];   /* 0 = free, 1 = in use */
+static uint8_t s_pool_ready = 0;
 
 static void pool_init(void)
 {
-    uiox_uint32_t i;
+    uint32_t i;
     if (s_pool_ready) return;
 
     for (i = 0; i < MAX_TIMER_NODES; i++) {
-        uiox_uint8_t *p = (uiox_uint8_t *)&s_node_pool[i];
-        uiox_uint64_t n = sizeof(TimerNode);
+        uint8_t *p = (uint8_t *)&s_node_pool[i];
+        uint64_t n = sizeof(TimerNode);
         while (n--) *p++ = 0u;
         s_node_used[i] = 0u;
     }
@@ -56,13 +56,13 @@ static void pool_init(void)
 
 static TimerNode *node_alloc(void)
 {
-    uiox_uint32_t i;
+    uint32_t i;
     pool_init();
 
     for (i = 0; i < MAX_TIMER_NODES; i++) {
         if (!s_node_used[i]) {
-            uiox_uint8_t *p = (uiox_uint8_t *)&s_node_pool[i];
-            uiox_uint64_t n = sizeof(TimerNode);
+            uint8_t *p = (uint8_t *)&s_node_pool[i];
+            uint64_t n = sizeof(TimerNode);
             while (n--) *p++ = 0u;
             s_node_used[i] = 1u;
             return &s_node_pool[i];
@@ -73,13 +73,13 @@ static TimerNode *node_alloc(void)
 
 static void node_free(TimerNode *t)
 {
-    uiox_uint32_t i;
+    uint32_t i;
     if (!t) return;
 
     for (i = 0; i < MAX_TIMER_NODES; i++) {
         if (&s_node_pool[i] == t) {
-            uiox_uint8_t *p = (uiox_uint8_t *)t;
-            uiox_uint64_t n = sizeof(TimerNode);
+            uint8_t *p = (uint8_t *)t;
+            uint64_t n = sizeof(TimerNode);
             while (n--) *p++ = 0u;
             s_node_used[i] = 0u;
             return;
@@ -96,7 +96,7 @@ static TimerWheel wheel;
 /* ── timer_init ─────────────────────────────────────────────────────── */
 void timer_init(void)
 {
-    uiox_uint32_t i;
+    uint32_t i;
 
     pool_init();
 
@@ -115,7 +115,7 @@ void timer_init(void)
  * Which bucket a deadline falls in.  TVEC_SIZE is a power of two, so
  * the mask is the modulo — and a mask is what makes this safe when
  * expires has been advanced past a wrap of the tick counter. */
-static unsigned int tv1_index(uiox_uint64_t expires)
+static unsigned int tv1_index(uint64_t expires)
 {
     return (unsigned int)(expires & (TVEC_SIZE - 1));
 }
@@ -129,7 +129,7 @@ static unsigned int tv1_index(uiox_uint64_t expires)
  * Inserts at the head of the bucket.  Order within a bucket is
  * irrelevant because timer_run checks each deadline before firing, so a
  * stack is as correct as a sorted list and cheaper to maintain. */
-TimerNode *timer_add(uiox_uint64_t expires_jiffies,
+TimerNode *timer_add(uint64_t expires_jiffies,
                      void (*fn)(unsigned long), unsigned long data)
 {
     unsigned int idx;

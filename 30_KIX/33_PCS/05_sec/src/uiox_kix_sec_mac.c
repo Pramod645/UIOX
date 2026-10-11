@@ -20,8 +20,12 @@
  * @date    2026-10-02
  */
 #include "../include/uiox_kix_sec_mac.h"
+#include "uiox_base_types.h"    /* uiox_uintptr_t, uiox_uint64_t */
 #include "../include/uiox_kix_sec_aslr.h"   /* uiox_aslr_ctx_t — sys_aslr_status */
 #include "../include/uiox_kix_sec_sec.h"    /* uiox_sec_ctx_t — the global context */
+
+#include "uiox_base_types.h"    /* uiox_uintptr_t, uiox_uint64_t */
+
 
 
 extern void uiox_fw_printf(const char *fmt, ...);

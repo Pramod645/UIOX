@@ -48,7 +48,7 @@ int64_t uiox_kix_scpcs_brk(uiox_uint64_t new_brk)
 {
     uintptr_t old;
 
-    if (!uiox_kix_scps_current()) return SCPCS_ESRCH;
+    if (!uiox_kix_scpcs_current()) return SCPCS_ESRCH;
 
     /* the model is 32-bit; a wider request cannot be honoured and must
      * not be silently truncated into an address that is merely wrong */

@@ -38,7 +38,11 @@ typedef int32_t  intptr_t;
 typedef uint32_t size_t;
 #endif
 
+//typedef _Bool bool;
+#ifndef bool
 typedef _Bool bool;
+#endif
+
 
 #ifndef true
 # define true  1

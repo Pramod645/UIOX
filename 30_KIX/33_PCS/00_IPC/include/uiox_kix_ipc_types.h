@@ -61,8 +61,15 @@
 #ifndef UIOX_IPC_TYPES_H
 #define UIOX_IPC_TYPES_H
 
-#include "../include/uiox_klibc.h"
+#include "uiox_klibc.h"
 #include "uiox_kix_psa_process.h"   /* the ONE process type */
+#include "uiox_base_types.h"  /* uintptr_t, uint16_t, etc. */
+#include "uiox_kix_psa_proc_algo.h"  /* proc_sleep / proc_wakeup — declared at
+                                     * 40_psa/…/uiox_kix_psa_proc_algo.h:119,134,
+                                     * and line 13 of process.h says that is where
+                                     * they live.  00IPC calls them from ipc_sleep()
+                                     * and ipc_wakeup() in this header. */
+
 
 /* ── General IPC limits ─────────────────────────────────────────────
  * Unchanged.  Every one of these bounds a static table or pool, so a

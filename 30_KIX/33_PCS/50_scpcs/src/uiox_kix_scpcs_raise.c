@@ -31,7 +31,7 @@ extern uiox_kix_psa_proc_t *uiox_kix_psa_current_proc;
 
 int64_t uiox_kix_scpcs_raise(uiox_uint64_t sig)
 {
-    uiox_kix_psa_proc_t *p = uiox_kix_scps_current();
+    uiox_kix_psa_proc_t *p = uiox_kix_scpcs_current();
 
     if (!p) return SCPCS_ESRCH;
     if (sig == 0u || sig > (uiox_uint64_t)UIOX_KIX_PSA_NSIG)

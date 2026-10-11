@@ -65,6 +65,7 @@
 
 #include "uiox_klibc.h"
 #include "uiox_kix_psa_process.h"   /* uiox_kix_psa_proc_t, states, PZERO */
+#include "uiox_base_types.h"     /* uiox_uint64_t, uiox_uintptr_t */
 
 /* ── Return convention: int64, negative = error ──────────────────────
  * POSIX's own numbers, repeated here because the kernel builds

@@ -85,21 +85,21 @@
 #define UIOX_KIX_LOAD_ALPHA_15  999u   /* exp(-1/900) x 1000 */
 
 typedef struct uiox_kix_load_avg {
-    uiox_uint32_t la_1;    /* 1-minute,  scaled x1000 */
-    uiox_uint32_t la_5;    /* 5-minute,  scaled x1000 */
-    uiox_uint32_t la_15;   /* 15-minute, scaled x1000 */
+    uint32_t la_1;    /* 1-minute,  scaled x1000 */
+    uint32_t la_5;    /* 5-minute,  scaled x1000 */
+    uint32_t la_15;   /* 15-minute, scaled x1000 */
 } uiox_kix_load_avg_t;
 
 /* ── System statistics ───────────────────────────────────────────────
  * What the accounting collects about the machine as a whole.  Tick
  * counters are plain uiox_uint64_t: they only ever increase. */
 typedef struct uiox_kix_sys_stats {
-    uiox_uint64_t       ss_total_ticks;
-    uiox_uint64_t       ss_user_ticks;
-    uiox_uint64_t       ss_kernel_ticks;
-    uiox_uint64_t       ss_idle_ticks;
-    uiox_uint64_t       ss_wait_ticks;
-    uiox_uint32_t       ss_runnable;   /* processes ready or running */
+    uint64_t       ss_total_ticks;
+    uint64_t       ss_user_ticks;
+    uint64_t       ss_kernel_ticks;
+    uint64_t       ss_idle_ticks;
+    uint64_t       ss_wait_ticks;
+    uint32_t       ss_runnable;   /* processes ready or running */
     uiox_kix_load_avg_t ss_load_avg;   /* all three, actually updated */
 } uiox_kix_sys_stats_t;
 

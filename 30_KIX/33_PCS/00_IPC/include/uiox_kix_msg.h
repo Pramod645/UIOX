@@ -28,6 +28,9 @@
 #include "uiox_kix_ipc_types.h"           /* limits, IpcPerm, ipc_sleep/wakeup */
 #include "uiox_kix_psa_process.h" /* uiox_kix_psa_proc_t */
 
+#define MSG_NOERROR  010000
+
+
 /* ── Message ─────────────────────────────────────────────────────────
  * mtext is a fixed 512-byte array because the kernel stores nodes in a
  * static pool; a variable-length message would need a heap.  msize says

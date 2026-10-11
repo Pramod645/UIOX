@@ -86,7 +86,13 @@ typedef signed char         int8_t;
 typedef short               int16_t;
 typedef int                 int32_t;
 typedef long long           int64_t;
-typedef uint64_t            uintptr_t;
+//typedef uint64_t            uintptr_t;
+//#if defined(__aarch64__) || defined(__x86_64__) || defined(__riscv)
+#if __SIZEOF_POINTER__ == 8
+typedef uint64_t uintptr_t;
+#else
+typedef uint32_t uintptr_t;
+#endif
 typedef int64_t             intptr_t;
 typedef uint64_t            uintmax_t;
 typedef int64_t             intmax_t;

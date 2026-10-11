@@ -140,6 +140,10 @@
  long sys_kpatch_status(long name_ptr, long buf,   long a2, long a3);
  long sys_kpatch_list  (long buf,      long max,   long a2, long a3);
  
+ const char *uiox_kix_kp_state_name(uiox_kix_kp_state_t s);
+ const char *uiox_kix_kp_err_str(uiox_kix_kp_err_t e);
+ 
+
  #ifdef __cplusplus
  }
  #endif

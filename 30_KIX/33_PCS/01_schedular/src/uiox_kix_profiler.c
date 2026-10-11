@@ -39,6 +39,12 @@
 #include "../include/uiox_kix_profiler.h"
 #include "../include/uiox_kix_scheduler.h"   /* jiffies */
 
+#include "uiox_klibc.h"          /* §7 I/O: uiox_printf  (already added) */
+#include "uiox_base_types.h"     /* ADD BACK — uiox_uint64_t / uiox_uint32_t live here,
+                                  * 10_BSP/03_SoC/include/uiox_base_types.h:76,79 */
+#include "uiox_soc_stdio.h"      /* ADD — declares uiox_printf; BSP 03_SoC provides it */
+
+
 static Profiler    prof;
 static NmiWatchdog nmi_wd;
 
@@ -71,19 +77,19 @@ void profiler_init(bool kernel_on, bool user_on)
  * The PC values come from the arch trap handler.  This build passes
  * zero to both, which bins into bucket 0 — a visible "not wired yet"
  * signal rather than a silent one that would look like a cold spot. */
-void profiler_tick(uiox_uint64_t kernel_pc, uiox_uint64_t user_pc)
+void profiler_tick(uint64_t kernel_pc, uint64_t user_pc)
 {
     prof.total_samples++;
 
     if (prof.kernel_profiling) {
         unsigned int bucket =
-            (unsigned int)((kernel_pc >> 8) % (uiox_uint64_t)PROF_BUCKETS);
+            (unsigned int)((kernel_pc >> 8) % (uint64_t)PROF_BUCKETS);
         prof.kernel_hits[bucket]++;
     }
 
     if (prof.user_profiling) {
         unsigned int bucket =
-            (unsigned int)((user_pc >> 8) % (uiox_uint64_t)PROF_BUCKETS);
+            (unsigned int)((user_pc >> 8) % (uint64_t)PROF_BUCKETS);
         prof.user_hits[bucket]++;
     }
 
@@ -101,9 +107,9 @@ void profiler_tick(uiox_uint64_t kernel_pc, uiox_uint64_t user_pc)
  *
  * Returns -1 when every bucket is empty, which is how profiler_report
  * knows to stop rather than print a run of zeros. */
-static int pick_top(uiox_uint64_t *hits)
+static int pick_top(uint64_t *hits)
 {
-    uiox_uint64_t max_hits = 0u;
+    uint64_t max_hits = 0u;
     int           max_idx  = -1;
     int           b;
 
@@ -151,7 +157,7 @@ void profiler_report(int top_n)
 
 /* ── NMI watchdog ──────────────────────────────────────────────────── */
 
-void nmi_watchdog_enable(uiox_uint64_t freeze_threshold_ticks)
+void nmi_watchdog_enable(uint64_t freeze_threshold_ticks)
 {
     nmi_wd.enabled      = true;
     nmi_wd.threshold    = freeze_threshold_ticks;
@@ -166,7 +172,7 @@ void nmi_watchdog_enable(uiox_uint64_t freeze_threshold_ticks)
  * That is the useful behaviour for a fault that does not recover. */
 void nmi_watchdog_check(void)
 {
-    uiox_uint64_t elapsed;
+    uint64_t elapsed;
 
     if (!nmi_wd.enabled) return;
 

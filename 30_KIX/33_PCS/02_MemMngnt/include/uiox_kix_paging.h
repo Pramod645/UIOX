@@ -15,10 +15,26 @@
  * is what fixed the copy-on-write defect, since the two layers had
  * disagreed about what bit 0x010 meant.
  *
- * What is left here is (3): the shapes only THIS layer needs.  A region
- * page-table entry is two fields; the fault handler's is four, because
- * it also tracks what the frame is doing.  That difference is why the
- * two structs stay separate even though they share a bit set.
+ * ── what changed in 1.1.0 ───────────────────────────────────────────
+ * The local uiox_kix_pte_t and uiox_kix_fault_region_t are GONE.  This
+ * header used to define a second PTE and a second region type, described
+ * as "the fault handler's view" with extra fields.  That reading was
+ * wrong at the boundary: page_fault.c does not take a handler-private
+ * region, it takes 40_psa's uiox_kix_psa_pregion_t — the PRIVATE
+ * per-process attachment — and reaches the shared uiox_kix_psa_region_t
+ * through it.  Two structs describing one concept is the defect class
+ * this tree keeps producing, and it is what produced the 14
+ * conflicting-type errors: the .c used the psa_ vocabulary, this header
+ * declared a rival one, and neither ever met until the linker did.
+ *
+ * 40_psa OWNS the type.  uiox_kix_psa_region.h guards its PTE with
+ * UIOX_KIX_PSA_PTE_DEFINED so another header may include it safely —
+ * that guard exists for exactly this case, and this file now uses it
+ * instead of defining a rival.
+ *
+ * The handler's extra need — knowing what a FRAME is doing, not just
+ * what a mapping permits — lives on uiox_kix_pfdata_t, where it already
+ * did (pfd_content_valid), rather than on a duplicate PTE.
  *
  * ── what is NOT here ────────────────────────────────────────────────
  * No process type.  An earlier version of the paging code reached for a
@@ -29,7 +45,7 @@
  * Bach's Algorithm 3 (vfault) and Algorithm 4 (pfault).  Both are
  * declared below; the bodies are in page_fault.c.
  *
- * @version 1.0.0  @date 2026-09-29
+ * @version 1.1.0  @date 2026-10-11
  */
 #ifndef UIOX_KIX_PAGING_H
 #define UIOX_KIX_PAGING_H
@@ -37,27 +53,10 @@
 #include "uiox_klibc.h"
 #include "uiox_kix_pagemap.h"   /* geometry, flag bits, page_state_t */
 
-/* ── Page-table entry — the FAULT HANDLER's view ─────────────────────
- * Four fields, where 40_psa's region entry has two.  The extra pair is
- * what makes this struct the handler's rather than the region's:
- *
- *   pte_pfn    the frame this entry points at
- *   pte_flags  bits from uiox_kix_pagemap.h — NOT defined here
- *   pte_state  what the frame is doing (free / filling / on swap /
- *              locked), which is a different question from what the
- *              mapping permits
- *
- * The name is deliberately the SAME as 40_psa's only in spelling, not in
- * definition — the two are guarded apart so a translation unit holding
- * both compiles. */
-#ifndef UIOX_KIX_PAGING_PTE_DEFINED
-#define UIOX_KIX_PAGING_PTE_DEFINED
-typedef struct uiox_kix_pte {
-    uint32_t     pte_pfn;
-    uint16_t     pte_flags;
-    page_state_t pte_state;
-} uiox_kix_pte_t;
-#endif
+/* 40_psa owns the PTE.  The guard UIOX_KIX_PSA_PTE_DEFINED means this
+ * include is safe here and in every translation unit that also reaches
+ * uiox_kix_psa_region.h directly. */
+#include "uiox_kix_psa_region.h"
 
 /* ── Disk block descriptor ───────────────────────────────────────────
  * Where a page's contents actually live when they are not in memory.
@@ -82,37 +81,21 @@ typedef struct uiox_kix_disk_blk_desc {
  *
  * pfd_pte is a back-pointer to the entry, so an eviction can find what
  * referenced the frame.  pfd_on_hash reports whether the frame is
- * currently linked into the hash below. */
+ * currently linked into the hash below.
+ *
+ * pfd_content_valid carries the "what is this FRAME doing" question that
+ * an earlier version of this header tried to answer with a duplicate PTE
+ * and a pte_state field.  It belongs here: a frame's currency is a
+ * property of the frame, not of any one mapping that points at it. */
 typedef struct uiox_kix_pfdata {
     int                         pfd_valid;          /* frame is assigned    */
     uint16_t                    pfd_refcnt;         /* how many PTEs point  */
     uint32_t                    pfd_pfn;            /* its frame number     */
-    uiox_kix_pte_t             *pfd_pte;            /* back-pointer         */
+    uiox_kix_psa_pte_t         *pfd_pte;            /* back-pointer         */
     int                         pfd_on_hash;        /* linked into pc_hash  */
     struct uiox_kix_pfdata     *pfd_hash_next;      /* bucket chain         */
     int                         pfd_content_valid;  /* contents are current */
 } uiox_kix_pfdata_t;
-
-/* ── Fault region ────────────────────────────────────────────────────
- * A region as the FAULT HANDLER sees it: where it starts, how big it is,
- * whether it is locked, and its page table.
- *
- * This is not 40_psa's uiox_kix_psa_region_t.  That one carries a
- * reference count and file backing because it is the SHARED object; this
- * one carries fr_locked because the handler must lock the region while
- * it works — Bach: "lock region to prevent race conditions that would
- * occur if the page stealer attempted to swap the page out".
- *
- * A future pass should make one derive from the other rather than
- * describe it twice.  Until then the distinction is stated so a reader
- * knows which of the two they are holding. */
-typedef struct uiox_kix_fault_region {
-    uintptr_t           fr_vaddr_start;   /* base address               */
-    uint32_t            fr_size;          /* bytes                      */
-    int                 fr_locked;        /* 1 = handler is working on it */
-    uiox_kix_pte_t     *fr_pgtbl;         /* the page table             */
-    uint32_t            fr_npages;        /* entries in fr_pgtbl        */
-} uiox_kix_fault_region_t;
 
 /* ── Page cache ──────────────────────────────────────────────────────
  * A hash of resident frames, bucketed by frame number.  Bach's vfault
@@ -146,31 +129,34 @@ extern uiox_kix_free_page_list_t   uiox_kix_free_pages;
 
 /* ── The fault handler ───────────────────────────────────────────────
  * Bach's Algorithm 3 and Algorithm 4.  Both take the address that
- * faulted and the region it falls in; neither returns a value, because
- * a resolved fault resumes the process where it was and an unresolved
- * one signals it. */
+ * faulted and the PROCESS'S ATTACHMENT to the region it falls in —
+ * 40_psa's uiox_kix_psa_pregion_t, the private half — and reach the
+ * shared uiox_kix_psa_region_t through its pr_region field.
+ *
+ * Neither returns a value, because a resolved fault resumes the process
+ * where it was and an unresolved one signals it. */
 
 /* Algorithm 3 — validity fault.  A page in the address space with no
  * frame assigned: bring it in from swap or a file, or from nothing if
  * it is demand-zero. */
-void uiox_kix_vfault(uintptr_t faulted_addr, uiox_kix_fault_region_t *region);
+void uiox_kix_vfault(uintptr_t faulted_addr, uiox_kix_psa_pregion_t *region);
 
 /* Algorithm 4 — protection fault.  A VALID page accessed against its
  * permissions.  The one legal case is a write to a copy-on-write page,
  * which is what fork leaves behind; anything else is a real error. */
-void uiox_kix_pfault(uintptr_t faulted_addr, uiox_kix_fault_region_t *region);
+void uiox_kix_pfault(uintptr_t faulted_addr, uiox_kix_psa_pregion_t *region);
 
 /* ── Helpers the two handlers share ─────────────────────────────────── */
 
 /* Locate the page-table entry for an address, or NULL when the address
  * is outside the region — the first legality test either handler makes. */
-uiox_kix_pte_t *uiox_kix_find_pte(uiox_kix_fault_region_t *region,
-                                  uintptr_t vaddr);
+uiox_kix_psa_pte_t *uiox_kix_find_pte(uiox_kix_psa_pregion_t *region,
+                                      uintptr_t vaddr);
 
 /* The disk block descriptor for an entry, or NULL when there is no
  * record — which is what makes a reference invalid rather than merely
  * unloaded. */
-uiox_kix_disk_blk_desc_t *uiox_kix_find_dbd(uiox_kix_pte_t *pte);
+uiox_kix_disk_blk_desc_t *uiox_kix_find_dbd(uiox_kix_psa_pte_t *pte);
 
 /* Frame lookup and cache maintenance. */
 uiox_kix_pfdata_t *uiox_kix_find_in_cache(uint32_t pfn);
@@ -184,22 +170,33 @@ void               uiox_kix_free_physical_page(uint32_t pfn);
 /* Content transfer.  Both set pfd_content_valid on success; a real
  * kernel sleeps on the I/O, which needs a waker this build does not
  * have yet. */
-int uiox_kix_read_page_from_swap(uiox_kix_pte_t *pte, uiox_kix_pfdata_t *pfd);
-int uiox_kix_read_page_from_file(uiox_kix_pte_t *pte, uiox_kix_pfdata_t *pfd);
+int uiox_kix_read_page_from_swap(uiox_kix_psa_pte_t *pte, uiox_kix_pfdata_t *pfd);
+int uiox_kix_read_page_from_file(uiox_kix_psa_pte_t *pte, uiox_kix_pfdata_t *pfd);
 void uiox_kix_free_swap_block(uint32_t blk);
 
 /* Region locking, held across a handler so a page stealer cannot
- * intervene. */
-void uiox_kix_region_lock  (uiox_kix_fault_region_t *r);
-void uiox_kix_region_unlock(uiox_kix_fault_region_t *r);
+ * intervene.
+ *
+ * The lock lives on the SHARED region as uiox_kix_psa_region_t.r_status,
+ * bit UIOX_KIX_PSA_REG_LOCKED — not on the attachment.  Two processes
+ * faulting on one region must contend for ONE lock; a per-attachment
+ * lock would let both proceed into the same page table.  The attachment
+ * parameter is kept because a caller holds an attachment, not a region. */
+void uiox_kix_region_lock  (uiox_kix_psa_pregion_t *r);
+void uiox_kix_region_unlock(uiox_kix_psa_pregion_t *r);
 
 /* Deliver SIGSEGV to the running process.  Bach's both handlers reach
  * this when the fault is not legal. */
 void uiox_kix_send_sigsegv(void);
 
 /* Recalculate the faulting process's priority — Bach's Algorithms 3 and
- * 4 both end with "recalculate process priority". */
-void uiox_kix_recalc_priority_after_fault(void);
+ * 4 both end with "recalculate process priority".
+ *
+ * Takes the attachment (v1.1.0 — the parameter was dropped at some point
+ * after 1.0.0, leaving the declaration at (void) while the definition in
+ * page_fault.c kept the argument).  Recalculate the priority OF THE
+ * FAULTING PROCESS, so the argument is not optional. */
+void uiox_kix_recalc_priority_after_fault(uiox_kix_psa_pregion_t *region);
 
 /* Bring the paging system up: zero the descriptors, seed the free list
  * with every frame.  Called once, before any fault can occur. */

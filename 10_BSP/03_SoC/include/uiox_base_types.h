@@ -1,5 +1,5 @@
 /**
- * @file    uiox_basetypes.h
+ * @file    uiox_base_types.h
  * @brief   UIOX bare-metal base types.
  *
  * Replaces <stdint.h>, <stdbool.h>, and <stddef.h> with

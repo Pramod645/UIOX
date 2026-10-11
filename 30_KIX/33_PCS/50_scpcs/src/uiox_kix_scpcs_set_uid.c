@@ -37,7 +37,7 @@
 
 int64_t uiox_kix_scpcs_set_uid(uiox_uint64_t uid)
 {
-    uiox_kix_psa_proc_t *p = uiox_kix_scps_current();
+    uiox_kix_psa_proc_t *p = uiox_kix_scpcs_current();
     uiox_uint32_t        u;
 
     if (!p) return SCPCS_ESRCH;

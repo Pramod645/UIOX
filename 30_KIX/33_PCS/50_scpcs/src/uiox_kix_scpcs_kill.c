@@ -42,7 +42,7 @@ extern uiox_kix_psa_proc_t *uiox_kix_psa_proc_find(uiox_uint32_t pid);
 
 int64_t uiox_kix_scpcs_kill(uiox_uint64_t pid, uiox_uint64_t sig)
 {
-    if (!uiox_kix_scps_current()) return SCPCS_ESRCH;
+    if (!uiox_kix_scpcs_current()) return SCPCS_ESRCH;
 
     /* Signal 0 is POSIX's existence check, not a signal to deliver.
      * Refusing it keeps the return value meaningful rather than

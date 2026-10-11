@@ -35,6 +35,8 @@
  */
 #include "../include/uiox_kix_scheduler.h"
 
+#include "uiox_soc_stdio.h"      /* ADD — declares uiox_printf; BSP 03_SoC provides it */
+
 /* ── Global state ────────────────────────────────────────────────────── */
 static RunQueue              rq;
 static uiox_sched_proc_t    *s_current = (uiox_sched_proc_t *)0;

@@ -45,11 +45,11 @@ int64_t uiox_kix_scpcs_execve(uiox_uintptr_t path, uiox_uintptr_t argv,
     (void)argv;   /* NULL is legal and nothing dereferences it */
     (void)envp;
 
-    if (!uiox_kix_scps_current()) return SCPCS_ESRCH;
+    if (!uiox_kix_scpcs_current()) return SCPCS_ESRCH;
 
     /* one byte, byte-aligned: just enough to prove the string is
      * inside the user window */
-    if (uiox_kix_scps_check_user_ptr(path, 1u, 1u) != 0) return SCPCS_EFAULT;
+    if (uiox_kix_scpcs_check_user_ptr(path, 1u, 1u) != 0) return SCPCS_EFAULT;
 
     return SCPCS_ENOSYS;
 }

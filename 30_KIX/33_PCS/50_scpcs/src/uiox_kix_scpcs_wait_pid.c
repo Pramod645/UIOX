@@ -60,11 +60,11 @@ int64_t uiox_kix_scpcs_wait_pid(uiox_uint64_t pid, uiox_uintptr_t status_out,
 
     (void)options;   /* WNOHANG and WUNTRACED are not modelled */
 
-    if (!uiox_kix_scps_current()) return SCPCS_ESRCH;
+    if (!uiox_kix_scpcs_current()) return SCPCS_ESRCH;
     if (pid > 0x7FFFFFFFu) return SCPCS_EINVAL;
 
     if (status_out != 0u) {
-        if (uiox_kix_scps_check_user_ptr(status_out, sizeof(int), 4u) != 0)
+        if (uiox_kix_scpcs_check_user_ptr(status_out, sizeof(int), 4u) != 0)
             return SCPCS_EFAULT;
         return SCPCS_EFAULT;   /* no copy_to_user to complete it */
     }

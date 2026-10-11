@@ -15,7 +15,7 @@
  */
 #include "../include/uiox_kix_scpcs.h"
 
-int64_t uiox_kix_scps_get_egid(void)
+int64_t uiox_kix_scpcs_get_egid(void)
 {
     uiox_kix_psa_proc_t *p = uiox_kix_scpcs_current();
 

@@ -41,7 +41,13 @@
  *
  * @version 3.0.0  @date 2026-09-29
  */
+//#include "../include/uiox_kix_swap.h"
+
 #include "../include/uiox_kix_swap.h"
+#include "uiox_base_types.h"     /* uiox_uint32_t */
+
+#include "sched_types.h"
+
 
 /* ── Globals ────────────────────────────────────────────────────────── */
 uiox_kix_swap_device_t uiox_kix_swap_device;
@@ -78,7 +84,7 @@ int                    uiox_kix_swapper_sleep = 0;
  *
  * Returns the original address, or 0.  Zero is safe as failure because
  * a map's first unit is never handed out. */
-uiox_uint32_t uiox_kix_map_malloc(uiox_kix_res_map_t *map, uiox_uint32_t units)
+uint32_t uiox_kix_map_malloc(uiox_kix_res_map_t *map, uint32_t units)
 {
     int i;
 
@@ -86,7 +92,7 @@ uiox_uint32_t uiox_kix_map_malloc(uiox_kix_res_map_t *map, uiox_uint32_t units)
 
     for (i = 0; i < map->rm_nentries; i++) {
         uiox_kix_map_entry_t *e = &map->rm_entries[i];
-        uiox_uint32_t         addr;
+        uint32_t         addr;
 
         if (!e->me_valid) continue;
         if (e->me_size < units) continue;
@@ -121,8 +127,8 @@ uiox_uint32_t uiox_kix_map_malloc(uiox_kix_res_map_t *map, uiox_uint32_t units)
  * extent may touch either side, and merging is not order-dependent
  * because a merged extent is re-examined through the updated slot
  * variables. */
-void uiox_kix_map_free(uiox_kix_res_map_t *map, uiox_uint32_t addr,
-                       uiox_uint32_t units)
+void uiox_kix_map_free(uiox_kix_res_map_t *map, uint32_t addr,
+                       uint32_t units)
 {
     int i;
     int slot = -1;
@@ -172,7 +178,7 @@ void uiox_kix_map_free(uiox_kix_res_map_t *map, uiox_uint32_t addr,
 /* ── uiox_kix_map_init ───────────────────────────────────────────────
  * Seed a map with one extent covering the whole resource. */
 void uiox_kix_map_init(uiox_kix_res_map_t *map, const char *name,
-                       uiox_uint32_t start, uiox_uint32_t total_units)
+                       uint32_t start, uint32_t total_units)
 {
     int i;
 
@@ -219,7 +225,7 @@ int uiox_kix_enough_memory_for(uiox_kix_psa_proc_t *p)
  * Returns 0, or -1 when the map cannot supply a contiguous run. */
 int uiox_kix_swap_out_process(uiox_kix_psa_proc_t *p)
 {
-    uiox_uint32_t i, blk;
+    uint32_t i, blk;
 
     if (!p) return -1;
 
@@ -237,7 +243,7 @@ int uiox_kix_swap_out_process(uiox_kix_psa_proc_t *p)
     uiox_kix_swap_device.sd_free_blocks -= p->p_size;
     uiox_kix_phys_mem.pm_free_pages     += (int)p->p_size;
 
-    for (i = 0; i < p->p_size && i < (uiox_uint32_t)UIOX_PHYS_PAGES; i++)
+    for (i = 0; i < p->p_size && i < (uint32_t)UIOX_PHYS_PAGES; i++)
         uiox_kix_phys_mem.pm_used[i] = 0u;
 
     /* Bach's two state moves out:
@@ -250,7 +256,8 @@ int uiox_kix_swap_out_process(uiox_kix_psa_proc_t *p)
     else if (p->p_state == UIOX_KIX_PSA_PROC_SLEEP_MEM)
         (void)uiox_kix_psa_proc_set_state(p, UIOX_KIX_PSA_PROC_SLEEP_SWAPPED);
 
-    p->p_swap_time = uiox_kix_clock_ticks;
+    //p->p_swap_time = uiox_kix_clock_ticks;
+    p->p_swap_time = jiffies;
     p->p_flag     &= ~UIOX_KIX_PSA_P_LOADED;
 
     return 0;
@@ -285,7 +292,7 @@ int uiox_kix_swap_in_process(uiox_kix_psa_proc_t *p)
      * is free while sd_used still marks it is the mismatch this file's
      * banner says to look for first. */
     if (p->p_swap_blk != 0u) {
-        uiox_uint32_t b;
+        uint32_t b;
 
         for (b = p->p_swap_blk;
              b < p->p_swap_blk + p->p_size && b < UIOX_KIX_SWAP_BLOCKS; b++)

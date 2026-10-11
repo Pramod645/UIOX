@@ -36,8 +36,10 @@
  * @version 3.0.0  @date 2026-09-29
  */
 
-#include "../../../../50_UIX/00_libs/00_uixlibs/sys/uix_types.h"
+//#include "../../../../50_UIX/00_libs/00_uixlibs/sys/uix_types.h"
 #include "uiox_kix_pagemap.h"   /* UIOX_PAGE_SHIFT, UIOX_PAGE_SIZE, MASK */
+#include "uiox_base_types.h"     /* uiox_uint8_t … uiox_uint64_t, uiox_uintptr_t */
+
 
 /* ── Pointer <-> integer transit ─────────────────────────────────────
  * memcpy rather than a cast, and on arm32 that is not a style choice.

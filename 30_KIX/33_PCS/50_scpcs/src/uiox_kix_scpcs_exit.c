@@ -49,7 +49,7 @@ extern int kernel_exit(int status);
 
 int64_t uiox_kix_scpcs_exit(uiox_uint64_t exit_code)
 {
-    uiox_kix_psa_proc_t *p = uiox_kix_scps_current();
+    uiox_kix_psa_proc_t *p = uiox_kix_scpcs_current();
 
     if (!p) return SCPCS_ESRCH;
     if (exit_code > 0xFFu) return SCPCS_EINVAL;   /* status is 8 bits */

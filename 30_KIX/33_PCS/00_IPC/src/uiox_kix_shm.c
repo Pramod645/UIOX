@@ -29,7 +29,7 @@
  */
 #include "../include/uiox_kix_shm.h"
 #include "uiox_klibc.h"
-
+#include "uiox_kix_pagemap.h"
 /* Wall clock, maintained by 01_schedular's timekeeping. */
 extern volatile uiox_uint64_t jiffies;
 

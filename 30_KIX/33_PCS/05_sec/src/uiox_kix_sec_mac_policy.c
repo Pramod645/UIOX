@@ -22,7 +22,11 @@
  * @date    2026-10-02
  */
 #include "../include/uiox_kix_sec_mac_policy.h"
+#include "uiox_base_types.h"    /* uiox_uintptr_t, uiox_uint64_t */
 #include "uiox_kix_ksign_crypto.h"   /* uiox_ks_sha256 — the policy hash */
+
+#include "uiox_base_types.h"    /* uiox_uintptr_t, uiox_uint64_t */
+
 
 extern void uiox_fw_printf(const char *fmt, ...);
 

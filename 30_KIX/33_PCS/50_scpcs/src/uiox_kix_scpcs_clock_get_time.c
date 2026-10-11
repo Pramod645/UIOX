@@ -53,13 +53,13 @@ int64_t uiox_kix_scpcs_clock_get_time(uiox_uint64_t clock_id,
         clock_id != (uiox_uint64_t)SCPCS_CLOCK_MONOTONIC)
         return SCPCS_EINVAL;
 
-    if (!uiox_kix_scps_current()) return SCPCS_ESRCH;
+    if (!uiox_kix_scpcs_current()) return SCPCS_ESRCH;
 
     /* A named output buffer is validated even though it cannot be
      * written: refusing a bad address is still the right answer, and it
      * keeps this consistent with the rest of the layer. */
     if (out != 0u) {
-        if (uiox_kix_scps_check_user_ptr(out, sizeof(scps_xtime_t), 8u) != 0)
+        if (uiox_kix_scpcs_check_user_ptr(out, sizeof(scps_xtime_t), 8u) != 0)
             return SCPCS_EFAULT;
     }
 

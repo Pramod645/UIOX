@@ -57,7 +57,7 @@
 
 int64_t uiox_kix_scpcs_fork(void)
 {
-    if (!uiox_kix_scps_current()) return SCPCS_ESRCH;
+    if (!uiox_kix_scpcs_current()) return SCPCS_ESRCH;
 
     /* The callee returns 0 to parent AND child, so its value cannot be
      * used as a PID. */

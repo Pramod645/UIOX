@@ -80,10 +80,17 @@
  * @version 3.0.0  @date 2026-09-29
  */
 #include "../include/uiox_kix_scpcs.h"
-#include "uix_sys.h"                 /* the BSD numbers               */
+//#include "uix_sys.h"                 /* the BSD numbers               */
 #include "uiox_kix_psa_context.h"    /* reg context, by pointer only  */
+//#include "../include/uiox_kix_scpcs.h"
+/* The BSD numbers are LOCAL.  40_SCIX is the boundary ABOVE this layer;
+ * reaching up to it inverted the call direction.  See the header. */
+#include "uiox_kix_scpcs_numbers.h"  /* the BSD numbers, local        */
 
-#define UIOX_KIX_SCPCS_NR_MAX 256
+#include "uiox_base_types.h"     /* uiox_uint64_t, uiox_uintptr_t */
+
+
+#define UIOX_KIX_SCPCS_NR_MAX 348
 
 /* ── The 33_PCS/01_schedular timing entry points ─────────────────────
  * Declared rather than included: this file must not drag the
@@ -112,7 +119,7 @@ extern int   uiox_kix_time_service_clock_gettime(int id, void *out);
  *
  * The System V calls take a key and flags, not a process; the three that
  * DO touch a process entry take the ones the wrappers resolve from
- * uiox_kix_scps_current(). */
+ * uiox_kix_scpcs_current(). */
 extern int      uiox_kix_msg_get(int key, int flag);
 extern int      uiox_kix_msg_ctl(int msgqid, int cmd, void *buf);
 extern int      uiox_kix_msg_snd(int msgqid, const void *msg,
@@ -186,7 +193,7 @@ static int64_t scpcs_bind_2(void *fn, uiox_uintptr_t a0, uiox_uintptr_t a1,
 {
     int64_t (*f)(uiox_uint64_t, uiox_uintptr_t) =
         (int64_t (*)(uiox_uint64_t, uiox_uintptr_t))fn;
-    (void)a2; (void)a3; (void)a4; (void)a5;
+    (void)a0; (void)a2; (void)a3; (void)a4; (void)a5;
     return f((uiox_uint64_t)a0, a1);
 }
 
@@ -228,7 +235,7 @@ SCPCS_ADAPTER(scpcs_call_brk,      uiox_kix_scpcs_brk,      1)
 SCPCS_ADAPTER(scpcs_call_set_uid,  uiox_kix_scpcs_set_uid,  1)
 SCPCS_ADAPTER(scpcs_call_nice,     uiox_kix_scpcs_nice,     1)
 SCPCS_ADAPTER(scpcs_call_times,    uiox_kix_scpcs_times,    1)
-SCPCS_ADAPTER(scpcs_call_raise,    uiox_kix_scpcs_raise,    1)
+/*SCPCS_ADAPTER(scpcs_call_raise,    uiox_kix_scpcs_raise,    1)*/
 SCPCS_ADAPTER(scpcs_call_sig_pending, uiox_kix_scpcs_sig_pending, 1)
 SCPCS_ADAPTER(scpcs_call_alarm,    uiox_kix_scpcs_alarm,    1)
 
@@ -265,7 +272,7 @@ static int64_t scpcs_call_gettimeofday(uiox_uintptr_t a0, uiox_uintptr_t a1,
                                        uiox_uintptr_t a2, uiox_uintptr_t a3,
                                        uiox_uintptr_t a4, uiox_uintptr_t a5)
 {
-    (void)a2; (void)a3; (void)a4; (void)a5;
+    (void)a0; (void)a2; (void)a3; (void)a4; (void)a5;
 
     if (a0 == 0u) return SCPCS_EFAULT;
     if (uiox_kix_scpcs_check_user_ptr(a0, sizeof(scpcs_timeval_view_t), 8u))
@@ -325,9 +332,9 @@ static int64_t scpcs_call_clock_settime(uiox_uintptr_t a0, uiox_uintptr_t a1,
 {
     uiox_kix_psa_proc_t *p;
 
-    (void)a2; (void)a3; (void)a4; (void)a5;
+    (void)a0; (void)a2; (void)a3; (void)a4; (void)a5;
 
-    p = uiox_kix_scps_current();
+    p = uiox_kix_scpcs_current();
     if (!p) return SCPCS_ESRCH;
 
     if (a1 == 0u) return SCPCS_EFAULT;
@@ -356,9 +363,9 @@ static int64_t scpcs_call_adjtimex(uiox_uintptr_t a0, uiox_uintptr_t a1,
     uiox_kix_psa_proc_t *p;
     int32_t              nsec = (int32_t)a1;
 
-    (void)a2; (void)a3; (void)a4; (void)a5;
+    (void)a0; (void)a2; (void)a3; (void)a4; (void)a5;
 
-    p = uiox_kix_scps_current();
+    p = uiox_kix_scpcs_current();
     if (!p) return SCPCS_ESRCH;
     if (p->p_euid != 0u) return SCPCS_EPERM;
 
@@ -379,7 +386,7 @@ static int64_t scpcs_call_clock_getres(uiox_uintptr_t a0, uiox_uintptr_t a1,
                                        uiox_uintptr_t a2, uiox_uintptr_t a3,
                                        uiox_uintptr_t a4, uiox_uintptr_t a5)
 {
-    (void)a2; (void)a3; (void)a4; (void)a5;
+    (void)a0; (void)a2; (void)a3; (void)a4; (void)a5;
 
     if (a1 == 0u) return SCPCS_EFAULT;
     if (uiox_kix_scpcs_check_user_ptr(a1, sizeof(scpcs_xtime_view_t), 8u))
@@ -400,9 +407,9 @@ static int64_t scpcs_call_getitimer(uiox_uintptr_t a0, uiox_uintptr_t a1,
 {
     uiox_kix_psa_proc_t *p;
 
-    (void)a2; (void)a3; (void)a4; (void)a5;
+    (void)a0; (void)a2; (void)a3; (void)a4; (void)a5;
 
-    p = uiox_kix_scps_current();
+    p = uiox_kix_scpcs_current();
     if (!p) return SCPCS_ESRCH;
 
     if (a1 == 0u) return SCPCS_EFAULT;
@@ -424,7 +431,7 @@ static int64_t scpcs_call_msg_get(uiox_uintptr_t a0, uiox_uintptr_t a1,
                                   uiox_uintptr_t a2, uiox_uintptr_t a3,
                                   uiox_uintptr_t a4, uiox_uintptr_t a5)
 {
-    (void)a2; (void)a3; (void)a4; (void)a5;
+    (void)a0; (void)a2; (void)a3; (void)a4; (void)a5;
     return (int64_t)uiox_kix_msg_get((int)a0, (int)a1);
 }
 
@@ -444,13 +451,13 @@ static int64_t scpcs_call_msg_snd(uiox_uintptr_t a0, uiox_uintptr_t a1,
                                   uiox_uintptr_t a2, uiox_uintptr_t a3,
                                   uiox_uintptr_t a4, uiox_uintptr_t a5)
 {
-    (void)a4; (void)a5;
-    if (!uiox_kix_scps_current()) return SCPCS_ESRCH;
+    (void)a3; (void)a4; (void)a5;
+    if (!uiox_kix_scpcs_current()) return SCPCS_ESRCH;
     if (a1 == 0u) return SCPCS_EFAULT;
     if (uiox_kix_scpcs_check_user_ptr(a1, 8u, 8u)) return SCPCS_EFAULT;
     return (int64_t)uiox_kix_msg_snd((int)a0, (void *)(uintptr_t)a1,
                                      (uiox_size_t)a2, (int)a3,
-                                     (void *)uiox_kix_scps_current());
+                                     (void *)uiox_kix_scpcs_current());
 }
 
 static int64_t scpcs_call_msg_rcv(uiox_uintptr_t a0, uiox_uintptr_t a1,
@@ -458,12 +465,12 @@ static int64_t scpcs_call_msg_rcv(uiox_uintptr_t a0, uiox_uintptr_t a1,
                                   uiox_uintptr_t a4, uiox_uintptr_t a5)
 {
     (void)a5;
-    if (!uiox_kix_scps_current()) return SCPCS_ESRCH;
+    if (!uiox_kix_scpcs_current()) return SCPCS_ESRCH;
     if (a1 == 0u) return SCPCS_EFAULT;
     if (uiox_kix_scpcs_check_user_ptr(a1, 8u, 8u)) return SCPCS_EFAULT;
     return (int64_t)uiox_kix_msg_rcv((int)a0, (void *)(uintptr_t)a1,
                                      (uiox_size_t)a2, (long)a3, (int)a4,
-                                     (void *)uiox_kix_scps_current());
+                                     (void *)uiox_kix_scpcs_current());
 }
 
 static int64_t scpcs_call_sem_get(uiox_uintptr_t a0, uiox_uintptr_t a1,
@@ -478,7 +485,7 @@ static int64_t scpcs_call_sem_ctl(uiox_uintptr_t a0, uiox_uintptr_t a1,
                                   uiox_uintptr_t a2, uiox_uintptr_t a3,
                                   uiox_uintptr_t a4, uiox_uintptr_t a5)
 {
-    (void)a4; (void)a5;
+    (void)a3; (void)a4; (void)a5;
     return (int64_t)uiox_kix_sem_ctl((int)a0, (int)a1, (int)a2, (int)a3);
 }
 
@@ -486,7 +493,7 @@ static int64_t scpcs_call_sem_op(uiox_uintptr_t a0, uiox_uintptr_t a1,
                                  uiox_uintptr_t a2, uiox_uintptr_t a3,
                                  uiox_uintptr_t a4, uiox_uintptr_t a5)
 {
-    uiox_kix_psa_proc_t *p = uiox_kix_scps_current();
+    uiox_kix_psa_proc_t *p = uiox_kix_scpcs_current();
     (void)a3; (void)a4; (void)a5;
 
     if (!p) return SCPCS_ESRCH;
@@ -512,7 +519,7 @@ static int64_t scpcs_call_shm_at(uiox_uintptr_t a0, uiox_uintptr_t a1,
                                  uiox_uintptr_t a4, uiox_uintptr_t a5)
 {
     void *va;
-    (void)a4; (void)a5;
+    (void)a3; (void)a4; (void)a5;
 
     /* shmat is variadic through this boundary: the SysV form takes a
      * caller-owned attach table, which a syscall has no way to pass.
@@ -550,7 +557,7 @@ static int64_t scpcs_call_ptrace(uiox_uintptr_t a0, uiox_uintptr_t a1,
                                  uiox_uintptr_t a2, uiox_uintptr_t a3,
                                  uiox_uintptr_t a4, uiox_uintptr_t a5)
 {
-    (void)a4; (void)a5;
+    (void)a3; (void)a4; (void)a5;
     if (a4 != 0u &&
         uiox_kix_scpcs_check_user_ptr(a4, sizeof(uiox_uint64_t), 8u))
         return SCPCS_EFAULT;
@@ -590,6 +597,7 @@ static const uiox_kix_scpcs_entry_t
     [SYS_SETUID]          = { scpcs_call_set_uid,        "setuid"         },
     [SYS_GETUID]          = { scpcs_call_get_uid,        "getuid"         },
     [SYS_GETEUID]         = { scpcs_call_get_euid,       "geteuid"        },
+    [SYS_GETEGID]         = { scpcs_call_get_egid,       "getegid"        },
     [SYS_SIGACTION]       = { scpcs_call_sig_action,     "sigaction"      },
     [SYS_GETGID]          = { scpcs_call_get_gid,        "getgid"         },
     [SYS_SIGPROCMASK]     = { scpcs_call_sig_procmask,   "sigprocmask"    },

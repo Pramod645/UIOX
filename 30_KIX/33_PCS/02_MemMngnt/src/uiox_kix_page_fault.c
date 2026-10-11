@@ -4,22 +4,26 @@
  * Bach's Algorithm 3 (vfault) and Algorithm 4 (pfault) — the two memory
  * fault handlers.
  *
- * ── one region type, not two ────────────────────────────────────────
- * An earlier version had fault_region_t — the handler's view of a region
- * — alongside 40_psa's uiox_kix_psa_region_t, the shared object.  Two
- * structs describing overlapping things is the defect class this tree
- * keeps producing, so there is now ONE: uiox_kix_psa_region_t, extended
- * with fr_locked's equivalent.
+ * ── one region type, one pte type ───────────────────────────────────
+ * An earlier version had fault_region_t and a second uiox_kix_pte_t
+ * alongside 40_psa's region and pte.  Two structs describing
+ * overlapping things is the defect class this tree keeps producing, so
+ * there is now ONE of each: uiox_kix_psa_region_t with
+ * uiox_kix_psa_pregion_t beside it, and uiox_kix_psa_pte_t.
  *
- * The handler needs four things from a region: where it starts
- * (r_vaddr), how many pages (r_npages), its page table (r_pgtbl), and a
- * lock.  The first three were already there; the lock is r_locked, added
- * for this handler because Bach requires it:
+ * ── what the handler needs, and where each thing lives ──────────────
+ *   where the region starts   pr->pr_vaddr      (per-process)
+ *   how many pages            pr->pr_region->r_npages
+ *   the page table            pr->pr_region->r_pgtbl
+ *   a lock                    pr->pr_locked     (per-process)
  *
- *   "lock region to prevent race conditions that would occur if the page
- *    stealer attempted to swap the page out"
+ * The base and the lock are per-ATTACHMENT, not per-region.  Two
+ * processes may map one region at different addresses, and a fault is
+ * one process's business — locking a shared region would block the
+ * other for no reason.  This is why the handler takes a pregion and not
+ * a region.
  *
- * ── the two faults, and why they are separate handlers ──────────────
+ * ── the two faults ──────────────────────────────────────────────────
  * Bach distinguishes them because the LEGALITY test differs:
  *
  *   vfault  the page has no frame assigned.  Legal iff the address is
@@ -31,31 +35,30 @@
  *           which is what fork leaves behind.
  *
  * ── the copy-on-write defect, and that it is now closed ─────────────
- * A child writes to a page it shares with its parent.  fork's dupreg set
- * the COW bit; pfault tests it; the frame is copied; the child proceeds.
- *
- * That last sequence did NOT work before this pass.  dupreg set 0x010 as
- * its COW bit, while this handler tested 0x020 — so the test failed, the
- * handler took the "real program error" branch, and the child died on its
- * first write.  Both sides now read PTE_COW from uiox_kix_pagemap.h.
+ * dupreg sets PTE_COW; pfault tests it; the frame is copied.  Before
+ * this pass dupreg set 0x010 while this handler tested 0x020 — the test
+ * failed, the handler signalled, and the child died on its first write.
+ * Both sides now read PTE_COW from uiox_kix_pagemap.h.
  *
  * ── what is simulated ───────────────────────────────────────────────
- * The I/O is not real.  Bach's vfault says:
+ * The I/O is not real.  read_page_from_swap and read_page_from_file set
+ * pfd_content_valid and return — no transfer, and no sleep.  The
+ * locking guards a concurrency that cannot yet happen, which is stated
+ * rather than left looking like it works.
  *
- *   "read virtual page from swap dev or exec file;
- *    sleep (event I/O done);"
+ * ── what is NOT here ────────────────────────────────────────────────
+ * uiox_kix_vfault (Algorithm 3) is declared in uiox_kix_paging.h and has
+ * no body.  Nothing calls it: 10_BSP/10_Arch has no data-abort vector.
+ * The grep that established both is recorded in the session handoff.
  *
- * read_page_from_swap and read_page_from_file set pfd_content_valid and
- * return — no transfer, and no sleep.  The locking in this file is
- * therefore guarding against a concurrency that cannot yet happen, which
- * is stated rather than left looking like it works.
- *
- * @version 3.0.0  @date 2026-09-29
+ * @version 4.0.0  @date 2026-09-30
  */
-#include "../include/uiox_kix_paging.h"
-#include "../include/uiox_kix_psa_region.h"
-#include "../include/uiox_kix_psa_process.h"
-#include "../include/uiox_kix_scheduler.h"   /* uiox_printf, jiffies */
+#include "uiox_kix_paging.h"
+#include "uiox_kix_psa_region.h"
+#include "uiox_kix_psa_process.h"
+#include "uiox_kix_scheduler.h"   /* recalculate_priority, SCHED_PROC */
+
+#include "uiox_soc_stdio.h"      /* ADD — declares uiox_printf; BSP 03_SoC provides it */
 
 /* ── Globals ────────────────────────────────────────────────────────── */
 uiox_kix_pfdata_t         uiox_kix_pfdata_table[UIOX_PHYS_PAGES];
@@ -71,13 +74,13 @@ uiox_kix_free_page_list_t uiox_kix_free_pages;
  * a frame that just came back goes to the end, not the front. */
 void uiox_kix_page_fault_init(void)
 {
-    uiox_uint32_t i;
+    uint32_t i;
 
     for (i = 0; i < UIOX_PHYS_PAGES; i++) {
         uiox_kix_pfdata_table[i].pfd_valid         = 0;
         uiox_kix_pfdata_table[i].pfd_refcnt        = 0u;
         uiox_kix_pfdata_table[i].pfd_pfn           = 0u;
-        uiox_kix_pfdata_table[i].pfd_pte           = (uiox_kix_pte_t *)0;
+        uiox_kix_pfdata_table[i].pfd_pte           = (uiox_kix_psa_pte_t *)0;
         uiox_kix_pfdata_table[i].pfd_on_hash       = 0;
         uiox_kix_pfdata_table[i].pfd_hash_next     = (uiox_kix_pfdata_t *)0;
         uiox_kix_pfdata_table[i].pfd_content_valid = 0;
@@ -100,81 +103,100 @@ void uiox_kix_page_fault_init(void)
 }
 
 /* ── uiox_kix_send_sigsegv ───────────────────────────────────────────
- * Bach's both handlers reach this when the fault is not legal:
- *
- *   vfault: "send signal (SIGSEGV: segmentation violation) to process"
- *   pfault: "real program error - signal"
- *
  * The signal is not actually delivered — kill's send step is commented
  * out in the kernel's signal implementation.  This prints the pid so a
- * fault is at least visible while that remains true. */
+ * fault is at least visible while that remains true.
+ *
+ * %lu is NOT in uiox_soc_stdio.h's subset (%s %d %u %x %llu %p), so the
+ * specifier is %llu; the cast keeps the argument's type unambiguous. */
 void uiox_kix_send_sigsegv(void)
 {
     uiox_kix_psa_proc_t *p = uiox_kix_psa_current_proc;
 
-    uiox_printf("[fault] SIGSEGV pid=%lu\n",
-                (unsigned long)(p ? p->p_pid : 0u));
+    uiox_printf("[fault] SIGSEGV pid=%llu\n",
+                (unsigned long long)(p ? p->p_pid : 0u));
 }
 
 /* ── Region locking ──────────────────────────────────────────────────
- * Bach holds the lock across the WHOLE handler, not per page-table
- * access — "lock region ... out: unlock region" brackets everything.
+ * Bach holds the lock across the WHOLE handler — "lock region ...
+ * out: unlock region" brackets everything.
  *
- * Counted rather than a flag, because a nested fault can occur inside a
- * handler: a page-table walk can itself fault.  A plain flag would be
- * cleared by the inner unlock and leave the outer handler unprotected. */
-void uiox_kix_region_lock(uiox_kix_psa_region_t *r)
+ * Operates on the ATTACHMENT's pr_locked.  Counted rather than a flag,
+ * because a nested fault can occur inside a handler: a page-table walk
+ * can itself fault.  A plain flag would be cleared by the inner unlock
+ * and leave the outer handler unprotected. */
+void uiox_kix_region_lock(uiox_kix_psa_pregion_t *pr)
 {
-    if (!r) return;
-    r->r_locked++;
+    if (!pr) return;
+    if (!pr || !pr->pr_region) return;
+    pr->pr_region->r_status |= UIOX_KIX_PSA_REG_LOCKED;
 }
 
-void uiox_kix_region_unlock(uiox_kix_psa_region_t *r)
+void uiox_kix_region_unlock(uiox_kix_psa_pregion_t *pr)
 {
-    if (!r) return;
-    if (r->r_locked > 0) r->r_locked--;
+    if (!pr) return;
+    if (!pr || !pr->pr_region) return;
+    if (pr->pr_region->r_status & UIOX_KIX_PSA_REG_LOCKED)
+        pr->pr_region->r_status &= ~UIOX_KIX_PSA_REG_LOCKED;
 }
 
 /* ── uiox_kix_recalc_priority_after_fault ────────────────────────────
  * Bach's Algorithms 3 and 4 both end with "recalculate process
  * priority" — a process that has been faulting is not the process that
- * should keep the CPU.  Delegates to the scheduler's recalculation. */
-void uiox_kix_recalc_priority_after_fault(void)
+ * should keep the CPU.
+ *
+ * pr_proc is a raw PSA pointer, so SCHED_PROC recovers the wrapper that
+ * recalculate_priority takes (uiox_kix_scheduler.h).  SCHED_PROC is the
+ * same conversion uiox_kix_clock.c uses; it belongs in the scheduler
+ * header so all three files share one definition. */
+void uiox_kix_recalc_priority_after_fault(uiox_kix_psa_pregion_t *pr)
 {
-    uiox_kix_psa_proc_t *p = uiox_kix_psa_current_proc;
-    if (p) uiox_kix_sched_recalc_priority(p);
+    if (!pr || !pr->pr_proc) return;
+    //recalculate_priority(SCHED_PROC(pr->pr_proc));
+    recalculate_priority(scp_to_wrapper(pr->pr_proc));
+
 }
 
 /* ── uiox_kix_find_pte ───────────────────────────────────────────────
  * Locate the entry for an address.  Returns NULL when the address is
- * outside the region — Bach's first legality test in vfault:
+ * outside this process's mapping of the region — Bach's first legality
+ * test in vfault:
  *
  *   "if (address is outside virtual address space)
  *    { send signal (SIGSEGV) to process; goto out; }"
  *
- * Three checks, and the third matters: a region whose page table is NULL
- * has been grown but not yet populated, so no address in it is mappable
- * and a fault there is a genuine error rather than an unloaded page. */
-uiox_kix_pte_t *uiox_kix_find_pte(uiox_kix_psa_region_t *region,
-                                  uiox_uintptr_t vaddr)
+ * Four checks.  The base comes from pr->pr_vaddr, not from the region:
+ * two processes may map one region at different addresses, so only the
+ * attachment can turn an address into an offset. */
+uiox_kix_psa_pte_t *uiox_kix_find_pte(uiox_kix_psa_pregion_t *pr,
+                                      uintptr_t vaddr)
 {
-    uiox_uint32_t page;
-    uiox_uintptr_t offset;
+    uint32_t  page;
+    uintptr_t offset;
 
-    if (!region || !region->r_pgtbl) return (uiox_kix_pte_t *)0;
-    if (vaddr < region->r_vaddr) return (uiox_kix_pte_t *)0;
+    if (!pr || !pr->pr_region) return (uiox_kix_psa_pte_t *)0;
 
-    offset = vaddr - region->r_vaddr;
-    page   = (uiox_uint32_t)(offset >> UIOX_PAGE_SHIFT);
-    if (page >= region->r_npages) return (uiox_kix_pte_t *)0;
+    /* A region whose page table is NULL has been grown but not yet
+     * populated, so no address in it is mappable and a fault there is a
+     * genuine error rather than an unloaded page. */
+    if (!pr->pr_region->r_pgtbl) return (uiox_kix_psa_pte_t *)0;
 
-    return &region->r_pgtbl[page];
+    if (vaddr < pr->pr_vaddr) return (uiox_kix_psa_pte_t *)0;
+    offset = vaddr - pr->pr_vaddr;
+
+    if (offset >= (uintptr_t)pr->pr_region->r_size)
+        return (uiox_kix_psa_pte_t *)0;
+
+    page = (uint32_t)(offset >> UIOX_PAGE_SHIFT);
+    if (page >= pr->pr_region->r_npages) return (uiox_kix_psa_pte_t *)0;
+
+    return &pr->pr_region->r_pgtbl[page];
 }
 
 /* ── uiox_kix_find_dbd ───────────────────────────────────────────────
  * The disk block descriptor for an entry.
  *
- * Bach's vfault: "if (the disk block descriptor has no record of the
+ * Bach's vfault: "if the disk block descriptor has no record of the
  * faulted page, the attempted memory reference is invalid" — so a NULL
  * return here is what makes a reference illegal rather than merely
  * unloaded.
@@ -183,7 +205,7 @@ uiox_kix_pte_t *uiox_kix_find_pte(uiox_kix_psa_region_t *region,
  * vfault treats every address as illegal-on-arrival unless it is
  * demand-zero.  That is honest: a loadreg that never reads a file has
  * nothing to record. */
-uiox_kix_disk_blk_desc_t *uiox_kix_find_dbd(uiox_kix_pte_t *pte)
+uiox_kix_disk_blk_desc_t *uiox_kix_find_dbd(uiox_kix_psa_pte_t *pte)
 {
     (void)pte;
     return (uiox_kix_disk_blk_desc_t *)0;
@@ -194,7 +216,7 @@ uiox_kix_disk_blk_desc_t *uiox_kix_find_dbd(uiox_kix_pte_t *pte)
  * a scan of the whole table. */
 uiox_kix_pfdata_t *uiox_kix_find_in_cache(uiox_uint32_t pfn)
 {
-    uiox_uint32_t      slot = pfn % UIOX_PAGE_HASH_SZ;
+    uint32_t      slot = pfn % UIOX_PAGE_HASH_SZ;
     uiox_kix_pfdata_t *p    = uiox_kix_page_cache.pc_hash[slot];
 
     while (p) {
@@ -206,7 +228,7 @@ uiox_kix_pfdata_t *uiox_kix_find_in_cache(uiox_uint32_t pfn)
 
 void uiox_kix_add_to_cache(uiox_kix_pfdata_t *pfd)
 {
-    uiox_uint32_t slot;
+    uint32_t slot;
 
     if (!pfd || pfd->pfd_on_hash) return;
 
@@ -219,7 +241,7 @@ void uiox_kix_add_to_cache(uiox_kix_pfdata_t *pfd)
 
 void uiox_kix_remove_from_cache(uiox_kix_pfdata_t *pfd)
 {
-    uiox_uint32_t      slot;
+    uint32_t      slot;
     uiox_kix_pfdata_t *prev, *cur;
 
     if (!pfd || !pfd->pfd_on_hash) return;
@@ -230,7 +252,7 @@ void uiox_kix_remove_from_cache(uiox_kix_pfdata_t *pfd)
 
     while (cur) {
         if (cur == pfd) {
-            if (prev) prev->pfd_hash_next             = cur->pfd_hash_next;
+            if (prev) prev->pfd_hash_next               = cur->pfd_hash_next;
             else      uiox_kix_page_cache.pc_hash[slot] = cur->pfd_hash_next;
 
             pfd->pfd_hash_next = (uiox_kix_pfdata_t *)0;
@@ -249,7 +271,7 @@ void uiox_kix_remove_from_cache(uiox_kix_pfdata_t *pfd)
  * to handle having no memory, and half-allocating would be worse. */
 uiox_kix_pfdata_t *uiox_kix_alloc_physical_page(void)
 {
-    uiox_uint32_t      pfn;
+    uint32_t      pfn;
     uiox_kix_pfdata_t *pfd;
 
     if (uiox_kix_free_pages.fpl_count == 0) {
@@ -267,7 +289,7 @@ uiox_kix_pfdata_t *uiox_kix_alloc_physical_page(void)
     pfd->pfd_valid         = 1;
     pfd->pfd_pfn           = pfn;
     pfd->pfd_refcnt        = 1u;
-    pfd->pfd_pte           = (uiox_kix_pte_t *)0;
+    pfd->pfd_pte           = (uiox_kix_psa_pte_t *)0;
     pfd->pfd_on_hash       = 0;
     pfd->pfd_hash_next     = (uiox_kix_pfdata_t *)0;
     pfd->pfd_content_valid = 0;
@@ -285,7 +307,7 @@ void uiox_kix_free_physical_page(uiox_uint32_t pfn)
 
     pfd->pfd_valid         = 0;
     pfd->pfd_refcnt        = 0u;
-    pfd->pfd_pte           = (uiox_kix_pte_t *)0;
+    pfd->pfd_pte           = (uiox_kix_psa_pte_t *)0;
     pfd->pfd_content_valid = 0;
 
     uiox_kix_free_pages.fpl_pages[uiox_kix_free_pages.fpl_tail] = pfn;
@@ -298,7 +320,7 @@ void uiox_kix_free_physical_page(uiox_uint32_t pfn)
  * Bach's vfault reads from the swap device or the executable file and
  * then sleeps on the I/O.  Neither happens here: these mark the contents
  * valid and return.  The I/O is the missing piece, not the bookkeeping. */
-int uiox_kix_read_page_from_swap(uiox_kix_pte_t *pte, uiox_kix_pfdata_t *pfd)
+int uiox_kix_read_page_from_swap(uiox_kix_psa_pte_t *pte, uiox_kix_pfdata_t *pfd)
 {
     (void)pte;
     if (!pfd) return -1;
@@ -306,7 +328,7 @@ int uiox_kix_read_page_from_swap(uiox_kix_pte_t *pte, uiox_kix_pfdata_t *pfd)
     return 0;
 }
 
-int uiox_kix_read_page_from_file(uiox_kix_pte_t *pte, uiox_kix_pfdata_t *pfd)
+int uiox_kix_read_page_from_file(uiox_kix_psa_pte_t *pte, uiox_kix_pfdata_t *pfd)
 {
     (void)pte;
     if (!pfd) return -1;
@@ -362,24 +384,24 @@ void uiox_kix_free_swap_block(uiox_uint32_t blk)
  *
  * ── what this build cannot do ───────────────────────────────────────
  * The copy is a page-to-page memcpy, which is real.  The swap-space
- * release in the refcnt==1 branch is a call to a function that does
- * nothing — the swap map needs the block number and a COW page does not
- * record one.  Marked rather than faked.
+ * release in the refcnt==1 branch calls a function that does nothing —
+ * the swap map needs the block number and a COW page does not record
+ * one.  Marked rather than faked.
  * ──────────────────────────────────────────────────────────────────── */
-void uiox_kix_pfault(uiox_uintptr_t faulted_addr,
-                     uiox_kix_psa_region_t *region)
+void uiox_kix_pfault(uintptr_t faulted_addr,
+                     uiox_kix_psa_pregion_t *pr)
 {
-    uiox_kix_pte_t    *pte;
-    uiox_kix_pfdata_t *pfd;
+    uiox_kix_psa_pte_t *pte;
+    uiox_kix_pfdata_t  *pfd;
 
-    if (!region) { uiox_kix_send_sigsegv(); return; }
+    if (!pr || !pr->pr_region) { uiox_kix_send_sigsegv(); return; }
 
-    uiox_kix_region_lock(region);
+    uiox_kix_region_lock(pr);
 
-    pte = uiox_kix_find_pte(region, faulted_addr);
+    pte = uiox_kix_find_pte(pr, faulted_addr);
     if (!pte || !(pte->pte_flags & PTE_VALID)) {
-        /* Either outside the region, or not resident — pfault is only
-         * for VALID pages, so this is a real error. */
+        /* Either outside this process's mapping, or not resident —
+         * pfault is only for VALID pages, so this is a real error. */
         uiox_kix_send_sigsegv();
         goto out;
     }
@@ -408,8 +430,8 @@ void uiox_kix_pfault(uiox_uintptr_t faulted_addr,
         /* Copy the frame's CONTENTS.  The source is the physical address
          * the old frame number names; this is the only place the raw
          * frame address is used, which is why it is spelled out. */
-        memcpy((void *)(uiox_uintptr_t)(newpfd->pfd_pfn << UIOX_PAGE_SHIFT),
-               (void *)(uiox_uintptr_t)(pfd->pfd_pfn    << UIOX_PAGE_SHIFT),
+        memcpy((void *)(uintptr_t)(newpfd->pfd_pfn << UIOX_PAGE_SHIFT),
+               (void *)(uintptr_t)(pfd->pfd_pfn    << UIOX_PAGE_SHIFT),
                UIOX_PAGE_SIZE);
 
         pfd->pfd_refcnt--;
@@ -434,8 +456,8 @@ void uiox_kix_pfault(uiox_uintptr_t faulted_addr,
     pte->pte_flags |=  PTE_DIRTY;
     pte->pte_flags &= ~PTE_COW;
 
-    uiox_kix_recalc_priority_after_fault();
+    uiox_kix_recalc_priority_after_fault(pr);
 
 out:
-    uiox_kix_region_unlock(region);
+    uiox_kix_region_unlock(pr);
 }

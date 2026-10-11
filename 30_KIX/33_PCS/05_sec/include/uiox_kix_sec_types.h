@@ -38,6 +38,7 @@
 #ifndef UIOX_SEC_TYPES_H
 #define UIOX_SEC_TYPES_H
 
+#include "uiox_klibc.h"     /* uint8_t … uint64_t, bool, size_t under -nostdinc */
 #include "uiox_base_types.h"   /* uint8_t/32/64, size_t, bool — BSP authority */
 
 #ifdef __cplusplus

@@ -38,6 +38,8 @@
  #include "uiox_klibc.h"
  #include "uiox_boot_handoff.h"      /* uiox_boot_args_t, uiox_mem_map_t  */
  #include "uiox_kix_psa_region.h"    /* uiox_kix_psa_region_init()        */
+
+ #include "uiox_base_types.h"        /* uiox_uint64_t, uiox_uintptr_t */
  
  /* ── the layers this file drives ──────────────────────────────────────
   * Declared here rather than pulled in, so a layer that is not compiled
