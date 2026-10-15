@@ -14,7 +14,7 @@
      hw->ops        = (void *)ops;
      hw->pending_irq = 0u;
      hw->fault_flags = UIOX_CHG_FAULT_NONE;
-     hw->src         = UIOX_CHG_HW_SRC_NONE;
+     hw->src         = UIOX_CHG_SRC_NONE;
      hw->chrg_state  = UIOX_CHG_CHRG_IDLE;
      memset(hw->adc_mv, 0, sizeof(hw->adc_mv));
      return ops->init(hw);
@@ -113,7 +113,7 @@
  
  int uiox_chg_hw_get_status(uiox_chg_hw_t *hw,
                              uiox_chg_chrg_t *chrg,
-                             uiox_chg_hw_src_t  *src,
+                             uiox_chg_src_t  *src,
                              uint32_t        *faults)
  {
      if (!hw || !hw->ops) return -EINVAL;

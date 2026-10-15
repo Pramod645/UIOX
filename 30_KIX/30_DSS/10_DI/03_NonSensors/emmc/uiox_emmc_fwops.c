@@ -2,11 +2,11 @@
  * @file    uiox_emmc_fwops.c
  * @brief   Adapter: 02_FwHal implementation -> layer-20 uiox_emmc_hw_ops_t.
  *
- * PATH   30_KIX/30_DSS/10_DI/03_NonSensors/emmc/uiox_emmc_fwops.c
- * LAYER  10_DI -- hardware-control interface.
+ * PATH   30_KIX/34_DSS/20_DriverInterfaces/03_NonSensors/emmc/uiox_emmc_fwops.c
+ * LAYER  20_DriverInterfaces -- hardware-control interface.
  *
  * BOUNDARY
- *   Above: 20_DD/uiox_emmc_if.c calls through hw->ops and never
+ *   Above: 30_DeviceDrivers/uiox_emmc_if.c calls through hw->ops and never
  *          sees a firmware symbol.
  *   Below: 02_FwHal builds to libuiox_fw_<arch>.a; this file calls its flat
  *          uiox_fw_emmc_*() API and never includes its sources.
@@ -95,7 +95,7 @@ static int fw_emmc_set_bus_width(uiox_emmc_hw_t *hw, uint8_t width)
     if (!b) return -ENODEV;
     return -ENOSYS;   /* TODO: bind 02_FwHal call */
 }
-static int fw_emmc_set_speed_mode(uiox_emmc_hw_t *hw, uiox_emmc_hw_speed_t speed)
+static int fw_emmc_set_speed_mode(uiox_emmc_hw_t *hw, uiox_emmc_speed_t speed)
 {
     (void)hw; (void)speed;
     uiox_emmc_fwbind_t *b = bind_of(hw);
@@ -167,7 +167,7 @@ static void fw_emmc_gpio_write(uiox_emmc_hw_t *hw, uint32_t pin, bool val) { (vo
 /* gpio_read: IRQ/void slot -- the firmware layer owns the IRQ controller
  * but does not route device interrupts into class handlers
  * (10_BSP/10_Arch/[*]/arch_runtime.c). */
-static bool fw_emmc_gpio_read(uiox_emmc_hw_t *hw, uint32_t pin) { (void)hw; (void)pin; return false; }
+static bool fw_emmc_gpio_read(uiox_emmc_hw_t *hw, uint32_t pin) { (void)hw; (void)pin; }
 
 /* isr: IRQ/void slot -- the firmware layer owns the IRQ controller
  * but does not route device interrupts into class handlers
@@ -208,7 +208,7 @@ int uiox_emmc_fwbind(uiox_emmc_hw_t *hw, struct uiox_i2c_dev *i2c)
     b->in_use = true;
     b->i2c = *i2c;
     b->hw  = hw;
-    uiox_fw_err_t frc = uiox_fw_emmc_init_sdhost(&b->fw, hw->base);
+    uiox_fw_err_t frc = uiox_fw_emmc_init(&b->fw, i2c);
     if (frc != UIOX_FW_OK) { b->in_use = false; return uiox_fw_rc(frc); }
     int rc = uiox_emmc_hw_init(hw, &s_emmc_fwops);
     if (rc < 0) { b->in_use = false; return rc; }

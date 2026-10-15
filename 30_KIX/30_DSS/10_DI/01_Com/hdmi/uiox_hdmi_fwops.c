@@ -2,11 +2,11 @@
  * @file    uiox_hdmi_fwops.c
  * @brief   Adapter: 02_FwHal implementation -> layer-20 uiox_hdmi_hw_ops_t.
  *
- * PATH   30_KIX/30_DSS/10_DI/01_Com/hdmi/uiox_hdmi_fwops.c
- * LAYER  10_DI -- hardware-control interface.
+ * PATH   30_KIX/34_DSS/20_DriverInterfaces/01_Com/hdmi/uiox_hdmi_fwops.c
+ * LAYER  20_DriverInterfaces -- hardware-control interface.
  *
  * BOUNDARY
- *   Above: 20_DD/uiox_hdmi_if.c calls through hw->ops and never
+ *   Above: 30_DeviceDrivers/uiox_hdmi_if.c calls through hw->ops and never
  *          sees a firmware symbol.
  *   Below: 02_FwHal builds to libuiox_fw_<arch>.a; this file calls its flat
  *          uiox_fw_hdmi_*() API and never includes its sources.
@@ -254,7 +254,7 @@ int uiox_hdmi_fwbind(uiox_hdmi_hw_t *hw, struct uiox_i2c_dev *i2c)
     b->in_use = true;
     b->i2c = *i2c;
     b->hw  = hw;
-    uiox_fw_err_t frc = uiox_fw_hdmi_init_dw(&b->fw, hw->base_addr, i2c);
+    uiox_fw_err_t frc = uiox_fw_hdmi_init(&b->fw, i2c);
     if (frc != UIOX_FW_OK) { b->in_use = false; return uiox_fw_rc(frc); }
     int rc = uiox_hdmi_hw_init(hw, &s_hdmi_fwops);
     if (rc < 0) { b->in_use = false; return rc; }

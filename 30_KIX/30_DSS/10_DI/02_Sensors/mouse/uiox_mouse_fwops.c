@@ -2,11 +2,11 @@
  * @file    uiox_mouse_fwops.c
  * @brief   Adapter: 02_FwHal implementation -> layer-20 uiox_mouse_hw_ops_t.
  *
- * PATH   30_KIX/30_DSS/10_DI/02_Sensors/mouse/uiox_mouse_fwops.c
- * LAYER  10_DI -- hardware-control interface.
+ * PATH   30_KIX/34_DSS/20_DriverInterfaces/02_Sensors/mouse/uiox_mouse_fwops.c
+ * LAYER  20_DriverInterfaces -- hardware-control interface.
  *
  * BOUNDARY
- *   Above: 20_DD/uiox_mouse_if.c calls through hw->ops and never
+ *   Above: 30_DeviceDrivers/uiox_mouse_if.c calls through hw->ops and never
  *          sees a firmware symbol.
  *   Below: 02_FwHal builds to libuiox_fw_<arch>.a; this file calls its flat
  *          uiox_fw_mouse_*() API and never includes its sources.
@@ -142,7 +142,7 @@ int uiox_mouse_fwbind(uiox_mouse_hw_t *hw, struct uiox_i2c_dev *i2c)
     b->in_use = true;
     b->i2c = *i2c;
     b->hw  = hw;
-    uiox_fw_err_t frc = uiox_fw_mouse_init_ps2(&b->fw, hw->irq);
+    uiox_fw_err_t frc = uiox_fw_mouse_init(&b->fw, i2c);
     if (frc != UIOX_FW_OK) { b->in_use = false; return uiox_fw_rc(frc); }
     int rc = uiox_mouse_hw_init(hw, &s_mouse_fwops);
     if (rc < 0) { b->in_use = false; return rc; }

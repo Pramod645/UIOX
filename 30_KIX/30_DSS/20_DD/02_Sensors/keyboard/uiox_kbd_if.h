@@ -18,7 +18,7 @@
  * @brief   UIOX Keyboard interface driver.
  *
  * v1.1.0: gains an OWNED ring (rx) and the two event entry points read()
- *         reaches.  No change to 00_drvbuff — uiox_kbd_buf.{h,c} already
+ *         reaches.  No change to 31_drvbuff — uiox_kbd_buf.{h,c} already
  *         had init/push/pop/empty/count; the ring simply had no owner and
  *         no consumer.
  */

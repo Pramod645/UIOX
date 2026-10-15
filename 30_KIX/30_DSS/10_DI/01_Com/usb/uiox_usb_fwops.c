@@ -2,11 +2,11 @@
  * @file    uiox_usb_fwops.c
  * @brief   Adapter: 02_FwHal implementation -> layer-20 uiox_usb_hw_ops_t.
  *
- * PATH   30_KIX/30_DSS/10_DI/01_Com/usb/uiox_usb_fwops.c
- * LAYER  10_DI -- hardware-control interface.
+ * PATH   30_KIX/34_DSS/20_DriverInterfaces/01_Com/usb/uiox_usb_fwops.c
+ * LAYER  20_DriverInterfaces -- hardware-control interface.
  *
  * BOUNDARY
- *   Above: 20_DD/uiox_usb_if.c calls through hw->ops and never
+ *   Above: 30_DeviceDrivers/uiox_usb_if.c calls through hw->ops and never
  *          sees a firmware symbol.
  *   Below: 02_FwHal builds to libuiox_fw_<arch>.a; this file calls its flat
  *          uiox_fw_usb_*() API and never includes its sources.
@@ -27,7 +27,7 @@
 #define UIOX_USB_FWBIND_MAX   2u
 
 typedef struct {
-    uiox_usb_hc_dev_t  fw;
+    uiox_usb_dev_t  fw;
     uiox_i2c_dev_t     i2c;
     uiox_usb_hw_t             *hw;
     bool                in_use;
@@ -226,7 +226,7 @@ int uiox_usb_fwbind(uiox_usb_hw_t *hw, struct uiox_i2c_dev *i2c)
     b->in_use = true;
     b->i2c = *i2c;
     b->hw  = hw;
-    uiox_fw_err_t frc = uiox_fw_usb_init_xhci(&b->fw, hw->base_addr, hw->irq);
+    uiox_fw_err_t frc = uiox_fw_usb_init(&b->fw, i2c);
     if (frc != UIOX_FW_OK) { b->in_use = false; return uiox_fw_rc(frc); }
     int rc = uiox_usb_hw_init(hw, &s_usb_fwops);
     if (rc < 0) { b->in_use = false; return rc; }

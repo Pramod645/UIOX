@@ -1,5 +1,5 @@
 /**
- * @file  30_KIX/30_DSS/10_DI/02_Sensors/als/uiox_als_hw.c
+ * @file  30_KIX/34_DSS/20_DriverInterfaces/02_Sensors/als/uiox_als_hw.c
  * @brief UIOX ALS HAL implementation.
  * @date  2026-06-11
  */
@@ -16,8 +16,8 @@
      hw->raw_als     = 0u;
      hw->raw_white   = 0u;
      hw->raw_ir      = 0u;
-     hw->gain        = UIOX_ALS_HW_GAIN_1X;
-     hw->itime       = UIOX_ALS_HW_ITIME_100MS;
+     hw->gain        = UIOX_ALS_GAIN_1X;
+     hw->itime       = UIOX_ALS_ITIME_100MS;
      return ops->init(hw);
  }
  
@@ -55,18 +55,18 @@
      return OPS(hw)->reg_write(hw, reg, val);
  }
  
- int uiox_als_hw_set_gain(uiox_als_hw_t *hw, uiox_als_hw_gain_t g)
+ int uiox_als_hw_set_gain(uiox_als_hw_t *hw, uiox_als_gain_t g)
  {
-     if (!hw || !hw->ops || g >= UIOX_ALS_HW_GAIN_MAX) return -EINVAL;
+     if (!hw || !hw->ops || g >= UIOX_ALS_GAIN_MAX) return -EINVAL;
      if (!OPS(hw)->set_gain) return -ENOSYS;
      int rc = OPS(hw)->set_gain(hw, g);
      if (rc == 0) hw->gain = g;
      return rc;
  }
  
- int uiox_als_hw_set_itime(uiox_als_hw_t *hw, uiox_als_hw_itime_t t)
+ int uiox_als_hw_set_itime(uiox_als_hw_t *hw, uiox_als_itime_t t)
  {
-     if (!hw || !hw->ops || t >= UIOX_ALS_HW_ITIME_MAX) return -EINVAL;
+     if (!hw || !hw->ops || t >= UIOX_ALS_ITIME_MAX) return -EINVAL;
      if (!OPS(hw)->set_itime) return -ENOSYS;
      int rc = OPS(hw)->set_itime(hw, t);
      if (rc == 0) hw->itime = t;

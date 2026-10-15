@@ -6,7 +6,6 @@
 
  #include "uiox_hdmi_sink.h"
  #include "uiox_klibc.h"
-#include "uiox_soc_stdio.h"
  
  /* -------------------------------------------------------------------------
   * EDID checksum

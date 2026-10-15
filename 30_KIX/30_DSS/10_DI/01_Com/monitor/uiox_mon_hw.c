@@ -1,5 +1,5 @@
 /**
- * @file    30_KIX/30_DSS/10_DI/01_Com/monitor/uiox_mon_hw.c
+ * @file    30_KIX/34_DSS/20_DriverInterfaces/01_Com/monitor/uiox_mon_hw.c
  * @brief   UIOX Monitor HAL -- generic hardware lifecycle management.
  * @date    2026-05-27
  */

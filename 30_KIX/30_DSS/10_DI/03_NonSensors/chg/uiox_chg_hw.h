@@ -38,21 +38,21 @@
      UIOX_CHG_IC_FUSB302,         /**< ONSEMI FUSB302 (PD PHY only)        */
      UIOX_CHG_IC_MAX77958,        /**< Maxim MAX77958 (PD + fast-charge)   */
      UIOX_CHG_IC_GENERIC_BARREL,  /**< Generic barrel-jack CV/CC IC        */
- } uiox_chg_hw_ic_t;
+ } uiox_chg_ic_t;
  
  /* =========================================================================
   * Input source type
   * ====================================================================== */
  
  typedef enum {
-     UIOX_CHG_HW_SRC_NONE    = 0,  /**< No input connected                   */
-     UIOX_CHG_HW_SRC_USBC_PD,      /**< USB-C Power Delivery                 */
-     UIOX_CHG_HW_SRC_USBC_STD,     /**< USB-C 5 V standard (no PD)          */
-     UIOX_CHG_HW_SRC_BARREL,       /**< Barrel jack DC input                 */
-     UIOX_CHG_HW_SRC_USB_SDP,      /**< USB Standard Downstream Port 500 mA  */
-     UIOX_CHG_HW_SRC_USB_CDP,      /**< USB Charging Downstream Port 1.5 A   */
-     UIOX_CHG_HW_SRC_USB_DCP,      /**< USB Dedicated Charging Port (BC1.2)  */
- } uiox_chg_hw_src_t;
+     UIOX_CHG_SRC_NONE    = 0,  /**< No input connected                   */
+     UIOX_CHG_SRC_USBC_PD,      /**< USB-C Power Delivery                 */
+     UIOX_CHG_SRC_USBC_STD,     /**< USB-C 5 V standard (no PD)          */
+     UIOX_CHG_SRC_BARREL,       /**< Barrel jack DC input                 */
+     UIOX_CHG_SRC_USB_SDP,      /**< USB Standard Downstream Port 500 mA  */
+     UIOX_CHG_SRC_USB_CDP,      /**< USB Charging Downstream Port 1.5 A   */
+     UIOX_CHG_SRC_USB_DCP,      /**< USB Dedicated Charging Port (BC1.2)  */
+ } uiox_chg_src_t;
  
  /* =========================================================================
   * Hardware capability flags
@@ -194,7 +194,7 @@ typedef enum {
 
 typedef struct {
     uiox_chg_evt_type_t type;
-    uiox_chg_hw_src_t      src;         /* input source at the transition */
+    uiox_chg_src_t      src;         /* input source at the transition */
     uiox_chg_chrg_t     chrg;        /* charge state at the transition */
     uint32_t            fault_flags; /* UIOX_CHG_FAULT_* bitmap        */
     uint32_t            timestamp_ms;
@@ -220,7 +220,7 @@ void            uiox_chg_evt_free (uiox_chg_evt_t *e);
      uint32_t        irq;            /**< Platform IRQ number (INT# pin)  */
      /* Capabilities */
      uint32_t        caps;
-     uiox_chg_hw_ic_t   ic_type;
+     uiox_chg_ic_t   ic_type;
      char            model[UIOX_CHG_MODEL_LEN];
      /* Configuration limits */
      uint32_t        vbus_max_mv;    /**< Max VBUS input voltage (mV)     */
@@ -228,7 +228,7 @@ void            uiox_chg_evt_free (uiox_chg_evt_t *e);
      uint32_t        ibat_max_ma;    /**< Max charge current (mA)         */
      uint32_t        iin_max_ma;     /**< Max input current limit (mA)    */
      /* Runtime state */
-     uiox_chg_hw_src_t  src;
+     uiox_chg_src_t  src;
      uiox_chg_chrg_t chrg_state;
      uint32_t        fault_flags;
      /* ADC cache (last read values) */
@@ -282,7 +282,7 @@ void            uiox_chg_evt_free (uiox_chg_evt_t *e);
      /* Status poll */
      int  (*get_status)    (uiox_chg_hw_t *hw,
                             uiox_chg_chrg_t *chrg,
-                            uiox_chg_hw_src_t  *src,
+                            uiox_chg_src_t  *src,
                             uint32_t        *faults);
  
      /* Watchdog */
@@ -325,7 +325,7 @@ void            uiox_chg_evt_free (uiox_chg_evt_t *e);
  int  uiox_chg_hw_otg_en      (uiox_chg_hw_t *hw, bool en);
  int  uiox_chg_hw_get_status  (uiox_chg_hw_t *hw,
                                 uiox_chg_chrg_t *chrg,
-                                uiox_chg_hw_src_t  *src,
+                                uiox_chg_src_t  *src,
                                 uint32_t        *faults);
  int  uiox_chg_hw_wdog_reset  (uiox_chg_hw_t *hw);
  int  uiox_chg_hw_pd_tx       (uiox_chg_hw_t *hw,

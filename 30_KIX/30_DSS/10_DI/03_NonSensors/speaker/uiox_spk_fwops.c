@@ -2,11 +2,11 @@
  * @file    uiox_spk_fwops.c
  * @brief   Adapter: 02_FwHal implementation -> layer-20 uiox_spk_hw_ops_t.
  *
- * PATH   30_KIX/30_DSS/10_DI/03_NonSensors/speaker/uiox_spk_fwops.c
- * LAYER  10_DI -- hardware-control interface.
+ * PATH   30_KIX/34_DSS/20_DriverInterfaces/03_NonSensors/speaker/uiox_spk_fwops.c
+ * LAYER  20_DriverInterfaces -- hardware-control interface.
  *
  * BOUNDARY
- *   Above: 20_DD/uiox_spk_if.c calls through hw->ops and never
+ *   Above: 30_DeviceDrivers/uiox_spk_if.c calls through hw->ops and never
  *          sees a firmware symbol.
  *   Below: 02_FwHal builds to libuiox_fw_<arch>.a; this file calls its flat
  *          uiox_fw_spk_*() API and never includes its sources.
@@ -47,10 +47,10 @@ static uiox_spk_fwbind_t *bind_of(uiox_spk_hw_t *hw)
 /* ---- vtable slots ---- */
 static int fw_spk_init(uiox_spk_hw_t *hw)
 {
-    /* TODO: 02_FwHal has no spk class entry point. */
-    b->in_use = false;
-    return -ENOSYS;
-
+    (void)hw;
+    uiox_spk_fwbind_t *b = bind_of(hw);
+    if (!b) return -ENODEV;
+    return -ENOSYS;   /* TODO: bind 02_FwHal call */
 }
 
 /* deinit: IRQ/void slot -- the firmware layer owns the IRQ controller
@@ -168,11 +168,9 @@ int uiox_spk_fwbind(uiox_spk_hw_t *hw, struct uiox_i2c_dev *i2c)
     b->in_use = true;
     b->i2c = *i2c;
     b->hw  = hw;
+    uiox_fw_err_t frc = uiox_fw_spk_init(&b->fw, i2c);
+    if (frc != UIOX_FW_OK) { b->in_use = false; return uiox_fw_rc(frc); }
     int rc = uiox_spk_hw_init(hw, &s_spk_fwops);
     if (rc < 0) { b->in_use = false; return rc; }
-
-    /* TODO: 02_FwHal has no spk class entry point. */
-    b->in_use = false;
-    return -ENOSYS;
+    return 0;
 }
-

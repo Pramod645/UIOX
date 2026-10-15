@@ -9,7 +9,6 @@
 #include "uiox_wifi_if.h"
 #include "uiox_klibc.h"
 
-
 int uiox_wifi_if_config(uiox_wifi_if_t *wif, uiox_wifi_hw_t *hw)
 {
     if (!wif || !hw) return -EINVAL;

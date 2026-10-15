@@ -36,28 +36,28 @@
   * ====================================================================== */
  
  typedef enum {
-     UIOX_EMMC_HW_SPEED_IDENT   = 0,  /**< 400 kHz identification           */
-     UIOX_EMMC_HW_SPEED_DS,            /**< 25 MHz  default speed            */
-     UIOX_EMMC_HW_SPEED_HS52,          /**< 52 MHz  high speed               */
-     UIOX_EMMC_HW_SPEED_HS200,         /**< 200 MHz HS200 (SDR)              */
-     UIOX_EMMC_HW_SPEED_HS400,         /**< 200 MHz HS400 (DDR 8-bit)        */
-     UIOX_EMMC_HW_SPEED_HS400ES,       /**< HS400 Enhanced Strobe            */
- } uiox_emmc_hw_speed_t;
+     UIOX_EMMC_SPEED_IDENT   = 0,  /**< 400 kHz identification           */
+     UIOX_EMMC_SPEED_DS,            /**< 25 MHz  default speed            */
+     UIOX_EMMC_SPEED_HS52,          /**< 52 MHz  high speed               */
+     UIOX_EMMC_SPEED_HS200,         /**< 200 MHz HS200 (SDR)              */
+     UIOX_EMMC_SPEED_HS400,         /**< 200 MHz HS400 (DDR 8-bit)        */
+     UIOX_EMMC_SPEED_HS400ES,       /**< HS400 Enhanced Strobe            */
+ } uiox_emmc_speed_t;
  
  /* =========================================================================
   * eMMC partition access
   * ====================================================================== */
  
  typedef enum {
-     UIOX_EMMC_HW_PART_USER     = 0,  /**< User data area                   */
-     UIOX_EMMC_HW_PART_BOOT1    = 1,  /**< Boot partition 1                 */
-     UIOX_EMMC_HW_PART_BOOT2    = 2,  /**< Boot partition 2                 */
-     UIOX_EMMC_HW_PART_RPMB     = 3,  /**< Replay Protected Memory Block    */
-     UIOX_EMMC_HW_PART_GP1      = 4,  /**< General purpose 1                */
-     UIOX_EMMC_HW_PART_GP2      = 5,  /**< General purpose 2                */
-     UIOX_EMMC_HW_PART_GP3      = 6,  /**< General purpose 3                */
-     UIOX_EMMC_HW_PART_GP4      = 7,  /**< General purpose 4                */
- } uiox_emmc_hw_part_t;
+     UIOX_EMMC_PART_USER     = 0,  /**< User data area                   */
+     UIOX_EMMC_PART_BOOT1    = 1,  /**< Boot partition 1                 */
+     UIOX_EMMC_PART_BOOT2    = 2,  /**< Boot partition 2                 */
+     UIOX_EMMC_PART_RPMB     = 3,  /**< Replay Protected Memory Block    */
+     UIOX_EMMC_PART_GP1      = 4,  /**< General purpose 1                */
+     UIOX_EMMC_PART_GP2      = 5,  /**< General purpose 2                */
+     UIOX_EMMC_PART_GP3      = 6,  /**< General purpose 3                */
+     UIOX_EMMC_PART_GP4      = 7,  /**< General purpose 4                */
+ } uiox_emmc_part_t;
  
  /* =========================================================================
   * Hardware capability flags
@@ -287,7 +287,7 @@
  
  /* Per-partition descriptor */
  typedef struct {
-     uiox_emmc_hw_part_t  id;
+     uiox_emmc_part_t  id;
      uint64_t          size_bytes;
      bool              enabled;
  } uiox_emmc_part_info_t;
@@ -324,14 +324,14 @@
      uint32_t             caps;
      char                 model[UIOX_EMMC_MODEL_LEN];
      /* Bus state */
-     uiox_emmc_hw_speed_t    speed;
+     uiox_emmc_speed_t    speed;
      uint8_t              bus_width;   /**< 1, 4, or 8                    */
      uint32_t             clk_hz;      /**< Current clock frequency        */
      uint16_t             rca;         /**< Relative card address          */
      /* Device info */
      uiox_emmc_ident_t    ident;
      bool                 dev_ready;
-     uiox_emmc_hw_part_t     active_part; /**< Current partition              */
+     uiox_emmc_part_t     active_part; /**< Current partition              */
      /* Cache state */
      bool                 cache_enabled;
      /* Pending IRQ */
@@ -364,7 +364,7 @@
  
      int  (*set_clock)     (uiox_emmc_hw_t *hw, uint32_t hz);
      int  (*set_bus_width) (uiox_emmc_hw_t *hw, uint8_t width);
-     int  (*set_speed_mode)(uiox_emmc_hw_t *hw, uiox_emmc_hw_speed_t speed);
+     int  (*set_speed_mode)(uiox_emmc_hw_t *hw, uiox_emmc_speed_t speed);
  
      int  (*send_cmd)      (uiox_emmc_hw_t *hw, uint8_t cmd,
                             uint32_t arg, uiox_emmc_resp_t resp_type,
@@ -406,7 +406,7 @@
  int      uiox_emmc_hw_set_clock    (uiox_emmc_hw_t *hw, uint32_t hz);
  int      uiox_emmc_hw_set_bus_width(uiox_emmc_hw_t *hw, uint8_t width);
  int      uiox_emmc_hw_set_speed    (uiox_emmc_hw_t *hw,
-                                      uiox_emmc_hw_speed_t speed);
+                                      uiox_emmc_speed_t speed);
  int      uiox_emmc_hw_send_cmd     (uiox_emmc_hw_t *hw, uint8_t cmd,
                                       uint32_t arg,
                                       uiox_emmc_resp_t resp_type,

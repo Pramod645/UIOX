@@ -1,5 +1,5 @@
 /**
- * @file    30_KIX/30_DSS/10_DI/01_Com/hdmi/uiox_hdmi_hw.h
+ * @file    30_KIX/34_DSS/20_DriverInterfaces/01_Com/hdmi/uiox_hdmi_hw.h
  * @brief   UIOX HDMI Hardware Abstraction Layer (HAL).
  *
  * Lowest-level interface to HDMI TX hardware. Owns:

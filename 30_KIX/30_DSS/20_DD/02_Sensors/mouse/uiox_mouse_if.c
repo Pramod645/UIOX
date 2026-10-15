@@ -16,7 +16,7 @@ int uiox_mouse_if_config(uiox_mouse_if_t *mif, uiox_mouse_hw_t *hw)
     memset(mif, 0, sizeof(*mif));
     mif->hw     = hw;
 
-    /* The ring read() drains.  00_drvbuff owns the implementation. */
+    /* The ring read() drains.  31_drvbuff owns the implementation. */
     uiox_mouse_buf_init(&mif->rx);
 
     mif->primed = true;

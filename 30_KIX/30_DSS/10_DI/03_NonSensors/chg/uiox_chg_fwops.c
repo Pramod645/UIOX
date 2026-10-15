@@ -2,11 +2,11 @@
  * @file    uiox_chg_fwops.c
  * @brief   Adapter: 02_FwHal implementation -> layer-20 uiox_chg_hw_ops_t.
  *
- * PATH   30_KIX/30_DSS/10_DI/03_NonSensors/chg/uiox_chg_fwops.c
- * LAYER  10_DI -- hardware-control interface.
+ * PATH   30_KIX/34_DSS/20_DriverInterfaces/03_NonSensors/chg/uiox_chg_fwops.c
+ * LAYER  20_DriverInterfaces -- hardware-control interface.
  *
  * BOUNDARY
- *   Above: 20_DD/uiox_chg_if.c calls through hw->ops and never
+ *   Above: 30_DeviceDrivers/uiox_chg_if.c calls through hw->ops and never
  *          sees a firmware symbol.
  *   Below: 02_FwHal builds to libuiox_fw_<arch>.a; this file calls its flat
  *          uiox_fw_charger_*() API and never includes its sources.
@@ -127,7 +127,7 @@ static int fw_chg_otg_enable(uiox_chg_hw_t *hw, bool en)
     if (!b) return -ENODEV;
     return -ENOSYS;   /* TODO: bind 02_FwHal call */
 }
-static int fw_chg_get_status(uiox_chg_hw_t *hw, uiox_chg_chrg_t *chrg, uiox_chg_hw_src_t *src, uint32_t *faults)
+static int fw_chg_get_status(uiox_chg_hw_t *hw, uiox_chg_chrg_t *chrg, uiox_chg_src_t *src, uint32_t *faults)
 {
     (void)hw; (void)chrg; (void)src; (void)faults;
     uiox_chg_fwbind_t *b = bind_of(hw);
@@ -150,7 +150,7 @@ static void fw_chg_gpio_write(uiox_chg_hw_t *hw, uint32_t pin, bool val) { (void
 /* gpio_read: IRQ/void slot -- the firmware layer owns the IRQ controller
  * but does not route device interrupts into class handlers
  * (10_BSP/10_Arch/[*]/arch_runtime.c). */
-static bool fw_chg_gpio_read(uiox_chg_hw_t *hw, uint32_t pin) { (void)hw; (void)pin; return false; }
+static bool fw_chg_gpio_read(uiox_chg_hw_t *hw, uint32_t pin) { (void)hw; (void)pin; }
 static int fw_chg_pd_tx_msg(uiox_chg_hw_t *hw, const uint8_t *buf, uint8_t len)
 {
     (void)hw; (void)buf; (void)len;
@@ -204,7 +204,7 @@ int uiox_chg_fwbind(uiox_chg_hw_t *hw, struct uiox_i2c_dev *i2c)
     b->in_use = true;
     b->i2c = *i2c;
     b->hw  = hw;
-    uiox_fw_err_t frc = uiox_fw_chg_init_bq25895(&b->fw, i2c);
+    uiox_fw_err_t frc = uiox_fw_charger_init(&b->fw, i2c);
     if (frc != UIOX_FW_OK) { b->in_use = false; return uiox_fw_rc(frc); }
     int rc = uiox_chg_hw_init(hw, &s_chg_fwops);
     if (rc < 0) { b->in_use = false; return rc; }

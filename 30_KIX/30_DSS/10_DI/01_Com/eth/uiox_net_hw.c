@@ -1,5 +1,5 @@
 /**
- * @file    30_KIX/30_DSS/10_DI/01_Com/eth/uiox_net_hw.c
+ * @file    30_KIX/34_DSS/20_DriverInterfaces/01_Com/eth/uiox_net_hw.c
  * @brief   UIOX Network HAL - generic hardware lifecycle management.
  *
  * Concrete DMA register sequences live in the per-controller drivers

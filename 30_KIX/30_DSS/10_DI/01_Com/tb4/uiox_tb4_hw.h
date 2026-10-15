@@ -1,5 +1,5 @@
 /**
- * @file    30_KIX/30_DSS/10_DI/01_Com/tb4/uiox_tb4_hw.h
+ * @file    30_KIX/34_DSS/20_DriverInterfaces/01_Com/tb4/uiox_tb4_hw.h
  * @brief   UIOX Thunderbolt 4 Hardware Abstraction Layer (HAL).
  *
  * Supports:
@@ -35,11 +35,11 @@
   * ====================================================================== */
  
  typedef enum {
-     UIOX_TB4_HW_VER_TB3   = 0,   /**< Thunderbolt 3 (40 Gbit/s)             */
-     UIOX_TB4_HW_VER_TB4,          /**< Thunderbolt 4 (40 Gbit/s guaranteed)  */
-     UIOX_TB4_HW_VER_USB4_V1,      /**< USB4 v1.0 (40 Gbit/s)                */
-     UIOX_TB4_HW_VER_USB4_V2,      /**< USB4 v2.0 (80 Gbit/s)                */
- } uiox_tb4_hw_ver_t;
+     UIOX_TB4_VER_TB3   = 0,   /**< Thunderbolt 3 (40 Gbit/s)             */
+     UIOX_TB4_VER_TB4,          /**< Thunderbolt 4 (40 Gbit/s guaranteed)  */
+     UIOX_TB4_VER_USB4_V1,      /**< USB4 v1.0 (40 Gbit/s)                */
+     UIOX_TB4_VER_USB4_V2,      /**< USB4 v2.0 (80 Gbit/s)                */
+ } uiox_tb4_ver_t;
  
  /* =========================================================================
   * Hardware capability flags
@@ -65,12 +65,12 @@
   * ====================================================================== */
  
  typedef enum {
-     UIOX_TB4_HW_SEC_NONE       = 0,  /**< No security (open)                 */
-     UIOX_TB4_HW_SEC_USER_AUTH,        /**< User authorisation required        */
-     UIOX_TB4_HW_SEC_SECURE_CONNECT,   /**< Secure Connect (challenge)         */
-     UIOX_TB4_HW_SEC_DP_ONLY,          /**< Display-only (no PCIe)            */
-     UIOX_TB4_HW_SEC_USB_ONLY,         /**< USB tunnels only                  */
- } uiox_tb4_hw_sec_t;
+     UIOX_TB4_SEC_NONE       = 0,  /**< No security (open)                 */
+     UIOX_TB4_SEC_USER_AUTH,        /**< User authorisation required        */
+     UIOX_TB4_SEC_SECURE_CONNECT,   /**< Secure Connect (challenge)         */
+     UIOX_TB4_SEC_DP_ONLY,          /**< Display-only (no PCIe)            */
+     UIOX_TB4_SEC_USB_ONLY,         /**< USB tunnels only                  */
+ } uiox_tb4_sec_t;
  
  /* =========================================================================
   * NHI register offsets (Intel Maple Ridge / Goshen Ridge)
@@ -140,8 +140,8 @@ typedef struct {
     uintptr_t           cfg_base;     /**< Router config space MMIO BAR1   */
     uint32_t            irq;          /**< MSI/MSI-X IRQ line              */
     uint32_t            caps;
-    uiox_tb4_hw_ver_t      version;
-    uiox_tb4_hw_sec_t      security;
+    uiox_tb4_ver_t      version;
+    uiox_tb4_sec_t      security;
     char                model[UIOX_TB4_MODEL_LEN];
     uint8_t             uuid[UIOX_TB4_UUID_LEN]; /**< Controller UUID      */
     uint8_t             num_ports;

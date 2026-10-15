@@ -17,12 +17,11 @@
  
  #include "uiox_wifi_hw.h"
  #include "uiox_wifi_buf.h"
-
  
  #ifdef __cplusplus
  extern "C" {
  #endif
-
+ 
  /* =========================================================================
   * WMM Access Categories
   * ====================================================================== */

@@ -18,7 +18,7 @@ int uiox_kbd_if_config(uiox_kbd_if_t     *kif,
     kif->hw     = hw;
     kif->type   = type;
 
-    /* The ring read() drains.  00_drvbuff owns the implementation; this
+    /* The ring read() drains.  31_drvbuff owns the implementation; this
      * just gives the driver one. */
     uiox_kbd_buf_init(&kif->rx);
 
@@ -224,7 +224,7 @@ bool uiox_kbd_if_direct_pressed(const uiox_kbd_if_t *kif, uint8_t idx)
 /* ═════════════════════════════════════════════════════════════════════
  * Event path — the consumer the ring never had
  *
- * uiox_kbd_buf_pop() was defined in 00_drvbuff and called by nobody.  These
+ * uiox_kbd_buf_pop() was defined in 31_drvbuff and called by nobody.  These
  * are its callers, reached from 32_FS's read branch for a char inode whose
  * idev_class resolves to KBD.
  * ═════════════════════════════════════════════════════════════════════ */

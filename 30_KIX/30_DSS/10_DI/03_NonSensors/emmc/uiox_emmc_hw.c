@@ -17,8 +17,8 @@
      hw->dev_ready     = false;
      hw->cache_enabled = false;
      hw->bus_width     = 1u;
-     hw->speed         = UIOX_EMMC_HW_SPEED_IDENT;
-     hw->active_part   = UIOX_EMMC_HW_PART_USER;
+     hw->speed         = UIOX_EMMC_SPEED_IDENT;
+     hw->active_part   = UIOX_EMMC_PART_USER;
      hw->rca           = 0u;
      memset(&hw->ident, 0, sizeof(hw->ident));
      return ops->init(hw);
@@ -75,7 +75,7 @@
      return rc;
  }
  
- int uiox_emmc_hw_set_speed(uiox_emmc_hw_t *hw, uiox_emmc_hw_speed_t speed)
+ int uiox_emmc_hw_set_speed(uiox_emmc_hw_t *hw, uiox_emmc_speed_t speed)
  {
      if (!hw || !hw->ops) return -EINVAL;
      if (!OPS(hw)->set_speed_mode) return -ENOSYS;

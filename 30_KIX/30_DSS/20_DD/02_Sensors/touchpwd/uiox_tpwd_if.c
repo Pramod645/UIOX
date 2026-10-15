@@ -163,7 +163,7 @@ void uiox_tpwd_if_stats_reset(uiox_tpwd_if_t *tif)
 /* ═════════════════════════════════════════════════════════════════════
  * Event path — the consumer the ring never had
  *
- * uiox_tpwd_evtbuf_pop() was defined in 00_drvbuff and called by nobody.
+ * uiox_tpwd_evtbuf_pop() was defined in 31_drvbuff and called by nobody.
  * These are its callers.  No change to the config or the scan: raw_rb and
  * its init were already there.
  * ═════════════════════════════════════════════════════════════════════ */

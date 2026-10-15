@@ -1,5 +1,5 @@
 /**
- * @file    30_KIX/30_DSS/10_DI/01_Com/bt/uiox_bt_hw.h
+ * @file    30_KIX/34_DSS/20_DriverInterfaces/01_Com/bt/uiox_bt_hw.h
  * @brief   UIOX Bluetooth Hardware Abstraction Layer (HAL).
  *
  * Supports:

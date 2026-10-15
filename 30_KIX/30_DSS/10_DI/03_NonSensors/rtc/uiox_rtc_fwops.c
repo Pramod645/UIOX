@@ -2,11 +2,11 @@
  * @file    uiox_rtc_fwops.c
  * @brief   Adapter: 02_FwHal implementation -> layer-20 uiox_rtc_hw_ops_t.
  *
- * PATH   30_KIX/30_DSS/10_DI/03_NonSensors/rtc/uiox_rtc_fwops.c
- * LAYER  10_DI -- hardware-control interface.
+ * PATH   30_KIX/34_DSS/20_DriverInterfaces/03_NonSensors/rtc/uiox_rtc_fwops.c
+ * LAYER  20_DriverInterfaces -- hardware-control interface.
  *
  * BOUNDARY
- *   Above: 20_DD/uiox_rtc_if.c calls through hw->ops and never
+ *   Above: 30_DeviceDrivers/uiox_rtc_if.c calls through hw->ops and never
  *          sees a firmware symbol.
  *   Below: 02_FwHal builds to libuiox_fw_<arch>.a; this file calls its flat
  *          uiox_fw_ramrtc_*() API and never includes its sources.
@@ -141,7 +141,7 @@ static void fw_rtc_gpio_write(uiox_rtc_hw_t *hw, uint32_t pin, bool val) { (void
 /* gpio_read: IRQ/void slot -- the firmware layer owns the IRQ controller
  * but does not route device interrupts into class handlers
  * (10_BSP/10_Arch/[*]/arch_runtime.c). */
-static bool fw_rtc_gpio_read(uiox_rtc_hw_t *hw, uint32_t pin) { (void)hw; (void)pin; return false; }
+static bool fw_rtc_gpio_read(uiox_rtc_hw_t *hw, uint32_t pin) { (void)hw; (void)pin; }
 
 /* isr: IRQ/void slot -- the firmware layer owns the IRQ controller
  * but does not route device interrupts into class handlers
@@ -178,7 +178,7 @@ int uiox_rtc_fwbind(uiox_rtc_hw_t *hw, struct uiox_i2c_dev *i2c)
     b->in_use = true;
     b->i2c = *i2c;
     b->hw  = hw;
-    uiox_fw_err_t frc = uiox_fw_ramrtc_init_mc146818(&b->fw, hw->base);
+    uiox_fw_err_t frc = uiox_fw_ramrtc_init(&b->fw, i2c);
     if (frc != UIOX_FW_OK) { b->in_use = false; return uiox_fw_rc(frc); }
     int rc = uiox_rtc_hw_init(hw, &s_rtc_fwops);
     if (rc < 0) { b->in_use = false; return rc; }

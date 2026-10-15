@@ -2,11 +2,11 @@
  * @file    uiox_mon_fwops.c
  * @brief   Adapter: 02_FwHal implementation -> layer-20 uiox_mon_hw_ops_t.
  *
- * PATH   30_KIX/30_DSS/10_DI/01_Com/monitor/uiox_mon_fwops.c
- * LAYER  10_DI -- hardware-control interface.
+ * PATH   30_KIX/34_DSS/20_DriverInterfaces/01_Com/monitor/uiox_mon_fwops.c
+ * LAYER  20_DriverInterfaces -- hardware-control interface.
  *
  * BOUNDARY
- *   Above: 20_DD/uiox_mon_if.c calls through hw->ops and never
+ *   Above: 30_DeviceDrivers/uiox_mon_if.c calls through hw->ops and never
  *          sees a firmware symbol.
  *   Below: 02_FwHal builds to libuiox_fw_<arch>.a; this file calls its flat
  *          uiox_fw_hdmi_*() API and never includes its sources.
@@ -21,13 +21,13 @@
 
 #include "uiox_mon_hw.h"
 #include "uiox_fw_rc.h"
-#include "uiox_fw_monitor.h"
+#include "uiox_fw_hdmi.h"
 #include "uiox_fw_i2c.h"
 
 #define UIOX_MON_FWBIND_MAX   2u
 
 typedef struct {
-    uiox_monitor_dev_t  fw;
+    uiox_mon_dev_t  fw;
     uiox_i2c_dev_t     i2c;
     uiox_mon_hw_t             *hw;
     bool                in_use;
@@ -118,9 +118,9 @@ static int fw_mon_set_backlight(uiox_mon_hw_t *hw, uint8_t level)
     if (!b) return -ENODEV;
     return -ENOSYS;   /* TODO: bind 02_FwHal call */
 }
-static int fw_mon_set_gamma(uiox_mon_hw_t *hw, const uint16_t *r, const uint16_t *g, const uint16_t *blue)
+static int fw_mon_set_gamma(uiox_mon_hw_t *hw, const uint16_t *r, const uint16_t *g, const uint16_t *b)
 {
-    (void)hw; (void)r; (void)g; (void)blue;
+    (void)hw; (void)r; (void)g; (void)b;
     uiox_mon_fwbind_t *b = bind_of(hw);
     if (!b) return -ENODEV;
     return -ENOSYS;   /* TODO: bind 02_FwHal call */
@@ -172,7 +172,7 @@ int uiox_mon_fwbind(uiox_mon_hw_t *hw, struct uiox_i2c_dev *i2c)
     b->in_use = true;
     b->i2c = *i2c;
     b->hw  = hw;
-    uiox_fw_err_t frc = uiox_fw_monitor_init(&b->fw, i2c);
+    uiox_fw_err_t frc = uiox_fw_hdmi_init(&b->fw, i2c);
     if (frc != UIOX_FW_OK) { b->in_use = false; return uiox_fw_rc(frc); }
     int rc = uiox_mon_hw_init(hw, &s_mon_fwops);
     if (rc < 0) { b->in_use = false; return rc; }

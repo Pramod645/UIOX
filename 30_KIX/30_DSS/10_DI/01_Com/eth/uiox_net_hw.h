@@ -1,5 +1,5 @@
 /**
- * @file    30_KIX/30_DSS/10_DI/01_Com/eth/uiox_net_hw.h
+ * @file    30_KIX/34_DSS/20_DriverInterfaces/01_Com/eth/uiox_net_hw.h
  * @brief   UIOX Network Hardware Abstraction Layer (HAL)
  *
  * Provides the lowest-level interface between physical network hardware

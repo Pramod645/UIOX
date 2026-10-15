@@ -1,5 +1,5 @@
 /**
- * @file    30_KIX/30_DSS/10_DI/01_Com/gpu/uiox_gpu_hw.h
+ * @file    30_KIX/34_DSS/20_DriverInterfaces/01_Com/gpu/uiox_gpu_hw.h
  * @brief   UIOX GPU Hardware Abstraction Layer (HAL).
  *
  * Lowest-level interface to GPU hardware. Owns:
