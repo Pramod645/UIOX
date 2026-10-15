@@ -127,7 +127,7 @@ static int fw_chg_otg_enable(uiox_chg_hw_t *hw, bool en)
     if (!b) return -ENODEV;
     return -ENOSYS;   /* TODO: bind 02_FwHal call */
 }
-static int fw_chg_get_status(uiox_chg_hw_t *hw, uiox_chg_chrg_t *chrg, uiox_chg_src_t *src, uint32_t *faults)
+static int fw_chg_get_status(uiox_chg_hw_t *hw, uiox_chg_chrg_t *chrg, uiox_chg_hw_src_t *src, uint32_t *faults)
 {
     (void)hw; (void)chrg; (void)src; (void)faults;
     uiox_chg_fwbind_t *b = bind_of(hw);

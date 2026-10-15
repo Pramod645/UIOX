@@ -95,7 +95,7 @@ static int fw_emmc_set_bus_width(uiox_emmc_hw_t *hw, uint8_t width)
     if (!b) return -ENODEV;
     return -ENOSYS;   /* TODO: bind 02_FwHal call */
 }
-static int fw_emmc_set_speed_mode(uiox_emmc_hw_t *hw, uiox_emmc_speed_t speed)
+static int fw_emmc_set_speed_mode(uiox_emmc_hw_t *hw, uiox_emmc_hw_speed_t speed)
 {
     (void)hw; (void)speed;
     uiox_emmc_fwbind_t *b = bind_of(hw);

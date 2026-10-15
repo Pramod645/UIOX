@@ -83,14 +83,14 @@ static int fw_als_reg_write(uiox_als_hw_t *hw, uint8_t reg, uint16_t val)
     if (!b) return -ENODEV;
     return -ENOSYS;   /* TODO: bind 02_FwHal call */
 }
-static int fw_als_set_gain(uiox_als_hw_t *hw, uiox_als_gain_t gain)
+static int fw_als_set_gain(uiox_als_hw_t *hw, uiox_als_hw_gain_t gain)
 {
     (void)hw; (void)gain;
     uiox_als_fwbind_t *b = bind_of(hw);
     if (!b) return -ENODEV;
     return -ENOSYS;   /* TODO: bind 02_FwHal call */
 }
-static int fw_als_set_itime(uiox_als_hw_t *hw, uiox_als_itime_t itime)
+static int fw_als_set_itime(uiox_als_hw_t *hw, uiox_als_hw_itime_t itime)
 {
     (void)hw; (void)itime;
     uiox_als_fwbind_t *b = bind_of(hw);
