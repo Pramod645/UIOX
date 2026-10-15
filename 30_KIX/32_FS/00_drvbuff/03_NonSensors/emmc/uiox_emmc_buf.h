@@ -27,7 +27,7 @@
      uint8_t          data[UIOX_EMMC_SECTORS_PER_BLK * UIOX_EMMC_BLOCK_SIZE];
      uint32_t         lba;
      uint32_t         sectors;
-     uiox_emmc_part_t part;
+     uiox_emmc_hw_part_t part;
      bool             dirty;
      uint8_t          in_use;
  } uiox_emmc_blk_t;
@@ -67,7 +67,7 @@
      uint32_t             timestamp_ms;
      uint32_t             lba;
      uint32_t             sectors;
-     uiox_emmc_part_t     part;
+     uiox_emmc_hw_part_t     part;
      int                  status;
      uint8_t              in_use;
  } uiox_emmc_evt_t;

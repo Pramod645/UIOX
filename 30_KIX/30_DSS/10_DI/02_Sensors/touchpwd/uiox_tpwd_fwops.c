@@ -27,7 +27,7 @@
 #define UIOX_TPWD_FWBIND_MAX   2u
 
 typedef struct {
-    uiox_tpwd_dev_t  fw;
+    uiox_fp_dev_t  fw;
     uiox_i2c_dev_t     i2c;
     uiox_tpwd_hw_t             *hw;
     bool                in_use;
@@ -142,7 +142,7 @@ int uiox_tpwd_fwbind(uiox_tpwd_hw_t *hw, struct uiox_i2c_dev *i2c)
     b->in_use = true;
     b->i2c = *i2c;
     b->hw  = hw;
-    uiox_fw_err_t frc = uiox_fw_touchpwd_init(&b->fw, i2c);
+    uiox_fw_err_t frc = uiox_fw_fp_init_fpc1020(&b->fw, i2c, hw->rst_pin, hw->int_pin);
     if (frc != UIOX_FW_OK) { b->in_use = false; return uiox_fw_rc(frc); }
     int rc = uiox_tpwd_hw_init(hw, &s_tpwd_fwops);
     if (rc < 0) { b->in_use = false; return rc; }

@@ -93,7 +93,7 @@
   * ====================================================================== */
  
  #define UIOX_PMIC_MODEL_LEN     32
- #define UIOX_PMIC_MAX_RAILS     16
+ #define UIOX_PMIC_HW_MAX_RAILS     16
  
  typedef struct {
      uintptr_t          i2c_base;      /**< I2C controller MMIO base        */

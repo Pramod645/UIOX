@@ -93,7 +93,7 @@
      if (!cif) return NULL;
  
      uiox_chg_chrg_t chrg   = UIOX_CHG_CHRG_IDLE;
-     uiox_chg_src_t  src    = UIOX_CHG_SRC_NONE;
+     uiox_chg_hw_src_t  src    = UIOX_CHG_HW_SRC_NONE;
      uint32_t        faults = UIOX_CHG_FAULT_NONE;
  
      int rc = uiox_chg_hw_get_status(cif->hw, &chrg, &src, &faults);
@@ -131,10 +131,10 @@
          cif->stats.fault_events++;
      } else if (fault_changed && faults == UIOX_CHG_FAULT_NONE) {
          e->type = UIOX_CHG_EVT_FAULT_CLEAR;
-     } else if (src_changed && src != UIOX_CHG_SRC_NONE) {
+     } else if (src_changed && src != UIOX_CHG_HW_SRC_NONE) {
          e->type = UIOX_CHG_EVT_PLUG_IN;
          cif->stats.plug_events++;
-     } else if (src_changed && src == UIOX_CHG_SRC_NONE) {
+     } else if (src_changed && src == UIOX_CHG_HW_SRC_NONE) {
          e->type = UIOX_CHG_EVT_PLUG_OUT;
          cif->stats.plug_events++;
      } else if (chrg_changed && chrg == UIOX_CHG_CHRG_DONE) {

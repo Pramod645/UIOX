@@ -166,7 +166,7 @@ int uiox_gpu_fwbind(uiox_gpu_hw_t *hw, struct uiox_i2c_dev *i2c)
     b->in_use = true;
     b->i2c = *i2c;
     b->hw  = hw;
-    uiox_fw_err_t frc = uiox_fw_gpu_init(&b->fw, i2c);
+    uiox_fw_err_t frc = uiox_fw_gpu_init_virtio(&b->fw, hw->base_addr);
     if (frc != UIOX_FW_OK) { b->in_use = false; return uiox_fw_rc(frc); }
     int rc = uiox_gpu_hw_init(hw, &s_gpu_fwops);
     if (rc < 0) { b->in_use = false; return rc; }

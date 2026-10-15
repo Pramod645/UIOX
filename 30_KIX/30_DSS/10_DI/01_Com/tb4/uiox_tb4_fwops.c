@@ -132,7 +132,7 @@ static void fw_tb4_gpio_write(uiox_tb4_hw_t *hw, uint32_t pin, bool val) { (void
 /* gpio_read: IRQ/void slot -- the firmware layer owns the IRQ controller
  * but does not route device interrupts into class handlers
  * (10_BSP/10_Arch/[*]/arch_runtime.c). */
-static bool fw_tb4_gpio_read(uiox_tb4_hw_t *hw, uint32_t pin) { (void)hw; (void)pin; }
+static bool fw_tb4_gpio_read(uiox_tb4_hw_t *hw, uint32_t pin) { (void)hw; (void)pin; return false; }
 
 /* isr_ring: IRQ/void slot -- the firmware layer owns the IRQ controller
  * but does not route device interrupts into class handlers
@@ -186,7 +186,7 @@ int uiox_tb4_fwbind(uiox_tb4_hw_t *hw, struct uiox_i2c_dev *i2c)
     b->in_use = true;
     b->i2c = *i2c;
     b->hw  = hw;
-    uiox_fw_err_t frc = uiox_fw_tb4_init(&b->fw, i2c);
+    uiox_fw_err_t frc = uiox_fw_tb4_init_jhl8540(&b->fw, hw->nhi_base, hw->irq);
     if (frc != UIOX_FW_OK) { b->in_use = false; return uiox_fw_rc(frc); }
     int rc = uiox_tb4_hw_init(hw, &s_tb4_fwops);
     if (rc < 0) { b->in_use = false; return rc; }

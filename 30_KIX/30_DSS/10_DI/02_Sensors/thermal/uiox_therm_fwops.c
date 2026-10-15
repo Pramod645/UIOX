@@ -159,7 +159,7 @@ static int fw_therm_adc_read(uiox_therm_hw_t *hw, uint8_t ch, uint16_t *raw)
 /* gpio_read: IRQ/void slot -- the firmware layer owns the IRQ controller
  * but does not route device interrupts into class handlers
  * (10_BSP/10_Arch/[*]/arch_runtime.c). */
-static bool fw_therm_gpio_read(uiox_therm_hw_t *hw, uint32_t pin) { (void)hw; (void)pin; }
+static bool fw_therm_gpio_read(uiox_therm_hw_t *hw, uint32_t pin) { (void)hw; (void)pin; return false; }
 
 /* isr: IRQ/void slot -- the firmware layer owns the IRQ controller
  * but does not route device interrupts into class handlers
@@ -198,7 +198,7 @@ int uiox_therm_fwbind(uiox_therm_hw_t *hw, struct uiox_i2c_dev *i2c)
     b->in_use = true;
     b->i2c = *i2c;
     b->hw  = hw;
-    uiox_fw_err_t frc = uiox_fw_thermal_init(&b->fw, i2c);
+    uiox_fw_err_t frc = uiox_fw_therm_init_mmio(&b->fw, hw->mmio_temp_reg);
     if (frc != UIOX_FW_OK) { b->in_use = false; return uiox_fw_rc(frc); }
     int rc = uiox_therm_hw_init(hw, &s_therm_fwops);
     if (rc < 0) { b->in_use = false; return rc; }

@@ -95,7 +95,7 @@ static int fw_emmc_set_bus_width(uiox_emmc_hw_t *hw, uint8_t width)
     if (!b) return -ENODEV;
     return -ENOSYS;   /* TODO: bind 02_FwHal call */
 }
-static int fw_emmc_set_speed_mode(uiox_emmc_hw_t *hw, uiox_emmc_speed_t speed)
+static int fw_emmc_set_speed_mode(uiox_emmc_hw_t *hw, uiox_emmc_hw_speed_t speed)
 {
     (void)hw; (void)speed;
     uiox_emmc_fwbind_t *b = bind_of(hw);
@@ -144,19 +144,15 @@ static int fw_emmc_tuning(uiox_emmc_hw_t *hw)
     if (!b) return -ENODEV;
     return -ENOSYS;   /* TODO: bind 02_FwHal call */
 }
-static uint8_t fw_emmc_crc7(uiox_emmc_hw_t *hw, uint8_t len)
+static uint8_t fw_emmc_crc7(const uint8_t *data, uint8_t len)
 {
-    (void)hw; (void)len;
-    uiox_emmc_fwbind_t *b = bind_of(hw);
-    if (!b) return -ENODEV;
-    return -ENOSYS;   /* TODO: bind 02_FwHal call */
+    (void)data; (void)len;
+    return 0u;   /* TODO: bind 02_FwHal call */
 }
-static uint16_t fw_emmc_crc16(uiox_emmc_hw_t *hw, uint32_t len)
+static uint16_t fw_emmc_crc16(const uint8_t *data, uint32_t len)
 {
-    (void)hw; (void)len;
-    uiox_emmc_fwbind_t *b = bind_of(hw);
-    if (!b) return -ENODEV;
-    return -ENOSYS;   /* TODO: bind 02_FwHal call */
+    (void)data; (void)len;
+    return 0u;   /* TODO: bind 02_FwHal call */
 }
 
 /* gpio_write: IRQ/void slot -- the firmware layer owns the IRQ controller
@@ -167,7 +163,7 @@ static void fw_emmc_gpio_write(uiox_emmc_hw_t *hw, uint32_t pin, bool val) { (vo
 /* gpio_read: IRQ/void slot -- the firmware layer owns the IRQ controller
  * but does not route device interrupts into class handlers
  * (10_BSP/10_Arch/[*]/arch_runtime.c). */
-static bool fw_emmc_gpio_read(uiox_emmc_hw_t *hw, uint32_t pin) { (void)hw; (void)pin; }
+static bool fw_emmc_gpio_read(uiox_emmc_hw_t *hw, uint32_t pin) { (void)hw; (void)pin; return false; }
 
 /* isr: IRQ/void slot -- the firmware layer owns the IRQ controller
  * but does not route device interrupts into class handlers
@@ -208,7 +204,7 @@ int uiox_emmc_fwbind(uiox_emmc_hw_t *hw, struct uiox_i2c_dev *i2c)
     b->in_use = true;
     b->i2c = *i2c;
     b->hw  = hw;
-    uiox_fw_err_t frc = uiox_fw_emmc_init(&b->fw, i2c);
+    uiox_fw_err_t frc = uiox_fw_emmc_init_sdhost(&b->fw, hw->base);
     if (frc != UIOX_FW_OK) { b->in_use = false; return uiox_fw_rc(frc); }
     int rc = uiox_emmc_hw_init(hw, &s_emmc_fwops);
     if (rc < 0) { b->in_use = false; return rc; }

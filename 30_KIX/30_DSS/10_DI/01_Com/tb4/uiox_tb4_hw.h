@@ -35,42 +35,42 @@
   * ====================================================================== */
  
  typedef enum {
-     UIOX_TB4_VER_TB3   = 0,   /**< Thunderbolt 3 (40 Gbit/s)             */
-     UIOX_TB4_VER_TB4,          /**< Thunderbolt 4 (40 Gbit/s guaranteed)  */
-     UIOX_TB4_VER_USB4_V1,      /**< USB4 v1.0 (40 Gbit/s)                */
-     UIOX_TB4_VER_USB4_V2,      /**< USB4 v2.0 (80 Gbit/s)                */
- } uiox_tb4_ver_t;
+     UIOX_TB4_HW_VER_TB3   = 0,   /**< Thunderbolt 3 (40 Gbit/s)             */
+     UIOX_TB4_HW_VER_TB4,          /**< Thunderbolt 4 (40 Gbit/s guaranteed)  */
+     UIOX_TB4_HW_VER_USB4_V1,      /**< USB4 v1.0 (40 Gbit/s)                */
+     UIOX_TB4_HW_VER_USB4_V2,      /**< USB4 v2.0 (80 Gbit/s)                */
+ } uiox_tb4_hw_ver_t;
  
  /* =========================================================================
   * Hardware capability flags
   * ====================================================================== */
  
- #define UIOX_TB4_CAP_40GBPS         (1u << 0)  /**< 40 Gbit/s bandwidth  */
- #define UIOX_TB4_CAP_80GBPS         (1u << 1)  /**< 80 Gbit/s (USB4 v2)  */
- #define UIOX_TB4_CAP_PCIE_TUNNEL    (1u << 2)  /**< PCIe tunneling        */
- #define UIOX_TB4_CAP_DP_TUNNEL      (1u << 3)  /**< DisplayPort tunneling */
- #define UIOX_TB4_CAP_USB3_TUNNEL    (1u << 4)  /**< USB 3.x tunneling     */
- #define UIOX_TB4_CAP_USB2_TUNNEL    (1u << 5)  /**< USB 2.0 tunneling     */
- #define UIOX_TB4_CAP_XDOMAIN        (1u << 6)  /**< XDomain P2P protocol  */
- #define UIOX_TB4_CAP_DMA_TUNNEL     (1u << 7)  /**< DMA tunneling (P2P)   */
- #define UIOX_TB4_CAP_DUAL_PORT      (1u << 8)  /**< Dual USB-C ports      */
- #define UIOX_TB4_CAP_DAISY_CHAIN    (1u << 9)  /**< Daisy-chaining (6 dev)*/
- #define UIOX_TB4_CAP_SECURITY       (1u << 10) /**< Security levels       */
- #define UIOX_TB4_CAP_WAKE_ON_CABLE  (1u << 11) /**< Wake from sleep on plug*/
- #define UIOX_TB4_CAP_ICM            (1u << 12) /**< Internal Connection Mgr*/
- #define UIOX_TB4_CAP_IOMMU          (1u << 13) /**< IOMMU-backed DMA      */
+ #define UIOX_TB4_HW_CAP_40GBPS         (1u << 0)  /**< 40 Gbit/s bandwidth  */
+ #define UIOX_TB4_HW_CAP_80GBPS         (1u << 1)  /**< 80 Gbit/s (USB4 v2)  */
+ #define UIOX_TB4_HW_CAP_PCIE_TUNNEL    (1u << 2)  /**< PCIe tunneling        */
+ #define UIOX_TB4_HW_CAP_DP_TUNNEL      (1u << 3)  /**< DisplayPort tunneling */
+ #define UIOX_TB4_HW_CAP_USB3_TUNNEL    (1u << 4)  /**< USB 3.x tunneling     */
+ #define UIOX_TB4_HW_CAP_USB2_TUNNEL    (1u << 5)  /**< USB 2.0 tunneling     */
+ #define UIOX_TB4_HW_CAP_XDOMAIN        (1u << 6)  /**< XDomain P2P protocol  */
+ #define UIOX_TB4_HW_CAP_DMA_TUNNEL     (1u << 7)  /**< DMA tunneling (P2P)   */
+ #define UIOX_TB4_HW_CAP_DUAL_PORT      (1u << 8)  /**< Dual USB-C ports      */
+ #define UIOX_TB4_HW_CAP_DAISY_CHAIN    (1u << 9)  /**< Daisy-chaining (6 dev)*/
+ #define UIOX_TB4_HW_CAP_SECURITY       (1u << 10) /**< Security levels       */
+ #define UIOX_TB4_HW_CAP_WAKE_ON_CABLE  (1u << 11) /**< Wake from sleep on plug*/
+ #define UIOX_TB4_HW_CAP_ICM            (1u << 12) /**< Internal Connection Mgr*/
+ #define UIOX_TB4_HW_CAP_IOMMU          (1u << 13) /**< IOMMU-backed DMA      */
  
  /* =========================================================================
   * Security level
   * ====================================================================== */
  
  typedef enum {
-     UIOX_TB4_SEC_NONE       = 0,  /**< No security (open)                 */
-     UIOX_TB4_SEC_USER_AUTH,        /**< User authorisation required        */
-     UIOX_TB4_SEC_SECURE_CONNECT,   /**< Secure Connect (challenge)         */
-     UIOX_TB4_SEC_DP_ONLY,          /**< Display-only (no PCIe)            */
-     UIOX_TB4_SEC_USB_ONLY,         /**< USB tunnels only                  */
- } uiox_tb4_sec_t;
+     UIOX_TB4_HW_SEC_NONE       = 0,  /**< No security (open)                 */
+     UIOX_TB4_HW_SEC_USER_AUTH,        /**< User authorisation required        */
+     UIOX_TB4_HW_SEC_SECURE_CONNECT,   /**< Secure Connect (challenge)         */
+     UIOX_TB4_HW_SEC_DP_ONLY,          /**< Display-only (no PCIe)            */
+     UIOX_TB4_HW_SEC_USB_ONLY,         /**< USB tunnels only                  */
+ } uiox_tb4_hw_sec_t;
  
  /* =========================================================================
   * NHI register offsets (Intel Maple Ridge / Goshen Ridge)
@@ -140,8 +140,8 @@ typedef struct {
     uintptr_t           cfg_base;     /**< Router config space MMIO BAR1   */
     uint32_t            irq;          /**< MSI/MSI-X IRQ line              */
     uint32_t            caps;
-    uiox_tb4_ver_t      version;
-    uiox_tb4_sec_t      security;
+    uiox_tb4_hw_ver_t      version;
+    uiox_tb4_hw_sec_t      security;
     char                model[UIOX_TB4_MODEL_LEN];
     uint8_t             uuid[UIOX_TB4_UUID_LEN]; /**< Controller UUID      */
     uint8_t             num_ports;

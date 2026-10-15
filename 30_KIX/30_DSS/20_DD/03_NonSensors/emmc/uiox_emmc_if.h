@@ -33,7 +33,7 @@
      uiox_emmc_if_stats_t stats;
      bool                 primed;
      uint8_t              bus_width;
-     uiox_emmc_speed_t    speed;
+     uiox_emmc_hw_speed_t    speed;
  } uiox_emmc_if_t;
  
  int  uiox_emmc_if_config      (uiox_emmc_if_t *eif, uiox_emmc_hw_t *hw);
@@ -63,11 +63,11 @@
  int  uiox_emmc_if_set_clock   (uiox_emmc_if_t *eif, uint32_t hz);
  int  uiox_emmc_if_set_bus_width(uiox_emmc_if_t *eif, uint8_t width);
  int  uiox_emmc_if_set_speed   (uiox_emmc_if_t *eif,
-                                 uiox_emmc_speed_t speed);
+                                 uiox_emmc_hw_speed_t speed);
  
  /* Partition select */
  int  uiox_emmc_if_select_part (uiox_emmc_if_t *eif,
-                                 uiox_emmc_part_t part);
+                                 uiox_emmc_hw_part_t part);
  
  /* IRQ handler */
  uiox_emmc_evt_t *uiox_emmc_if_irq_handle(uiox_emmc_if_t *eif,

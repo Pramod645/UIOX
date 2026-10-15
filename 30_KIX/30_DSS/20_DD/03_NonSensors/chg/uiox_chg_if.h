@@ -31,7 +31,7 @@
      bool                primed;
      /* Cached last status */
      uiox_chg_chrg_t     last_chrg;
-     uiox_chg_src_t      last_src;
+     uiox_chg_hw_src_t      last_src;
      uint32_t            last_faults;
  } uiox_chg_if_t;
  

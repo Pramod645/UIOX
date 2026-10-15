@@ -124,32 +124,32 @@
   * ====================================================================== */
  
  typedef enum {
-     UIOX_ALS_GAIN_1_8X = 0,  /**< 1/8×  (high brightness)               */
-     UIOX_ALS_GAIN_1_4X,       /**< 1/4×                                  */
-     UIOX_ALS_GAIN_1X,         /**< 1×    (default)                       */
-     UIOX_ALS_GAIN_2X,         /**< 2×                                    */
-     UIOX_ALS_GAIN_8X,         /**< 8×                                    */
-     UIOX_ALS_GAIN_16X,        /**< 16×                                   */
-     UIOX_ALS_GAIN_48X,        /**< 48×   (low light)                     */
-     UIOX_ALS_GAIN_MAX,
- } uiox_als_gain_t;
+     UIOX_ALS_HW_GAIN_1_8X = 0,  /**< 1/8×  (high brightness)               */
+     UIOX_ALS_HW_GAIN_1_4X,       /**< 1/4×                                  */
+     UIOX_ALS_HW_GAIN_1X,         /**< 1×    (default)                       */
+     UIOX_ALS_HW_GAIN_2X,         /**< 2×                                    */
+     UIOX_ALS_HW_GAIN_8X,         /**< 8×                                    */
+     UIOX_ALS_HW_GAIN_16X,        /**< 16×                                   */
+     UIOX_ALS_HW_GAIN_48X,        /**< 48×   (low light)                     */
+     UIOX_ALS_HW_GAIN_MAX,
+ } uiox_als_hw_gain_t;
  
  /* =========================================================================
   * Integration time enumeration (IC-agnostic)
   * ====================================================================== */
  
  typedef enum {
-     UIOX_ALS_ITIME_25MS  = 0,
-     UIOX_ALS_ITIME_50MS,
-     UIOX_ALS_ITIME_100MS,     /**< Default                               */
-     UIOX_ALS_ITIME_200MS,
-     UIOX_ALS_ITIME_400MS,
-     UIOX_ALS_ITIME_800MS,
-     UIOX_ALS_ITIME_MAX,
- } uiox_als_itime_t;
+     UIOX_ALS_HW_ITIME_25MS  = 0,
+     UIOX_ALS_HW_ITIME_50MS,
+     UIOX_ALS_HW_ITIME_100MS,     /**< Default                               */
+     UIOX_ALS_HW_ITIME_200MS,
+     UIOX_ALS_HW_ITIME_400MS,
+     UIOX_ALS_HW_ITIME_800MS,
+     UIOX_ALS_HW_ITIME_MAX,
+ } uiox_als_hw_itime_t;
  
- /* Integration time in milliseconds (lookup table index = uiox_als_itime_t) */
- static const uint16_t UIOX_ALS_ITIME_MS[UIOX_ALS_ITIME_MAX] = {
+ /* Integration time in milliseconds (lookup table index = uiox_als_hw_itime_t) */
+ static const uint16_t UIOX_ALS_HW_ITIME_MS[UIOX_ALS_HW_ITIME_MAX] = {
      25u, 50u, 100u, 200u, 400u, 800u
  };
  
@@ -167,8 +167,8 @@
      uiox_als_ic_t    ic_type;
      char             model[UIOX_ALS_MODEL_LEN];
      /* Current hardware settings */
-     uiox_als_gain_t  gain;
-     uiox_als_itime_t itime;
+     uiox_als_hw_gain_t  gain;
+     uiox_als_hw_itime_t itime;
      /* Raw ADC counts (last measurement) */
      uint16_t         raw_als;
      uint16_t         raw_white;
@@ -207,8 +207,8 @@
                             uint8_t reg, uint16_t  val);
  
      /* Measurement configuration */
-     int  (*set_gain)      (uiox_als_hw_t *hw, uiox_als_gain_t gain);
-     int  (*set_itime)     (uiox_als_hw_t *hw, uiox_als_itime_t itime);
+     int  (*set_gain)      (uiox_als_hw_t *hw, uiox_als_hw_gain_t gain);
+     int  (*set_itime)     (uiox_als_hw_t *hw, uiox_als_hw_itime_t itime);
  
      /* Data fetch */
      int  (*read_als)      (uiox_als_hw_t *hw,
@@ -245,8 +245,8 @@
                                  uint8_t reg, uint16_t *val);
  int  uiox_als_hw_reg_write    (uiox_als_hw_t *hw,
                                  uint8_t reg, uint16_t  val);
- int  uiox_als_hw_set_gain     (uiox_als_hw_t *hw, uiox_als_gain_t g);
- int  uiox_als_hw_set_itime    (uiox_als_hw_t *hw, uiox_als_itime_t t);
+ int  uiox_als_hw_set_gain     (uiox_als_hw_t *hw, uiox_als_hw_gain_t g);
+ int  uiox_als_hw_set_itime    (uiox_als_hw_t *hw, uiox_als_hw_itime_t t);
  int  uiox_als_hw_read_als     (uiox_als_hw_t *hw,
                                  uint16_t *als, uint16_t *white);
  int  uiox_als_hw_read_ir      (uiox_als_hw_t *hw, uint16_t *ir);
@@ -276,8 +276,8 @@ typedef enum {
 typedef struct {
     uiox_als_evt_type_t type;
     uint32_t            timestamp_ms;
-    uiox_als_gain_t     gain;      /* gain at the interrupt  */
-    uiox_als_itime_t    itime;     /* integration time       */
+    uiox_als_hw_gain_t     gain;      /* gain at the interrupt  */
+    uiox_als_hw_itime_t    itime;     /* integration time       */
 } uiox_als_evt_t;
 
 uiox_als_evt_t *uiox_als_evt_alloc(void);

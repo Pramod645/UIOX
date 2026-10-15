@@ -27,7 +27,7 @@
 #define UIOX_USB_FWBIND_MAX   2u
 
 typedef struct {
-    uiox_usb_dev_t  fw;
+    uiox_usb_hc_dev_t  fw;
     uiox_i2c_dev_t     i2c;
     uiox_usb_hw_t             *hw;
     bool                in_use;
@@ -226,7 +226,7 @@ int uiox_usb_fwbind(uiox_usb_hw_t *hw, struct uiox_i2c_dev *i2c)
     b->in_use = true;
     b->i2c = *i2c;
     b->hw  = hw;
-    uiox_fw_err_t frc = uiox_fw_usb_init(&b->fw, i2c);
+    uiox_fw_err_t frc = uiox_fw_usb_init_xhci(&b->fw, hw->base_addr, hw->irq);
     if (frc != UIOX_FW_OK) { b->in_use = false; return uiox_fw_rc(frc); }
     int rc = uiox_usb_hw_init(hw, &s_usb_fwops);
     if (rc < 0) { b->in_use = false; return rc; }

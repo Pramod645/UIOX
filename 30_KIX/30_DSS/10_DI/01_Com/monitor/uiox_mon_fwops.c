@@ -21,13 +21,13 @@
 
 #include "uiox_mon_hw.h"
 #include "uiox_fw_rc.h"
-#include "uiox_fw_hdmi.h"
+#include "uiox_fw_monitor.h"
 #include "uiox_fw_i2c.h"
 
 #define UIOX_MON_FWBIND_MAX   2u
 
 typedef struct {
-    uiox_mon_dev_t  fw;
+    uiox_monitor_dev_t  fw;
     uiox_i2c_dev_t     i2c;
     uiox_mon_hw_t             *hw;
     bool                in_use;
@@ -118,9 +118,9 @@ static int fw_mon_set_backlight(uiox_mon_hw_t *hw, uint8_t level)
     if (!b) return -ENODEV;
     return -ENOSYS;   /* TODO: bind 02_FwHal call */
 }
-static int fw_mon_set_gamma(uiox_mon_hw_t *hw, const uint16_t *r, const uint16_t *g, const uint16_t *b)
+static int fw_mon_set_gamma(uiox_mon_hw_t *hw, const uint16_t *r, const uint16_t *g, const uint16_t *blue)
 {
-    (void)hw; (void)r; (void)g; (void)b;
+    (void)hw; (void)r; (void)g; (void)blue;
     uiox_mon_fwbind_t *b = bind_of(hw);
     if (!b) return -ENODEV;
     return -ENOSYS;   /* TODO: bind 02_FwHal call */
@@ -172,7 +172,7 @@ int uiox_mon_fwbind(uiox_mon_hw_t *hw, struct uiox_i2c_dev *i2c)
     b->in_use = true;
     b->i2c = *i2c;
     b->hw  = hw;
-    uiox_fw_err_t frc = uiox_fw_hdmi_init(&b->fw, i2c);
+    uiox_fw_err_t frc = uiox_fw_monitor_init(&b->fw, i2c);
     if (frc != UIOX_FW_OK) { b->in_use = false; return uiox_fw_rc(frc); }
     int rc = uiox_mon_hw_init(hw, &s_mon_fwops);
     if (rc < 0) { b->in_use = false; return rc; }

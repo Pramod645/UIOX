@@ -29,13 +29,13 @@
 typedef struct {
     uiox_eth_dev_t  fw;
     uiox_i2c_dev_t     i2c;
-    uiox_net_hw_t             *hw;
+    uiox_net_dev_t             *hw;
     bool                in_use;
 } uiox_net_fwbind_t;
 
 static uiox_net_fwbind_t s_net_bind[UIOX_NET_FWBIND_MAX];
 
-static uiox_net_fwbind_t *bind_of(uiox_net_hw_t *hw)
+static uiox_net_fwbind_t *bind_of(uiox_net_dev_t *hw)
 {
     if (!hw) return NULL;
     for (uint32_t i = 0u; i < UIOX_NET_FWBIND_MAX; i++)
@@ -45,7 +45,7 @@ static uiox_net_fwbind_t *bind_of(uiox_net_hw_t *hw)
 }
 
 /* ---- vtable slots ---- */
-static int fw_net_init(uiox_net_hw_t *hw)
+static int fw_net_init(uiox_net_dev_t *hw)
 {
     (void)hw;
     uiox_net_fwbind_t *b = bind_of(hw);
@@ -56,8 +56,8 @@ static int fw_net_init(uiox_net_hw_t *hw)
 /* deinit: IRQ/void slot -- the firmware layer owns the IRQ controller
  * but does not route device interrupts into class handlers
  * (10_BSP/10_Arch/[*]/arch_runtime.c). */
-static void fw_net_deinit(uiox_net_hw_t *hw) { (void)hw; }
-static int fw_net_start(uiox_net_hw_t *hw)
+static void fw_net_deinit(uiox_net_dev_t *hw) { (void)hw; }
+static int fw_net_start(uiox_net_dev_t *hw)
 {
     (void)hw;
     uiox_net_fwbind_t *b = bind_of(hw);
@@ -68,15 +68,15 @@ static int fw_net_start(uiox_net_hw_t *hw)
 /* stop: IRQ/void slot -- the firmware layer owns the IRQ controller
  * but does not route device interrupts into class handlers
  * (10_BSP/10_Arch/[*]/arch_runtime.c). */
-static void fw_net_stop(uiox_net_hw_t *hw) { (void)hw; }
-static int fw_net_phy_autoneg(uiox_net_hw_t *hw)
+static void fw_net_stop(uiox_net_dev_t *hw) { (void)hw; }
+static int fw_net_phy_autoneg(uiox_net_dev_t *hw)
 {
     (void)hw;
     uiox_net_fwbind_t *b = bind_of(hw);
     if (!b) return -ENODEV;
     return -ENOSYS;   /* TODO: bind 02_FwHal call */
 }
-static int fw_net_tx_submit(uiox_net_hw_t *hw, uintptr_t buf, uint16_t len)
+static int fw_net_tx_submit(uiox_net_dev_t *hw, uintptr_t buf, uint16_t len)
 {
     (void)hw; (void)buf; (void)len;
     uiox_net_fwbind_t *b = bind_of(hw);
@@ -87,8 +87,8 @@ static int fw_net_tx_submit(uiox_net_hw_t *hw, uintptr_t buf, uint16_t len)
 /* tx_reclaim: IRQ/void slot -- the firmware layer owns the IRQ controller
  * but does not route device interrupts into class handlers
  * (10_BSP/10_Arch/[*]/arch_runtime.c). */
-static void fw_net_tx_reclaim(uiox_net_hw_t *hw) { (void)hw; }
-static int fw_net_rx_poll(uiox_net_hw_t *hw, void *buf, uint16_t maxlen)
+static void fw_net_tx_reclaim(uiox_net_dev_t *hw) { (void)hw; }
+static int fw_net_rx_poll(uiox_net_dev_t *hw, void *buf, uint16_t maxlen)
 {
     (void)hw; (void)buf; (void)maxlen;
     uiox_net_fwbind_t *b = bind_of(hw);
@@ -99,8 +99,8 @@ static int fw_net_rx_poll(uiox_net_hw_t *hw, void *buf, uint16_t maxlen)
 /* isr: IRQ/void slot -- the firmware layer owns the IRQ controller
  * but does not route device interrupts into class handlers
  * (10_BSP/10_Arch/[*]/arch_runtime.c). */
-static void fw_net_isr(uiox_net_hw_t *hw) { (void)hw; }
-static uint16_t fw_net_mdio_read(uiox_net_hw_t *hw, uint8_t phy, uint8_t reg)
+static void fw_net_isr(uiox_net_dev_t *hw) { (void)hw; }
+static uint16_t fw_net_mdio_read(uiox_net_dev_t *hw, uint8_t phy, uint8_t reg)
 {
     (void)hw; (void)phy; (void)reg;
     uiox_net_fwbind_t *b = bind_of(hw);
@@ -111,7 +111,7 @@ static uint16_t fw_net_mdio_read(uiox_net_hw_t *hw, uint8_t phy, uint8_t reg)
 /* mdio_write: IRQ/void slot -- the firmware layer owns the IRQ controller
  * but does not route device interrupts into class handlers
  * (10_BSP/10_Arch/[*]/arch_runtime.c). */
-static void fw_net_mdio_write(uiox_net_hw_t *hw, uint8_t phy, uint8_t reg, uint16_t val) { (void)hw; (void)phy; (void)reg; (void)val; }
+static void fw_net_mdio_write(uiox_net_dev_t *hw, uint8_t phy, uint8_t reg, uint16_t val) { (void)hw; (void)phy; (void)reg; (void)val; }
 
 static const uiox_net_hw_ops_t s_net_fwops = {
     .init           = fw_net_init,
@@ -128,7 +128,7 @@ static const uiox_net_hw_ops_t s_net_fwops = {
 };
 
 /* ---- binding entry point ---- */
-int uiox_net_fwbind(uiox_net_hw_t *hw, struct uiox_i2c_dev *i2c)
+int uiox_net_fwbind(uiox_net_dev_t *hw, struct uiox_i2c_dev *i2c)
 {
     if (!hw || !i2c) return -EINVAL;
     uiox_net_fwbind_t *b = NULL;
@@ -138,7 +138,7 @@ int uiox_net_fwbind(uiox_net_hw_t *hw, struct uiox_i2c_dev *i2c)
     b->in_use = true;
     b->i2c = *i2c;
     b->hw  = hw;
-    uiox_fw_err_t frc = uiox_fw_eth_init(&b->fw, i2c);
+    uiox_fw_err_t frc = uiox_fw_eth_init_virtio(&b->fw, hw->base_addr, hw->irq);
     if (frc != UIOX_FW_OK) { b->in_use = false; return uiox_fw_rc(frc); }
     int rc = uiox_net_hw_init(hw, &s_net_fwops);
     if (rc < 0) { b->in_use = false; return rc; }

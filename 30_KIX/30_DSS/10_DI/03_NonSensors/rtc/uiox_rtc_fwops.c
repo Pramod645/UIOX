@@ -27,7 +27,7 @@
 #define UIOX_RTC_FWBIND_MAX   2u
 
 typedef struct {
-    uiox_rtc_dev_t  fw;
+    uiox_ramrtc_dev_t  fw;
     uiox_i2c_dev_t     i2c;
     uiox_rtc_hw_t             *hw;
     bool                in_use;
@@ -141,7 +141,7 @@ static void fw_rtc_gpio_write(uiox_rtc_hw_t *hw, uint32_t pin, bool val) { (void
 /* gpio_read: IRQ/void slot -- the firmware layer owns the IRQ controller
  * but does not route device interrupts into class handlers
  * (10_BSP/10_Arch/[*]/arch_runtime.c). */
-static bool fw_rtc_gpio_read(uiox_rtc_hw_t *hw, uint32_t pin) { (void)hw; (void)pin; }
+static bool fw_rtc_gpio_read(uiox_rtc_hw_t *hw, uint32_t pin) { (void)hw; (void)pin; return false; }
 
 /* isr: IRQ/void slot -- the firmware layer owns the IRQ controller
  * but does not route device interrupts into class handlers
@@ -178,7 +178,7 @@ int uiox_rtc_fwbind(uiox_rtc_hw_t *hw, struct uiox_i2c_dev *i2c)
     b->in_use = true;
     b->i2c = *i2c;
     b->hw  = hw;
-    uiox_fw_err_t frc = uiox_fw_ramrtc_init(&b->fw, i2c);
+    uiox_fw_err_t frc = uiox_fw_ramrtc_init_ds1307(&b->fw, i2c);
     if (frc != UIOX_FW_OK) { b->in_use = false; return uiox_fw_rc(frc); }
     int rc = uiox_rtc_hw_init(hw, &s_rtc_fwops);
     if (rc < 0) { b->in_use = false; return rc; }

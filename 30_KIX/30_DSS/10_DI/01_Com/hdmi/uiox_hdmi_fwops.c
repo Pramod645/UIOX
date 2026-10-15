@@ -254,7 +254,7 @@ int uiox_hdmi_fwbind(uiox_hdmi_hw_t *hw, struct uiox_i2c_dev *i2c)
     b->in_use = true;
     b->i2c = *i2c;
     b->hw  = hw;
-    uiox_fw_err_t frc = uiox_fw_hdmi_init(&b->fw, i2c);
+    uiox_fw_err_t frc = uiox_fw_hdmi_init_dw(&b->fw, hw->base_addr, i2c);
     if (frc != UIOX_FW_OK) { b->in_use = false; return uiox_fw_rc(frc); }
     int rc = uiox_hdmi_hw_init(hw, &s_hdmi_fwops);
     if (rc < 0) { b->in_use = false; return rc; }

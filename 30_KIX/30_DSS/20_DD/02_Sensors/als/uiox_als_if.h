@@ -46,8 +46,8 @@
                                 uint16_t *ir);
  
  /* Gain / itime */
- int  uiox_als_if_set_gain    (uiox_als_if_t *aif, uiox_als_gain_t g);
- int  uiox_als_if_set_itime   (uiox_als_if_t *aif, uiox_als_itime_t t);
+ int  uiox_als_if_set_gain    (uiox_als_if_t *aif, uiox_als_hw_gain_t g);
+ int  uiox_als_if_set_itime   (uiox_als_if_t *aif, uiox_als_hw_itime_t t);
  
  /* Threshold */
  int  uiox_als_if_set_threshold(uiox_als_if_t *aif,

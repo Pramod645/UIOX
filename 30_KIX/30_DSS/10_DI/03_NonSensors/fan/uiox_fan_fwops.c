@@ -150,7 +150,7 @@ static void fw_fan_gpio_write(uiox_fan_hw_t *hw, uint32_t pin, bool val) { (void
 /* gpio_read: IRQ/void slot -- the firmware layer owns the IRQ controller
  * but does not route device interrupts into class handlers
  * (10_BSP/10_Arch/[*]/arch_runtime.c). */
-static bool fw_fan_gpio_read(uiox_fan_hw_t *hw, uint32_t pin) { (void)hw; (void)pin; }
+static bool fw_fan_gpio_read(uiox_fan_hw_t *hw, uint32_t pin) { (void)hw; (void)pin; return false; }
 static int fw_fan_wdt_kick(uiox_fan_hw_t *hw)
 {
     (void)hw;
@@ -196,7 +196,7 @@ int uiox_fan_fwbind(uiox_fan_hw_t *hw, struct uiox_i2c_dev *i2c)
     b->in_use = true;
     b->i2c = *i2c;
     b->hw  = hw;
-    uiox_fw_err_t frc = uiox_fw_fan_init(&b->fw, i2c);
+    uiox_fw_err_t frc = uiox_fw_fan_init_pwm(&b->fw, hw->i2c_base);
     if (frc != UIOX_FW_OK) { b->in_use = false; return uiox_fw_rc(frc); }
     int rc = uiox_fan_hw_init(hw, &s_fan_fwops);
     if (rc < 0) { b->in_use = false; return rc; }

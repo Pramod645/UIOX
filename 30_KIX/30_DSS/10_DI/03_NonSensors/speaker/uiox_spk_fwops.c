@@ -21,7 +21,7 @@
 
 #include "uiox_spk_hw.h"
 #include "uiox_fw_rc.h"
-#include "uiox_fw_spk.h"
+#include "uiox_fw_speaker.h"
 #include "uiox_fw_i2c.h"
 
 #define UIOX_SPK_FWBIND_MAX   2u
@@ -168,9 +168,12 @@ int uiox_spk_fwbind(uiox_spk_hw_t *hw, struct uiox_i2c_dev *i2c)
     b->in_use = true;
     b->i2c = *i2c;
     b->hw  = hw;
-    uiox_fw_err_t frc = uiox_fw_spk_init(&b->fw, i2c);
-    if (frc != UIOX_FW_OK) { b->in_use = false; return uiox_fw_rc(frc); }
+
     int rc = uiox_spk_hw_init(hw, &s_spk_fwops);
     if (rc < 0) { b->in_use = false; return rc; }
-    return 0;
+
+    /* TODO: 02_FwHal has no mic class entry point. */
+    b->in_use = false;
+    return -ENOSYS;
 }
+

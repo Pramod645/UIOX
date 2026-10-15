@@ -59,7 +59,7 @@
      UIOX_USB_SPEED_HIGH,      /**< 480 Mbit/s                             */
      UIOX_USB_SPEED_SUPER,     /**< 5 Gbit/s                               */
      UIOX_USB_SPEED_SUPER_PLUS,/**< 10/20 Gbit/s                           */
- } uiox_usb_speed_t;
+ } uiox_usb_hw_speed_t;
  
  /* =========================================================================
   * USB role
@@ -134,7 +134,7 @@
      uint32_t            irq;         /**< IRQ line                         */
      uint32_t            caps;        /**< UIOX_USB_CAP_* bitmask          */
      uiox_usb_role_t     role;
-     uiox_usb_speed_t    speed;
+     uiox_usb_hw_speed_t    speed;
      uint8_t             num_ep;      /**< Number of endpoints supported    */
      uiox_usb_ep_hw_t    ep[UIOX_USB_MAX_EP];
  

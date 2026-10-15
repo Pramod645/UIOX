@@ -83,14 +83,14 @@ static int fw_als_reg_write(uiox_als_hw_t *hw, uint8_t reg, uint16_t val)
     if (!b) return -ENODEV;
     return -ENOSYS;   /* TODO: bind 02_FwHal call */
 }
-static int fw_als_set_gain(uiox_als_hw_t *hw, uiox_als_gain_t gain)
+static int fw_als_set_gain(uiox_als_hw_t *hw, uiox_als_hw_gain_t gain)
 {
     (void)hw; (void)gain;
     uiox_als_fwbind_t *b = bind_of(hw);
     if (!b) return -ENODEV;
     return -ENOSYS;   /* TODO: bind 02_FwHal call */
 }
-static int fw_als_set_itime(uiox_als_hw_t *hw, uiox_als_itime_t itime)
+static int fw_als_set_itime(uiox_als_hw_t *hw, uiox_als_hw_itime_t itime)
 {
     (void)hw; (void)itime;
     uiox_als_fwbind_t *b = bind_of(hw);
@@ -148,7 +148,7 @@ static void fw_als_gpio_write(uiox_als_hw_t *hw, uint32_t pin, bool val) { (void
 /* gpio_read: IRQ/void slot -- the firmware layer owns the IRQ controller
  * but does not route device interrupts into class handlers
  * (10_BSP/10_Arch/[*]/arch_runtime.c). */
-static bool fw_als_gpio_read(uiox_als_hw_t *hw, uint32_t pin) { (void)hw; (void)pin; }
+static bool fw_als_gpio_read(uiox_als_hw_t *hw, uint32_t pin) { (void)hw; (void)pin; return false; }
 
 /* isr: IRQ/void slot -- the firmware layer owns the IRQ controller
  * but does not route device interrupts into class handlers
@@ -186,7 +186,7 @@ int uiox_als_fwbind(uiox_als_hw_t *hw, struct uiox_i2c_dev *i2c)
     b->in_use = true;
     b->i2c = *i2c;
     b->hw  = hw;
-    uiox_fw_err_t frc = uiox_fw_als_init(&b->fw, i2c);
+    uiox_fw_err_t frc = uiox_fw_als_init_veml7700(&b->fw, i2c);
     if (frc != UIOX_FW_OK) { b->in_use = false; return uiox_fw_rc(frc); }
     int rc = uiox_als_hw_init(hw, &s_als_fwops);
     if (rc < 0) { b->in_use = false; return rc; }

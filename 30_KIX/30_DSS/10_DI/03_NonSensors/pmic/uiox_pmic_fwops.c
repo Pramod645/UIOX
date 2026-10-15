@@ -159,7 +159,7 @@ static int fw_pmic_irq_unmask(uiox_pmic_hw_t *hw, uint32_t mask)
 /* gpio_read: IRQ/void slot -- the firmware layer owns the IRQ controller
  * but does not route device interrupts into class handlers
  * (10_BSP/10_Arch/[*]/arch_runtime.c). */
-static bool fw_pmic_gpio_read(uiox_pmic_hw_t *hw, uint32_t pin) { (void)hw; (void)pin; }
+static bool fw_pmic_gpio_read(uiox_pmic_hw_t *hw, uint32_t pin) { (void)hw; (void)pin; return false; }
 
 /* gpio_write: IRQ/void slot -- the firmware layer owns the IRQ controller
  * but does not route device interrupts into class handlers
@@ -204,7 +204,7 @@ int uiox_pmic_fwbind(uiox_pmic_hw_t *hw, struct uiox_i2c_dev *i2c)
     b->in_use = true;
     b->i2c = *i2c;
     b->hw  = hw;
-    uiox_fw_err_t frc = uiox_fw_pmic_init(&b->fw, i2c);
+    uiox_fw_err_t frc = uiox_fw_pmic_init_da9062(&b->fw, i2c);
     if (frc != UIOX_FW_OK) { b->in_use = false; return uiox_fw_rc(frc); }
     int rc = uiox_pmic_hw_init(hw, &s_pmic_fwops);
     if (rc < 0) { b->in_use = false; return rc; }

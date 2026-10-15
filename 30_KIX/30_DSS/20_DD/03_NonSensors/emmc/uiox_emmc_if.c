@@ -13,7 +13,7 @@
      eif->hw        = hw;
      eif->primed    = true;
      eif->bus_width = 1u;
-     eif->speed     = UIOX_EMMC_SPEED_IDENT;
+     eif->speed     = UIOX_EMMC_HW_SPEED_IDENT;
      uiox_emmc_buf_init();
      return 0;
  }
@@ -123,7 +123,7 @@
      return rc;
  }
  
- int uiox_emmc_if_set_speed(uiox_emmc_if_t *eif, uiox_emmc_speed_t speed)
+ int uiox_emmc_if_set_speed(uiox_emmc_if_t *eif, uiox_emmc_hw_speed_t speed)
  {
      if (!eif) return -EINVAL;
      int rc = uiox_emmc_hw_set_speed(eif->hw, speed);
@@ -131,7 +131,7 @@
      return rc;
  }
  
- int uiox_emmc_if_select_part(uiox_emmc_if_t *eif, uiox_emmc_part_t part)
+ int uiox_emmc_if_select_part(uiox_emmc_if_t *eif, uiox_emmc_hw_part_t part)
  {
      if (!eif) return -EINVAL;
      /* PARTITION_CONFIG [179]: [2:0] = PARTITION_ACCESS */

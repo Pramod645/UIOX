@@ -66,13 +66,13 @@
  
      /* Schedule next sample window */
      aif->next_sample_ms = now_ms +
-         UIOX_ALS_ITIME_MS[aif->hw->itime] + 5u; /* 5 ms margin */
+         UIOX_ALS_HW_ITIME_MS[aif->hw->itime] + 5u; /* 5 ms margin */
  
      aif->stats.samples_read++;
      return 1;  /* data available */
  }
  
- int uiox_als_if_set_gain(uiox_als_if_t *aif, uiox_als_gain_t g)
+ int uiox_als_if_set_gain(uiox_als_if_t *aif, uiox_als_hw_gain_t g)
  {
      if (!aif) return -EINVAL;
      int rc = uiox_als_hw_set_gain(aif->hw, g);
@@ -80,7 +80,7 @@
      return rc;
  }
  
- int uiox_als_if_set_itime(uiox_als_if_t *aif, uiox_als_itime_t t)
+ int uiox_als_if_set_itime(uiox_als_if_t *aif, uiox_als_hw_itime_t t)
  {
      if (!aif) return -EINVAL;
      return uiox_als_hw_set_itime(aif->hw, t);
