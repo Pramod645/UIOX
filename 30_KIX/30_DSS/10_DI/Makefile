@@ -52,7 +52,7 @@ COMMON_CFLAGS := \
   $(DEVICE_DEFS)                          \
   -I$(INCDIR)                             \
   -I$(MFDIR)../../../02_FwHal/include           \
-  -I$(MFDIR)../common
+  -I$(MFDIR)../../common
 
 # ── Device-conditional subdirectories ────────────────────────────────────────
 SUBDIRS :=

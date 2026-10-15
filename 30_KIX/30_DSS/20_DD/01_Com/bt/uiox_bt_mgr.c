@@ -5,7 +5,9 @@
  */
 
  #include "uiox_bt_mgr.h"
+ #include "uiox_soc_stdio.h"
  #include "uiox_klibc.h"
+
  
  int uiox_bt_mgr_init(uiox_bt_mgr_t *mgr, uiox_bt_if_t *bif)
  {
