@@ -27,9 +27,9 @@
  *      uint16_t idev_unit;    which instance of that class
  *
  *  which are the same (cls, unit) pair uiox_dev_dev_t uses — see
- *  34_DSS/include/uiox_devclass.h, where a class value packs its family
+ *  30_DSS/include/uiox_devclass.h, where a class value packs its family
  *  into the high nibble and the class into the low 12 bits.  So step 3 is
- *  a lookup in 34_DSS's binding registry rather than an index into a
+ *  a lookup in 30_DSS's binding registry rather than an index into a
  *  switch table, and no major number has to be allocated by anyone.
  *
  *  Steps 1, 2 and 5 are Bach's and are unchanged.  Step 4 now calls the
@@ -66,7 +66,7 @@
 #include "uiox_devclass.h"
 
 /* The binding registry: (cls, unit) -> descriptor.  Declared in
- * uiox_devclass.h section 9, defined in 34_DSS/src/uiox_devtable.c. */
+ * uiox_devclass.h section 9, defined in 30_DSS/src/uiox_devtable.c. */
 /* uiox_dev_lookup() is declared by the include above — no extra header. */
 
 int uiox_kix_scfs_ioctl(int fd, uint32_t cmd, void *arg)

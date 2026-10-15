@@ -170,7 +170,7 @@ typedef struct InCoreInode {
      * two fields, one indirection, and a number space somebody has to
      * allocate and keep unique across the whole tree.  UIOX already has
      * that key: uiox_devclass_t packs the family into the high nibble and
-     * the class into the low 12 bits (see 34_DSS/include/uiox_devclass.h),
+     * the class into the low 12 bits (see 30_DSS/include/uiox_devclass.h),
      * and uiox_dev_dev_t carries the same (cls, unit) pair.  So one
      * uint16_t names the subsystem and one names the instance, with no
      * registry of allocated numbers and no switch table to index.

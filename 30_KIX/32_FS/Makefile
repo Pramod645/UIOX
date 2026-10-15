@@ -73,7 +73,7 @@ SCFS_DIR := $(MFDIR)10_scfs
 UNFS_DIR := $(MFDIR)10_unfs
 JRNL_DIR := $(MFDIR)02_jrnal
 FWHAL    := $(abspath $(MFDIR)../../02_FwHal)
-#SCIX_DIR := $(abspath $(MFDIR)../../40_SCIX)
+DRVBUFDIR := $(MFDIR)00_drvbuff
 
 UNAME_S := $(shell uname -s)
 ifeq ($(UNAME_S),Darwin)
@@ -125,6 +125,7 @@ COMMON_INCLUDES := \
   -I$(UNFS_DIR)/include   \
   -I$(JRNL_DIR)/include   \
   -I$(FWHAL)/include      \
+  -I$(DRVBUFDIR)/include  \
   -I$(SOCINC)
 
 # ── the four layers, in dependency order ──────────────────────────────
@@ -137,6 +138,7 @@ FS_SRCS_C += $(wildcard $(FSA_DIR)/src/*.c)
 FS_SRCS_C += $(wildcard $(SCFS_DIR)/src/*.c)
 FS_SRCS_C += $(wildcard $(JRNL_DIR)/src/*.c)          # ◀ v2.3.0
 FS_SRCS_C += $(wildcard $(MFDIR)src/*.c)              # ◀ v2.3.0
+FS_SRCS_C += $(wildcard $(DRVBUFDIR)/*/*/*.c)       # ◀ the pools
 
 vpath %.c \
   $(UNFS_DIR)/src \
@@ -144,7 +146,22 @@ vpath %.c \
   $(FSA_DIR)/src  \
   $(SCFS_DIR)/src \
   $(JRNL_DIR)/src \
-  $(MFDIR)src
+  $(MFDIR)src     \
+  $(DRVBUFDIR)/01_Com/bt        \
+  $(DRVBUFDIR)/01_Com/eth       \
+  $(DRVBUFDIR)/01_Com/gpu       \
+  $(DRVBUFDIR)/01_Com/hdmi      \
+  $(DRVBUFDIR)/01_Com/monitor   \
+  $(DRVBUFDIR)/01_Com/tb4       \
+  $(DRVBUFDIR)/01_Com/usb       \
+  $(DRVBUFDIR)/02_Sensors/WiFi      \
+  $(DRVBUFDIR)/02_Sensors/camera    \
+  $(DRVBUFDIR)/02_Sensors/keyboard  \
+  $(DRVBUFDIR)/02_Sensors/mic       \
+  $(DRVBUFDIR)/02_Sensors/mouse     \
+  $(DRVBUFDIR)/02_Sensors/touchpwd  \
+  $(DRVBUFDIR)/03_NonSensors/emmc   \
+  $(DRVBUFDIR)/03_NonSensors/speaker
 
 ARFLAGS := rcs
 

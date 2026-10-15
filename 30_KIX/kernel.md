@@ -22,7 +22,7 @@ uiox_bsp_init()             ← BSP linked inside kernel
     │
     ▼
 kernel subsystems start
-(33_PCS, 30_DeviceDrivers, …)
+(33_PCS, 20_DD, …)
 
 
 ── DYNAMIC (needs wiring) ───────────────────────────────────────────
@@ -2210,7 +2210,7 @@ What	Where	Why KIX can't do it itself
 arch_init()	10_BSP/10Arch/<arch>/archinit.c	GIC/APIC/PLIC, VBAR, caches, MMU — must run before C
 SoC register map	10_BSP/03SoC/include/uioxsocmap.h	SOCGICCPUBASE, SOCTIMER0BASE, SOCUART0PORT — the addresses are silicon facts
 Linker scripts	10_BSP/linker/*.ld	_bss_start, _stack_top, _text_start — the symbols uiox_kernel_main.c declares as extern
-20_DriverInterfaces tree	02_FwHal (outside)	MMIO register writes — firmware's job by your own boundary rule
+10_DI tree	02_FwHal (outside)	MMIO register writes — firmware's job by your own boundary rule
 uiox_kernel_main.c's call chain says so directly:
 
 
@@ -3481,14 +3481,14 @@ soc.storage_base            │             │   [SOUND]   → uiox_drv_spk_ops
 That's the Linux shape: the device is discovered by data (PCI BARs, DT nodes), the driver is chosen by a match table in the kernel's own text, and the ops vtable is per-driver, in the kernel image. Your uiox_hw_ops_t is already the third piece; what's missing is the middle one.
 
 3 — Extending it beyond UART and ethernet
-02_FwHal has 26-plus device files (uiox_fw_als.c says "IMPLEMENTATION TEMPLATE (used for all 26 .c files)"), and 34_DSS mirrors them across four layers. The extension is mechanical if you keep it value-driven:
+02_FwHal has 26-plus device files (uiox_fw_als.c says "IMPLEMENTATION TEMPLATE (used for all 26 .c files)"), and 30_DSS mirrors them across four layers. The extension is mechanical if you keep it value-driven:
 
 A — one capability table in the kernel, keyed by device class.
 
 c
 
 
-/* 34_DSS/include/uiox_devclass.h — the one place classes are numbered */
+/* 30_DSS/include/uiox_devclass.h — the one place classes are numbered */
 typedef enum {
     UIOX_DEVCLASS_UART = 0,  UIOX_DEVCLASS_ETH,    UIOX_DEVCLASS_BT,
     UIOX_DEVCLASS_GPU,       UIOX_DEVCLASS_HDMI,   UIOX_DEVCLASS_MONITOR,
@@ -3540,7 +3540,7 @@ C — a static descriptor table, filled at one place. This is the piece that mak
 c
 
 
-/* 34_DSS/src/uiox_devtable.c — every device in the tree, one row each.
+/* 30_DSS/src/uiox_devtable.c — every device in the tree, one row each.
  * Filled from the boot args' SoC map at bring-up; consumed by the probe
  * loop.  Adding a device is one row here and one driver file, nothing
  * else changes. */
@@ -3554,7 +3554,7 @@ D — the probe loop, mirroring what you did for ethernet.
 c
 
 
-/* 34_DSS/src/uiox_devprobe.c */
+/* 30_DSS/src/uiox_devprobe.c */
 extern const uiox_dev_ops_t *uiox_drv_ops_for(uiox_devclass_t cls);  /* .rodata */
 
 void uiox_devprobe_all(void)
@@ -3598,7 +3598,7 @@ The ethernet path is the working prototype. Extend it by one class and generalis
 
 Add soc.virtio_base/virtio_stride threading (the 01_uBoot edits from two messages back).
 uiox_drv_fwnet_eth.c stops hardcoding 0x0a003e00 and takes soc->virtio_base — proving the value-from-boot-args path end to end.
-Then add one more class — 34_DSS/30_DeviceDrivers/01_Com/bt/, which already has uiox_bt_if.c and uiox_bt_mgr.c (two files, so it's less trivial than eth) — through the same descriptor → ops_for() → probe shape.
+Then add one more class — 30_DSS/20_DD/01_Com/bt/, which already has uiox_bt_if.c and uiox_bt_mgr.c (two files, so it's less trivial than eth) — through the same descriptor → ops_for() → probe shape.
 Only then generalise to the table, because two working classes tell you what the common head actually needs, and 23 hypothetical ones don't.
 That's the honest order: the vtable pattern generalises fine, but its common interface should be derived from two real drivers, not designed ahead of them.
 
@@ -3777,7 +3777,7 @@ Three questions, answered in sequence:
 That's the whole of it. It was not an analysis of the boot path, or of the build, or of the struct's layout — it was narrowly: where do runtime device addresses come from, and what has to happen in kernel_common_init() to make them available.
 
 Why it mattered
-Because every device driver in 34_DSS needs a base address, and until this was settled each one carried a literal:
+Because every device driver in 30_DSS needs a base address, and until this was settled each one carried a literal:
 
 Driver	Hardcoded today	Should come from
 UART (early_putc)	0x09000000	soc->uart0_base
@@ -3804,7 +3804,7 @@ So the summary is: it was an analysis of runtime device-address delivery, it con
 
 
 
-pramodkumar@Mac 34_DSS % sed -n '140,160p' /Users/pramodkumar/Hack/WS/UIOX/01_uBoot/src/uiox_boot_main.c
+pramodkumar@Mac 30_DSS % sed -n '140,160p' /Users/pramodkumar/Hack/WS/UIOX/01_uBoot/src/uiox_boot_main.c
 
 
 
@@ -3828,7 +3828,7 @@ pramodkumar@Mac 34_DSS % sed -n '140,160p' /Users/pramodkumar/Hack/WS/UIOX/01_uB
  } else {  
      uiox_boot_puts("  no DTB (x86) — using compile-time defaults\n");  
  }  
-pramodkumar@Mac 34_DSS %
+pramodkumar@Mac 30_DSS %
 
 
 The three lines you pasted are the whole problem in one place — soc is filled, printed, then dropped.
@@ -4113,13 +4113,13 @@ And the broader finding is worth carrying: of 19 pad sites, the three that matte
 
 
 
-pramodkumar@Mac 34_DSS %
-pramodkumar@Mac 34_DSS % grep -rn 'sizeof(uiox_boot_args_t)' /Users/pramodkumar/Hack/WS/UIOX/ --include='*.c' | grep -v build/
+pramodkumar@Mac 30_DSS %
+pramodkumar@Mac 30_DSS % grep -rn 'sizeof(uiox_boot_args_t)' /Users/pramodkumar/Hack/WS/UIOX/ --include='*.c' | grep -v build/
 grep -rn 'UIOX_BOOT_ARGS' /Users/pramodkumar/Hack/WS/UIOX/01_uBoot/include/uiox_boot_types.h
 
 /Users/pramodkumar/Hack/WS/UIOX/01_uBoot/src/uiox_boot_main.c:127: sizeof(uiox_boot_args_t) + 0x10000u);
 /Users/pramodkumar/Hack/WS/UIOX/01_uBoot/include/uiox_boot_types.h:78:#define UIOX_BOOT_ARGS_MAGIC 0x55415247u
-pramodkumar@Mac 34_DSS %
+pramodkumar@Mac 30_DSS %
 
 
 The grep settles it: nothing depends on a fixed size. So the padding comment is decoration, not an ABI constraint.
@@ -4189,8 +4189,8 @@ If that struct's fields already exceed 512 the way mem_map does, it's the same f
 
 
 
-ramodkumar@Mac 34_DSS %
-pramodkumar@Mac 34_DSS % sed -n '140,155p' /Users/pramodkumar/Hack/WS/UIOX/50_UIX/20_uios/pkg/include/uiox_pkg_types.h
+ramodkumar@Mac 30_DSS %
+pramodkumar@Mac 30_DSS % sed -n '140,155p' /Users/pramodkumar/Hack/WS/UIOX/50_UIX/20_uios/pkg/include/uiox_pkg_types.h
 
 
 
@@ -4210,7 +4210,7 @@ Package state (in-memory registry)
 ====================================================================== */
 typedef enum {
 UIOX_PKG_STATE_NONE = 0,
-pramodkumar@Mac 34_DSS %
+pramodkumar@Mac 30_DSS %
 
 
 

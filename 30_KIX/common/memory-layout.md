@@ -274,8 +274,8 @@ Entry registers       x0=dtb x1=args    r2=dtb r3=args    a0=dtb a1=args    rdi=
                │                                                        │
                │  Linked in order:                                       │
                │    uiox_kernel_main.o                                   │
-               │    libhw.a       (20_DriverInterfaces)                  │
-               │    libdev.a      (30_DeviceDrivers)                     │
+               │    libhw.a       (10_DI)                  │
+               │    libdev.a      (20_DD)                     │
                │    libbcache.a   (31_BufferCache)                       │
                │    libfs.a       (32_FS  incl. journal + netfs)         │
                │    libpcs.a      (33_PCS incl. ksign/fboot/sec/kpatch)  │
@@ -499,8 +499,8 @@ Entry registers       x0=dtb x1=args    r2=dtb r3=args    a0=dtb a1=args    rdi=
                │                                                        │
                │  Linked in order:                                       │
                │    uiox_kernel_main.o                                   │
-               │    libhw.a       (20_DriverInterfaces)                  │
-               │    libdev.a      (30_DeviceDrivers)                     │
+               │    libhw.a       (10_DI)                  │
+               │    libdev.a      (20_DD)                     │
                │    libbcache.a   (31_BufferCache)                       │
                │    libfs.a       (32_FS — journal + netfs)              │
                │    libpcs.a      (33_PCS — ksign/fboot/sec/kpatch)      │
@@ -706,8 +706,8 @@ Entry registers       x0=dtb x1=args    r2=dtb r3=args    a0=dtb a1=args    rdi=
                │                                                        │
                │  Linked in order:                                       │
                │    uiox_kernel_main.o                                   │
-               │    libhw.a       (20_DriverInterfaces)                  │
-               │    libdev.a      (30_DeviceDrivers)                     │
+               │    libhw.a       (10_DI)                  │
+               │    libdev.a      (20_DD)                     │
                │    libbcache.a   (31_BufferCache)                       │
                │    libfs.a       (32_FS — journal + netfs)              │
                │    libpcs.a      (33_PCS — ksign/fboot/sec/kpatch)      │
@@ -931,8 +931,8 @@ Entry registers       x0=dtb x1=args    r2=dtb r3=args    a0=dtb a1=args    rdi=
                │                                                        │
                │  Linked in order:                                       │
                │    uiox_kernel_main.o                                   │
-               │    libhw.a        (20_DriverInterfaces)                 │
-               │    libdev.a       (30_DeviceDrivers)                    │
+               │    libhw.a        (10_DI)                 │
+               │    libdev.a       (20_DD)                    │
                │    libbcache.a    (31_BufferCache)                      │
                │    libfs.a        (32_FS — journal + netfs)             │
                │    libpcs.a       (33_PCS — ksign/fboot/sec/kpatch)     │
@@ -1775,9 +1775,9 @@ Complete picture — data flow for every crossing type
 │                                                                      │
 │  uiox_soc_get_desc()     → uiox_soc_arm64_detect()                  │
 │  uiox_clk_get_hz()       → uiox_soc_clk.c → SoC PLL MMIO           │
-│  uiox_bms_read_data()    → 30_DeviceDrivers → FwHal → I2C → chip   │
-│  uiox_therm_read_zone()  → 30_DeviceDrivers → FwHal → ADC → sensor │
-│  uiox_wifi_get_status()  → 30_DeviceDrivers → uiox_wifi_if_stats   │
+│  uiox_bms_read_data()    → 20_DD → FwHal → I2C → chip   │
+│  uiox_therm_read_zone()  → 20_DD → FwHal → ADC → sensor │
+│  uiox_wifi_get_status()  → 20_DD → uiox_wifi_if_stats   │
 │  uiox_cam_get_frame()    → 31_BufferCache → DMA PA                  │
 │  uiox_fw_dma_transfer()  → 03_SoC → PL080/PL330 MMIO               │
 └──────────────────┬──────────────────────────────────────────────────┘
@@ -2240,7 +2240,7 @@ The correct architecture — how both layers work together
                                    │  calls
                                    ▼
 ┌─────────────────────────────────────────────────────────────────────────┐
-│  BLOCK DEVICE  (30_DeviceDrivers/03_NonSensors/emmc or 31_BufferCache)  │
+│  BLOCK DEVICE  (20_DD/03_NonSensors/emmc or 31_BufferCache)  │
 │  Physical read/write to eMMC / SSD / virtual disk in DRAM               │
 └─────────────────────────────────────────────────────────────────────────┘
 
@@ -2584,8 +2584,8 @@ Compile order (bottom → top):
 
   1. 02_FwHal          → libuioxfwarm64.a
   2. 10_BSP            → libbsp.a
-  3. 20_DriverInterfaces → libhw.a
-  4. 30_DeviceDrivers  → libdev.a
+  3. 10_DI → libhw.a
+  4. 20_DD  → libdev.a
   5. 31_BufferCache    → libbcache.a
        00_FileBuff/bcache.c
        00_FileBuff/uiox_page_cache.c

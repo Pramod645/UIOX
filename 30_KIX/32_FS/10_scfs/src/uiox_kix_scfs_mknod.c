@@ -41,7 +41,7 @@
  *  bits, so one 16-bit field names the subsystem with nothing for anyone
  *  to allocate and keep unique — and that same (cls, unit) pair is the
  *  seed of uiox_dev_dev_t and of the binding registry ioctl() resolves
- *  through.  See 34_DSS/include/uiox_devclass.h.
+ *  through.  See 30_DSS/include/uiox_devclass.h.
  *
  *  Where the pair comes from: the NAME, not the arguments.  mknod's own
  *  (major, minor) are two 8-bit values and cannot hold a class — CHG

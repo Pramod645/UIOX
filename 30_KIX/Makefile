@@ -5,8 +5,8 @@
 #
 # Build chain:
 #   1. 02_FwHal              → firmware HAL
-#   2. 20_DriverInterfaces   → hardware abstraction
-#   3. 30_DeviceDrivers      → kernel device drivers
+#   2. 10_DI   → hardware abstraction
+#   3. 20_DD      → kernel device drivers
 #   4. 31_BufferCache        → buffer cache
 #   5. 32_FS                 → file system
 #                               (includes 02_journal, 03_netfs)
@@ -277,12 +277,12 @@ _build_subsystems:
 	+$(MAKE) -C $(FWHAL) CC="$(CC)" AR="$(AR)" \
 	    ARCH_CFLAGS="$(ARCH_CFLAGS)" ARCH_CPUDEF="$(ARCH_CPUDEF)" \
 	    $(_ARCH) 2>/dev/null || echo "[KIX] 02_FwHal: no Makefile or skipped"
-	# 2. 20_DriverInterfaces
-	+$(MAKE) -C $(MFDIR)20_DriverInterfaces CC="$(CC)" AR="$(AR)" \
+	# 2. 10_DI
+	+$(MAKE) -C $(MFDIR)30_DSS/10_DI CC="$(CC)" AR="$(AR)" \
 	    ARCH_CFLAGS="$(ARCH_CFLAGS)" ARCH_CPUDEF="$(ARCH_CPUDEF)" \
 	    DEVICE_DEFS="$(DEVICE_DEFS)" $(ENABLE_FLAGS) $(_ARCH)
-	# 3. 30_DeviceDrivers
-	+$(MAKE) -C $(MFDIR)30_DeviceDrivers CC="$(CC)" AR="$(AR)" \
+	# 3. 20_DD
+	+$(MAKE) -C $(MFDIR)30_DSS/20_DD CC="$(CC)" AR="$(AR)" \
 	    ARCH_CFLAGS="$(ARCH_CFLAGS)" ARCH_CPUDEF="$(ARCH_CPUDEF)" \
 	    DEVICE_DEFS="$(DEVICE_DEFS)" $(ENABLE_FLAGS) $(_ARCH)
 	# 4. 31_BufferCache
@@ -325,8 +325,8 @@ _link_kernel:
 	    --gc-sections                                              \
 	    $(_BUILD_DIR)/uiox_kernel_main.o                           \
 	    $(wildcard $(FWHAL)/build/$(_ARCH)/*.a)                    \
-	    $(wildcard $(MFDIR)20_DriverInterfaces/build/$(_ARCH)/*.a) \
-	    $(wildcard $(MFDIR)30_DeviceDrivers/build/$(_ARCH)/*.a)    \
+	    $(wildcard $(MFDIR)30_DSS/10_DI/build/$(_ARCH)/*.a) \
+	    $(wildcard $(MFDIR)30_DSS/20_DD/build/$(_ARCH)/*.a)    \
 	    $(wildcard $(MFDIR)31_BufferCache/build/$(_ARCH)/*.a)      \
 	    $(wildcard $(MFDIR)32_FS/build/$(_ARCH)/*.a)               \
 	    $(wildcard $(MFDIR)33_PCS/build/$(_ARCH)/*.a)              \
@@ -360,7 +360,7 @@ clean-x86_64:  ; rm -rf $(MFDIR)build/x86_64
 
 .PHONY: clean-subsys
 clean-subsys:
-	@for d in $(FWHAL) $(MFDIR)20_DriverInterfaces $(MFDIR)30_DeviceDrivers \
+	@for d in $(FWHAL) $(MFDIR)30_DSS/10_DI $(MFDIR)30_DSS/20_DD \
 	           $(MFDIR)31_BufferCache $(MFDIR)32_FS $(MFDIR)33_PCS \
 	           $(MFDIR)34_CAS $(UIXDIR)/01_shell; do \
 	    [ -f $$d/Makefile ] && $(MAKE) -C $$d clean || true; \

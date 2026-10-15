@@ -1,0 +1,186 @@
+/**
+ * @file    uiox_rtc_fwops.c
+ * @brief   Adapter: 02_FwHal implementation -> layer-20 uiox_rtc_hw_ops_t.
+ *
+ * PATH   30_KIX/30_DSS/10_DI/03_NonSensors/rtc/uiox_rtc_fwops.c
+ * LAYER  10_DI -- hardware-control interface.
+ *
+ * BOUNDARY
+ *   Above: 20_DD/uiox_rtc_if.c calls through hw->ops and never
+ *          sees a firmware symbol.
+ *   Below: 02_FwHal builds to libuiox_fw_<arch>.a; this file calls its flat
+ *          uiox_fw_ramrtc_*() API and never includes its sources.
+ *   This file is the joint.
+ *
+ * REGENERATED -- every stub carries the exact signature of its vtable slot
+ * (16 slots).  Bodies return -ENOSYS: an honest "not yet
+ * bound", never a silent success.  Every slot parameter is explicitly cast
+ * to void so the strict -Werror set stays intact for the driver units that
+ * do carry logic.
+ */
+
+#include "uiox_rtc_hw.h"
+#include "uiox_fw_rc.h"
+#include "uiox_fw_ramrtc.h"
+#include "uiox_fw_i2c.h"
+
+#define UIOX_RTC_FWBIND_MAX   2u
+
+typedef struct {
+    uiox_rtc_dev_t  fw;
+    uiox_i2c_dev_t     i2c;
+    uiox_rtc_hw_t             *hw;
+    bool                in_use;
+} uiox_rtc_fwbind_t;
+
+static uiox_rtc_fwbind_t s_rtc_bind[UIOX_RTC_FWBIND_MAX];
+
+static uiox_rtc_fwbind_t *bind_of(uiox_rtc_hw_t *hw)
+{
+    if (!hw) return NULL;
+    for (uint32_t i = 0u; i < UIOX_RTC_FWBIND_MAX; i++)
+        if (s_rtc_bind[i].in_use && s_rtc_bind[i].hw == hw)
+            return &s_rtc_bind[i];
+    return NULL;
+}
+
+/* ---- vtable slots ---- */
+static int fw_rtc_init(uiox_rtc_hw_t *hw)
+{
+    (void)hw;
+    uiox_rtc_fwbind_t *b = bind_of(hw);
+    if (!b) return -ENODEV;
+    return -ENOSYS;   /* TODO: bind 02_FwHal call */
+}
+
+/* deinit: IRQ/void slot -- the firmware layer owns the IRQ controller
+ * but does not route device interrupts into class handlers
+ * (10_BSP/10_Arch/[*]/arch_runtime.c). */
+static void fw_rtc_deinit(uiox_rtc_hw_t *hw) { (void)hw; }
+static uint8_t fw_rtc_reg_read(uiox_rtc_hw_t *hw, uint8_t reg)
+{
+    (void)hw; (void)reg;
+    uiox_rtc_fwbind_t *b = bind_of(hw);
+    if (!b) return -ENODEV;
+    return -ENOSYS;   /* TODO: bind 02_FwHal call */
+}
+
+/* reg_write: IRQ/void slot -- the firmware layer owns the IRQ controller
+ * but does not route device interrupts into class handlers
+ * (10_BSP/10_Arch/[*]/arch_runtime.c). */
+static void fw_rtc_reg_write(uiox_rtc_hw_t *hw, uint8_t reg, uint8_t val) { (void)hw; (void)reg; (void)val; }
+static uiox_rtc_bat_t fw_rtc_bat_check(uiox_rtc_hw_t *hw)
+{
+    (void)hw;
+    uiox_rtc_fwbind_t *b = bind_of(hw);
+    if (!b) return -ENODEV;
+    return -ENOSYS;   /* TODO: bind 02_FwHal call */
+}
+static int fw_rtc_time_read(uiox_rtc_hw_t *hw, uint8_t *sec, uint8_t *min, uint8_t *hr, uint8_t *mday, uint8_t *mon, uint16_t *year)
+{
+    (void)hw; (void)sec; (void)min; (void)hr; (void)mday; (void)mon; (void)year;
+    uiox_rtc_fwbind_t *b = bind_of(hw);
+    if (!b) return -ENODEV;
+    return -ENOSYS;   /* TODO: bind 02_FwHal call */
+}
+static int fw_rtc_time_write(uiox_rtc_hw_t *hw, uint8_t sec, uint8_t min, uint8_t hr, uint8_t mday, uint8_t mon, uint16_t year)
+{
+    (void)hw; (void)sec; (void)min; (void)hr; (void)mday; (void)mon; (void)year;
+    uiox_rtc_fwbind_t *b = bind_of(hw);
+    if (!b) return -ENODEV;
+    return -ENOSYS;   /* TODO: bind 02_FwHal call */
+}
+static int fw_rtc_alarm_read(uiox_rtc_hw_t *hw, uint8_t *sec, uint8_t *min, uint8_t *hr)
+{
+    (void)hw; (void)sec; (void)min; (void)hr;
+    uiox_rtc_fwbind_t *b = bind_of(hw);
+    if (!b) return -ENODEV;
+    return -ENOSYS;   /* TODO: bind 02_FwHal call */
+}
+static int fw_rtc_alarm_write(uiox_rtc_hw_t *hw, uint8_t sec, uint8_t min, uint8_t hr)
+{
+    (void)hw; (void)sec; (void)min; (void)hr;
+    uiox_rtc_fwbind_t *b = bind_of(hw);
+    if (!b) return -ENODEV;
+    return -ENOSYS;   /* TODO: bind 02_FwHal call */
+}
+static int fw_rtc_alarm_enable(uiox_rtc_hw_t *hw, bool enable)
+{
+    (void)hw; (void)enable;
+    uiox_rtc_fwbind_t *b = bind_of(hw);
+    if (!b) return -ENODEV;
+    return -ENOSYS;   /* TODO: bind 02_FwHal call */
+}
+static int fw_rtc_periodic_set(uiox_rtc_hw_t *hw, uint8_t rate_sel)
+{
+    (void)hw; (void)rate_sel;
+    uiox_rtc_fwbind_t *b = bind_of(hw);
+    if (!b) return -ENODEV;
+    return -ENOSYS;   /* TODO: bind 02_FwHal call */
+}
+static int fw_rtc_nvram_read(uiox_rtc_hw_t *hw, uint8_t offset, uint8_t *val)
+{
+    (void)hw; (void)offset; (void)val;
+    uiox_rtc_fwbind_t *b = bind_of(hw);
+    if (!b) return -ENODEV;
+    return -ENOSYS;   /* TODO: bind 02_FwHal call */
+}
+static int fw_rtc_nvram_write(uiox_rtc_hw_t *hw, uint8_t offset, uint8_t val)
+{
+    (void)hw; (void)offset; (void)val;
+    uiox_rtc_fwbind_t *b = bind_of(hw);
+    if (!b) return -ENODEV;
+    return -ENOSYS;   /* TODO: bind 02_FwHal call */
+}
+
+/* gpio_write: IRQ/void slot -- the firmware layer owns the IRQ controller
+ * but does not route device interrupts into class handlers
+ * (10_BSP/10_Arch/[*]/arch_runtime.c). */
+static void fw_rtc_gpio_write(uiox_rtc_hw_t *hw, uint32_t pin, bool val) { (void)hw; (void)pin; (void)val; }
+
+/* gpio_read: IRQ/void slot -- the firmware layer owns the IRQ controller
+ * but does not route device interrupts into class handlers
+ * (10_BSP/10_Arch/[*]/arch_runtime.c). */
+static bool fw_rtc_gpio_read(uiox_rtc_hw_t *hw, uint32_t pin) { (void)hw; (void)pin; return false; }
+
+/* isr: IRQ/void slot -- the firmware layer owns the IRQ controller
+ * but does not route device interrupts into class handlers
+ * (10_BSP/10_Arch/[*]/arch_runtime.c). */
+static void fw_rtc_isr(uiox_rtc_hw_t *hw) { (void)hw; }
+
+static const uiox_rtc_hw_ops_t s_rtc_fwops = {
+    .init           = fw_rtc_init,
+    .deinit         = fw_rtc_deinit,
+    .reg_read       = fw_rtc_reg_read,
+    .reg_write      = fw_rtc_reg_write,
+    .bat_check      = fw_rtc_bat_check,
+    .time_read      = fw_rtc_time_read,
+    .time_write     = fw_rtc_time_write,
+    .alarm_read     = fw_rtc_alarm_read,
+    .alarm_write    = fw_rtc_alarm_write,
+    .alarm_enable   = fw_rtc_alarm_enable,
+    .periodic_set   = fw_rtc_periodic_set,
+    .nvram_read     = fw_rtc_nvram_read,
+    .nvram_write    = fw_rtc_nvram_write,
+    .gpio_write     = fw_rtc_gpio_write,
+    .gpio_read      = fw_rtc_gpio_read,
+    .isr            = fw_rtc_isr,
+};
+
+/* ---- binding entry point ---- */
+int uiox_rtc_fwbind(uiox_rtc_hw_t *hw, struct uiox_i2c_dev *i2c)
+{
+    if (!hw || !i2c) return -EINVAL;
+    uiox_rtc_fwbind_t *b = NULL;
+    for (uint32_t i = 0u; i < UIOX_RTC_FWBIND_MAX; i++)
+        if (!s_rtc_bind[i].in_use) { b = &s_rtc_bind[i]; break; }
+    if (!b) return -ENOSPC;
+    b->in_use = true;
+    b->i2c = *i2c;
+    b->hw  = hw;
+    uiox_fw_err_t frc = uiox_fw_ramrtc_init_mc146818(&b->fw, hw->base);
+    if (frc != UIOX_FW_OK) { b->in_use = false; return uiox_fw_rc(frc); }
+    int rc = uiox_rtc_hw_init(hw, &s_rtc_fwops);
+    if (rc < 0) { b->in_use = false; return rc; }
+    return 0;
+}

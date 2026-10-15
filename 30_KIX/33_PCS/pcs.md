@@ -131,9 +131,9 @@ Complete picture — data flow for every crossing type
 │                                                                      │
 │  uiox_soc_get_desc()     → uiox_soc_arm64_detect()                  │
 │  uiox_clk_get_hz()       → uiox_soc_clk.c → SoC PLL MMIO           │
-│  uiox_bms_read_data()    → 30_DeviceDrivers → FwHal → I2C → chip   │
-│  uiox_therm_read_zone()  → 30_DeviceDrivers → FwHal → ADC → sensor │
-│  uiox_wifi_get_status()  → 30_DeviceDrivers → uiox_wifi_if_stats   │
+│  uiox_bms_read_data()    → 20_DD → FwHal → I2C → chip   │
+│  uiox_therm_read_zone()  → 20_DD → FwHal → ADC → sensor │
+│  uiox_wifi_get_status()  → 20_DD → uiox_wifi_if_stats   │
 │  uiox_cam_get_frame()    → 31_BufferCache → DMA PA                  │
 │  uiox_fw_dma_transfer()  → 03_SoC → PL080/PL330 MMIO               │
 └──────────────────┬──────────────────────────────────────────────────┘
@@ -229,7 +229,7 @@ uiox_mmap()
 If any of these files lived outside 33_PCS, they would need to reach back into 33_PCS for the process context anyway — you'd have a circular dependency. Putting them inside 33_PCS makes the dependency one-directional:
 
 32_FS  ──────────────────────────────────────────────→  33_PCS
-30_DeviceDrivers  ──────────────────────────────────→  33_PCS
+20_DD  ──────────────────────────────────→  33_PCS
 31_BufferCache  ────────────────────────────────────→  33_PCS
 02_FwHal  ──────────────────────────────────────────→  33_PCS
                                                            │
@@ -364,9 +364,9 @@ This file reads hardware data from SoC/FwHal/drivers and copies it to userspace.
 uiox_ioctl_soc_dispatch()
     → uiox_soc_get_desc()      ← 03_SoC
     → uiox_clk_get_hz()        ← 03_SoC
-    → uiox_bms_read_data()     ← 30_DeviceDrivers
-    → uiox_therm_read_zone()   ← 30_DeviceDrivers
-    → uiox_wifi_get_status()   ← 30_DeviceDrivers
+    → uiox_bms_read_data()     ← 20_DD
+    → uiox_therm_read_zone()   ← 20_DD
+    → uiox_wifi_get_status()   ← 20_DD
     → uiox_fw_power_reset()    ← 02_FwHal
     → uiox_fw_dma_transfer()   ← 02_FwHal
     → uiox_copy_to_user()      ← 33_PCS (uiox_uaccess)
@@ -448,7 +448,7 @@ Role	                            UIOX layer
 Customer (user process)	            userspace
 Waiter (takes order, brings food)	33_PCS — owns the customer relationship
 Kitchen (prepares food)	            32_FS — owns the food/data
-Supplier (raw ingredients)	        02_FwHal / 03_SoC / 30_DeviceDrivers
+Supplier (raw ingredients)	        02_FwHal / 03_SoC / 20_DD
 
 The waiter (33_PCS) takes the order from the customer (syscall), goes to the kitchen (32_FS) to get the food, and brings it back to the customer (copy_to_user). The kitchen never speaks to the customer directly — it has no idea who the customer is. If you put the waiter's job in the kitchen, the kitchen would need to know about customers — which breaks the separation entirely.
 
@@ -1620,7 +1620,7 @@ The correct architecture — how both layers work together
                                    │  calls
                                    ▼
 ┌─────────────────────────────────────────────────────────────────────────┐
-│  BLOCK DEVICE  (30_DeviceDrivers/03_NonSensors/emmc or 31_BufferCache)  │
+│  BLOCK DEVICE  (20_DD/03_NonSensors/emmc or 31_BufferCache)  │
 │  Physical read/write to eMMC / SSD / virtual disk in DRAM               │
 └─────────────────────────────────────────────────────────────────────────┘
 
@@ -3552,8 +3552,8 @@ Compile order (bottom → top):
 
   1. 02_FwHal          → libuioxfwarm64.a
   2. 10_BSP            → libbsp.a
-  3. 20_DriverInterfaces → libhw.a
-  4. 30_DeviceDrivers  → libdev.a
+  3. 10_DI → libhw.a
+  4. 20_DD  → libdev.a
   5. 31_BufferCache    → libbcache.a
        00_FileBuff/bcache.c
        00_FileBuff/uiox_page_cache.c

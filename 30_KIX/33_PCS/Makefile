@@ -50,7 +50,7 @@
 #   · 02_FwHal/include is on the include path: PCS sources that log
 #     through uiox_fw_printf() need the declaration, same as the FS
 #     journal sources did.
-#   · uiox_devclass.h lives in 34_DSS/include (one level up) — added so
+#   · uiox_devclass.h lives in 30_DSS/include (one level up) — added so
 #     the same device vocabulary the drivers use is reachable here.
 # =============================================================================
 

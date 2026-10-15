@@ -58,10 +58,10 @@
  *       │       ├─▶ uiox_timer_init()     — 33_PCS timer
  *       │       ├─▶ uiox_kp_engine_init() — 33_PCS/06_kpatch: live patch engine
  *       │       └─▶ uiox_sec_init()       — 33_PCS/05_sec: ASLR + MAC
- *       ├─▶ uiox_netif_subsystem_init()   — 34_DSS: interface table
- *       ├─▶ uiox_socket_subsystem_init()  — 34_DSS: socket table
- *       ├─▶ uiox_eth_boot_init()          — 34_DSS: the NIC, over 02_FwHal
- *       ├─▶ uiox_drv_emmc_bind()          — 34_DSS: the block device
+ *       ├─▶ uiox_netif_subsystem_init()   — 30_DSS: interface table
+ *       ├─▶ uiox_socket_subsystem_init()  — 30_DSS: socket table
+ *       ├─▶ uiox_eth_boot_init()          — 30_DSS: the NIC, over 02_FwHal
+ *       ├─▶ uiox_drv_emmc_bind()          — 30_DSS: the block device
  *       └─▶ uiox_shell_start()            — 50_UIX/01_shell: first prompt
  *
  * Subsystems now in kernel (moved from 50_UIX):
@@ -128,16 +128,16 @@ extern int uiox_bsp_init(const uiox_bsp_config_t *cfg);
 extern int  arch_init(void);          /* 10_Arch/<arch>/src/arch_init.c     */
 extern void uiox_proc_init(void);     /* 33_PCS — scheduler + process table */
 
-/* ── 34_DSS — the device subsystem, driven from kernel_common_init() ───
+/* ── 30_DSS — the device subsystem, driven from kernel_common_init() ───
  * Declared rather than included: the four DSS layers are separate
  * libraries in the umbrella Makefile, so a missing one shows up as an
  * unresolved symbol at link time rather than a missing header here.
  *
  * Note there is no body I could reach for uiox_eth_boot_init yet — its
- * driver file (30_DeviceDrivers/01_Com/eth/uiox_drv_fwnet_eth.c) is
+ * driver file (20_DD/01_Com/eth/uiox_drv_fwnet_eth.c) is
  * written but not yet in the build, so this link will fail until that
  * lands.  That is the honest state, not an oversight to paper over. */
-extern void uiox_netif_subsystem_init(void);      /* 30_DeviceDrivers/eth   */
+extern void uiox_netif_subsystem_init(void);      /* 20_DD/eth   */
 extern void uiox_socket_subsystem_init(void);     /* 34_CAS/eth             */
 extern int  uiox_eth_boot_init(uintptr_t base, uint32_t irq,
                                uiox_fw_net_type_t type);
@@ -413,7 +413,7 @@ static void __attribute__((noreturn)) kernel_common_init(void)
     early_puts("[kernel] uiox_proc_init()...\r\n");
     uiox_proc_init();
 
-    /* ── 34_DSS — the device subsystem ───────────────────────────────
+    /* ── 30_DSS — the device subsystem ───────────────────────────────
      * Tables first, then the devices themselves.
      *
      * uiox_kernel_get_soc() returns NULL when the bootloader found no

@@ -619,7 +619,7 @@ Your pasted diagram had all four arrows pointing the same way:
 
 
 32_FS ──────────→ 33_PCS
-30_DeviceDrivers → 33_PCS
+20_DD → 33_PCS
 31_BufferCache ──→ 33_PCS
 02_FwHal ────────→ 33_PCS
 That's not right, and the direction differs per file:
@@ -765,7 +765,7 @@ case UIOX_IOC_GET_SOC_INFO: {
     if (uiox_copy_to_user((void *)uarg, &kinfo, sizeof(kinfo)) != 0)
         return -EFAULT;
 }
-Every dependency points at 03_SoC, 30_DeviceDrivers, 02_FwHal. No fd is even in the signature — uiox_ioctl_soc_dispatch(unsigned long cmd, unsigned long uarg) takes only the command and the argument. The hardware path doesn't reach a filesystem.
+Every dependency points at 03_SoC, 20_DD, 02_FwHal. No fd is even in the signature — uiox_ioctl_soc_dispatch(unsigned long cmd, unsigned long uarg) takes only the command and the argument. The hardware path doesn't reach a filesystem.
 
 uiox_sys_mmap.c — yes, this one needs the VFS
 c
@@ -813,7 +813,7 @@ The corrected picture
 └────┼───────────────┘                           └────┼───────────────┘
      ▼                                                ▼
   00_bcache  →  device                        same table, same rows
-Four mechanisms fan out from 33_PCS, and only two columns reach a VFS. The hardware column goes sideways to 30_DeviceDrivers; the copy column never leaves 33_PCS at all.
+Four mechanisms fan out from 33_PCS, and only two columns reach a VFS. The hardware column goes sideways to 20_DD; the copy column never leaves 33_PCS at all.
 
 One correction to the earlier VFS design
 vfs_mmap_page isn't in the vfs.h I wrote. The four files above need it, so the profile turns out to be five table entries, not nine:
@@ -931,7 +931,7 @@ uiox_vdso.c            →  02_MemMngnt phys_alloc           ❓
 uiox_mmap.c            →  02_MemMngnt × 3                  ❌ the gap
 uiox_sys_mmap.c        →  uiox_mmap.c                      ❌ via the gap
                           32_FS vfs_mmap_page / vfs_read    ❌ not on disk
-uiox_ioctl_soc.c       →  03_SoC / 30_DeviceDrivers × 7    ❓
+uiox_ioctl_soc.c       →  03_SoC / 20_DD × 7    ❓
                           05_sec uiox_sec_check_ioctl       ❓
 The first compile will tell you which of the ❓ are real. The ❌ are known.
 

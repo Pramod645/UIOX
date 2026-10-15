@@ -1,0 +1,101 @@
+/**
+ * @file    30_KIX/30_DSS/10_DI/01_Com/eth/uiox_net_hw.c
+ * @brief   UIOX Network HAL - generic hardware lifecycle management.
+ *
+ * Concrete DMA register sequences live in the per-controller drivers
+ * (e.g. uiox_drv_gmac.c). This file wires up the vtable, validates
+ * arguments, and delegates to the ops pointer stored in dev->ops.
+ *
+ * Freestanding fixes (v1.1):
+ *   REMOVED: static s_ops[] / s_dev_count - unused, caused -Werror=unused-variable
+ *            ops vtable is stored in dev->ops by uiox_net_hw_init()
+ *
+ * v1.2.0: dev->priv -> dev->ops at BOTH sites.  uiox_net_dev_t declares
+ *         `ops` and `drv_priv`; there is no `priv`.  The write in init()
+ *         and the read in hw_ops() must name the SAME member or the
+ *         descriptor holds a pointer nothing reads.
+ */
+#include "uiox_net_hw.h"
+#include "uiox_klibc.h"
+
+/* -------------------------------------------------------------------------
+ * Internal helper - recover ops pointer from dev->ops
+ * ---------------------------------------------------------------------- */
+
+static inline const uiox_net_hw_ops_t *hw_ops(const uiox_net_dev_t *dev)
+{
+    /* ops pointer stored in .ops by uiox_net_hw_init */
+    return (const uiox_net_hw_ops_t *)dev->ops;         /* was ->priv */
+}
+
+/* -------------------------------------------------------------------------
+ * Public API
+ * ---------------------------------------------------------------------- */
+
+int uiox_net_hw_init(uiox_net_dev_t *dev, const uiox_net_hw_ops_t *ops)
+{
+    if (!dev || !ops || !ops->init)
+        return -EINVAL;
+
+    /* Store ops vtable */
+    dev->ops = (const void *)ops;                   /* was ->priv */
+
+    memset(dev->mac_addr, 0, UIOX_HW_MAC_ADDR_LEN);
+    dev->link_up = false;
+    dev->speed   = UIOX_HW_SPEED_UNKNOWN;
+    dev->duplex  = UIOX_HW_DUPLEX_HALF;
+    dev->tx_head = 0;
+    dev->tx_tail = 0;
+    dev->rx_head = 0;
+
+    return ops->init(dev);
+}
+
+int uiox_net_hw_up(uiox_net_dev_t *dev)
+{
+    if (!dev || !dev->ops)
+        return -EINVAL;
+
+    const uiox_net_hw_ops_t *ops = hw_ops(dev);
+    int rc;
+
+    /* Run PHY negotiation first */
+    if (ops->phy_autoneg) {
+        rc = ops->phy_autoneg(dev);
+        if (rc < 0)
+            return rc;
+    }
+
+    /* Start MAC/DMA engine */
+    if (ops->start) {
+        rc = ops->start(dev);
+        if (rc < 0)
+            return rc;
+    }
+
+    dev->link_up = true;
+    return 0;
+}
+
+void uiox_net_hw_down(uiox_net_dev_t *dev)
+{
+    if (!dev || !dev->ops)
+        return;
+
+    const uiox_net_hw_ops_t *ops = hw_ops(dev);
+    if (ops->stop)
+        ops->stop(dev);
+
+    dev->link_up = false;
+    dev->speed   = UIOX_HW_SPEED_UNKNOWN;
+}
+
+bool uiox_hw_link_ok(const uiox_net_dev_t *dev)
+{
+    return dev ? dev->link_up : false;
+}
+
+uiox_hw_speed_t uiox_hw_speed(const uiox_net_dev_t *dev)
+{
+    return dev ? dev->speed : UIOX_HW_SPEED_UNKNOWN;
+}
