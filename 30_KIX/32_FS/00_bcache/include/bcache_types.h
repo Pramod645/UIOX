@@ -145,7 +145,7 @@ typedef unsigned long long uint64_t;
 #ifndef UIOX_BCACHE_BOOL_DEFINED
 #define UIOX_BCACHE_BOOL_DEFINED
 
-#ifndef __cplusplus
+#if !defined(bool) && !defined(__bool_true_false_are_defined)
 typedef _Bool bool;
 #endif
 

@@ -116,9 +116,18 @@ COMMON_CFLAGS := \
 # v2.1.0: unfs_format.h lives in 10_unfs/include, so that directory must
 # be searched.  v2.2.0 leaves this list alone — the layer's sources are
 # now globbed in, and they resolve through the same -I set.
+
+# ── 10_DI class directories ───────────────────────────────────────────
+# 00_drvbuff's pool headers include the driver class headers directly
+# (uiox_bt_buf.h → uiox_bt_hw.h, and ten more), so the class dirs must be
+# on the search path.  The wildcard covers every class under 10_DI and
+# picks up new ones without editing this list.
+DI_CLASS_DIRS := $(wildcard $(MFDIR)../30_DSS/10_DI/*/*/)
+
 COMMON_INCLUDES := \
   -I$(COMMONDIR)          \
   -I$(MFDIR)include       \
+  -I$(MFDIR)../30_DSS/include \
   -I$(BCDIR)/include      \
   -I$(FSA_DIR)/include    \
   -I$(SCFS_DIR)/include   \
@@ -126,6 +135,8 @@ COMMON_INCLUDES := \
   -I$(JRNL_DIR)/include   \
   -I$(FWHAL)/include      \
   -I$(DRVBUFDIR)/include  \
+  -I$(MFDIR)../30_DSS/10_DI/include \
+  $(addprefix -I,$(DI_CLASS_DIRS)) \
   -I$(SOCINC)
 
 # ── the four layers, in dependency order ──────────────────────────────
