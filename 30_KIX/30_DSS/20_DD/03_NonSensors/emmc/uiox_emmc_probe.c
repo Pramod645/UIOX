@@ -86,6 +86,21 @@
      rc = uiox_emmc_if_start(&s_emmc_if);
      if (rc < 0)
          return rc;
+
+     /* ── 3b. learn the card's geometry ────────────────────────────
+     * if_start() brings the controller up but reads no card data, so
+     * hw->ident is zeroed and emmc_blk_num_blocks() reports 0 —
+     * "unknown", per bcache_internal.h, leaving the fs correct but
+     * sizeless. */
+    static uint8_t s_ext_csd[UIOX_EMMC_EXT_CSD_LEN];
+    rc = uiox_emmc_if_read_ext_csd(&s_emmc_if, s_ext_csd);
+    if (rc < 0)
+        return rc;
+
+    uiox_emmc_hw_parse_ext_csd(&s_emmc_hw, s_ext_csd);
+
+
+
  
      /* ── 4. descriptor — every field sourced, none invented ───────
       *   .cls      UIOX_DEVCLASS_EMMC = UIOX_DEVCLASS_(BLOCK, 0)

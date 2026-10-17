@@ -145,3 +145,49 @@
      return OPS(hw)->crc16(d, len);
  }
  
+ /* ═════════════════════════════════════════════════════════════════════
+ * EXT_CSD decode
+ *
+ * Every offset is a name from uiox_emmc_hw.h — no literals and no
+ * arithmetic.  Size comes from SEC_COUNT/CACHE_SIZE (:229/:231),
+ * health from the three defines at :232-234, and the support bits from
+ * the EXT_CSD_* block at :207-226.
+ *
+ * Little-endian throughout, as JEDEC JESD84-B51 §8.4 specifies.
+ *
+ * A card that answers CMD1 but returns an all-0xFF EXT_CSD is real but
+ * broken: the multi-byte reads come out as 0xFFFFFFFF, which
+ * capacity_sectors exposes rather than hides.
+ * ═════════════════════════════════════════════════════════════════════ */
+static uint32_t le32(const uint8_t *p)
+{
+    return (uint32_t)p[0] | ((uint32_t)p[1] << 8)
+         | ((uint32_t)p[2] << 16) | ((uint32_t)p[3] << 24);
+}
+
+void uiox_emmc_hw_parse_ext_csd(uiox_emmc_hw_t *hw, const uint8_t *csd)
+{
+    if (!hw || !csd) return;
+
+    /* ── size — what num_blocks() reports ───────────────────────────
+     * SEC_COUNT is in 512-byte units, which is what BCACHE_SECTOR_SIZE
+     * counts, so the block figure needs no arithmetic. */
+    hw->ident.capacity_sectors = (uint64_t)le32(&csd[EXT_CSD_SEC_COUNT]);
+    hw->ident.capacity_bytes   = hw->ident.capacity_sectors * 512u;
+
+    /* ── cache ────────────────────────────────────────────────────── */
+    hw->ident.cache_size_kb = le32(&csd[EXT_CSD_CACHE_SIZE]);
+
+    /* ── health ───────────────────────────────────────────────────── */
+    hw->ident.pre_eol_info = csd[EXT_CSD_PRE_EOL_INFO];
+    hw->ident.life_est_a   = csd[EXT_CSD_DEVICE_LIFE_EST_A] & 0x0Fu;
+    hw->ident.life_est_b   = csd[EXT_CSD_DEVICE_LIFE_EST_B] & 0x0Fu;
+
+    /* ── support flags ───────────────────────────────────────────────
+     * Each reads the byte the header names; the bit within it is the
+     * standard's.  A card lacking a feature reports 0, and the identity
+     * ioctl says so rather than claiming support. */
+    hw->ident.cache_supported = (csd[EXT_CSD_CACHE_CTRL] & 0x10u) != 0u;
+    hw->ident.pon_supported   = (csd[EXT_CSD_POWER_OFF_NOTIF] & 0x01u) != 0u;
+    hw->ident.bkops_supported = (csd[EXT_CSD_BKOPS_STATUS] != 0u);
+}

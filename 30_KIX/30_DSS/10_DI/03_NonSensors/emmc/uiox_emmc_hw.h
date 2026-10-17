@@ -447,6 +447,9 @@ struct uiox_i2c_dev;
 int uiox_emmc_fwbind(uiox_emmc_hw_t *hw, struct uiox_i2c_dev *i2c);
 
 /* ================================ end patch =============================== */
+
+void uiox_emmc_hw_parse_ext_csd(uiox_emmc_hw_t *hw, const uint8_t *csd);
+
  
  #ifdef __cplusplus
  }
