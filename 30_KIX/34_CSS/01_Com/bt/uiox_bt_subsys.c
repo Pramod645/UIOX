@@ -1,7 +1,5 @@
 /* uiox_bt_subsys.c */
 #include "uiox_bt_subsys.h"
-#include <string.h>
-#include <errno.h>
 
 static void fire(uiox_bt_subsys_t *sys, uiox_bt_ev_t ev,
                  uiox_bt_remote_dev_t *dev)
