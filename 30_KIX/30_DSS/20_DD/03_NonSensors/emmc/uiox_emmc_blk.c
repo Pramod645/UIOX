@@ -132,13 +132,13 @@
      if (!eif || !eif->hw)
          return 0u;                      /* unknown, not zero-sized */
  
-     return (uint32_t)eif->hw->capacity_sectors;
+     return (uint32_t)eif->hw->ident.capacity_sectors;
  }
  
  /* ── ioctl ────────────────────────────────────────────────────────────
   * Reached from uiox_kix_scfs_ioctl.c after uiox_dev_lookup(cls, unit)
   * resolved the inode's idev_class.  The card has no control surface
-  * defined yet, so -ENOTTY is the correct answer: exactly what the ioctl
+  * defined yet, so -ENOSYS is the correct answer: exactly what the ioctl
   * path returns for a device that takes none, and how a caller learns to
   * stop asking.
   *
@@ -177,6 +177,6 @@
      /* No command vocabulary for the card yet.  See the note above: this
       * is the answer a device with no control surface gives, and the
       * filesystem's ioctl path is written to accept it. */
-     return -ENOTTY;
+     return -ENOSYS;
  }
  

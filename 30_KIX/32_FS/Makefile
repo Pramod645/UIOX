@@ -159,8 +159,8 @@ FS_SRCS_C += $(wildcard $(DRVBUFDIR)/*/*/*.c)       # ◀ the pools
 # (the DRAM stand-in) and bcache_plat_dev.c (the live registry path).
 # Each defines all four hooks, so ar accepts both and the LINKER picks
 # one arbitrarily.  These lines make the choice explicit.
-FS_SRCS_C := $(filter-out $(BCDIR)/src/bcache_plat_dev.c, $(FS_SRCS_C))
-#FS_SRCS_C := $(filter-out $(BCDIR)/src/bcache_plat_dram.c, $(FS_SRCS_C))
+#FS_SRCS_C := $(filter-out $(BCDIR)/src/bcache_plat_dev.c, $(FS_SRCS_C))
+FS_SRCS_C := $(filter-out $(BCDIR)/src/bcache_plat_dram.c, $(FS_SRCS_C))
 
 
 vpath %.c \
