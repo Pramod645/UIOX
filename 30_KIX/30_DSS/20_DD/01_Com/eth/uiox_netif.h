@@ -157,6 +157,17 @@
   *         a freshly received buffer to the protocol stack.
   */
  void uiox_netif_input(uiox_netif_t *netif, uiox_netbuf_t *buf);
+
+ /**
+ * @brief  Hand a raw received frame (Ethernet header included) to the
+ *         protocol stack.  Allocates from the netbuf pool, copies, and
+ *         calls uiox_netif_input().  This is the RX conversion point:
+ *         rx_poll gives bytes, input() wants a netbuf.
+ * @return 0 on success, -ENOMEM if the pool is exhausted.
+ */
+ int uiox_netif_rx_frame(uiox_netif_t *netif, const uint8_t *frame,
+    uint32_t len);
+
  
  /** ARP: resolve IPv4 → MAC.  Blocks up to timeout_ms. */
  int  uiox_arp_resolve(uiox_netif_t *netif, uint32_t ip4,

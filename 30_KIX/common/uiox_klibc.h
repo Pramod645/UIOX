@@ -63,6 +63,7 @@
 #define ENODEV   19   /* No such device              */
 #define EINVAL   22   /* Invalid argument            */
 #define ENOSPC   28   /* No space left on device     */
+#define EMSGSIZE        90   /* Message too long */
 #define EPIPE    32   /* Broken pipe                 */
 #define ERANGE   34   /* Math result not representable */
 #define ENOSYS   38   /* Function not implemented    */

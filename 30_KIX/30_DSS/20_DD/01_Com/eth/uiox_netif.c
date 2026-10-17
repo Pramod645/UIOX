@@ -143,7 +143,81 @@ int uiox_netif_set_ip4(uiox_netif_t *netif,
             break;
         }
     }
-    
+    /**
+ * @brief  Hand a raw received frame to the protocol stack.
+ *
+ * The conversion point dss.md:139 names.  Three layers want three
+ * different things from the same packet:
+ *
+ *   uiox_fw_eth's ISR   calls rx_cb(NULL, 0, priv) — a SIGNAL, no data
+ *   uiox_hw_ops_t       offers rx_poll(dev, buf, maxlen) — a PULL
+ *   uiox_netif_input()  wants a uiox_netbuf_t * — an owned buffer
+ *
+ * This is the one place those meet: pull the bytes into a buffer from
+ * the pool, then dispatch.  One conversion point, in the kernel where
+ * dss.md says it belongs.
+ *
+ * THE FRAME IS COMPLETE — Ethernet header included.  uiox_netif_input()
+ * strips that header itself (uiox_netbuf_pull of sizeof(uiox_eth_hdr_t))
+ * and dispatches on the EtherType, so this function must not strip it.
+ *
+ * @param frame  The full Ethernet frame, header first.
+ * @param len    Its length in bytes, including the 14-byte header.
+ * @return       0 on success, negative errno.  -ENOMEM when the pool is
+ *               exhausted — the caller drops the packet, which is the
+ *               correct behaviour for a full RX ring.
+ */
+int uiox_netif_rx_frame(uiox_netif_t *netif, const uint8_t *frame,
+    uint32_t len)
+{
+if (!netif || !frame)     return -EINVAL;
+if (len < sizeof(uiox_eth_hdr_t)) return -EINVAL;
+
+/* A frame larger than the pool's payload cannot be carried.  The
+* pool is UIOX_NETBUF_DATA_SIZE bytes (1600), and the pool's own
+* header calls that "per-buffer payload capacity" — so a longer
+* frame is a hardware configuration error, not a transient drop. */
+if (len > UIOX_NETBUF_DATA_SIZE) {
+netif->stats.rx_dropped++;
+return -EMSGSIZE;
+}
+
+uiox_netbuf_t *buf = uiox_netbuf_alloc();
+if (!buf) {
+netif->stats.rx_dropped++;
+return -ENOMEM;
+}
+
+/* Reserve the payload, then copy into it.  put() advances the tail
+* and hands back the write position, so this is one copy and no
+* reallocation — the headroom stays intact for the TX path that may
+* reuse the buffer later. */
+uint8_t *dst = (uint8_t *)uiox_netbuf_put(buf, (uint16_t)len);
+if (!dst) {
+uiox_netbuf_free(buf);
+netif->stats.rx_errors++;
+return -ENOSPC;         /* no tailroom left */
+}
+
+memcpy(dst, frame, len);
+
+/* Populate what uiox_netif_input will otherwise keep local.  This is
+* dss.md:624's point: the field exists (uiox_netbuf.h:52, "Detected
+* EtherType (filled by netif)") and a caller building a buffer by
+* another route would leave it zero.  Setting it here satisfies the
+* contract at the one entry point raw frames arrive through. */
+{
+const uiox_eth_hdr_t *eth = (const uiox_eth_hdr_t *)dst;
+buf->proto = (uint16_t)((eth->ethertype >> 8) |
+            (eth->ethertype << 8));   /* be16 → host */
+}
+
+/* Hand it up.  input() strips the header and dispatches; it owns the
+* buffer from here and frees it on every path — including the
+* rx_errors path, as its body at :120 shows. */
+uiox_netif_input(netif, buf);
+return 0;
+}
     /* -------------------------------------------------------------------------
      * ARP implementation
      * ---------------------------------------------------------------------- */
