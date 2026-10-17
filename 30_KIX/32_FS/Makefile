@@ -154,6 +154,14 @@ FS_SRCS_C += $(wildcard $(SCFS_DIR)/src/*.c)
 FS_SRCS_C += $(wildcard $(JRNL_DIR)/src/*.c)          # ◀ v2.3.0
 FS_SRCS_C += $(wildcard $(MFDIR)src/*.c)              # ◀ v2.3.0
 FS_SRCS_C += $(wildcard $(DRVBUFDIR)/*/*/*.c)       # ◀ the pools
+# ── the bcache platform pair — link exactly ONE ───────────────────────
+# $(wildcard $(BCDIR)/src/*.c) above pulls in BOTH bcache_plat_dram.c
+# (the DRAM stand-in) and bcache_plat_dev.c (the live registry path).
+# Each defines all four hooks, so ar accepts both and the LINKER picks
+# one arbitrarily.  These lines make the choice explicit.
+FS_SRCS_C := $(filter-out $(BCDIR)/src/bcache_plat_dev.c, $(FS_SRCS_C))
+#FS_SRCS_C := $(filter-out $(BCDIR)/src/bcache_plat_dram.c, $(FS_SRCS_C))
+
 
 vpath %.c \
   $(UNFS_DIR)/src \
