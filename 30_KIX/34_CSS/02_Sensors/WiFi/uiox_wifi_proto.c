@@ -5,8 +5,7 @@
  */
 
  #include "uiox_wifi_proto.h"
- #include <string.h>
- #include <errno.h>
+
  
  /* =========================================================================
   * MAC frame header builder helpers

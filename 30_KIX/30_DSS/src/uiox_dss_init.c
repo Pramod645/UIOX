@@ -64,6 +64,7 @@ int uiox_emmc_probe(void);
      * eth first: its interfaces are the fully-read ones, and the other
      * six follow the same shape. */
 int uiox_eth_probe(void);        /* ◀ family 2 — STREAM */
+int uiox_wifi_probe(void);       /* ◀ family 2 — STREAM */
 
 /* ── families 2–6 — not yet written ─────────────────────────────────
  * Each follows the shape of uiox_emmc_probe(): a static subsystem, a
@@ -98,6 +99,8 @@ int uiox_dss_init(void)
      * eth first: its interfaces are the fully-read ones, and the other
      * six follow the same shape. */
     (void)uiox_eth_probe();
+
+    (void)uiox_wifi_probe(); 
 
     /* ── the remaining five families ─────────────────────────────
      * One call each, as their probes are written:

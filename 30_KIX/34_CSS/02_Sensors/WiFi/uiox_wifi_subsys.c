@@ -5,8 +5,7 @@
  */
 
  #include "uiox_wifi_subsys.h"
- #include <string.h>
- #include <errno.h>
+
  
  static void fire(uiox_wifi_subsys_t *sys, uiox_wifi_evt_t evt)
  {
