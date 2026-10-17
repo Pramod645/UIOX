@@ -1,9 +1,8 @@
 #include "uiox_cam_sensor.h"
-#include <errno.h>
 
 /* Helper: write a register list */
 typedef struct { uint16_t reg; uint8_t val; } reg8_t;
-static int wr_list(const uiox_cam_bus_ops_t *bus, uint8_t addr, const reg8_t *lst)
+static int __attribute__((unused)) wr_list(const uiox_cam_bus_ops_t *bus, uint8_t addr, const reg8_t *lst)
 {
     for (int i = 0; lst[i].reg != 0xFFFF; i++) {
         int rc = bus->i2c_write8(addr, lst[i].reg, lst[i].val);

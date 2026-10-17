@@ -7,9 +7,10 @@
 
  #ifndef UIOX_CAM_SENSOR_H
  #define UIOX_CAM_SENSOR_H
- 
- #include <stdint.h>
- #include <stdbool.h>
+
+ /* uiox_cam_sensor.h — add after the file banner, before the first type use */
+#include "uiox_klibc.h"     /* uint8_t, uint16_t, uint32_t, bool under -nostdinc */
+
  
  #ifdef __cplusplus
  extern "C" {

@@ -1,6 +1,4 @@
 #include "uiox_cam_subsys.h"
-#include <string.h>
-#include <errno.h>
 
 int uiox_cam_pipeline_build(uiox_cam_pipeline_t *pl,
                             uiox_cam_hw_t *hw,
