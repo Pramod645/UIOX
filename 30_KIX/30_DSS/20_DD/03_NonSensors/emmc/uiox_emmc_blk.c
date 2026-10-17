@@ -39,6 +39,9 @@
  #include "uiox_devclass.h"      /* uiox_dev_dev_t, UIOX_DEVCLASS_EMMC     */
  #include "uiox_devops.h"        /* uiox_blk_ops_t — the shape being filled*/
  #include "uiox_klibc.h"         /* NULL, errno under -nostdinc            */
+
+ #include "uiox_emmc_ioctl.h"    /* UIOX_EMMC_IOC_* */
+
  
  /* ═════════════════════════════════════════════════════════════════════
   * The one unwrap.
@@ -166,17 +169,87 @@
      .ioctl      = emmc_blk_ioctl,
  };
  
- static int emmc_blk_ioctl(uiox_dev_dev_t *dev, unsigned long cmd, void *arg)
- {
-     uiox_emmc_if_t *eif = eif_of(dev);
-     (void)cmd; (void)arg;
- 
-     if (!eif || !eif->primed)
-         return -ENODEV;
- 
-     /* No command vocabulary for the card yet.  See the note above: this
-      * is the answer a device with no control surface gives, and the
-      * filesystem's ioctl path is written to accept it. */
-     return -ENOSYS;
- }
+/* ── ioctl ────────────────────────────────────────────────────────────
+ * The filesystem reaches here from uiox_kix_scfs_ioctl.c, after
+ * uiox_dev_lookup(cls, unit) resolved the inode's idev_class.  No
+ * bcache in this path: a command has no block index, so there is no
+ * buffer to key and nothing to cache.
+ *
+ * Every service below already exists in uiox_emmc_if.h.  What this
+ * function adds is the translation from a command number to the right
+ * entry point, and the argument ABI the header documents.
+ *
+ * -ENOSYS for an unknown command is the tree's "not implemented", not
+ * "invalid" — the comment at uiox_kix_scfs_ioctl.c:47 says the syscall
+ * layer treats the call as existing, with the card deciding what it can
+ * answer.  A caller that gets -ENOSYS has asked for something real that
+ * this class does not do yet.
+ * ──────────────────────────────────────────────────────────────────── */
+static int emmc_blk_ioctl(uiox_dev_dev_t *dev, unsigned long cmd, void *arg)
+{
+    uiox_emmc_if_t *eif = eif_of(dev);
+    if (!eif || !eif->primed)
+        return -ENODEV;
+
+    if (!arg)
+        return -EINVAL;         /* every command below takes or fills one */
+
+    switch ((uint32_t)cmd) {
+
+    /* ── identity ──────────────────────────────────────────────────── */
+    case UIOX_EMMC_IOC_GET_IDENT:
+        /* The ident block is filled by the init sequence; after
+         * uiox_emmc_if_start() it is complete.  Copy, do not hand out a
+         * pointer into hw — the driver owns that struct. */
+        *(uiox_emmc_ident_t *)arg = eif->hw->ident;
+        return 0;
+
+    case UIOX_EMMC_IOC_GET_BYTES:
+        *(uint64_t *)arg = eif->hw->ident.capacity_bytes;
+        return 0;
+
+    case UIOX_EMMC_IOC_GET_BLOCKS:
+        /* Same number num_blocks() reports, and the same truncation is
+         * stated there: uint32_t saturates near 2 TiB.  A caller that
+         * needs the full value uses GET_BYTES. */
+        *(uint32_t *)arg = (uint32_t)eif->hw->ident.capacity_sectors;
+        return 0;
+
+    case UIOX_EMMC_IOC_GET_PART: {
+        uiox_emmc_hw_part_t p = *(uiox_emmc_hw_part_t *)arg;
+        if ((uint32_t)p >= UIOX_EMMC_MAX_PARTS)
+            return -EINVAL;
+        *(uiox_emmc_part_info_t *)arg = eif->hw->ident.parts[p];
+        return 0;
+    }
+
+    /* ── mode ──────────────────────────────────────────────────────── */
+    case UIOX_EMMC_IOC_SET_PART: {
+        uiox_emmc_hw_part_t p = *(uiox_emmc_hw_part_t *)arg;
+        return uiox_emmc_if_select_part(eif, p);
+    }
+
+    case UIOX_EMMC_IOC_SET_WIDTH:
+        return uiox_emmc_if_set_bus_width(eif, *(uint8_t *)arg);
+
+    case UIOX_EMMC_IOC_SET_SPEED:
+        return uiox_emmc_if_set_speed(eif, *(uiox_emmc_hw_speed_t *)arg);
+
+    case UIOX_EMMC_IOC_SET_CLOCK:
+        return uiox_emmc_if_set_clock(eif, *(uint32_t *)arg);
+
+    /* ── health ────────────────────────────────────────────────────── */
+    case UIOX_EMMC_IOC_READ_EXT_CSD:
+        /* Fills 512 bytes at arg — the caller's buffer, not hw's. */
+        return uiox_emmc_if_read_ext_csd(eif, (uint8_t *)arg);
+
+    case UIOX_EMMC_IOC_GET_STATS:
+        uiox_emmc_if_stats_get(eif, (uiox_emmc_if_stats_t *)arg);
+        return 0;
+
+    default:
+        return -ENOSYS;         /* a real command this class does not do */
+    }
+}
+
  
