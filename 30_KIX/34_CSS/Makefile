@@ -65,6 +65,9 @@ COMMON_CFLAGS := \
     -I$(MFDIR)../30_DSS/20_DD/01_Com/bt            \
   -I$(MFDIR)../30_DSS/10_DI/01_Com/bt            \
   -I$(MFDIR)../32_FS/00_drvbuff/01_Com/bt        \
+    -I$(MFDIR)../30_DSS/20_DD/01_Com/usb           \
+  -I$(MFDIR)../30_DSS/10_DI/01_Com/usb           \
+  -I$(MFDIR)../32_FS/00_drvbuff/01_Com/usb      \
   -I$(MFDIR)../30_DSS/include             \
   -I$(MFDIR)../30_DSS/10_DI/include
 
@@ -76,8 +79,9 @@ COMMON_CFLAGS := \
 #        $(wildcard $(MFDIR)02_Sensors/*/*.c)    \
 #        $(wildcard $(MFDIR)03_NonSensors/*/*.c) \
 #        $(wildcard $(MFDIR)src/*.c)             # kept for a flat src/ if one appears
-SRCS := $(wildcard $(MFDIR)01_Com/eth/*.c)\
+SRCS := $(wildcard $(MFDIR)01_Com/eth/*.c)     \
         $(wildcard $(MFDIR)02_Sensors/WiFi/*.c)\
+		$(wildcard $(MFDIR)01_Com/usb/*.c)     \
         $(wildcard $(MFDIR)01_Com/bt/*.c)
 
 OBJS := $(patsubst $(MFDIR)%.c,$(_BUILD_DIR)/%.o,$(SRCS))

@@ -154,7 +154,7 @@
  
      /* HDCP status poll */
      const uiox_hdmi_hw_ops_t *ops =
-         (const uiox_hdmi_hw_ops_t *)sys->hif.hw->priv;
+         (const uiox_hdmi_hw_ops_t *)sys->hif.hw->drv_priv;
      if (ops && ops->hdcp_status) {
          uiox_hdcp_state_t hs;
          if (ops->hdcp_status(sys->hif.hw, &hs) == 0) {
@@ -175,7 +175,7 @@
      if (sys->dpms_timeout_ms &&
          (now_ms - sys->last_activity_ms) >= sys->dpms_timeout_ms) {
          const uiox_hdmi_hw_ops_t *o =
-             (const uiox_hdmi_hw_ops_t *)sys->hif.hw->priv;
+             (const uiox_hdmi_hw_ops_t *)sys->hif.hw->drv_priv;
          if (o && o->phy_power) o->phy_power(sys->hif.hw, false);
          sys->state = UIOX_HDMI_SUBSYS_SUSPENDED;
      }
@@ -187,7 +187,7 @@
      sys->last_activity_ms = now_ms;
      if (sys->state == UIOX_HDMI_SUBSYS_SUSPENDED) {
          const uiox_hdmi_hw_ops_t *ops =
-             (const uiox_hdmi_hw_ops_t *)sys->hif.hw->priv;
+             (const uiox_hdmi_hw_ops_t *)sys->hif.hw->drv_priv;
          if (ops && ops->phy_power) ops->phy_power(sys->hif.hw, true);
          sys->state = UIOX_HDMI_SUBSYS_RUNNING;
      }

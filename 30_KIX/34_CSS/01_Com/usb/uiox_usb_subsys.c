@@ -5,8 +5,6 @@
  */
 
  #include "uiox_usb_subsys.h"
- #include <string.h>
- #include <errno.h>
  
  static void fire(uiox_usb_subsys_t *sys, uiox_usb_evt_t evt, uint8_t ep)
  {

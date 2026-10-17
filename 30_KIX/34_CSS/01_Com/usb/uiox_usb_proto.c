@@ -5,8 +5,6 @@
  */
 
  #include "uiox_usb_proto.h"
- #include <string.h>
- #include <errno.h>
  
  int uiox_usb_proto_init(uiox_usb_proto_t          *proto,
                           uiox_usb_if_t             *uif,
@@ -122,7 +120,7 @@
      proto->state = UIOX_USB_DEV_ADDRESS;
      {
          const uiox_usb_hw_ops_t *ops =
-             (const uiox_usb_hw_ops_t *)proto->uif->hw->priv;
+             (const uiox_usb_hw_ops_t *)proto->uif->hw->drv_priv;
          if (ops && ops->set_address)
              ops->set_address(proto->uif->hw, proto->uif->hw->address);
      }

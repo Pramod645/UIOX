@@ -91,7 +91,7 @@
      memcpy(&raw[4], pkt->payload, 27u);
  
      const uiox_hdmi_hw_ops_t *ops =
-         (const uiox_hdmi_hw_ops_t *)proto->hif->hw->priv;
+         (const uiox_hdmi_hw_ops_t *)proto->hif->hw->drv_priv;
      int rc = -ENOSYS;
      if (ops && ops->infoframe_send)
          rc = ops->infoframe_send(proto->hif->hw, raw, sizeof(raw));
@@ -128,7 +128,7 @@
      raw[3] = (uint8_t)(0x100u - sum);
  
      const uiox_hdmi_hw_ops_t *ops =
-         (const uiox_hdmi_hw_ops_t *)proto->hif->hw->priv;
+         (const uiox_hdmi_hw_ops_t *)proto->hif->hw->drv_priv;
      int rc = -ENOSYS;
      if (ops && ops->infoframe_send)
          rc = ops->infoframe_send(proto->hif->hw, raw, sizeof(raw));
@@ -180,7 +180,7 @@
      raw[3] = (uint8_t)(0x100u - sum);
  
      const uiox_hdmi_hw_ops_t *ops =
-         (const uiox_hdmi_hw_ops_t *)proto->hif->hw->priv;
+         (const uiox_hdmi_hw_ops_t *)proto->hif->hw->drv_priv;
      int rc = -ENOSYS;
      if (ops && ops->infoframe_send)
          rc = ops->infoframe_send(proto->hif->hw, raw, sizeof(raw));
@@ -215,7 +215,7 @@
      raw[3] = (uint8_t)(0x100u - sum);
     
      const uiox_hdmi_hw_ops_t *ops =
-         (const uiox_hdmi_hw_ops_t *)proto->hif->hw->priv;
+         (const uiox_hdmi_hw_ops_t *)proto->hif->hw->drv_priv;
      int rc = -ENOSYS;
      if (ops && ops->infoframe_send)
          rc = ops->infoframe_send(proto->hif->hw, raw, sizeof(raw));
@@ -233,7 +233,7 @@
             0x00u, 0x00u, 0x00u
         };
         const uiox_hdmi_hw_ops_t *ops =
-            (const uiox_hdmi_hw_ops_t *)proto->hif->hw->priv;
+            (const uiox_hdmi_hw_ops_t *)proto->hif->hw->drv_priv;
         if (!ops || !ops->infoframe_send) return -ENOSYS;
         return ops->infoframe_send(proto->hif->hw, raw, sizeof(raw));
     }
@@ -253,7 +253,7 @@
             len += plen;
         }
         const uiox_hdmi_hw_ops_t *ops =
-            (const uiox_hdmi_hw_ops_t *)proto->hif->hw->priv;
+            (const uiox_hdmi_hw_ops_t *)proto->hif->hw->drv_priv;
         if (!ops || !ops->cec_send) return -ENOSYS;
         return ops->cec_send(proto->hif->hw, dst_la, msg, len);
     }
@@ -264,7 +264,7 @@
     {
         if (!proto || !src_la || !opcode || !params || !plen) return -EINVAL;
         const uiox_hdmi_hw_ops_t *ops =
-            (const uiox_hdmi_hw_ops_t *)proto->hif->hw->priv;
+            (const uiox_hdmi_hw_ops_t *)proto->hif->hw->drv_priv;
         if (!ops || !ops->cec_recv) return -ENOSYS;
         uint8_t msg[16];
         uint8_t msg_len = 0;
