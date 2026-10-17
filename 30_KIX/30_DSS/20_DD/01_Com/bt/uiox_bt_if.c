@@ -6,6 +6,21 @@
  * v1.1.0: bif->hw->ops -> bif->hw->ops at two sites.  uiox_bt_hw_t
  *         declares `ops` and `drv_priv`; there is no `priv` member, and
  *         uiox_bt_hw_init() writes hw->ops.
+ *
+ * v1.2.0: the HCI command and ACL frames now come from uiox_bt_buf's
+ *         pool instead of a UIOX_BT_PKT_MAX_LEN stack frame each.
+ *         uiox_bt_cmd_alloc()/uiox_bt_acl_alloc()/uiox_bt_pkt_free()
+ *         existed and had no caller; uiox_bt_if_config() already ran
+ *         uiox_bt_buf_init(), so the pool was ready and idle.
+ *
+ *         The two fixed-size frames were the reason the pool exists:
+ *         256 bytes each, and a task stack should not carry a whole HCI
+ *         frame on every command.
+ *
+ *         The RX scratch buffers stay on the stack — they are per-read,
+ *         consumed immediately (copied into resp, or pushed to the event
+ *         ring), and uiox_bt_acl_alloc() is named for ACL data, not for
+ *         an inbound event.
  */
 #include "uiox_bt_if.h"
 #include "uiox_klibc.h"
@@ -62,22 +77,40 @@ int uiox_bt_if_hci_cmd(uiox_bt_if_t *bif,
 {
     if (!bif) return -EINVAL;
 
-    /* Build HCI command packet */
-    uint8_t pkt[UIOX_BT_PKT_MAX_LEN];
+    /* Build HCI command packet — from the pool, not a 256-byte stack
+     * frame.  One alloc; freed on every exit below. */
+    uiox_bt_pkt_t *cpkt = uiox_bt_cmd_alloc();
+    if (!cpkt) { bif->stats.cmd_errors++; return -ENOMEM; }
+
+    uint8_t *pkt = cpkt->data;
     pkt[0] = HCI_CMD_PKT;
     pkt[1] = (uint8_t)(opcode & 0xFFu);
     pkt[2] = (uint8_t)(opcode >> 8u);
     pkt[3] = param_len;
     if (params && param_len)
         memcpy(&pkt[4], params, param_len);
-    uint16_t pkt_len = (uint16_t)(4u + param_len);
 
-    int rc = uiox_bt_hw_hci_write(bif->hw, pkt, pkt_len);
-    if (rc < 0) { bif->stats.cmd_errors++; return rc; }
-    bif->stats.bytes_tx += pkt_len;
+    cpkt->len      = (uint16_t)(4u + param_len);
+    cpkt->pkt_type = HCI_CMD_PKT;
+
+    int rc = uiox_bt_hw_hci_write(bif->hw, pkt, cpkt->len);
+    if (rc < 0) {
+        bif->stats.cmd_errors++;
+        uiox_bt_pkt_free(cpkt);
+        return rc;
+    }
+    bif->stats.bytes_tx += cpkt->len;
     bif->stats.hci_cmds_sent++;
 
-    /* Wait for HCI_EV_CMD_COMPLETE */
+    /* The frame is on the wire; the pool slot is not needed while we
+     * wait for the completion event.  UIOX_BT_CMD_POOL_SIZE is 16, so
+     * holding one across a multi-second timeout would starve the next
+     * command on a controller that does not answer. */
+    uiox_bt_pkt_free(cpkt);
+
+    /* Wait for HCI_EV_CMD_COMPLETE.  The RX buffer stays a stack frame:
+     * per-read scratch, consumed immediately, and no pool allocator is
+     * named for an inbound event. */
     uint32_t elapsed = 0;
     while (elapsed < timeout_ms) {
         uint8_t rx[UIOX_BT_PKT_MAX_LEN];
@@ -115,7 +148,12 @@ int uiox_bt_if_acl_tx(uiox_bt_if_t *bif,
                        const uint8_t *data, uint16_t len)
 {
     if (!bif || !data || !len) return -EINVAL;
-    uint8_t pkt[UIOX_BT_PKT_MAX_LEN];
+
+    /* Same pool, the ACL allocator.  One alloc, one free. */
+    uiox_bt_pkt_t *apkt = uiox_bt_acl_alloc();
+    if (!apkt) { bif->stats.comm_errors++; return -ENOMEM; }
+
+    uint8_t *pkt = apkt->data;
     pkt[0] = HCI_ACL_PKT;
     pkt[1] = (uint8_t)(handle & 0xFFu);
     pkt[2] = (uint8_t)((handle >> 8u) & 0x0Fu);
@@ -124,7 +162,16 @@ int uiox_bt_if_acl_tx(uiox_bt_if_t *bif,
     uint16_t copy = len < (UIOX_BT_PKT_MAX_LEN - 5u) ?
                     len : (UIOX_BT_PKT_MAX_LEN - 5u);
     memcpy(&pkt[5], data, copy);
-    int rc = uiox_bt_hw_hci_write(bif->hw, pkt, (uint16_t)(5u + copy));
+
+    apkt->len      = (uint16_t)(5u + copy);
+    apkt->pkt_type = HCI_ACL_PKT;
+
+    int rc = uiox_bt_hw_hci_write(bif->hw, pkt, apkt->len);
+
+    /* Returned on both outcomes — the write has completed either way,
+     * and the stats below read `rc`/`copy`, never `pkt`. */
+    uiox_bt_pkt_free(apkt);
+
     if (rc >= 0) {
         bif->stats.acl_tx_pkts++;
         bif->stats.bytes_tx += (5u + copy);
