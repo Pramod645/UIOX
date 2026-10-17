@@ -122,7 +122,11 @@ COMMON_CFLAGS := \
 # (uiox_bt_buf.h → uiox_bt_hw.h, and ten more), so the class dirs must be
 # on the search path.  The wildcard covers every class under 10_DI and
 # picks up new ones without editing this list.
-DI_CLASS_DIRS := $(wildcard $(MFDIR)../30_DSS/10_DI/*/*/)
+#DI_CLASS_DIRS := $(wildcard $(MFDIR)../30_DSS/10_DI/*/*/)
+DI_CLASS_DIRS := $(wildcard $(MFDIR)../30_DSS/10_DI/01_Com/*/) \
+                 $(wildcard $(MFDIR)../30_DSS/10_DI/02_Sensors/*/) \
+                 $(wildcard $(MFDIR)../30_DSS/10_DI/03_NonSensors/*/)
+
 
 COMMON_INCLUDES := \
   -I$(COMMONDIR)          \

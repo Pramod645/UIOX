@@ -2139,6 +2139,37 @@ The one fact that discriminates: where does phys come from in a real implementat
 
 
 
+==========
+
+read/write:  40_SCIX → 10_scfs → 00_bcache → bcache_plat_read_block
+                                                     ↓
+                                            20_DD/<cls>/_if_read
+
+ioctl:       40_SCIX → 10_scfs/uiox_kix_scfs_ioctl.c
+               1. scfs_getf(fd)
+               2. S_IFMT
+               3. f_inode->idev_class → uiox_dev_lookup(cls, unit)   ← 30_DSS/src
+               4. dev->ops->ioctl(dev, cmd, arg)                     ← 10_DI's vtable
+               5. return
+
+
+        ioctl / read / write          ← userspace
+              ↓
+        40_SCIX
+              ↓
+   ┌──────────┴──────────┐
+   ↓                     ↓
+32_FS/10_scfs     32_FS/00_bcache      ← Bach's middle band
+   │                     │
+   └──────────┬──────────┘
+              ↓  the switch table: uiox_dev_lookup(cls, unit)
+       30_DSS/  include · src            ← Bach's lower band
+              ↓
+     10_DI  ← declares the ops
+     20_DD  ← implements them
+              ↓
+     02_FwHal → silicon
+
 
 
 
