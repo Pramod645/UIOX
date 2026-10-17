@@ -15,10 +15,8 @@
  #define UIOX_SOCKET_H
  
  #include "uiox_netbuf.h"
- #include <stdint.h>
- #include <stddef.h>
- #include <stdbool.h>
- #include <sys/types.h> // included for ssize_t
+ #include "uiox_klibc.h"     /* uint32_t, size_t, ssize_t, bool */
+
 
  #ifdef __cplusplus
  extern "C" {

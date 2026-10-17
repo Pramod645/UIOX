@@ -2358,6 +2358,8 @@ Path A reaches the card only once the EXT_CSD decode compiles. With num_blocks()
 
 Also worth stating plainly: no silicon here. On a host build uiox_fw_emmc_read reaches whatever the SD-host window holds — the plumbing is verified by compilation, not by a card answering.
 
+=========familiy 2
+
 
 
 

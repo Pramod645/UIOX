@@ -71,10 +71,22 @@
 #define EBADMSG  74   /* Bad message                 */
 #define EOVERFLOW 75  /* Value too large for defined data type */
 #define ENETDOWN 100  /* Network is down             */
+//#define ENETDOWN 100  /* Network is down             */
+#define ENETUNREACH  101  /* Network is unreachable   */
+#define EHOSTUNREACH 113  /* No route to host         */
+#define EAFNOSUPPORT  97  /* Address family not supported */
 #define ENOBUFS  105  /* No buffer space available   */
 #define ETIMEDOUT 110 /* Connection timed out        */
 #define EREMOTEIO 121 /* Remote I/O error            */
 #define ENOTSUP   95  /* Operation not supported     */
+#define EBADF         9   /* Bad file descriptor    */
+#define ENOPROTOOPT  92   /* Protocol not available */
+#define EADDRINUSE      98   /* Address already in use        */
+#define ECONNREFUSED   111   /* Connection refused            */
+#define EINPROGRESS    115   /* Operation now in progress     */
+#define EMFILE          24   /* Too many open files           */
+#define EOPNOTSUPP      95   /* Operation not supported       */
+#define EPROTONOSUPPORT 93   /* Protocol not supported        */
 #define EWOULDBLOCK EAGAIN
 
 /* ── §1  Integer types ──────────────────────────────────────── */

@@ -289,7 +289,7 @@
   * ICMP
   * ====================================================================== */
  
- static void uiox_proto_icmp_input(uiox_netif_t *netif, uiox_netbuf_t *buf,
+ void uiox_proto_icmp_input(uiox_netif_t *netif, uiox_netbuf_t *buf,
                                     uint32_t src_ip, uint32_t dst_ip)
  {
      (void)dst_ip;
@@ -316,6 +316,7 @@
  int uiox_proto_icmp_ping(uint32_t dst_ip, uint16_t id,
                            uint16_t seq,    uint32_t timeout_ms)
  {
+    (void)timeout_ms;   /* no timeout tracking yet — the send is one-shot */
      const uiox_route_t *route = uiox_route_lookup(dst_ip);
      if (!route) return -ENETUNREACH;
  
@@ -338,7 +339,7 @@
   * IPv4 send path (internal)
   * ====================================================================== */
  
- static int uiox_proto_ip4_send(uiox_netif_t *netif,
+ int uiox_proto_ip4_send(uiox_netif_t *netif,
                                  uint32_t src_ip, uint32_t dst_ip,
                                  uint8_t proto,   uiox_netbuf_t *buf)
  {
@@ -368,9 +369,10 @@
   * UDP
   * ====================================================================== */
  
- static void uiox_proto_udp_input(uiox_netif_t *netif, uiox_netbuf_t *buf,
+ void uiox_proto_udp_input(uiox_netif_t *netif, uiox_netbuf_t *buf,
                                    uint32_t src_ip, uint32_t dst_ip)
  {
+    (void)netif;   /* UDP demux: no socket lookup wired yet */
      if (buf->len < sizeof(uiox_udp_hdr_t)) {
          uiox_netbuf_free(buf); return;
      }
@@ -413,9 +415,10 @@
   * TCP (minimal — SYN/ACK/RST/FIN state machine)
   * ====================================================================== */
  
- static void uiox_proto_tcp_input(uiox_netif_t *netif, uiox_netbuf_t *buf,
+ void uiox_proto_tcp_input(uiox_netif_t *netif, uiox_netbuf_t *buf,
                                    uint32_t src_ip, uint32_t dst_ip)
  {
+    (void)netif;   /* UDP demux: no socket lookup wired yet */
      if (buf->len < sizeof(uiox_tcp_hdr_t)) {
          uiox_netbuf_free(buf); return;
      }

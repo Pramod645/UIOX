@@ -14,10 +14,10 @@
  #ifndef UIOX_PROTO_H
  #define UIOX_PROTO_H
  
- #include "uiox_netif.h"
- #include "uiox_netbuf.h"
- #include <stdint.h>
- #include <stdbool.h>
+#include "uiox_netif.h"
+#include "uiox_netbuf.h"
+#include "uiox_klibc.h"     /* uint32_t, bool — replaces <stdint.h>/<stdbool.h> */
+
  
  #ifdef __cplusplus
  extern "C" {
@@ -221,20 +221,19 @@
                                 uint8_t proto, const void *data, uint16_t len);
  
 
-static void uiox_proto_udp_input(uiox_netif_t *netif, uiox_netbuf_t *buf,
+void uiox_proto_udp_input(uiox_netif_t *netif, uiox_netbuf_t *buf,
                                     uint32_t src_ip, uint32_t dst_ip); 
-                                    
-static void uiox_proto_udp_input(uiox_netif_t *netif, uiox_netbuf_t *buf,
-                                        uint32_t src_ip, uint32_t dst_ip);
 
-static void uiox_proto_icmp_input(uiox_netif_t *netif, uiox_netbuf_t *buf,
+void uiox_proto_icmp_input(uiox_netif_t *netif, uiox_netbuf_t *buf,
                                             uint32_t src_ip, uint32_t dst_ip);
 
-static void uiox_proto_tcp_input(uiox_netif_t *netif, uiox_netbuf_t *buf,
+void uiox_proto_tcp_input(uiox_netif_t *netif, uiox_netbuf_t *buf,
                                                 uint32_t src_ip, uint32_t dst_ip);
                                             
-static int uiox_proto_ip4_send(uiox_netif_t *netif, uint32_t src_ip, uint32_t dst_ip,
+int uiox_proto_ip4_send(uiox_netif_t *netif, uint32_t src_ip, uint32_t dst_ip,
                                                     uint8_t proto,   uiox_netbuf_t *buf);
+
+
  #ifdef __cplusplus
  }
  #endif

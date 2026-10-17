@@ -60,16 +60,20 @@
  * buffer from bcache_plat_read_block and never allocates one.
  * Lane 2: uiox_emmc_subsys (init sequence, EXT_CSD health). */
 int uiox_emmc_probe(void);
+/* ── family 2 — STREAM ────────────────────────────────────────
+     * eth first: its interfaces are the fully-read ones, and the other
+     * six follow the same shape. */
+int uiox_eth_probe(void);        /* ◀ family 2 — STREAM */
 
 /* ── families 2–6 — not yet written ─────────────────────────────────
  * Each follows the shape of uiox_emmc_probe(): a static subsystem, a
  * static uiox_dev_dev_t, uiox_dev_bind(), and the class's own
  * dev->ops->ioctl.  Listed here as the classes land:
  *
- *   family 2 STREAM  bt  eth  wifi  usb  mic  speaker
+ *   family 2 STREAM  bt  eth  wifi  usb  mic  speaker  monitor
  *   family 3 EVENT   kbd  mouse  touchpwd
  *   family 4 REG     als  thermal  bms  chg  pmic  rtc  fan
- *   family 5 CMD     gpu  hdmi  monitor  camera
+ *   family 5 CMD     gpu  hdmi  camera
  *   family 6 BUS     tb4  usb(host)
  * ──────────────────────────────────────────────────────────────────── */
 
@@ -90,6 +94,10 @@ int uiox_dss_init(void)
 {
     /* ── family 1 — BLOCK ───────────────────────────────────────── */
     (void)uiox_emmc_probe();
+    /* ── family 2 — STREAM ────────────────────────────────────────
+     * eth first: its interfaces are the fully-read ones, and the other
+     * six follow the same shape. */
+    (void)uiox_eth_probe();
 
     /* ── the remaining five families ─────────────────────────────
      * One call each, as their probes are written:
