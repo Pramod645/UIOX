@@ -68,7 +68,8 @@ int uiox_wifi_probe(void);       /* ◀ family 2 — STREAM */
 int uiox_bt_probe(void);
 int uiox_usb_probe(void);          /* prototype, after uiox_bt_probe's */
 int uiox_cam_probe(void);
-
+int uiox_mic_probe(void);
+int uiox_spk_probe(void);
 /* ── families 2–6 — not yet written ─────────────────────────────────
  * Each follows the shape of uiox_emmc_probe(): a static subsystem, a
  * static uiox_dev_dev_t, uiox_dev_bind(), and the class's own
@@ -106,6 +107,8 @@ int uiox_dss_init(void)
     (void)uiox_bt_probe();
     (void)uiox_usb_probe();        /* live call, after (void)uiox_bt_probe(); */
     (void)uiox_cam_probe();
+    (void)uiox_mic_probe();
+    (void)uiox_spk_probe();
 
 
     /* ── the remaining five families ─────────────────────────────
