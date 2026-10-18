@@ -5,9 +5,9 @@
  */
 
  #include "uiox_tpwd_subsys.h"
- #include <string.h>
- #include <errno.h>
- #include <stdio.h>
+ #include "uiox_klibc.h"     /* uint32_t, bool — replaces <stdint.h>/<stdbool.h> */
+ #include "uiox_soc_stdio.h"   /* the printf macro — klibc declares none */
+
  
  static void fire(uiox_tpwd_subsys_t *sys,
                   uiox_tpwd_evt_t evt, uint8_t remaining)
@@ -16,7 +16,7 @@
  }
  
  static void audit_push(uiox_tpwd_subsys_t *sys,
-                         uiox_tpwd_evt_t evt, const char *id)
+                        uiox_tpwd_evt_t evt, const char *id)
  {
      uiox_tpwd_audit_entry_t *e =
          &sys->audit[sys->audit_head % UIOX_TPWD_AUDIT_MAX];
@@ -27,13 +27,13 @@
      sys->audit_head++;
  }
  
- int uiox_tpwd_subsys_init(uiox_tpwd_subsys_t           *sys,
-                            uiox_tpwd_hw_t               *hw,
-                            const uiox_tpwd_gesture_cfg_t *gcfg,
-                            uint32_t debounce_ms,
-                            uint32_t hold_ms,
-                            uint32_t timeout_ms,
-                            uint32_t rng_seed)
+ int uiox_tpwd_subsys_init(uiox_tpwd_subsys_t             *sys,
+                           uiox_tpwd_hw_t                 *hw,
+                           const uiox_tpwd_gesture_cfg_t  *gcfg,
+                           uint32_t debounce_ms,
+                           uint32_t hold_ms,
+                           uint32_t timeout_ms,
+                           uint32_t rng_seed)
  {
      if (!sys || !hw || !gcfg) return -EINVAL;
      memset(sys, 0, sizeof(*sys));
@@ -42,7 +42,7 @@
      uiox_tpwd_evtbuf_init(&sys->gesture_rb);
  
      int rc = uiox_tpwd_if_config(&sys->tif, hw,
-                                   debounce_ms, hold_ms, timeout_ms);
+                                  debounce_ms, hold_ms, timeout_ms);
      if (rc < 0) return rc;
  
      rc = uiox_tpwd_gesture_init(&sys->gesture, &sys->gesture_rb, gcfg);
@@ -56,7 +56,7 @@
  }
  
  void uiox_tpwd_subsys_set_cb(uiox_tpwd_subsys_t *sys,
-                               uiox_tpwd_evt_cb_t  cb, void *ctx)
+                              uiox_tpwd_evt_cb_t  cb, void *ctx)
  {
      if (!sys) return;
      sys->evt_cb  = cb;
@@ -64,8 +64,8 @@
  }
  
  int uiox_tpwd_subsys_enrol_start(uiox_tpwd_subsys_t *sys,
-                                   const char *id,
-                                   uint32_t now_ms)
+                                  const char *id,
+                                  uint32_t now_ms)
  {
      if (!sys || !id) return -EINVAL;
      strncpy(sys->active_id, id, UIOX_TPWD_SEC_ID_LEN - 1);
@@ -76,8 +76,8 @@
  }
  
  int uiox_tpwd_subsys_verify_start(uiox_tpwd_subsys_t *sys,
-                                    const char *id,
-                                    uint32_t now_ms)
+                                   const char *id,
+                                   uint32_t now_ms)
  {
      if (!sys || !id) return -EINVAL;
  
@@ -95,7 +95,7 @@
  }
  
  void uiox_tpwd_subsys_tick(uiox_tpwd_subsys_t *sys,
-                             uint32_t now_ms, uint32_t now_s)
+                            uint32_t now_ms, uint32_t now_s)
  {
      if (!sys) return;
      sys->now_s = now_s;
@@ -141,7 +141,7 @@
      if (sys->state == UIOX_TPWD_SUBSYS_ENROLLING) {
          /* 4a. Enrolment */
          int rc = uiox_tpwd_sec_enrol(&sys->sec, sys->active_id,
-                                       raw, (uint16_t)raw_len);
+                                      raw, (uint16_t)raw_len);
          uiox_tpwd_sec_zero(raw, sizeof(raw));
          uiox_tpwd_hw_set_backlight(sys->tif.hw, 0u);
          sys->state = UIOX_TPWD_SUBSYS_IDLE;
@@ -152,7 +152,7 @@
      } else {
          /* 4b. Verification */
          int rc = uiox_tpwd_sec_verify(&sys->sec, sys->active_id,
-                                        raw, (uint16_t)raw_len, now_s);
+                                       raw, (uint16_t)raw_len, now_s);
          uiox_tpwd_sec_zero(raw, sizeof(raw));
          uiox_tpwd_hw_set_backlight(sys->tif.hw, 0u);
  
@@ -166,20 +166,9 @@
              fire(sys, UIOX_TPWD_EVT_LOCKED, 0u);
              audit_push(sys, UIOX_TPWD_EVT_LOCKED, sys->active_id);
          } else {
-             uint8_t left = UIOX_TPWD_SEC_MAX_ATTEMPTS;
-             for (uint8_t i = 0; i < sys->sec.record_count; i++) {
-                 if (sys->sec.records[i].valid &&
-                     strncmp(sys->sec.records[i].id,
-                             sys->active_id,
-                             UIOX_TPWD_SEC_ID_LEN) == 0) {
-                     uint8_t att = sys->sec.records[i].attempts;
-                     left = (att < UIOX_TPWD_SEC_MAX_ATTEMPTS) ?
-                            (uint8_t)(UIOX_TPWD_SEC_MAX_ATTEMPTS - att) : 0u;
-                     break;
-                 }
-             }
              sys->state = UIOX_TPWD_SUBSYS_IDLE;
-             fire(sys, UIOX_TPWD_EVT_AUTH_FAIL, left);
+             fire(sys, UIOX_TPWD_EVT_AUTH_FAIL,
+                  uiox_tpwd_subsys_attempts_left(sys, sys->active_id));
              audit_push(sys, UIOX_TPWD_EVT_AUTH_FAIL, sys->active_id);
          }
      }
@@ -200,178 +189,39 @@
      return sys ? sys->state : UIOX_TPWD_SUBSYS_IDLE;
  }
  
-uint8_t uiox_tpwd_subsys_attempts_left(const uiox_tpwd_subsys_t *sys,
+ uint8_t uiox_tpwd_subsys_attempts_left(const uiox_tpwd_subsys_t *sys,
                                         const char *id)
-{
-    if (!sys || !id) return 0u;
-    for (uint8_t i = 0; i < sys->sec.record_count; i++) {
-        const uiox_tpwd_sec_record_t *r = &sys->sec.records[i];
-        if (r->valid &&
-            strncmp(r->id, id, UIOX_TPWD_SEC_ID_LEN) == 0) {
-            if (r->attempts >= UIOX_TPWD_SEC_MAX_ATTEMPTS) return 0u;
-            return (uint8_t)(UIOX_TPWD_SEC_MAX_ATTEMPTS - r->attempts);
-        }
-    }
-    return UIOX_TPWD_SEC_MAX_ATTEMPTS;
-}
-
-void uiox_tpwd_subsys_print_audit(const uiox_tpwd_subsys_t *sys)
-{
-    if (!sys) return;
-    static const char *evt_names[] = {
-        "AUTH_OK","AUTH_FAIL","LOCKED","TIMEOUT",
-        "CANCELLED","ENROLLED","DIGIT","BACKSPACE","LOGOUT"
-    };
-    printf("  %-12s  %-10s  %s\n", "Event", "Time(s)", "ID");
-    printf("  %-12s  %-10s  %s\n", "------------","----------","---");
-    for (uint8_t i = 0; i < UIOX_TPWD_AUDIT_MAX; i++) {
-        uint8_t idx = (uint8_t)((sys->audit_head - 1u - i) %
+ {
+     if (!sys || !id) return 0u;
+     for (uint8_t i = 0; i < sys->sec.record_count; i++) {
+         const uiox_tpwd_sec_record_t *r = &sys->sec.records[i];
+         if (r->valid &&
+             strncmp(r->id, id, UIOX_TPWD_SEC_ID_LEN) == 0) {
+             if (r->attempts >= UIOX_TPWD_SEC_MAX_ATTEMPTS) return 0u;
+             return (uint8_t)(UIOX_TPWD_SEC_MAX_ATTEMPTS - r->attempts);
+         }
+     }
+     return UIOX_TPWD_SEC_MAX_ATTEMPTS;
+ }
+ 
+ void uiox_tpwd_subsys_print_audit(const uiox_tpwd_subsys_t *sys)
+ {
+     if (!sys) return;
+     static const char *evt_names[] = {
+         "AUTH_OK","AUTH_FAIL","LOCKED","TIMEOUT",
+         "CANCELLED","ENROLLED","DIGIT","BACKSPACE","LOGOUT"
+     };
+     uiox_printf("  %-12s  %-10s  %s\n", "Event", "Time(s)", "ID");
+     uiox_printf("  %-12s  %-10s  %s\n", "------------","----------","---");
+     for (uint8_t i = 0; i < UIOX_TPWD_AUDIT_MAX; i++) {
+         uint8_t idx = (uint8_t)((sys->audit_head - 1u - i) %
                                  UIOX_TPWD_AUDIT_MAX);
-        const uiox_tpwd_audit_entry_t *e = &sys->audit[idx];
-        if (!e->valid) continue;
-        uint8_t en = (uint8_t)e->evt;
-        printf("  %-12s  %-10u  %s\n",
-               (en < 9u) ? evt_names[en] : "?",
-               e->ts_s, e->id);
-    }
-}
-uint8_t uiox_tpwd_subsys_attempts_left(const uiox_tpwd_subsys_t *sys,
-                                        const char *id)
-{
-    if (!sys || !id) return 0u;
-    for (uint8_t i = 0; i < sys->sec.record_count; i++) {
-        const uiox_tpwd_sec_record_t *r = &sys->sec.records[i];
-        if (r->valid &&
-            strncmp(r->id, id, UIOX_TPWD_SEC_ID_LEN) == 0) {
-            if (r->attempts >= UIOX_TPWD_SEC_MAX_ATTEMPTS) return 0u;
-            return (uint8_t)(UIOX_TPWD_SEC_MAX_ATTEMPTS - r->attempts);
-        }
-    }
-    return UIOX_TPWD_SEC_MAX_ATTEMPTS;
-}
-
-void uiox_tpwd_subsys_print_audit(const uiox_tpwd_subsys_t *sys)
-{
-    if (!sys) return;
-    static const char *evt_names[] = {
-        "AUTH_OK","AUTH_FAIL","LOCKED","TIMEOUT",
-        "CANCELLED","ENROLLED","DIGIT","BACKSPACE","LOGOUT"
-    };
-    printf("  %-12s  %-10s  %s\n", "Event", "Time(s)", "ID");
-    printf("  %-12s  %-10s  %s\n", "------------","----------","---");
-    for (uint8_t i = 0; i < UIOX_TPWD_AUDIT_MAX; i++) {
-        uint8_t idx = (uint8_t)((sys->audit_head - 1u - i) %
-                                 UIOX_TPWD_AUDIT_MAX);
-        const uiox_tpwd_audit_entry_t *e = &sys->audit[idx];
-        if (!e->valid) continue;
-        uint8_t en = (uint8_t)e->evt;
-        printf("  %-12s  %-10u  %s\n",
-               (en < 9u) ? evt_names[en] : "?",
-               e->ts_s, e->id);
-    }
-}
-uint8_t uiox_tpwd_subsys_attempts_left(const uiox_tpwd_subsys_t *sys,
-                                        const char *id)
-{
-    if (!sys || !id) return 0u;
-    for (uint8_t i = 0; i < sys->sec.record_count; i++) {
-        const uiox_tpwd_sec_record_t *r = &sys->sec.records[i];
-        if (r->valid &&
-            strncmp(r->id, id, UIOX_TPWD_SEC_ID_LEN) == 0) {
-            if (r->attempts >= UIOX_TPWD_SEC_MAX_ATTEMPTS) return 0u;
-            return (uint8_t)(UIOX_TPWD_SEC_MAX_ATTEMPTS - r->attempts);
-        }
-    }
-    return UIOX_TPWD_SEC_MAX_ATTEMPTS;
-}
-
-void uiox_tpwd_subsys_print_audit(const uiox_tpwd_subsys_t *sys)
-{
-    if (!sys) return;
-    static const char *evt_names[] = {
-        "AUTH_OK","AUTH_FAIL","LOCKED","TIMEOUT",
-        "CANCELLED","ENROLLED","DIGIT","BACKSPACE","LOGOUT"
-    };
-    printf("  %-12s  %-10s  %s\n", "Event", "Time(s)", "ID");
-    printf("  %-12s  %-10s  %s\n", "------------","----------","---");
-    for (uint8_t i = 0; i < UIOX_TPWD_AUDIT_MAX; i++) {
-        uint8_t idx = (uint8_t)((sys->audit_head - 1u - i) %
-                                 UIOX_TPWD_AUDIT_MAX);
-        const uiox_tpwd_audit_entry_t *e = &sys->audit[idx];
-        if (!e->valid) continue;
-        uint8_t en = (uint8_t)e->evt;
-        printf("  %-12s  %-10u  %s\n",
-               (en < 9u) ? evt_names[en] : "?",
-               e->ts_s, e->id);
-    }
-}
-uint8_t uiox_tpwd_subsys_attempts_left(const uiox_tpwd_subsys_t *sys,
-                                        const char *id)
-{
-    if (!sys || !id) return 0u;
-    for (uint8_t i = 0; i < sys->sec.record_count; i++) {
-        const uiox_tpwd_sec_record_t *r = &sys->sec.records[i];
-        if (r->valid &&
-            strncmp(r->id, id, UIOX_TPWD_SEC_ID_LEN) == 0) {
-            if (r->attempts >= UIOX_TPWD_SEC_MAX_ATTEMPTS) return 0u;
-            return (uint8_t)(UIOX_TPWD_SEC_MAX_ATTEMPTS - r->attempts);
-        }
-    }
-    return UIOX_TPWD_SEC_MAX_ATTEMPTS;
-}
-
-void uiox_tpwd_subsys_print_audit(const uiox_tpwd_subsys_t *sys)
-{
-    if (!sys) return;
-    static const char *evt_names[] = {
-        "AUTH_OK","AUTH_FAIL","LOCKED","TIMEOUT",
-        "CANCELLED","ENROLLED","DIGIT","BACKSPACE","LOGOUT"
-    };
-    printf("  %-12s  %-10s  %s\n", "Event", "Time(s)", "ID");
-    printf("  %-12s  %-10s  %s\n", "------------","----------","---");
-    for (uint8_t i = 0; i < UIOX_TPWD_AUDIT_MAX; i++) {
-        uint8_t idx = (uint8_t)((sys->audit_head - 1u - i) %
-                                 UIOX_TPWD_AUDIT_MAX);
-        const uiox_tpwd_audit_entry_t *e = &sys->audit[idx];
-        if (!e->valid) continue;
-        uint8_t en = (uint8_t)e->evt;
-        printf("  %-12s  %-10u  %s\n",
-               (en < 9u) ? evt_names[en] : "?",
-               e->ts_s, e->id);
-    }
-}
-uint8_t uiox_tpwd_subsys_attempts_left(const uiox_tpwd_subsys_t *sys,
-    const char *id)
-{
-if (!sys || !id) return 0u;
-for (uint8_t i = 0; i < sys->sec.record_count; i++) {
-const uiox_tpwd_sec_record_t *r = &sys->sec.records[i];
-if (r->valid &&
-strncmp(r->id, id, UIOX_TPWD_SEC_ID_LEN) == 0) {
-if (r->attempts >= UIOX_TPWD_SEC_MAX_ATTEMPTS) return 0u;
-return (uint8_t)(UIOX_TPWD_SEC_MAX_ATTEMPTS - r->attempts);
-}
-}
-return UIOX_TPWD_SEC_MAX_ATTEMPTS;
-}
-void uiox_tpwd_subsys_print_audit(const uiox_tpwd_subsys_t *sys)
-{
-if (!sys) return;
-static const char *evt_names[] = {
-"AUTH_OK","AUTH_FAIL","LOCKED","TIMEOUT",
-"CANCELLED","ENROLLED","DIGIT","BACKSPACE","LOGOUT"
-};
-printf("  %-12s  %-10s  %s\n", "Event", "Time(s)", "ID");
-printf("  %-12s  %-10s  %s\n", "------------","----------","---");
-for (uint8_t i = 0; i < UIOX_TPWD_AUDIT_MAX; i++) {
-uint8_t idx = (uint8_t)((sys->audit_head - 1u - i) %
-UIOX_TPWD_AUDIT_MAX);
-const uiox_tpwd_audit_entry_t *e = &sys->audit[idx];
-if (!e->valid) continue;
-uint8_t en = (uint8_t)e->evt;
-printf("  %-12s  %-10u  %s\n",
-(en < 9u) ? evt_names[en] : "?",
-e->ts_s, e->id);
-}
-}
+         const uiox_tpwd_audit_entry_t *e = &sys->audit[idx];
+         if (!e->valid) continue;
+         uint8_t en = (uint8_t)e->evt;
+         uiox_printf("  %-12s  %-10u  %s\n",
+                     (en < 9u) ? evt_names[en] : "?",
+                     e->ts_s, e->id);
+     }
+ }
  

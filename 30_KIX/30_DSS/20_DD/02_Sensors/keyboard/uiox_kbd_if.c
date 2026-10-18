@@ -254,3 +254,19 @@ int uiox_kbd_event_read(uiox_dev_dev_t *dev, void *rec, uint16_t maxlen)
     memcpy(rec, &ev, sizeof(ev));
     return (int)sizeof(ev);
 }
+const uiox_kbd_ops_t uiox_kbd_class_ops = {
+    .head = {
+        .name   = "kbd0",
+        .probe  = NULL,          /* the DD probe binds; this is the vtable */
+        .init   = NULL,
+        .deinit = NULL,
+        .ioctl  = NULL,          /* no device-dependent commands */
+    },
+    .ev = {
+        .init          = NULL,   /* the driver's own init runs in probe */
+        .deinit        = NULL,
+        .event_pending = uiox_kbd_event_pending,
+        .event_read    = uiox_kbd_event_read,
+        .isr           = NULL,   /* top-half lives in the DD adapter */
+    },
+};

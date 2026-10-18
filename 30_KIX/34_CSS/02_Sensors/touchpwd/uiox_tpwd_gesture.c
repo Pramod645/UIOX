@@ -5,8 +5,6 @@
  */
 
  #include "uiox_tpwd_gesture.h"
- #include <string.h>
- #include <errno.h>
  
  int uiox_tpwd_gesture_init(uiox_tpwd_gesture_t           *g,
                              uiox_tpwd_evtbuf_t            *src_rb,

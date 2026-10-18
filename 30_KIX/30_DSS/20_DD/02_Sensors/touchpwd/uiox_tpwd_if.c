@@ -194,3 +194,12 @@ int uiox_tpwd_event_read(uiox_dev_dev_t *dev, void *rec, uint16_t maxlen)
     memcpy(rec, &ev, sizeof(ev));
     return (int)sizeof(ev);
 }
+
+const uiox_tpwd_ops_t uiox_tpwd_class_ops = {
+    .head = { .name = "tpwd0", .probe = NULL, .init = NULL,
+              .deinit = NULL, .ioctl = NULL },
+    .ev   = { .init = NULL, .deinit = NULL,
+              .event_pending = uiox_tpwd_event_pending,
+              .event_read    = uiox_tpwd_event_read,        /* :179 */
+              .isr           = NULL },
+};

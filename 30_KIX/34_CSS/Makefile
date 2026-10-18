@@ -55,6 +55,7 @@ COMMON_CFLAGS := \
   -I$(MFDIR)../common                     \
   -I$(MFDIR)../33_PCS/include             \
   -I$(MFDIR)../../02_FwHal/include        \
+  -I$(MFDIR)../../10_BSP/03_SoC/include                 \
   -I$(MFDIR)../30_DSS/20_DD               \
   -I$(MFDIR)../30_DSS/20_DD/01_Com/eth    \
   -I$(MFDIR)../30_DSS/10_DI/01_Com/eth          \
@@ -77,6 +78,9 @@ COMMON_CFLAGS := \
   -I$(MFDIR)../30_DSS/20_DD/03_NonSensors/speaker    \
   -I$(MFDIR)../30_DSS/10_DI/03_NonSensors/speaker    \
   -I$(MFDIR)../32_FS/00_drvbuff/03_NonSensors/speaker \
+  -I$(MFDIR)../30_DSS/20_DD/02_Sensors/touchpwd   \
+  -I$(MFDIR)../30_DSS/10_DI/02_Sensors/touchpwd   \
+  -I$(MFDIR)../32_FS/00_drvbuff/02_Sensors/touchpwd \
   -I$(MFDIR)../30_DSS/include                    \
   -I$(MFDIR)../30_DSS/10_DI/include
 
@@ -93,7 +97,8 @@ SRCS := $(wildcard $(MFDIR)01_Com/eth/*.c)     \
 		    $(wildcard $(MFDIR)01_Com/usb/*.c)     \
         $(wildcard $(MFDIR)01_Com/bt/*.c)      \
         $(wildcard $(MFDIR)03_NonSensors/speaker/*.c)\
-        $(wildcard $(MFDIR)02_Sensors/mic/*.c)           \
+        $(wildcard $(MFDIR)02_Sensors/mic/*.c)       \
+        $(wildcard $(MFDIR)02_Sensors/touchpwd/*.c)  \
         $(wildcard $(MFDIR)02_Sensors/camera/*.c) 
 
 OBJS := $(patsubst $(MFDIR)%.c,$(_BUILD_DIR)/%.o,$(SRCS))

@@ -113,6 +113,20 @@ bool uiox_kbd_if_direct_pressed(const uiox_kbd_if_t *kif, uint8_t idx);
 bool uiox_kbd_event_pending(uiox_dev_dev_t *dev);
 int  uiox_kbd_event_read   (uiox_dev_dev_t *dev, void *rec, uint16_t maxlen);
 
+/* ── The class ops struct ────────────────────────────────────────────
+ *  §6: every family's ops begins with the common head.  The event pair
+ *  follows it, so 32_FS finds ev at sizeof(uiox_dev_ops_t) — exactly
+ *  what its read branch computes.  The HAL's own vtable
+ *  (uiox_kbd_hw_ops_t) is a different thing: it hangs off hw->ops and
+ *  is not what dev->ops points at. */
+typedef struct {
+    uiox_dev_ops_t     head;   /* name, probe, init, deinit, ioctl */
+    uiox_event_ops_t   ev;     /* init, deinit, pending, read, isr  */
+} uiox_kbd_ops_t;
+
+extern const uiox_kbd_ops_t uiox_kbd_class_ops;
+
+
 #ifdef __cplusplus
 }
 #endif

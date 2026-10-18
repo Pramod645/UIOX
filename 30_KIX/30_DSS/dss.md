@@ -2360,6 +2360,27 @@ Also worth stating plainly: no silicon here. On a host build uiox_fw_emmc_read r
 
 =========familiy 2
 
+The seven STREAM classes, measured
+Class	Init	Alloc	Free	Verdict
+eth	✅	✅ 1	✅	live
+wifi	✅	✅ 2 pools	✅	live + CCMP
+bt	✅	✅ 2 (cmd, acl)	✅ 3	live ← was the idle one
+usb	✅	✅ 6	✅ 2	live
+camera	✅	✅ 4 calls	✅	live
+mic	✅	✅ 2 (_cap, _proc)	✅ 3	live, double-buffered
+speaker	✅	✅ 2 (_pcm, _mix)	✅ 3	live, double-buffered
+Seven of seven. No idle pool anywhere in family 2 — the BT gap is closed.
+
+Where this leaves the tree
+Family	Classes	Probes	Stacks	Notes
+1 BLOCK	4	emmc	emmc	subsys correction + tick caller still open
+2 STREAM	7	7	7	complete
+3 EVENT	kbd, mouse, tpwd	0	partial	tpwd files hit the include sweep
+4 REG	als, thermal, bms, chg, pmic, rtc, fan	0	—	
+5 CMD	gpu, hdmi, monitor	0	partial	->priv ×10 in hdmi, math in mon/gpu
+6 BUS	tb4, usbhc	0	tb4 stack exists	
+Next natural step is family 3 EVENT — three classes, and the sweep already named the two tpwd files needing the include fix. Or close family 1's two open items (uiox_emmc_probe driving subsys, and the tick caller) since that's a small, already-scoped pair.
+
 
 
 

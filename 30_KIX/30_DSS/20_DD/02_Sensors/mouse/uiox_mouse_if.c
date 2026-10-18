@@ -149,3 +149,13 @@ int uiox_mouse_event_read(uiox_dev_dev_t *dev, void *rec, uint16_t maxlen)
     memcpy(rec, &ev, sizeof(ev));
     return (int)sizeof(ev);
 }
+
+const uiox_mouse_ops_t uiox_mouse_class_ops = {
+    .head = { .name = "mouse0", .probe = NULL, .init = NULL,
+              .deinit = NULL, .ioctl = NULL },
+    .ev   = { .init = NULL, .deinit = NULL,
+              .event_pending = uiox_mouse_event_pending,   /* :129 */
+              .event_read    = uiox_mouse_event_read,      /* :137 */
+              .isr           = NULL },
+};
+

@@ -154,6 +154,14 @@ void uiox_tpwd_if_stats_reset(uiox_tpwd_if_t *tif);
 bool uiox_tpwd_event_pending(uiox_dev_dev_t *dev);
 int  uiox_tpwd_event_read   (uiox_dev_dev_t *dev, void *rec, uint16_t maxlen);
 
+typedef struct {
+    uiox_dev_ops_t     head;   /* name, probe, init, deinit, ioctl */
+    uiox_event_ops_t   ev;     /* init, deinit, pending, read, isr  */
+} uiox_tpwd_ops_t;
+
+extern const uiox_tpwd_ops_t uiox_tpwd_class_ops;
+
+
 #ifdef __cplusplus
 }
 #endif

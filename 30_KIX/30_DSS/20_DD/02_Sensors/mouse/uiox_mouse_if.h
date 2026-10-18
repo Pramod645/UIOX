@@ -41,6 +41,14 @@ typedef struct {
     uiox_mouse_ringbuf_t   rx;
 } uiox_mouse_if_t;
 
+typedef struct {
+    uiox_dev_ops_t     head;   /* name, probe, init, deinit, ioctl */
+    uiox_event_ops_t   ev;     /* init, deinit, pending, read, isr  */
+} uiox_mouse_ops_t;
+
+extern const uiox_mouse_ops_t uiox_mouse_class_ops;
+
+
 int  uiox_mouse_if_config    (uiox_mouse_if_t *mif, uiox_mouse_hw_t *hw);
 
 /**
