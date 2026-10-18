@@ -124,10 +124,54 @@ int uiox_kix_scfs_read(int fd, char *buf, uint32_t count)
              * the offset: for a REG class the memory after the head
              * belongs to something else, and reading it as a vtable would
              * call through a pointer that was never meant to be one. */
-            if (!head ||
+            /*if (!head ||
                 UIOX_DEVCLASS_FAMILY((uiox_devclass_t)ip->idev_class)
                     != UIOX_DEVFAM_EVENT)
-                return SCFS_ENOTTY;
+                return SCFS_ENOTTY; this part for event only and below chanegs upadted for REG*/
+                if (!head) return SCFS_ENOTTY;
+
+                uiox_devclass_t cls = (uiox_devclass_t)ip->idev_class;
+                uiox_devfam_t   fam = (uiox_devfam_t)UIOX_DEVCLASS_FAMILY(cls);
+    
+                /* ══ REG — a register read IS the value ══════════════════
+                 * The class matrix routes these "FS → attr": the node reads
+                 * like a sysfs attribute, so the FILE POSITION selects the
+                 * register and read() returns that register's value —
+                 * lseek(fd, reg, SEEK_SET) then read().
+                 *
+                 * The family pair sits at the same offset the event pair does
+                 * (§6: head first, family pair second); only its SHAPE
+                 * differs.  That is why each branch guards its own family
+                 * before casting — reading one as the other would call
+                 * through a pointer never meant to be one. */
+                if (fam == UIOX_DEVFAM_REG) {
+                    const uiox_busdev_ops_t *bus =
+                        (const uiox_busdev_ops_t *)((const char *)dev->ops
+                                                    + sizeof(uiox_dev_ops_t));
+    
+                    /* Bound but no register reader: right kind of fd, wrong
+                     * kind of call — the same answer the EVENT branch gives
+                     * for a missing event_read. */
+                    if (!bus->read_reg) return SCFS_ENOTTY;
+    
+                    /* §8 fixes the family's register at uint8_t, so past 255
+                     * is not addressable here; pmic's wider space goes
+                     * through its FIELD_WR command instead. */
+                    if (f->f_offset > 0xFFu) return SCFS_EINVAL;
+                    uint8_t reg = (uint8_t)f->f_offset;
+    
+                    /* Each accessor clamps its own width — als/thermal/bms/
+                     * fan accept 1 or 2, chg/pmic/rtc accept 1 only. */
+                    uint16_t want = (count > 0xFFFFu) ? 0xFFFFu
+                                                      : (uint16_t)count;
+    
+                    int rc = bus->read_reg(dev, reg, buf, want);
+                    return (rc < 0) ? rc : (int)want;
+                }
+    
+                /* ── EVENT — the record queue ──────────────────────────── */
+                if (fam != UIOX_DEVFAM_EVENT)
+                    return SCFS_ENOTTY;    
 
             const uiox_event_ops_t *ev =
                 (const uiox_event_ops_t *)((const char *)dev->ops
