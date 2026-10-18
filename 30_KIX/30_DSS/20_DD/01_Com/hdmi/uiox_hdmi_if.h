@@ -19,6 +19,7 @@
  
  #include "uiox_hdmi_hw.h"
  #include "uiox_hdmi_buf.h"
+ #include "uiox_devclass.h"
  
  #ifdef __cplusplus
  extern "C" {
@@ -94,6 +95,34 @@
      uiox_hdmi_acr_t uiox_hdmi_if_compute_acr(uint32_t pixel_clk_khz,
                                                 uint32_t sample_rate_hz);
      
+     /* ═══════════════════════════ INSERTED — registry layer ══════════════
+ *  §6 head only — §9 is uiox_devclass.h's last section, so CMD has no
+ *  family pair.  The display control surface travels through ioctl on
+ *  the head; mmap belongs to 33_PCS. */
+
+#define UIOX_HDMI_IOC_ENABLE     0x01u  /* in:  NULL                     */
+#define UIOX_HDMI_IOC_DISABLE    0x02u  /* in:  NULL                     */
+#define UIOX_HDMI_IOC_FLIP       0x03u  /* in:  uiox_hdmi_flip_t         */
+#define UIOX_HDMI_IOC_VSYNC      0x04u  /* in:  uint32_t timeout_ms      */
+#define UIOX_HDMI_IOC_SET_AUDIO  0x05u  /* in:  uiox_hdmi_audio_cfg_t    */
+#define UIOX_HDMI_IOC_GET_STATS  0x06u  /* out: uiox_hdmi_if_stats_t     */
+#define UIOX_HDMI_IOC_GET_ACR    0x07u  /* in/out: uiox_hdmi_acr_req_t   */
+
+/* The caller's framebuffer descriptor — what _if_flip() needs.  The
+ * backing memory comes from the 00_drvbuff hdmi pool
+ * (uiox_hdmi_buf_alloc_fb), so the pointer is the pool's, not ours. */
+typedef struct { uiox_hdmi_fb_t *fb; } uiox_hdmi_flip_t;
+typedef struct { uint32_t pixel_clk_khz, sample_rate_hz; } uiox_hdmi_acr_req_t;
+
+typedef struct {
+    uiox_dev_ops_t head;   /* name, probe, init, deinit, ioctl */
+} uiox_hdmi_ops_t;
+
+extern const uiox_hdmi_ops_t uiox_hdmi_class_ops;
+
+int uiox_hdmi_probe(void);
+/* ═══════════════════════════ END INSERT ═════════════════════════ */                                           
+
      #ifdef __cplusplus
      }
      #endif

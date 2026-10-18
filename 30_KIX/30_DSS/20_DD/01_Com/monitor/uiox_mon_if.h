@@ -18,6 +18,7 @@
  
  #include "uiox_mon_hw.h"
  #include "uiox_mon_buf.h"
+ #include "uiox_devclass.h"
  
  #ifdef __cplusplus
  extern "C" {
@@ -95,7 +96,39 @@
  void uiox_mon_if_stats_get  (const uiox_mon_if_t *mif,
                                uiox_mon_if_stats_t *out);
  void uiox_mon_if_stats_reset(uiox_mon_if_t *mif);
- 
+/* ═══════════════════════════ INSERTED — registry layer ══════════════
+ *  §6 head only — §9 is uiox_devclass.h's last section, so CMD has no
+ *  family pair.  The display surface travels through ioctl on the head;
+ *  mmap belongs to 33_PCS. */
+//#include "uiox_devclass.h"
+
+#define UIOX_MON_IOC_ENABLE      0x01u
+#define UIOX_MON_IOC_DISABLE     0x02u
+#define UIOX_MON_IOC_FLIP        0x03u
+#define UIOX_MON_IOC_VSYNC       0x04u
+#define UIOX_MON_IOC_GET_INFO    0x05u
+#define UIOX_MON_IOC_GET_STATS   0x06u
+
+typedef struct { uiox_mon_fb_t *fb; } uiox_mon_flip_t;
+
+typedef struct {
+    uintptr_t            base_addr;
+    uint32_t             irq_vblank;
+    uint32_t             irq_hotplug;
+    uiox_mon_if_type_t   type;
+    uiox_dp_link_state_t dp_link;
+    uint8_t              dp_lanes;
+    uint8_t              dsi_lanes;
+} uiox_mon_info_t;
+
+typedef struct {
+    uiox_dev_ops_t head;
+} uiox_mon_ops_t;
+
+extern const uiox_mon_ops_t uiox_mon_class_ops;
+
+int uiox_mon_probe(void);
+/* ═══════════════════════════ END INSERT ═════════════════════════ */
  #ifdef __cplusplus
  }
  #endif

@@ -6,6 +6,9 @@
 
  #include "uiox_mon_if.h"
  #include "uiox_klibc.h"
+ #include "uiox_devclass.h"
+ #include "uiox_fw_i2c.h"
+ #include "uiox_mon_buf.h"     /* uiox_mon_fb_t — the flip argument */
  
  int uiox_mon_if_config(uiox_mon_if_t        *mif,
                          uiox_mon_hw_t        *hw,
@@ -106,4 +109,95 @@
      if (!mif) return;
      memset(&mif->stats, 0, sizeof(mif->stats));
  }
- 
+ /* ═══════════════════════════ INSERTED — registry layer ══════════════ */
+
+static int mon_class_init(uiox_dev_dev_t *dev)
+{
+    uiox_mon_if_t *mif = (uiox_mon_if_t *)dev->drv_priv;
+    if (!mif || !mif->hw) return -EINVAL;
+    return uiox_mon_if_enable(mif);
+}
+
+static void mon_class_deinit(uiox_dev_dev_t *dev)
+{
+    uiox_mon_if_t *mif = (uiox_mon_if_t *)dev->drv_priv;
+    if (mif) uiox_mon_if_disable(mif);
+}
+
+static int mon_class_ioctl(uiox_dev_dev_t *dev, uint32_t cmd, void *arg)
+{
+    uiox_mon_if_t *mif = (uiox_mon_if_t *)dev->drv_priv;
+    if (!mif || !mif->hw) return -EINVAL;
+
+    switch (cmd) {
+    case UIOX_MON_IOC_ENABLE:    return uiox_mon_if_enable(mif);
+    case UIOX_MON_IOC_DISABLE:
+        uiox_mon_if_disable(mif);
+        return 0;
+    case UIOX_MON_IOC_FLIP: {
+        if (!arg) return -EINVAL;
+        const uiox_mon_flip_t *f = (const uiox_mon_flip_t *)arg;
+        return uiox_mon_if_flip(mif, f->fb);
+    }
+    case UIOX_MON_IOC_VSYNC:
+        if (!arg) return -EINVAL;
+        return uiox_mon_if_vsync(mif, *(const uint32_t *)arg);
+    case UIOX_MON_IOC_GET_INFO: {
+        if (!arg) return -EINVAL;
+        uiox_mon_info_t *o = (uiox_mon_info_t *)arg;
+        o->base_addr   = mif->hw->base_addr;
+        o->irq_vblank  = mif->hw->irq_vblank;
+        o->irq_hotplug = mif->hw->irq_hotplug;
+        o->type        = mif->type;
+        o->dp_link     = mif->dp_link;
+        o->dp_lanes    = mif->dp_lanes;
+        o->dsi_lanes   = mif->dsi_lanes;
+        return 0;
+    }
+
+    case UIOX_MON_IOC_GET_STATS:
+        if (!arg) return -EINVAL;
+        uiox_mon_if_stats_get(mif, (uiox_mon_if_stats_t *)arg);
+        return 0;
+    default:
+        return -ENOSYS;
+    }
+}
+
+const uiox_mon_ops_t uiox_mon_class_ops = {
+    .head = { .name = "mon0", .probe = NULL,
+              .init = mon_class_init, .deinit = mon_class_deinit,
+              .ioctl = mon_class_ioctl },
+};
+
+static uiox_mon_hw_t       s_mon_hw;
+static uiox_mon_if_t       s_mon_if;
+static uiox_dev_dev_t      s_mon_dev;
+static struct uiox_i2c_dev s_mon_i2c;
+
+int uiox_mon_probe(void)
+{
+    if (uiox_mon_fwbind(&s_mon_hw, &s_mon_i2c) < 0)  return -1;
+
+    /* if_type / timing / pixfmt come off the HAL — no defaults invented
+     * here (uiox_mon_hw.h:139 and the timing/pixfmt enums above it). */
+    if (uiox_mon_if_config(&s_mon_if, &s_mon_hw,
+                           s_mon_hw.if_type,
+                           &s_mon_hw.timing,
+                           s_mon_hw.pixfmt) < 0)
+        return -1;
+
+    s_mon_dev.cls  = UIOX_DEVCLASS_MONITOR;
+    s_mon_dev.unit = 0u;
+    s_mon_dev.bus  = UIOX_BUS_MMIO;
+    s_mon_dev.base = s_mon_hw.base_addr;
+    s_mon_dev.addr = 0u;
+    //s_mon_dev.irq  = s_mon_hw.irq;
+    s_mon_dev.irq  = s_mon_hw.irq_vblank;   /* the per-frame line */
+    s_mon_dev.name = "mon0";
+    s_mon_dev.ops  = &uiox_mon_class_ops;
+    s_mon_dev.drv_priv = &s_mon_if;
+
+    return uiox_dev_bind(&s_mon_dev);
+}
+/* ═══════════════════════════ END INSERT ═════════════════════════ */

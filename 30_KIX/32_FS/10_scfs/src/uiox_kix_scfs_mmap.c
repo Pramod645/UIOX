@@ -24,6 +24,16 @@
  * and mmap without a page fault handler cannot be faked, because the
  * whole point is that the mapping is populated lazily by the hardware.
  *
+ * ── two kinds of backing, and only one is blocks ───────────────────────
+ * A REGULAR FILE maps its blocks: the validator checks the request
+ * against ip->size and UNFS_BLOCK_SIZE below.
+ *
+ * A CHAR NODE BOUND TO A CMD CLASS maps its device's MMIO window —
+ * descriptor.base, which the probe filled from hw.base_addr
+ * (gpu_hw.h:118, hdmi_hw.h:151, mon_hw.h:135).  It has no blocks, no
+ * byte stream and usually size 0, so the block tests must not run for it.
+ * scfs_mmap_is_cmd_node() below is that second case.
+ *
  * ── the refusal, stated precisely ──────────────────────────────────────
  * These calls return ENOSYS.  The file half below is written out because
  * it is correct and complete — a program's mapping request is validated
@@ -31,9 +41,10 @@
  * but a return of success would hand the caller a virtual address whose
  * first read faults into nothing.
  *
- * @version 1.0.0  @date 2026-09-23
+ * @version 1.1.0  @date 2026-10-18
  */
 #include "uiox_kix_scfs_internal.h"
+#include "uiox_devclass.h"   /* uiox_dev_dev_t, uiox_dev_lookup */
 
 /* Validate a mapping request against its file.  This is the file-side
  * half; it returns the inode the mapping would be backed by, or NULL
@@ -72,18 +83,76 @@ static InCoreInode *scfs_mmap_validate(int fd, uint32_t length,
     return f->f_inode;      /* borrowed — the file table entry owns it */
 }
 
+/*
+ * ── the device case ───────────────────────────────────────────────────
+ * A char node bound to a CMD class has no blocks to map: the mapping
+ * would be backed by the device's MMIO window — descriptor.base, which
+ * the probe filled from hw.base_addr (gpu_hw.h:118, hdmi_hw.h:151,
+ * mon_hw.h:135).  The inode's size and block-alignment tests in
+ * uiox_kix_scfs_mmap() are about a regular file's blocks and do not
+ * apply to such a node.
+ *
+ * Only CMD reaches here: BLOCK maps through 00_bcache, STREAM and EVENT
+ * have read() and a pool, and REG is reached by ioctl and read().
+ *
+ * Note there is no window SIZE on the descriptor or on these HALs (gpu
+ * exposes vram_size, which is memory behind the part, not the register
+ * window), so the extent of a CMD mapping cannot be validated here.
+ * That belongs to the half that owns addresses.
+ */
+static int scfs_mmap_is_cmd_node(int fd, uintptr_t *base_out)
+{
+    scfs_file_t *f = scfs_getf(fd);
+    if (!f) return 0;
+
+    if ((uint16_t)(f->f_inode->mode & SCFS_S_IFMT) != SCFS_S_IFCHR)
+        return 0;
+
+    uiox_dev_dev_t *dev = uiox_dev_lookup(
+        (uiox_devclass_t)f->f_inode->idev_class, f->f_inode->idev_unit);
+    if (!dev) return 0;                       /* named, nothing bound */
+
+    if (UIOX_DEVCLASS_FAMILY((uiox_devclass_t)f->f_inode->idev_class)
+            != UIOX_DEVFAM_CMD)
+        return 0;                             /* not a mappable family */
+
+    if (!dev->base) return 0;                 /* no window to map */
+
+    if (base_out) *base_out = dev->base;
+    return 1;
+}
+
 void *uiox_kix_scfs_mmap(void *addr, uint32_t length, int prot,
                          int flags, int fd, uint32_t offset)
 {
-    int          err  = SCFS_OK;
-    InCoreInode *ip   = scfs_mmap_validate(fd, length, prot, flags, &err);
-
+    int          err = SCFS_OK;
+    uintptr_t    win = 0u;
+    InCoreInode *ip  = scfs_mmap_validate(fd, length, prot, flags, &err);
     if (!ip) return SCFS_MAP_FAILED;
 
-    /* The file must be long enough to cover the request.  A mapping past
-     * the end is not an error at map time in POSIX — the fault handler
-     * delivers SIGBUS — but with no fault handler to deliver anything,
-     * the honest test is here. */
+    /* ══ the device branch ═══════════════════════════════════════════
+     * Tested BEFORE the inode's size/alignment tests, because those are
+     * about a regular file's blocks and a CMD node has none — its size is
+     * 0, so ``offset > ip->size`` would reject every mapping request for
+     * a reason that does not apply.
+     *
+     * The backing is dev->base, not bmap()'s block. */
+    if (scfs_mmap_is_cmd_node(fd, &win)) {
+        /*
+         * ── the address side, still 33_PCS's ────────────────────────
+         * Bach's region code would now allocate a virtual range and
+         * record ``win + offset`` as its backing, so the fault handler
+         * installs the controller's page rather than a file block.
+         *
+         * The range cannot be bounded here: the descriptor carries an
+         * address and no length, and the three CMD HALs expose no window
+         * size.  That check belongs to whoever owns the address space.
+         */
+        (void)addr; (void)prot; (void)win;
+        return SCFS_MAP_FAILED;
+    }
+
+    /* ── regular file: the block-backed path ───────────────────────── */
     if (offset > ip->size || length > ip->size - offset)
         return SCFS_MAP_FAILED;
 

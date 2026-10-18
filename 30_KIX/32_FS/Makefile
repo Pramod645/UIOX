@@ -172,7 +172,6 @@ vpath %.c \
   $(MFDIR)src     \
   $(DRVBUFDIR)/01_Com/bt        \
   $(DRVBUFDIR)/01_Com/eth       \
-  $(DRVBUFDIR)/01_Com/gpu       \
   $(DRVBUFDIR)/01_Com/hdmi      \
   $(DRVBUFDIR)/01_Com/monitor   \
   $(DRVBUFDIR)/01_Com/tb4       \

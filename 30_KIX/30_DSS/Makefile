@@ -164,7 +164,6 @@ endif
 DRVBUFF_INCLUDES := \
   -I$(MFDIR)../32_FS/00_drvbuff/01_Com/bt             \
   -I$(MFDIR)../32_FS/00_drvbuff/01_Com/eth            \
-  -I$(MFDIR)../32_FS/00_drvbuff/01_Com/gpu            \
   -I$(MFDIR)../32_FS/00_drvbuff/01_Com/hdmi           \
   -I$(MFDIR)../32_FS/00_drvbuff/01_Com/monitor        \
   -I$(MFDIR)../32_FS/00_drvbuff/01_Com/tb4            \
@@ -270,7 +269,7 @@ $(DI_LIB): $(DI_OBJS)
 	$(AR) rcs $@ $^
 	@echo "[AR]  $@"
 
-$(DD_LIB): $(DD_OBJS) $(DI_LIB)
+$(DD_LIB): $(DD_OBJS) | $(DI_LIB)
 	@mkdir -p $(dir $@)
 	$(AR) rcs $@ $^
 	@echo "[AR]  $@"

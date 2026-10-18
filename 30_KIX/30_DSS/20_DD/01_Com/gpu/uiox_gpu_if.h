@@ -18,6 +18,7 @@
  #include "uiox_gpu_hw.h"
  #include "uiox_gpu_buf.h"
  #include "uiox_gpu_mem.h"
+ #include "uiox_devclass.h"
  
  #ifdef __cplusplus
  extern "C" {
@@ -74,7 +75,35 @@
  void uiox_gpu_if_stats_get  (const uiox_gpu_if_t *gif,
                                uiox_gpu_if_stats_t *out);
  void uiox_gpu_if_stats_reset(uiox_gpu_if_t *gif);
- 
+/* ═══════════════════════════ INSERTED — registry layer ══════════════
+ *  §6 head only.  uiox_devclass.h declares family pairs for EVENT (§7)
+ *  and REG (§8), and nothing for CMD — §9 is its last section.  So a CMD
+ *  class has no second member to fill: the family's calls are ioctl (on
+ *  the head) and mmap (which 33_PCS owns).  The MMIO window travels in
+ *  the descriptor's .base, as eth and usb already do. */
+
+#define UIOX_GPU_IOC_GET_INFO    0x01u  /* out: uiox_gpu_info_t      */
+#define UIOX_GPU_IOC_GET_STATS   0x02u  /* out: uiox_gpu_if_stats_t  */
+#define UIOX_GPU_IOC_GET_WINDOW  0x03u  /* out: uintptr_t base_addr  */
+#define UIOX_GPU_IOC_GET_VRAM    0x04u  /* out: uiox_gpu_vram_t      */
+
+typedef struct {
+    uintptr_t base;                          /* the MMIO window      */
+    uint32_t  irq_job, irq_mmu, irq_err;
+} uiox_gpu_info_t;
+
+typedef struct {
+    uint64_t base_phys, size, used, free_bytes;
+} uiox_gpu_vram_t;
+
+typedef struct {
+    uiox_dev_ops_t head;   /* name, probe, init, deinit, ioctl */
+} uiox_gpu_ops_t;
+
+extern const uiox_gpu_ops_t uiox_gpu_class_ops;
+
+int uiox_gpu_probe(void);
+/* ═══════════════════════════ END INSERT ═════════════════════════ */
  #ifdef __cplusplus
  }
  #endif

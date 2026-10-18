@@ -6,6 +6,9 @@
 
  #include "uiox_hdmi_if.h"
  #include "uiox_klibc.h"
+ #include "uiox_devclass.h"
+ #include "uiox_fw_i2c.h"
+ #include "uiox_hdmi_buf.h"    /* uiox_hdmi_fb_t — the flip argument */
  
  /* =========================================================================
   * N/CTS computation (IEC 60958 / CEA-861)
@@ -182,4 +185,91 @@
      if (!hif) return;
      memset(&hif->stats, 0, sizeof(hif->stats));
  }
- 
+ /* ═══════════════════════════ INSERTED — registry layer ══════════════ */
+
+static int hdmi_class_init(uiox_dev_dev_t *dev)
+{
+    uiox_hdmi_if_t *hif = (uiox_hdmi_if_t *)dev->drv_priv;
+    if (!hif || !hif->hw) return -EINVAL;
+    return uiox_hdmi_if_enable(hif);
+}
+
+static void hdmi_class_deinit(uiox_dev_dev_t *dev)
+{
+    uiox_hdmi_if_t *hif = (uiox_hdmi_if_t *)dev->drv_priv;
+    if (hif) uiox_hdmi_if_disable(hif);
+}
+
+static int hdmi_class_ioctl(uiox_dev_dev_t *dev, uint32_t cmd, void *arg)
+{
+    uiox_hdmi_if_t *hif = (uiox_hdmi_if_t *)dev->drv_priv;
+    if (!hif) return -EINVAL;
+
+    switch (cmd) {
+    case UIOX_HDMI_IOC_ENABLE:    return uiox_hdmi_if_enable(hif);
+    case UIOX_HDMI_IOC_DISABLE:
+        uiox_hdmi_if_disable(hif);
+        return 0;
+    case UIOX_HDMI_IOC_FLIP: {
+        if (!arg) return -EINVAL;
+        const uiox_hdmi_flip_t *f = (const uiox_hdmi_flip_t *)arg;
+        return uiox_hdmi_if_flip(hif, f->fb);
+    }
+    case UIOX_HDMI_IOC_VSYNC:
+        if (!arg) return -EINVAL;
+        return uiox_hdmi_if_vsync(hif, *(const uint32_t *)arg);
+    case UIOX_HDMI_IOC_SET_AUDIO:
+        if (!arg) return -EINVAL;
+        return uiox_hdmi_if_set_audio(hif, (const uiox_hdmi_audio_cfg_t *)arg);
+    case UIOX_HDMI_IOC_GET_STATS:
+        if (!arg) return -EINVAL;
+        uiox_hdmi_if_stats_get(hif, (uiox_hdmi_if_stats_t *)arg);
+        return 0;
+    case UIOX_HDMI_IOC_GET_ACR: {
+        if (!arg) return -EINVAL;
+        const uiox_hdmi_acr_req_t *r = (const uiox_hdmi_acr_req_t *)arg;
+        hif->acr = uiox_hdmi_if_compute_acr(r->pixel_clk_khz,
+                                            r->sample_rate_hz);
+        return 0;
+    }
+    default:
+        return -ENOSYS;
+    }
+}
+
+const uiox_hdmi_ops_t uiox_hdmi_class_ops = {
+    .head = { .name = "hdmi0", .probe = NULL,
+              .init = hdmi_class_init, .deinit = hdmi_class_deinit,
+              .ioctl = hdmi_class_ioctl },
+};
+
+static uiox_hdmi_hw_t      s_hdmi_hw;
+static uiox_hdmi_if_t      s_hdmi_if;
+static uiox_dev_dev_t      s_hdmi_dev;
+static struct uiox_i2c_dev s_hdmi_i2c;
+
+int uiox_hdmi_probe(void)
+{
+    if (uiox_hdmi_fwbind(&s_hdmi_hw, &s_hdmi_i2c) < 0)  return -1;
+
+    /* timing / colorspace / bpc come off the HAL — no defaults invented
+     * here (uiox_hdmi_hw.h:163-165). */
+    if (uiox_hdmi_if_config(&s_hdmi_if, &s_hdmi_hw,
+                            &s_hdmi_hw.timing,
+                            s_hdmi_hw.colorspace,
+                            s_hdmi_hw.bpc) < 0)
+        return -1;
+
+    s_hdmi_dev.cls  = UIOX_DEVCLASS_HDMI;
+    s_hdmi_dev.unit = 0u;
+    s_hdmi_dev.bus  = UIOX_BUS_MMIO;
+    s_hdmi_dev.base = s_hdmi_hw.base_addr;
+    s_hdmi_dev.addr = 0u;
+    s_hdmi_dev.irq  = s_hdmi_hw.irq_hpd;   /* the hot-plug line */
+    s_hdmi_dev.name = "hdmi0";
+    s_hdmi_dev.ops  = &uiox_hdmi_class_ops;
+    s_hdmi_dev.drv_priv = &s_hdmi_if;
+
+    return uiox_dev_bind(&s_hdmi_dev);
+}
+/* ═══════════════════════════ END INSERT ═════════════════════════ */

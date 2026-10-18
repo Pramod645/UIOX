@@ -82,6 +82,10 @@ int uiox_fan_probe(void);
 int  uiox_bms_probe(void);      /* with the other prototypes */
 int  uiox_pmic_probe(void);
 int  uiox_chg_probe(void);
+/* ── family 5 — CMD ──────────────────────────────────────── */
+int  uiox_gpu_probe(void);
+int  uiox_hdmi_probe(void);
+int  uiox_mon_probe(void);
 /* ── families 2–6 — not yet written ─────────────────────────────────
  * Each follows the shape of uiox_emmc_probe(): a static subsystem, a
  * static uiox_dev_dev_t, uiox_dev_bind(), and the class's own
@@ -133,23 +137,12 @@ int uiox_dss_init(void)
     (void) uiox_bms_probe();        /* in the probe sequence     */
     (void) uiox_pmic_probe();
     (void) uiox_chg_probe();
+    /* ── family 5 — CMD ──────────────────────────────────────── */
+    (void) uiox_gpu_probe();
+    (void) uiox_hdmi_probe();
+    (void) uiox_mon_probe();
     /* ── the remaining five families ─────────────────────────────
      * One call each, as their probes are written:
-     *
-     *   (void)uiox_bt_probe();        (void)uiox_eth_probe();
-     *   (void)uiox_wifi_probe();      (void)uiox_usb_probe();
-     *   (void)uiox_mic_probe();       (void)uiox_spk_probe();
-     *
-     *   (void)uiox_kbd_probe();       (void)uiox_mouse_probe();
-     *   (void)uiox_tpwd_probe();
-     *
-     *   (void)uiox_als_probe();       (void)uiox_thermal_probe();
-     *   (void)uiox_bms_probe();       (void)uiox_chg_probe();
-     *   (void)uiox_pmic_probe();      (void)uiox_rtc_probe();
-     *   (void)uiox_fan_probe();
-     *
-     *   (void)uiox_gpu_probe();       (void)uiox_hdmi_probe();
-     *   (void)uiox_mon_probe();       (void)uiox_cam_probe();
      *
      *   (void)uiox_tb4_probe();       (void)uiox_usb_host_probe();
      * ───────────────────────────────────────────────────────────── */

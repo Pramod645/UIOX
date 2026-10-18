@@ -5,8 +5,9 @@
  */
 
  #include "uiox_gpu_if.h"
- #include <string.h>
- #include <errno.h>
+ #include "uiox_devclass.h"
+ #include "uiox_fw_i2c.h"
+ #include "uiox_gpu_mem.h"
  
  int uiox_gpu_if_init(uiox_gpu_if_t *gif,
                        uiox_gpu_hw_t *hw,
@@ -87,4 +88,92 @@
      if (!gif) return;
      memset(&gif->stats, 0, sizeof(gif->stats));
  }
- 
+/* ═══════════════════════════ INSERTED — registry layer ══════════════ */
+
+static int gpu_class_init(uiox_dev_dev_t *dev)
+{
+    uiox_gpu_if_t *gif = (uiox_gpu_if_t *)dev->drv_priv;
+    if (!gif || !gif->hw || !gif->mem) return -EINVAL;
+    return uiox_gpu_if_init(gif, gif->hw, gif->mem);
+}
+
+static void gpu_class_deinit(uiox_dev_dev_t *dev)
+{
+    (void)dev;   /* no teardown on this interface — the HAL owns it */
+}
+
+static int gpu_class_ioctl(uiox_dev_dev_t *dev, uint32_t cmd, void *arg)
+{
+    uiox_gpu_if_t  *gif = (uiox_gpu_if_t *)dev->drv_priv;
+    if (!gif || !gif->hw) return -EINVAL;
+
+    switch (cmd) {
+    case UIOX_GPU_IOC_GET_INFO: {
+        if (!arg) return -EINVAL;
+        uiox_gpu_info_t *o = (uiox_gpu_info_t *)arg;
+        o->base    = gif->hw->base_addr;
+        o->irq_job = gif->hw->irq_job;
+        o->irq_mmu = gif->hw->irq_mmu;
+        o->irq_err = gif->hw->irq_err;
+        return 0;
+    }
+    case UIOX_GPU_IOC_GET_STATS:
+        if (!arg) return -EINVAL;
+        memcpy(arg, &gif->stats, sizeof(gif->stats));
+        return 0;
+    case UIOX_GPU_IOC_GET_WINDOW:
+        if (!arg) return -EINVAL;
+        *(uintptr_t *)arg = gif->hw->base_addr;
+        return 0;
+    case UIOX_GPU_IOC_GET_VRAM: {
+        if (!arg || !gif->mem) return -EINVAL;
+        uiox_gpu_vram_t *v = (uiox_gpu_vram_t *)arg;
+        v->base_phys = gif->mem->heap_base_phys;
+        v->size      = gif->mem->heap_size;
+        uiox_gpu_mem_stats(gif->mem, &v->used, &v->free_bytes);
+        return 0;
+    }
+    default:
+        return -ENOSYS;   /* valid call, no body here */
+    }
+}
+
+const uiox_gpu_ops_t uiox_gpu_class_ops = {
+    .head = { .name = "gpu0", .probe = NULL,
+              .init = gpu_class_init, .deinit = gpu_class_deinit,
+              .ioctl = gpu_class_ioctl },
+};
+
+/* STATIC — §9's uiox_dev_bind() stores the pointer it is given, not a
+ * copy, so these must outlive the call. */
+static uiox_gpu_mem_t      s_gpu_mem;
+static uiox_gpu_hw_t       s_gpu_hw;
+static uiox_gpu_if_t       s_gpu_if;
+static uiox_dev_dev_t      s_gpu_dev;
+static struct uiox_i2c_dev s_gpu_i2c;
+
+int uiox_gpu_probe(void)
+{
+    if (uiox_gpu_fwbind(&s_gpu_hw, &s_gpu_i2c) < 0)   return -1;
+
+    /* _if_init rejects a NULL mem (uiox_gpu_if.c:12), so the VRAM heap
+     * must be a real object — its base and size come from the HAL. */
+    if (uiox_gpu_mem_init(&s_gpu_mem, &s_gpu_hw,
+                          s_gpu_hw.vram_base, s_gpu_hw.vram_size) < 0)
+        return -1;
+    if (uiox_gpu_if_init(&s_gpu_if, &s_gpu_hw, &s_gpu_mem) < 0)
+        return -1;
+
+    s_gpu_dev.cls  = UIOX_DEVCLASS_GPU;
+    s_gpu_dev.unit = 0u;
+    s_gpu_dev.bus  = UIOX_BUS_MMIO;      /* a mapped window, as eth/usb */
+    s_gpu_dev.base = s_gpu_hw.base_addr; /* the controller's registers  */
+    s_gpu_dev.addr = 0u;                 /* no slave address            */
+    s_gpu_dev.irq  = s_gpu_hw.irq_err;   /* the fault line              */
+    s_gpu_dev.name = "gpu0";
+    s_gpu_dev.ops  = &uiox_gpu_class_ops;
+    s_gpu_dev.drv_priv = &s_gpu_if;
+
+    return uiox_dev_bind(&s_gpu_dev);
+}
+/* ═══════════════════════════ END INSERT ═════════════════════════ */

@@ -64,7 +64,7 @@
  
          /* Map into GPU MMU */
          const uiox_gpu_hw_ops_t *ops =
-             (const uiox_gpu_hw_ops_t *)mem->hw->drv_priv;
+             (const uiox_gpu_hw_ops_t *)mem->hw->ops;
          if (ops && ops->mmu_map)
              ops->mmu_map(mem->hw, b->gpu_va, b->phys, size, 0x3u);
  
@@ -84,7 +84,7 @@
  
          /* Unmap from GPU MMU */
          const uiox_gpu_hw_ops_t *ops =
-             (const uiox_gpu_hw_ops_t *)mem->hw->drv_priv;
+             (const uiox_gpu_hw_ops_t *)mem->hw->ops;
          if (ops && ops->mmu_unmap)
              ops->mmu_unmap(mem->hw, b->gpu_va, b->size);
  
