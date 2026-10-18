@@ -132,6 +132,8 @@ COMMON_INCLUDES := \
   -I$(COMMONDIR)          \
   -I$(MFDIR)include       \
   -I$(MFDIR)../30_DSS/include \
+  -I$(MFDIR)../33_PCS/include          \
+  -I$(MFDIR)../33_PCS/40_psa/include   \
   -I$(BCDIR)/include      \
   -I$(FSA_DIR)/include    \
   -I$(SCFS_DIR)/include   \
