@@ -5,6 +5,8 @@
  */
 
  #include "uiox_pmic_if.h"
+ #include "uiox_devclass.h"
+ #include "uiox_fw_i2c.h"
  
  int uiox_pmic_if_config(uiox_pmic_if_t *pif, uiox_pmic_hw_t *hw)
  {
@@ -127,4 +129,112 @@
  
  void uiox_pmic_if_stats_reset(uiox_pmic_if_t *pif)
  { if (!pif) return; memset(&pif->stats, 0, sizeof(pif->stats)); }
- 
+ /* ═══════════════════════════ INSERTED — registry layer ══════════════ */
+
+static int pmic_class_init(uiox_dev_dev_t *dev)
+{
+    uiox_pmic_if_t *pif = (uiox_pmic_if_t *)dev->drv_priv;
+    return pif ? uiox_pmic_if_start(pif) : -EINVAL;
+}
+
+static void pmic_class_deinit(uiox_dev_dev_t *dev)
+{
+    uiox_pmic_if_t *pif = (uiox_pmic_if_t *)dev->drv_priv;
+    if (pif) uiox_pmic_if_stop(pif);
+}
+
+/* This HAL is word-wide (uiox_pmic_hw_reg_read takes uint16_t reg and
+ * a uint16_t *val).  §8's bus path is 8-bit, so n must be 2 here — a
+ * 1-byte request has no meaning on this device. */
+/* This HAL writes bytes: uiox_pmic_hw_reg_read takes a uint8_t *val
+ * (uiox_pmic_hw.h:179).  §8's bus path is byte-oriented, so n must be 1. */
+/* This HAL is byte-wide on the value: uiox_pmic_hw_reg_read takes a
+ * uint8_t *val (uiox_pmic_hw.h:179).  The REGISTER is wider (uint16_t),
+ * which §8's 8-bit bus path absorbs by cast; anything needing the full
+ * register goes through UIOX_PMIC_IOC_FIELD_WR. */
+static int pmic_class_read_reg(uiox_dev_dev_t *dev, uint8_t reg,
+    void *val, uint16_t n)
+{
+uiox_pmic_if_t *pif = (uiox_pmic_if_t *)dev->drv_priv;
+if (!pif || !val || n != 1u) return -EINVAL;
+uint8_t v = 0u;
+int rc = uiox_pmic_hw_reg_read(pif->hw, (uint16_t)reg, &v);
+if (rc < 0) return rc;
+*(uint8_t *)val = v;
+return 0;
+}
+
+static int pmic_class_write_reg(uiox_dev_dev_t *dev, uint8_t reg,
+     const void *val, uint16_t n)
+{
+uiox_pmic_if_t *pif = (uiox_pmic_if_t *)dev->drv_priv;
+if (!pif || !val || n != 1u) return -EINVAL;
+return uiox_pmic_hw_reg_write(pif->hw, (uint16_t)reg,
+       *(const uint8_t *)val);
+}
+
+
+static int pmic_class_ioctl(uiox_dev_dev_t *dev, uint32_t cmd, void *arg)
+{
+    uiox_pmic_if_t *pif = (uiox_pmic_if_t *)dev->drv_priv;
+    if (!pif || !arg) return -EINVAL;
+
+    switch (cmd) {
+    case UIOX_PMIC_IOC_GET_TELEM:
+        return uiox_pmic_if_telemetry(pif, (uiox_pmic_telem_t *)arg, 0u);
+    case UIOX_PMIC_IOC_GET_VSYS: {
+        uiox_pmic_telem_t t;
+        int rc = uiox_pmic_if_telemetry(pif, &t, 0u);
+        if (rc < 0) return rc;
+        *(uint32_t *)arg = t.vsys_mv;
+        return 0;
+    }
+    case UIOX_PMIC_IOC_FIELD_WR: {
+        /* The wide-register path: _if_field_wr already takes the full
+         * uint16_t, which is why §8's 8-bit bus path stays narrow. */
+        const uiox_pmic_field_t *f = (const uiox_pmic_field_t *)arg;
+        return uiox_pmic_if_field_wr(pif, f->reg, f->mask,
+                                     f->shift, f->val);
+    }
+    case UIOX_PMIC_IOC_GET_STATS:
+        uiox_pmic_if_stats_get(pif, (uiox_pmic_if_stats_t *)arg);
+        return 0;
+    default:
+        return -ENOSYS;
+    }
+}
+
+const uiox_pmic_ops_t uiox_pmic_class_ops = {
+    .head = { .name = "pmic0", .probe = NULL,
+              .init = pmic_class_init, .deinit = pmic_class_deinit,
+              .ioctl = pmic_class_ioctl },
+    .bus  = { .init = pmic_class_init, .deinit = pmic_class_deinit,
+              .read_reg = pmic_class_read_reg,
+              .write_reg = pmic_class_write_reg },
+};
+
+/* STATIC — §9's uiox_dev_bind() stores the pointer it is given, not a
+ * copy, so these must outlive the call. */
+static uiox_pmic_hw_t       s_pmic_hw;
+static uiox_pmic_if_t       s_pmic_if;
+static uiox_dev_dev_t       s_pmic_dev;
+static struct uiox_i2c_dev  s_pmic_i2c;
+
+int uiox_pmic_probe(void)
+{
+    if (uiox_pmic_fwbind(&s_pmic_hw, &s_pmic_i2c) < 0)      return -1;
+    if (uiox_pmic_if_config(&s_pmic_if, &s_pmic_hw) < 0)    return -1;
+
+    s_pmic_dev.cls  = UIOX_DEVCLASS_PMIC;
+    s_pmic_dev.unit = 0u;
+    s_pmic_dev.bus  = UIOX_BUS_I2C;
+    s_pmic_dev.base = 0u;                   /* bus-attached: no MMIO  */
+    s_pmic_dev.addr = s_pmic_hw.i2c_addr;   /* uiox_pmic_hw.h:100     */
+    s_pmic_dev.irq  = s_pmic_hw.irq;        /* uiox_pmic_hw.h:101     */
+    s_pmic_dev.name = "pmic0";
+    s_pmic_dev.ops  = &uiox_pmic_class_ops;
+    s_pmic_dev.drv_priv = &s_pmic_if;
+
+    return uiox_dev_bind(&s_pmic_dev);
+}
+/* ═══════════════════════════ END INSERT ═════════════════════════ */

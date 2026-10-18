@@ -9,6 +9,7 @@
  
  #include "uiox_pmic_hw.h"
  #include "uiox_klibc.h"
+ #include "uiox_devclass.h"
  
  #ifdef __cplusplus
  extern "C" {
@@ -123,7 +124,33 @@
  void uiox_pmic_if_stats_get  (const uiox_pmic_if_t *pif,
                                 uiox_pmic_if_stats_t *out);
  void uiox_pmic_if_stats_reset(uiox_pmic_if_t *pif);
- 
+ /* ═══════════════════════════ INSERTED — registry layer ══════════════
+ *  §6 head first, then §8's bus pair.  §8 fixes read_reg at uint8_t reg;
+ *  this PMIC's register space is wider (uiox_pmic_hw_reg_read takes a
+ *  uint16_t), so the 8-bit path goes through bus.read_reg and anything
+ *  wider goes through UIOX_PMIC_IOC_FIELD_WR, which carries the full
+ *  register in its argument struct.  The family vocabulary is not
+ *  widened for one class. */
+
+#define UIOX_PMIC_IOC_GET_TELEM   0x01u  /* out: uiox_pmic_telem_t    */
+#define UIOX_PMIC_IOC_GET_VSYS    0x02u  /* out: uint32_t mV          */
+#define UIOX_PMIC_IOC_FIELD_WR    0x03u  /* in:  uiox_pmic_field_t    */
+#define UIOX_PMIC_IOC_GET_STATS   0x04u  /* out: uiox_pmic_if_stats_t */
+
+typedef struct {
+    uint16_t reg;            /* the FULL register — the wide path */
+    uint8_t  mask, shift, val;
+} uiox_pmic_field_t;
+
+typedef struct {
+    uiox_dev_ops_t      head;   /* name, probe, init, deinit, ioctl  */
+    uiox_busdev_ops_t   bus;    /* init, deinit, read_reg, write_reg */
+} uiox_pmic_ops_t;
+
+extern const uiox_pmic_ops_t uiox_pmic_class_ops;
+
+int uiox_pmic_probe(void);
+/* ═══════════════════════════ END INSERT ═════════════════════════ */
  #ifdef __cplusplus
  }
  #endif

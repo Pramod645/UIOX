@@ -9,6 +9,7 @@
  
  #include "uiox_rtc_hw.h"
  #include "uiox_klibc.h"
+ #include "uiox_devclass.h"
  
  #ifdef __cplusplus
  extern "C" {
@@ -53,7 +54,32 @@
  
  void uiox_rtc_if_stats_get (const uiox_rtc_if_t *rif,
                                uiox_rtc_if_stats_t *out);
- 
+ /* ═══════════════════════════ INSERTED — registry layer ══════════════ */
+#define UIOX_RTC_IOC_GET_TIME    0x01u  /* out: uiox_rtc_time_t    */
+#define UIOX_RTC_IOC_SET_TIME    0x02u  /* in:  uiox_rtc_time_t    */
+#define UIOX_RTC_IOC_GET_ALARM   0x03u  /* out: uiox_rtc_alarm_t   */
+#define UIOX_RTC_IOC_SET_ALARM   0x04u  /* in:  uiox_rtc_alarm_t   */
+#define UIOX_RTC_IOC_GET_STATS   0x05u  /* out: uiox_rtc_if_stats_t */
+
+typedef struct {
+    uint8_t  s, m, h, md, mo;
+    uint16_t yr;
+} uiox_rtc_time_t;
+
+typedef struct {
+    uint8_t s, m, h;
+    bool    en;
+} uiox_rtc_alarm_t;
+
+typedef struct {
+    uiox_dev_ops_t      head;   /* name, probe, init, deinit, ioctl  */
+    uiox_busdev_ops_t   bus;    /* init, deinit, read_reg, write_reg */
+} uiox_rtc_ops_t;
+
+extern const uiox_rtc_ops_t uiox_rtc_class_ops;
+
+int uiox_rtc_probe(void);
+/* ═══════════════════════════ END INSERT ═════════════════════════ */
  #ifdef __cplusplus
  }
  #endif

@@ -5,6 +5,8 @@
  */
 
  #include "uiox_rtc_if.h"
+ #include "uiox_devclass.h"
+ #include "uiox_fw_i2c.h"
  
  /* Spin until UIP clears; returns 0 on success, -ETIME on timeout */
  static int wait_uip_clear(uiox_rtc_if_t *rif)
@@ -152,4 +154,106 @@ void uiox_rtc_evt_free(uiox_rtc_evt_t *e)
         return;
     s_rtc_evt_used[e - s_rtc_evt_pool] = false;
 }
+/* ═══════════════════════════ INSERTED — registry layer ══════════════ */
+
+static int rtc_class_init(uiox_dev_dev_t *dev)
+{
+    uiox_rtc_if_t *rif = (uiox_rtc_if_t *)dev->drv_priv;
+    return rif ? uiox_rtc_if_start(rif) : -EINVAL;
+}
+
+static void rtc_class_deinit(uiox_dev_dev_t *dev)
+{
+    uiox_rtc_if_t *rif = (uiox_rtc_if_t *)dev->drv_priv;
+    if (rif) uiox_rtc_if_stop(rif);
+}
+
+/* This HAL's accessors RETURN THE VALUE rather than a status:
+ *     uint8_t uiox_rtc_hw_reg_read (hw, reg);
+ *     void    uiox_rtc_hw_reg_write(hw, reg, val);
+ * §8 wants int + a caller buffer, so the wrapper is synthesised here.
+ * There is no error channel — a bus failure is not reportable through
+ * this HAL, which is why the byte-only width is enforced. */
+static int rtc_class_read_reg(uiox_dev_dev_t *dev, uint8_t reg,
+                              void *val, uint16_t n)
+{
+    uiox_rtc_if_t *rif = (uiox_rtc_if_t *)dev->drv_priv;
+    if (!rif || !val || n != 1u) return -EINVAL;
+    *(uint8_t *)val = uiox_rtc_hw_reg_read(rif->hw, reg);
+    return 0;
+}
+
+static int rtc_class_write_reg(uiox_dev_dev_t *dev, uint8_t reg,
+                               const void *val, uint16_t n)
+{
+    uiox_rtc_if_t *rif = (uiox_rtc_if_t *)dev->drv_priv;
+    if (!rif || !val || n != 1u) return -EINVAL;
+    uiox_rtc_hw_reg_write(rif->hw, reg, *(const uint8_t *)val);
+    return 0;
+}
+
+static int rtc_class_ioctl(uiox_dev_dev_t *dev, uint32_t cmd, void *arg)
+{
+    uiox_rtc_if_t *rif = (uiox_rtc_if_t *)dev->drv_priv;
+    if (!rif || !arg) return -EINVAL;
+
+    switch (cmd) {
+    case UIOX_RTC_IOC_GET_TIME: {
+        uiox_rtc_time_t *t = (uiox_rtc_time_t *)arg;
+        return uiox_rtc_if_time_read(rif, &t->s, &t->m, &t->h,
+                                     &t->md, &t->mo, &t->yr);
+    }
+    case UIOX_RTC_IOC_SET_TIME: {
+        const uiox_rtc_time_t *t = (const uiox_rtc_time_t *)arg;
+        return uiox_rtc_if_time_write(rif, t->s, t->m, t->h,
+                                      t->md, t->mo, t->yr);
+    }
+    case UIOX_RTC_IOC_GET_ALARM: {
+        uiox_rtc_alarm_t *a = (uiox_rtc_alarm_t *)arg;
+        return uiox_rtc_if_alarm_read(rif, &a->s, &a->m, &a->h);
+    }
+    case UIOX_RTC_IOC_SET_ALARM: {
+        const uiox_rtc_alarm_t *a = (const uiox_rtc_alarm_t *)arg;
+        return uiox_rtc_if_alarm_write(rif, a->s, a->m, a->h, a->en);
+    }
+    case UIOX_RTC_IOC_GET_STATS:
+        uiox_rtc_if_stats_get(rif, (uiox_rtc_if_stats_t *)arg);
+        return 0;
+    default:
+        return -ENOSYS;
+    }
+}
+
+const uiox_rtc_ops_t uiox_rtc_class_ops = {
+    .head = { .name = "rtc0", .probe = NULL,
+              .init = rtc_class_init, .deinit = rtc_class_deinit,
+              .ioctl = rtc_class_ioctl },
+    .bus  = { .init = rtc_class_init, .deinit = rtc_class_deinit,
+              .read_reg = rtc_class_read_reg,
+              .write_reg = rtc_class_write_reg },
+};
+
+static uiox_rtc_hw_t       s_rtc_hw;
+static uiox_rtc_if_t       s_rtc_if;
+static uiox_dev_dev_t      s_rtc_dev;
+static struct uiox_i2c_dev s_rtc_i2c;
+
+int uiox_rtc_probe(void)
+{
+    if (uiox_rtc_fwbind(&s_rtc_hw, &s_rtc_i2c) < 0)      return -1;
+    if (uiox_rtc_if_config(&s_rtc_if, &s_rtc_hw) < 0)    return -1;
+
+    s_rtc_dev.cls  = UIOX_DEVCLASS_RTC;
+    s_rtc_dev.unit = 0u;
+    s_rtc_dev.bus  = UIOX_BUS_I2C;
+    s_rtc_dev.base = 0u;
+    s_rtc_dev.addr = 0u;            /* TODO: no i2c_addr on this HAL */
+    s_rtc_dev.irq  = s_rtc_hw.irq;
+    s_rtc_dev.name = "rtc0";
+    s_rtc_dev.ops  = &uiox_rtc_class_ops;
+    s_rtc_dev.drv_priv = &s_rtc_if;
+
+    return uiox_dev_bind(&s_rtc_dev);
+}
+/* ═══════════════════════════ END INSERT ═════════════════════════ */
 /* ═══════════════════════════ END INSERT ═════════════════════════ */

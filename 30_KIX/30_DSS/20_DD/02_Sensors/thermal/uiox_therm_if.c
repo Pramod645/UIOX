@@ -5,6 +5,8 @@
  */
 
  #include "uiox_therm_if.h"
+ #include "uiox_devclass.h"
+ #include "uiox_fw_i2c.h"
  
  int uiox_therm_if_config(uiox_therm_if_t *tif, uiox_therm_hw_t *hw)
  {
@@ -162,4 +164,112 @@
  
  void uiox_therm_if_stats_reset(uiox_therm_if_t *tif)
  { if (!tif) return; memset(&tif->stats, 0, sizeof(tif->stats)); }
- 
+ /* ═══════════════════════════ INSERTED — registry layer ══════════════ */
+
+static int therm_class_init(uiox_dev_dev_t *dev)
+{
+    uiox_therm_if_t *tif = (uiox_therm_if_t *)dev->drv_priv;
+    return tif ? uiox_therm_if_start(tif) : -EINVAL;
+}
+
+static void therm_class_deinit(uiox_dev_dev_t *dev)
+{
+    uiox_therm_if_t *tif = (uiox_therm_if_t *)dev->drv_priv;
+    if (tif) uiox_therm_if_stop(tif);
+}
+
+/* The HAL's own driver reaches hw->ops directly (uiox_therm_if.c:16), so
+ * there are no public reg_* wrappers for this class — unlike als. */
+static int therm_class_read_reg(uiox_dev_dev_t *dev, uint8_t reg,
+                                void *val, uint16_t n)
+{
+    uiox_therm_if_t *tif = (uiox_therm_if_t *)dev->drv_priv;
+    if (!tif || !val || !tif->hw || !tif->hw->ops) return -EINVAL;
+    const uiox_therm_hw_ops_t *o =
+        (const uiox_therm_hw_ops_t *)tif->hw->ops;
+    switch (n) {
+    case 1u: return o->reg_read   ? o->reg_read  (tif->hw, reg, (uint8_t  *)val) : -ENOSYS;
+    case 2u: return o->reg_read16 ? o->reg_read16(tif->hw, reg, (uint16_t *)val) : -ENOSYS;
+    default: return -EINVAL;
+    }
+}
+
+static int therm_class_write_reg(uiox_dev_dev_t *dev, uint8_t reg,
+                                 const void *val, uint16_t n)
+{
+    uiox_therm_if_t *tif = (uiox_therm_if_t *)dev->drv_priv;
+    if (!tif || !val || !tif->hw || !tif->hw->ops) return -EINVAL;
+    const uiox_therm_hw_ops_t *o =
+        (const uiox_therm_hw_ops_t *)tif->hw->ops;
+    switch (n) {
+    case 1u: return o->reg_write   ? o->reg_write  (tif->hw, reg, *(const uint8_t  *)val) : -ENOSYS;
+    case 2u: return o->reg_write16 ? o->reg_write16(tif->hw, reg, *(const uint16_t *)val) : -ENOSYS;
+    default: return -EINVAL;
+    }
+}
+
+static int therm_class_ioctl(uiox_dev_dev_t *dev, uint32_t cmd, void *arg)
+{
+    uiox_therm_if_t *tif = (uiox_therm_if_t *)dev->drv_priv;
+    if (!tif || !arg) return -EINVAL;
+
+    switch (cmd) {
+    case UIOX_THERM_IOC_GET_TELEM: {
+        int rc = uiox_therm_if_telemetry(tif, (uiox_therm_telem_t *)arg, 0u);
+        return (rc < 0) ? rc : 0;
+    }
+    case UIOX_THERM_IOC_GET_TEMP: {
+        uiox_therm_telem_t t;
+        int rc = uiox_therm_if_telemetry(tif, &t, 0u);
+        if (rc < 0) return rc;
+        *(int16_t *)arg = (t.num_channels > 0u) ? t.temp_dc[0] : 0;
+        return 0;
+    }
+    case UIOX_THERM_IOC_SET_ALERT: {
+        const uiox_therm_alert_t *a = (const uiox_therm_alert_t *)arg;
+        return uiox_therm_if_set_alert(tif, a->t_high_dc, a->t_hyst_dc);
+    }
+    case UIOX_THERM_IOC_GET_STATS:
+        uiox_therm_if_stats_get(tif, (uiox_therm_if_stats_t *)arg);
+        return 0;
+    default:
+        return -ENOSYS;
+    }
+}
+
+const uiox_therm_ops_t uiox_therm_class_ops = {
+    .head = { .name = "therm0", .probe = NULL,
+              .init = therm_class_init, .deinit = therm_class_deinit,
+              .ioctl = therm_class_ioctl },
+    .bus  = { .init = therm_class_init, .deinit = therm_class_deinit,
+              .read_reg = therm_class_read_reg,
+              .write_reg = therm_class_write_reg },
+};
+
+static uiox_therm_hw_t       s_therm_hw;
+static uiox_therm_if_t       s_therm_if;
+static uiox_dev_dev_t        s_therm_dev;
+static struct uiox_i2c_dev   s_therm_i2c;
+
+int uiox_therm_probe(void)
+{
+    if (uiox_therm_fwbind(&s_therm_hw, &s_therm_i2c) < 0)      return -1;
+    if (uiox_therm_if_config(&s_therm_if, &s_therm_hw) < 0)    return -1;  /* TWO args */
+
+    s_therm_dev.cls  = UIOX_DEVCLASS_THERMAL;
+    s_therm_dev.unit = 0u;
+    s_therm_dev.bus  = (s_therm_hw.bus == UIOX_THERM_BUS_I2C)  ? UIOX_BUS_I2C
+                     : (s_therm_hw.bus == UIOX_THERM_BUS_SPI)  ? UIOX_BUS_SPI
+                     : (s_therm_hw.bus == UIOX_THERM_BUS_MMIO) ? UIOX_BUS_MMIO
+                     : UIOX_BUS_NONE;
+    s_therm_dev.base = (s_therm_hw.bus == UIOX_THERM_BUS_MMIO)
+                     ? s_therm_hw.mmio_temp_reg : 0u;
+    s_therm_dev.addr = s_therm_hw.i2c_addr;
+    s_therm_dev.irq  = s_therm_hw.irq;
+    s_therm_dev.name = "therm0";
+    s_therm_dev.ops  = &uiox_therm_class_ops;
+    s_therm_dev.drv_priv = &s_therm_if;
+
+    return uiox_dev_bind(&s_therm_dev);
+}
+/* ═══════════════════════════ END INSERT ═════════════════════════ */

@@ -5,6 +5,8 @@
  */
 
  #include "uiox_chg_if.h"
+ #include "uiox_devclass.h"
+ #include "uiox_fw_i2c.h"
  
  int uiox_chg_if_config(uiox_chg_if_t *cif, uiox_chg_hw_t *hw)
  {
@@ -196,5 +198,107 @@ void uiox_chg_evt_free(uiox_chg_evt_t *e)
         return;
     s_chg_evt_used[e - s_chg_evt_pool] = false;
 }
+/* ═══════════════════════════ INSERTED — registry layer ══════════════ */
+
+static int chg_class_init(uiox_dev_dev_t *dev)
+{
+    uiox_chg_if_t *cif = (uiox_chg_if_t *)dev->drv_priv;
+    return cif ? uiox_chg_if_start(cif) : -EINVAL;
+}
+
+static void chg_class_deinit(uiox_dev_dev_t *dev)
+{
+    uiox_chg_if_t *cif = (uiox_chg_if_t *)dev->drv_priv;
+    if (cif) uiox_chg_if_stop(cif);
+}
+
+/* Byte-wide HAL (uiox_chg_hw.h:261-262). */
+static int chg_class_read_reg(uiox_dev_dev_t *dev, uint8_t reg,
+                              void *val, uint16_t n)
+{
+    uiox_chg_if_t *cif = (uiox_chg_if_t *)dev->drv_priv;
+    if (!cif || !val || n != 1u) return -EINVAL;
+    uint8_t v = 0u;
+    int rc = uiox_chg_hw_reg_read(cif->hw, reg, &v);
+    if (rc < 0) return rc;
+    *(uint8_t *)val = v;
+    return 0;
+}
+
+static int chg_class_write_reg(uiox_dev_dev_t *dev, uint8_t reg,
+                               const void *val, uint16_t n)
+{
+    uiox_chg_if_t *cif = (uiox_chg_if_t *)dev->drv_priv;
+    if (!cif || !val || n != 1u) return -EINVAL;
+    return uiox_chg_hw_reg_write(cif->hw, reg, *(const uint8_t *)val);
+}
+
+static int chg_class_ioctl(uiox_dev_dev_t *dev, uint32_t cmd, void *arg)
+{
+    uiox_chg_if_t *cif = (uiox_chg_if_t *)dev->drv_priv;
+    if (!cif || !arg) return -EINVAL;
+
+    switch (cmd) {
+    case UIOX_CHG_IOC_GET_STATUS: {
+        uiox_chg_status_t *s = (uiox_chg_status_t *)arg;
+        /* Poll once so the cache is current, then read it — the
+         * descriptor keeps last_chrg/last_src/last_faults precisely so
+         * a caller can read status without a second poll. */
+        (void)uiox_chg_if_poll(cif, 0u);
+        s->chrg   = cif->last_chrg;
+        s->src    = cif->last_src;
+        s->faults = cif->last_faults;
+        return 0;
+    }
+    case UIOX_CHG_IOC_SET_ICHG:
+        return uiox_chg_if_set_ichg(cif, *(const uint32_t *)arg);
+    case UIOX_CHG_IOC_SET_VCHG:
+        return uiox_chg_if_set_vchg(cif, *(const uint32_t *)arg);
+    case UIOX_CHG_IOC_SET_IIN:
+        return uiox_chg_if_set_iin_lim(cif, *(const uint32_t *)arg);
+    case UIOX_CHG_IOC_SET_ENABLE:
+        return uiox_chg_if_charge_en(cif, *(const bool *)arg);
+    case UIOX_CHG_IOC_GET_STATS:
+        uiox_chg_if_stats_get(cif, (uiox_chg_if_stats_t *)arg);
+        return 0;
+    default:
+        return -ENOSYS;
+    }
+}
+
+const uiox_chg_ops_t uiox_chg_class_ops = {
+    .head = { .name = "chg0", .probe = NULL,
+              .init = chg_class_init, .deinit = chg_class_deinit,
+              .ioctl = chg_class_ioctl },
+    .bus  = { .init = chg_class_init, .deinit = chg_class_deinit,
+              .read_reg = chg_class_read_reg,
+              .write_reg = chg_class_write_reg },
+};
+
+/* STATIC — §9's uiox_dev_bind() stores the pointer it is given, not a
+ * copy, so these must outlive the call. */
+static uiox_chg_hw_t       s_chg_hw;
+static uiox_chg_if_t       s_chg_if;
+static uiox_dev_dev_t      s_chg_dev;
+static struct uiox_i2c_dev s_chg_i2c;
+
+int uiox_chg_probe(void)
+{
+    if (uiox_chg_fwbind(&s_chg_hw, &s_chg_i2c) < 0)      return -1;
+    if (uiox_chg_if_config(&s_chg_if, &s_chg_hw) < 0)    return -1;
+
+    s_chg_dev.cls  = UIOX_DEVCLASS_CHG;
+    s_chg_dev.unit = 0u;
+    s_chg_dev.bus  = UIOX_BUS_I2C;
+    s_chg_dev.base = 0u;                 /* bus-attached: no MMIO   */
+    s_chg_dev.addr = s_chg_hw.i2c_addr;  /* uiox_chg_hw.h:217       */
+    s_chg_dev.irq  = s_chg_hw.irq;       /* uiox_chg_hw.h:220       */
+    s_chg_dev.name = "chg0";
+    s_chg_dev.ops  = &uiox_chg_class_ops;
+    s_chg_dev.drv_priv = &s_chg_if;
+
+    return uiox_dev_bind(&s_chg_dev);
+}
+/* ═══════════════════════════ END INSERT ═════════════════════════ */
 /* ═══════════════════════════ END INSERT ═════════════════════════ */
  

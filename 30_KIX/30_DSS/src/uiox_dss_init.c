@@ -74,6 +74,14 @@ int uiox_spk_probe(void);
 int uiox_kbd_probe(void);
 int uiox_mouse_probe(void);
 int uiox_tpwd_probe(void);
+/* ── family 4 — REG ──────────────────────────────────────── */
+int  uiox_als_probe(void);      /* with the other prototypes */
+int  uiox_therm_probe(void);
+int uiox_rtc_probe(void);
+int uiox_fan_probe(void);
+int  uiox_bms_probe(void);      /* with the other prototypes */
+int  uiox_pmic_probe(void);
+int  uiox_chg_probe(void);
 /* ── families 2–6 — not yet written ─────────────────────────────────
  * Each follows the shape of uiox_emmc_probe(): a static subsystem, a
  * static uiox_dev_dev_t, uiox_dev_bind(), and the class's own
@@ -117,7 +125,14 @@ int uiox_dss_init(void)
     (void) uiox_kbd_probe();
     (void) uiox_mouse_probe();
     (void)uiox_tpwd_probe();
-
+    /* ── family 4 — REG ──────────────────────────────────────── */
+    (void) uiox_als_probe();        /* in the probe sequence     */
+    (void) uiox_therm_probe();
+    (void) uiox_rtc_probe();
+    (void) uiox_fan_probe();
+    (void) uiox_bms_probe();        /* in the probe sequence     */
+    (void) uiox_pmic_probe();
+    (void) uiox_chg_probe();
     /* ── the remaining five families ─────────────────────────────
      * One call each, as their probes are written:
      *

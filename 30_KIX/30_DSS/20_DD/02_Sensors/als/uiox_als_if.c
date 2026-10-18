@@ -6,7 +6,8 @@
 
  #include "uiox_als_if.h"
  #include "uiox_klibc.h"
-
+ #include "uiox_devclass.h"
+ #include "uiox_fw_i2c.h"      /* struct uiox_i2c_dev */
  
  int uiox_als_if_config(uiox_als_if_t *aif, uiox_als_hw_t *hw,
                          bool continuous)
@@ -165,5 +166,119 @@ void uiox_als_evt_free(uiox_als_evt_t *e)
         e >= s_als_evt_pool + UIOX_ALS_EVT_POOL_MAX)
         return;
     s_als_evt_used[e - s_als_evt_pool] = false;
+}
+/* ═══════════════════════════ INSERTED — registry layer ══════════════ */
+
+static int als_class_init(uiox_dev_dev_t *dev)
+{
+    uiox_als_if_t *aif = (uiox_als_if_t *)dev->drv_priv;
+    return aif ? uiox_als_if_start(aif) : -EINVAL;
+}
+
+static void als_class_deinit(uiox_dev_dev_t *dev)
+{
+    uiox_als_if_t *aif = (uiox_als_if_t *)dev->drv_priv;
+    if (aif) uiox_als_if_stop(aif);
+}
+
+/* §8: the HAL stores 16-bit register values, so n selects the width.
+ * The public wrappers exist for this class (uiox_als_hw_reg_read). */
+static int als_class_read_reg(uiox_dev_dev_t *dev, uint8_t reg,
+                              void *val, uint16_t n)
+{
+    uiox_als_if_t *aif = (uiox_als_if_t *)dev->drv_priv;
+    if (!aif || !val || (n != 1u && n != 2u)) return -EINVAL;
+    uint16_t v = 0u;
+    int rc = uiox_als_hw_reg_read(aif->hw, reg, &v);
+    if (rc < 0) return rc;
+    if (n == 1u) *(uint8_t  *)val = (uint8_t)(v & 0xFFu);
+    else         *(uint16_t *)val = v;
+    return 0;
+}
+
+static int als_class_write_reg(uiox_dev_dev_t *dev, uint8_t reg,
+                               const void *val, uint16_t n)
+{
+    uiox_als_if_t *aif = (uiox_als_if_t *)dev->drv_priv;
+    if (!aif || !val || (n != 1u && n != 2u)) return -EINVAL;
+    uint16_t v = (n == 1u) ? (uint16_t)(*(const uint8_t *)val)
+                           : *(const uint16_t *)val;
+    return uiox_als_hw_reg_write(aif->hw, reg, v);
+}
+
+static int als_class_ioctl(uiox_dev_dev_t *dev, uint32_t cmd, void *arg)
+{
+    uiox_als_if_t *aif = (uiox_als_if_t *)dev->drv_priv;
+    if (!aif || !arg) return -EINVAL;
+
+    switch (cmd) {
+    case UIOX_ALS_IOC_GET_RAW: {
+        uiox_als_raw_t *o = (uiox_als_raw_t *)arg;
+        //int rc = uiox_als_if_fetch(aif, uiox_als_if_now_ms(),
+        //                           &o->als, &o->white, &o->ir);
+        int rc = uiox_als_if_fetch(aif, aif->next_sample_ms,
+                                   &o->als, &o->white, &o->ir);
+
+        if (rc < 0) return rc;          /* device error            */
+        if (rc == 0) return -EAGAIN;    /* integration not complete */
+        return 0;
+    }
+    case UIOX_ALS_IOC_GET_WHITE:
+        *(uint16_t *)arg = aif->hw->raw_white;  return 0;
+    case UIOX_ALS_IOC_GET_IR:
+        *(uint16_t *)arg = aif->hw->raw_ir;     return 0;
+    case UIOX_ALS_IOC_SET_GAIN:
+        return uiox_als_if_set_gain(aif,
+                   (uiox_als_hw_gain_t)(*(const uint8_t *)arg));
+    case UIOX_ALS_IOC_SET_ITIME:
+        return uiox_als_if_set_itime(aif,
+                   (uiox_als_hw_itime_t)(*(const uint8_t *)arg));
+    case UIOX_ALS_IOC_SET_THRESH: {
+        const uiox_als_thresh_t *t = (const uiox_als_thresh_t *)arg;
+        return uiox_als_if_set_threshold(aif, t->low, t->high);
+    }
+    case UIOX_ALS_IOC_GET_STATS:
+        uiox_als_if_stats_get(aif, (uiox_als_if_stats_t *)arg);
+        return 0;
+    default:
+        return -ENOSYS;                 /* valid call, no body here */
+    }
+}
+
+const uiox_als_ops_t uiox_als_class_ops = {
+    .head = { .name = "als0", .probe = NULL,
+              .init = als_class_init, .deinit = als_class_deinit,
+              .ioctl = als_class_ioctl },
+    .bus  = { .init = als_class_init, .deinit = als_class_deinit,
+              .read_reg = als_class_read_reg,
+              .write_reg = als_class_write_reg },
+};
+
+/* STATIC — §9's uiox_dev_bind() stores the pointer it is given, not a
+ * copy, so these must outlive the call. */
+static uiox_als_hw_t       s_als_hw;
+static uiox_als_if_t       s_als_if;
+static uiox_dev_dev_t      s_als_dev;
+static struct uiox_i2c_dev s_als_i2c;
+
+int uiox_als_probe(void)
+{
+    /* fwbind first: uiox_als_hw_reg_read() returns -EINVAL when
+     * hw->ops is NULL, so a class without it would bind and then fail
+     * every register access at runtime. */
+    if (uiox_als_fwbind(&s_als_hw, &s_als_i2c) < 0)          return -1;
+    if (uiox_als_if_config(&s_als_if, &s_als_hw, true) < 0)  return -1;
+
+    s_als_dev.cls      = UIOX_DEVCLASS_ALS;
+    s_als_dev.unit     = 0u;
+    s_als_dev.bus      = UIOX_BUS_I2C;
+    s_als_dev.base     = 0u;                 /* bus-attached: no MMIO   */
+    s_als_dev.addr     = s_als_hw.i2c_addr;  /* 7-bit slave address     */
+    s_als_dev.irq      = s_als_hw.irq;
+    s_als_dev.name     = "als0";
+    s_als_dev.ops      = &uiox_als_class_ops;
+    s_als_dev.drv_priv = &s_als_if;
+
+    return uiox_dev_bind(&s_als_dev);
 }
 /* ═══════════════════════════ END INSERT ═════════════════════════ */ 

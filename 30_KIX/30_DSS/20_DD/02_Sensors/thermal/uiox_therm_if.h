@@ -9,7 +9,7 @@
  
  #include "uiox_therm_hw.h"
  #include "uiox_klibc.h"
- 
+ #include "uiox_devclass.h"
  
  #ifdef __cplusplus
  extern "C" {
@@ -106,7 +106,25 @@
  void uiox_therm_if_stats_get  (const uiox_therm_if_t *tif,
                                  uiox_therm_if_stats_t *out);
  void uiox_therm_if_stats_reset(uiox_therm_if_t *tif);
- 
+ /* ═══════════════════════════ INSERTED — registry layer ══════════════ */
+
+#define UIOX_THERM_IOC_GET_TEMP     0x01u  /* out: int16_t deci-°C    */
+#define UIOX_THERM_IOC_GET_TELEM    0x02u  /* out: uiox_therm_telem_t */
+#define UIOX_THERM_IOC_SET_ALERT    0x03u  /* in:  int16_t ×2         */
+#define UIOX_THERM_IOC_GET_STATS    0x04u  /* out: uiox_therm_if_stats_t */
+
+typedef struct { int16_t t_high_dc, t_hyst_dc; } uiox_therm_alert_t;
+
+typedef struct {
+    uiox_dev_ops_t      head;   /* name, probe, init, deinit, ioctl  */
+    uiox_busdev_ops_t   bus;    /* init, deinit, read_reg, write_reg */
+} uiox_therm_ops_t;
+
+extern const uiox_therm_ops_t uiox_therm_class_ops;
+
+int uiox_therm_probe(void);
+/* ═══════════════════════════ END INSERT ═════════════════════════ */
+
  #ifdef __cplusplus
  }
  #endif

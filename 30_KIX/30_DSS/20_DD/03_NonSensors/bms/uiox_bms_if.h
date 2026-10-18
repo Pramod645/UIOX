@@ -9,6 +9,7 @@
  
  #include "uiox_bms_hw.h"
  #include "uiox_klibc.h"
+ #include "uiox_devclass.h"
  
  #ifdef __cplusplus
  extern "C" {
@@ -138,7 +139,26 @@
  void uiox_bms_if_stats_get  (const uiox_bms_if_t *bif,
                                uiox_bms_if_stats_t *out);
  void uiox_bms_if_stats_reset(uiox_bms_if_t *bif);
- 
+ /* ═══════════════════════════ INSERTED — registry layer ══════════════
+ *  §6 head first, then §8's bus pair.  A REG class is reached only by
+ *  ioctl — 10_scfs's read branch returns SCFS_ENOTTY for a non-EVENT
+ *  family.  -ENOSYS for an unknown command: this driver's "no body for
+ *  that" is not ENOTTY, which belongs to the filesystem. */
+
+#define UIOX_BMS_IOC_GET_TELEM   0x01u  /* out: uiox_bms_telem_t     */
+#define UIOX_BMS_IOC_GET_PACK_MV 0x02u  /* out: uint32_t             */
+#define UIOX_BMS_IOC_GET_CELLS   0x03u  /* out: uint32_t[UIOX_BMS_MAX_CELLS] */
+#define UIOX_BMS_IOC_GET_STATS   0x04u  /* out: uiox_bms_if_stats_t  */
+
+typedef struct {
+    uiox_dev_ops_t      head;   /* name, probe, init, deinit, ioctl  */
+    uiox_busdev_ops_t   bus;    /* init, deinit, read_reg, write_reg */
+} uiox_bms_ops_t;
+
+extern const uiox_bms_ops_t uiox_bms_class_ops;
+
+int uiox_bms_probe(void);
+/* ═══════════════════════════ END INSERT ═════════════════════════ */
  #ifdef __cplusplus
  }
  #endif

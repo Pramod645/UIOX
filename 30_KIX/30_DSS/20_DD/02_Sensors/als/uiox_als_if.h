@@ -8,6 +8,7 @@
  #define UIOX_ALS_IF_H
  
  #include "uiox_als_hw.h"
+ #include "uiox_devclass.h"
  
  #ifdef __cplusplus
  extern "C" {
@@ -59,7 +60,36 @@
  
  void uiox_als_if_stats_get   (const uiox_als_if_t *aif,
                                 uiox_als_if_stats_t *out);
- 
+ /* ═══════════════════════════ INSERTED — registry layer ══════════════
+ *  §6 head first, then §8's bus pair.  A REG class is reached only by
+ *  ioctl — 10_scfs's read branch returns SCFS_ENOTTY for a non-EVENT
+ *  family, because "a lux value has no stream".
+ *
+ *  The number space belongs to the driver (§6); nothing above validates
+ *  it.  -ENOSYS for an unknown command: klibc defines EINVAL/ENOSYS but
+ *  not ENOTTY, and ENOTTY belongs to the filesystem, not the driver. */
+
+#define UIOX_ALS_IOC_GET_RAW     0x01u   /* out: uiox_als_raw_t       */
+#define UIOX_ALS_IOC_GET_WHITE   0x02u   /* out: uint16_t             */
+#define UIOX_ALS_IOC_GET_IR      0x03u   /* out: uint16_t             */
+#define UIOX_ALS_IOC_SET_GAIN    0x04u   /* in:  uiox_als_hw_gain_t   */
+#define UIOX_ALS_IOC_SET_ITIME   0x05u   /* in:  uiox_als_hw_itime_t  */
+#define UIOX_ALS_IOC_SET_THRESH  0x06u   /* in:  uiox_als_thresh_t    */
+#define UIOX_ALS_IOC_GET_STATS   0x07u   /* out: uiox_als_if_stats_t  */
+
+typedef struct { uint16_t als, white, ir; } uiox_als_raw_t;
+typedef struct { uint16_t low, high; }      uiox_als_thresh_t;
+
+typedef struct {
+    uiox_dev_ops_t      head;   /* name, probe, init, deinit, ioctl  */
+    uiox_busdev_ops_t   bus;    /* init, deinit, read_reg, write_reg */
+} uiox_als_ops_t;
+
+extern const uiox_als_ops_t uiox_als_class_ops;
+
+int uiox_als_probe(void);
+/* ═══════════════════════════ END INSERT ═════════════════════════ */
+
  #ifdef __cplusplus
  }
  #endif

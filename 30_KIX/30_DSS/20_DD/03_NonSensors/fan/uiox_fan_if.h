@@ -9,6 +9,7 @@
  
  #include "uiox_fan_hw.h"
  #include "uiox_klibc.h"
+ #include "uiox_devclass.h"
  
  #ifdef __cplusplus
  extern "C" {
@@ -127,7 +128,25 @@
  void uiox_fan_if_stats_get  (const uiox_fan_if_t *fif,
                                uiox_fan_if_stats_t *out);
  void uiox_fan_if_stats_reset(uiox_fan_if_t *fif);
- 
+ /* ═══════════════════════════ INSERTED — registry layer ══════════════ */
+
+#define UIOX_FAN_IOC_GET_TELEM   0x01u  /* out: uiox_fan_telem_t   */
+#define UIOX_FAN_IOC_GET_RPM     0x02u  /* out: uint16_t           */
+#define UIOX_FAN_IOC_SET_PWM     0x03u  /* in:  uiox_fan_pwm_t     */
+#define UIOX_FAN_IOC_GET_STATS   0x04u  /* out: uiox_fan_if_stats_t */
+
+typedef struct { uint8_t fan_id, duty; uint32_t now_ms; } uiox_fan_pwm_t;
+
+typedef struct {
+    uiox_dev_ops_t      head;
+    uiox_busdev_ops_t   bus;
+} uiox_fan_ops_t;
+
+extern const uiox_fan_ops_t uiox_fan_class_ops;
+
+int uiox_fan_probe(void);
+/* ═══════════════════════════ END INSERT ═════════════════════════ */
+
  #ifdef __cplusplus
  }
  #endif
