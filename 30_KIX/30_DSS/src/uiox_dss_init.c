@@ -86,6 +86,9 @@ int  uiox_chg_probe(void);
 int  uiox_gpu_probe(void);
 int  uiox_hdmi_probe(void);
 int  uiox_mon_probe(void);
+/* ── family 6 — BUS ─────────────────────────────────────────── */
+int uiox_tb4_bringup(void);     /* 34_CSS supplies the instance */
+
 /* ── families 2–6 — not yet written ─────────────────────────────────
  * Each follows the shape of uiox_emmc_probe(): a static subsystem, a
  * static uiox_dev_dev_t, uiox_dev_bind(), and the class's own
@@ -141,6 +144,9 @@ int uiox_dss_init(void)
     (void) uiox_gpu_probe();
     (void) uiox_hdmi_probe();
     (void) uiox_mon_probe();
+    /* ── family 6 — BUS ─────────────────────────────────────────── */
+    (void) uiox_tb4_bringup();     /* usbhc is covered by uiox_usb_probe() */
+
     /* ── the remaining five families ─────────────────────────────
      * One call each, as their probes are written:
      *

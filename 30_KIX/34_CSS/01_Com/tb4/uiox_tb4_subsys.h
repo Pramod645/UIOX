@@ -76,6 +76,7 @@ int  uiox_tb4_dev_bind (uiox_tb4_subsys_t *sys);
  * uiox_tb4_ops.c, where the subsystem is file-static. */
 int  uiox_tb4_probe (uiox_tb4_hw_t *hw, uiox_tb4_sec_t security);
 
+int uiox_tb4_bringup (void);
 
 #ifdef __cplusplus
 }

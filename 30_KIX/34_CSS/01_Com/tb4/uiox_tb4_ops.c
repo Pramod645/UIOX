@@ -141,3 +141,19 @@ int uiox_tb4_probe(uiox_tb4_hw_t *hw, uiox_tb4_sec_t security)
 
     return uiox_tb4_subsys_start(&s_tb4_sys);
 }
+/* ── bring-up for the boot sequence ───────────────────────────────────
+ * dss_init's idiom is a list of argument-free calls; tb4's probe needs a
+ * HAL instance and a security policy, so this wrapper supplies both and
+ * exposes the (void) shape the caller expects.
+ *
+ * Order matches uiox_tb4_probe()'s own contract (init → bind → start),
+ * which that function enforces internally.
+ * ─────────────────────────────────────────────────────────────────── */
+static uiox_tb4_hw_t       s_tb4_hw;
+static struct uiox_i2c_dev s_tb4_i2c;
+
+int uiox_tb4_bringup(void)
+{
+    if (uiox_tb4_fwbind(&s_tb4_hw, &s_tb4_i2c) < 0) return -1;
+    return uiox_tb4_probe(&s_tb4_hw, UIOX_TB4_SEC_AUTO);
+}
