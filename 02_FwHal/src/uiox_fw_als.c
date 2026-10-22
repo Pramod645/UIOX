@@ -12,8 +12,8 @@
 #define OPS_ALS(d) ((const uiox_als_ops_t *)(d)->priv)
 
 /* BCD helpers — no libm */
-static uint32_t als_bcd2u(uint8_t b)
-{ return (uint32_t)((b>>4)*10u + (b&0xFu)); }
+//static uint32_t als_bcd2u(uint8_t b)
+//{ return (uint32_t)((b>>4)*10u + (b&0xFu)); }
 
 static uiox_fw_err_t veml_init(uiox_als_dev_t *dev)
 {

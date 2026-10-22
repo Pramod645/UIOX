@@ -155,3 +155,5 @@ grep -rn '_hw\.h' 02_FwHal --include='*.c' --include='*.h'
 ls -d /Users/pramodkumar/Hack/WS/UIOX/30_KIX/34_DSS/02_FwHal /Users/pramodkumar/Hack/WS/UIOX/30_KIX/34_DSS/02FwHal 2>/dev/null
 
 
+=====
+git checkout HEAD -- 02_FwHal/src/uiox_fw_main.c

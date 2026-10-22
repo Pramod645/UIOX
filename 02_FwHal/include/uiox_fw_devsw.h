@@ -107,7 +107,7 @@
   * Device switch table
   * ====================================================================== */
  
- typedef struct {
+  typedef struct uiox_fw_devsw {
      uint32_t          magic;
      uiox_fw_cdevsw_t  cdev[UIOX_FW_DEVSW_MAX_CHAR];
      uiox_fw_bdevsw_t  bdev[UIOX_FW_DEVSW_MAX_BLOCK];

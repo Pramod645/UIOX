@@ -20,6 +20,9 @@ static void veth_deinit(uiox_eth_dev_t *dev) { (void)dev; }
 static uiox_fw_err_t veth_send(uiox_eth_dev_t *dev,
                                  const uint8_t *f, uint32_t l)
 {
+    (void)f;                      /* no DMA: the doorbell rings, the
+                                   * buffer is never read.  Documented
+                                   * rather than silently dropped. */
     if (!dev->link_up || l > UIOX_ETH_MTU) return UIOX_FW_ERR_IO;
     /* Ring TX doorbell */
     *((volatile uint32_t*)(dev->base + 0x050u)) = 1u;

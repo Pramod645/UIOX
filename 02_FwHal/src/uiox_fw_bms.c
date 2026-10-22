@@ -1,7 +1,7 @@
 #include "../include/uiox_fw_bms.h"
 #define OPS_BMS(d) ((const uiox_bms_ops_t *)(d)->priv)
 
-static uint8_t bcd2b(uint8_t b) { return (uint8_t)((b>>4)*10u+(b&0xFu)); }
+//static uint8_t bcd2b(uint8_t b) { return (uint8_t)((b>>4)*10u+(b&0xFu)); }
 
 /* Read a 16-bit LE register from BQ27742 */
 static uiox_fw_err_t bq_rd16(uiox_bms_dev_t *dev,

@@ -16,7 +16,7 @@
  */
 
  #include "uiox_fw.h"
- #include <stdarg.h>
+ //#include <stdarg.h>
  /**
  * Integration patch for 02_FwHal/src/uiox_fw_main.c
  * Add these includes and the Stage 0 block.
@@ -34,7 +34,7 @@ extern uint8_t _fw_stack_base[];   /* bottom of firmware stack          */
 /* =========================================================================
  * Bare-metal memset (no libc — replaces memset() throughout this file)
  * ====================================================================== */
-static void fw_memset_fw(void *dst, int val, size_t n)
+static __attribute__((unused)) void fw_memset_fw(void *dst, int val, size_t n)
 {
     uint8_t *d = (uint8_t *)dst;
     while (n--) *d++ = (uint8_t)val;
@@ -55,6 +55,22 @@ static void fw_memset_fw(void *dst, int val, size_t n)
   extern void uiox_fw_hw_x86_register(void);
   #define UIOX_FW_HW_REGISTER()  uiox_fw_hw_x86_register()
   #define UIOX_FW_ARCH_STR       "x86_64"
+#endif
+
+/* =========================================================================
+ * Timer IRQ line
+ *
+ * The SoC map holds SOC_TIMER0_BASE but no timer IRQ line (grep
+ * 'TIMER|GPIO' uiox_soc_map.h found only the bases), so the line is
+ * named here.  CONFIRM against 10_BSP/10_Arch/<arch>/include/irq.h —
+ * the file that carries UART0_IRQ 33 for arm64.
+ * ====================================================================== */
+#if defined(__aarch64__)
+#  define UIOX_TIMER0_IRQ   30u   /* ARM_GT EL1 physical timer, PPI 30 */
+#elif defined(__arm__)
+#  define UIOX_TIMER0_IRQ    4u   /* SP804, SPI 4 on versatilepb       */
+#else
+#  define UIOX_TIMER0_IRQ   32u   /* PIT → vector 32 + IRQ0            */
 #endif
 
 /* =========================================================================
@@ -185,13 +201,186 @@ static void fw_memset_fw(void *dst, int val, size_t n)
      for (int k = j-1; k >= 0; k--) buf[j-1-k] = tmp[k];
      buf[j] = '\0';
      //fw_puts_main(buf);
-     uiox_fw_printf(buf);
+     //uiox_fw_printf(buf);
+     uiox_fw_printf("%s", buf);
      //fw_puts_main(" device(s) found\n");
      uiox_fw_printf(" device(s) found\n");
  }
+
+ /* =========================================================================
+  * Forward declarations for the stage functions below          ◀ ADDED
+  *
+  * The globals and helpers the stages use are DEFINED further down this
+  * file — firmware-global state at the "Firmware-global state" banner,
+  * the char ops at "Stub char-device ops", the ramdisk at "RAM-disk
+  * storage".  File-scope declarations are needed here, exactly as
+  * fw_stage_i2c's s_i2c0 is declared at the Global state banner above.
+  * ====================================================================== */
+
+ static uiox_fw_timer_t   s_timer;
+ static uiox_fw_gpio_t    s_gpio;
+ static uiox_fw_devsw_t   s_devsw;
+
+ static uint8_t s_ramdisk_storage[512u * 2048u];
+ static uiox_fw_stor_dev_t s_ramdisk;
+
+ static void fw_timer_tick_cb(void *priv);
+
+ static uiox_fw_err_t ramdisk_read (void *priv, uint64_t lba,
+                                    uint8_t *buf, uint32_t count);
+ static uiox_fw_err_t ramdisk_write(void *priv, uint64_t lba,
+                                    const uint8_t *buf, uint32_t count);
+
+ static uiox_fw_err_t console_open (uint32_t minor, int flags);
+ static void          console_close(uint32_t minor);
+ static int           console_read (uint32_t minor);
+ static uiox_fw_err_t console_write(uint32_t minor, char c);
+ static uiox_fw_err_t console_ioctl(uint32_t minor, uint32_t cmd,
+                                    uintptr_t arg);
+
+ static uiox_fw_err_t null_open  (uint32_t m, int f);
+ static void          null_close (uint32_t m);
+ static int           null_read  (uint32_t m);
+ static uiox_fw_err_t null_write (uint32_t m, char c);
+ static uiox_fw_err_t null_ioctl (uint32_t m, uint32_t cmd, uintptr_t a);
+
+ static int zero_read(uint32_t m);
+
+ /* =========================================================================
+  * Stage 4: timer
+  *
+  * fw_timer_tick_cb is wired here — uiox_fw_timer_set_cb takes exactly
+  * its uiox_fw_timer_cb_t signature.  The ISR shim above still cannot be
+  * registered: this layer has no IRQ manager (no irq_register in any
+  * 02_FwHal header).
+  *
+  * ARM_GT needs no base — uiox_fw_timer.c:79 programs cntfrq/cntp_*
+  * system registers, the same ones arch_init.c:184 sets.
+  * ====================================================================== */
+
+  static void fw_stage_timer(void)
+  {
+      uiox_fw_err_t rc;
+ 
+  #if defined(__aarch64__)
+      rc = uiox_fw_timer_init(&s_timer, UIOX_FW_TIMER_ARM_GT,
+                              0u, UIOX_TIMER0_IRQ, 100u);
+  #elif defined(__arm__)
+      rc = uiox_fw_timer_init(&s_timer, UIOX_FW_TIMER_SP804,
+                              0u, UIOX_TIMER0_IRQ, 100u);
+  #else
+      rc = uiox_fw_timer_init(&s_timer, UIOX_FW_TIMER_PIT,
+                              0u, UIOX_TIMER0_IRQ, 100u);
+  #endif
+      if (rc != UIOX_FW_OK) return;
+ 
+      uiox_fw_timer_set_cb(&s_timer, fw_timer_tick_cb, NULL);
+      uiox_fw_timer_start(&s_timer);
+  }
+ 
+ /* =========================================================================
+  * Stage 5: GPIO
+  * ====================================================================== */
+
+  static void fw_stage_gpio(void)
+  {
+      uiox_fw_err_t rc;
+ 
+      /* Base and IRQ come from the board, not this layer: 02_FwHal has no
+       * GPIO0_BASE (the grep for it is empty), and the SoC map that does
+       * hold one — 10_BSP/03_SoC/include/uiox_soc_map.h — is not on this
+       * Makefile's include path (-I$(INCDIR) only).  A literal here would
+       * be a fabricated address; 0 with the caller's value threaded in
+       * later is the same "discovered beats declared" choice the umbrella
+       * makes for the NIC. */
+      rc = uiox_fw_gpio_init(&s_gpio, 0u, 0u, 32u);
+      if (rc != UIOX_FW_OK) return;
+  }
+ 
+ 
+  /* =========================================================================
+  * Stage 6: storage registration — the 1 MB ramdisk below.
+  *
+  * ramdisk_read/ramdisk_write have exactly the signature
+  * uiox_fw_stor_dev_t declares (void *priv, uint64_t lba, ...), which is
+  * the same shape uiox_fw_virtio.c:143 registers through.  So this is
+  * the stage that gives them a caller — and it makes the device
+  * reachable from 32_FS's block path.
+  * ====================================================================== */
+
+  static void fw_stage_ramdisk(void)
+  {
+      s_ramdisk.type        = UIOX_FW_STOR_RAMDISK;
+      s_ramdisk.sector_size = UIOX_FW_STOR_SECTOR_SIZE;
+      s_ramdisk.num_sectors = sizeof(s_ramdisk_storage) / UIOX_FW_STOR_SECTOR_SIZE;
+      s_ramdisk.read_only   = false;
+      s_ramdisk.present     = true;
+      s_ramdisk.base        = 0u;
+      s_ramdisk.irq         = 0u;
+      s_ramdisk.priv        = s_ramdisk_storage;
+      s_ramdisk.read        = ramdisk_read;
+      s_ramdisk.write       = ramdisk_write;
+      s_ramdisk.flush       = 0;
+      {
+          const char *n = "ram0";
+          for (uint32_t i = 0u; n[i] && i < UIOX_FW_STOR_NAME_LEN - 1u; i++)
+              s_ramdisk.name[i] = n[i];
+      }
+      (void)uiox_fw_stor_register(&s_ramdisk);
+  } 
+ /* =========================================================================
+  * Stage 7: device switch table
+  *
+  * Registers the three char majors whose ops are defined above.
+  * uiox_fw_cdev_register copies the entry, so the initialiser below
+  * may be a stack local reused across the three calls.
+  * ====================================================================== */
+
+  static void fw_stage_devsw(void)
+  {
+      uiox_fw_cdevsw_t cd;
+      uiox_fw_err_t    rc;
+ 
+      rc = uiox_fw_devsw_init(&s_devsw);
+      if (rc != UIOX_FW_OK) return;
+ 
+      cd.name   = "console";
+      cd.major  = UIOX_DEV_MAJOR_CONSOLE;
+      cd.copen  = console_open;
+      cd.cclose = console_close;
+      cd.cread  = console_read;
+      cd.cwrite = console_write;
+      cd.cioctl = console_ioctl;
+      cd.ready  = true;
+      rc = uiox_fw_cdev_register(&s_devsw, &cd);
+      if (rc != UIOX_FW_OK) return;
+ 
+      cd.name   = "null";
+      cd.major  = UIOX_DEV_MAJOR_NULL;
+      cd.copen  = null_open;
+      cd.cclose = null_close;
+      cd.cread  = null_read;
+      cd.cwrite = null_write;
+      cd.cioctl = null_ioctl;
+      cd.ready  = true;
+      rc = uiox_fw_cdev_register(&s_devsw, &cd);
+      if (rc != UIOX_FW_OK) return;
+ 
+      cd.name   = "zero";
+      cd.major  = UIOX_DEV_MAJOR_ZERO;
+      cd.copen  = null_open;
+      cd.cclose = null_close;
+      cd.cread  = zero_read;
+      cd.cwrite = null_write;
+      cd.cioctl = null_ioctl;
+      cd.ready  = true;
+      (void)uiox_fw_cdev_register(&s_devsw, &cd);
+ 
+      FW_LOG("DEVSW", "char devices registered: %u", s_devsw.cdev_count);
+  }
  
 /* Simulated Root of Trust public-key hash (OTP / ROM constant on real HW) */
-static const uint8_t s_rot_hash[32] = {
+static __attribute__((unused)) const uint8_t s_rot_hash[32] = {
     0xDEu,0xADu,0xBEu,0xEFu, 0xCAu,0xFEu,0xBAu,0xBEu,
     0x01u,0x23u,0x45u,0x67u, 0x89u,0xABu,0xCDu,0xEFu,
     0xFEu,0xDCu,0xBAu,0x98u, 0x76u,0x54u,0x32u,0x10u,
@@ -200,17 +389,17 @@ static const uint8_t s_rot_hash[32] = {
 /* =========================================================================
  * Platform PSCI callbacks
  * ====================================================================== */
-static void platform_cpu_on_cb(uint32_t cpu_id, uintptr_t entry)
+static __attribute__((unused)) void platform_cpu_on_cb(uint32_t cpu_id, uintptr_t entry)
 {
     /* Real: write entry to per-CPU mailbox, assert power-on sequence */
     (void)cpu_id; (void)entry;
 }
-static void __attribute__((noreturn)) platform_reset_cb(void)
+static __attribute__((unused)) __attribute__((noreturn)) void platform_reset_cb(void)
 {
     uiox_fw_hw_reset();
 }
 
-static void fw_puts_main(const char *s)
+static __attribute__((unused)) void fw_puts_main(const char *s)
 {
     /* uiox_fw_hw_ops() is declared in uiox_fw_hw.h — already included */
     const uiox_fw_hw_ops_t *ops = uiox_fw_hw_ops();
@@ -228,19 +417,27 @@ static void fw_puts_main(const char *s)
  extern void uiox_fw_arch_register(void);
  
  /* Kernel entry point */
- extern void __attribute__((noreturn)) uiox_kernel_main(uint64_t dtb_pa);
+ /* The kernel entry takes no arguments on arm64/arm32/riscv64: it pulls
+ * dtb_pa and args_pa out of named registers (x0/x1, r2/r3, a0/a1) — see
+ * uiox_kernel_main.c:468/501/564.  Only x86_64 (:534) takes them as
+ * parameters, because SysV puts them in rdi/rsi and C can name those. */
+#if defined(__x86_64__)
+extern void __attribute__((noreturn)) uiox_kernel_main(uiox_boot_args_t *args_pa_ptr,
+                                                       uint64_t dtb_pa_val);
+#else
+extern void __attribute__((noreturn)) uiox_kernel_main(void);
+#endif
+
  
  /* =========================================================================
   * Firmware-global state
   * ====================================================================== */
  
- //static uiox_fw_mem_map_t    s_mem_map;
- static uiox_fw_timer_t      s_timer;
- static uiox_fw_uart_t       s_console;
- static uiox_fw_gpio_t       s_gpio;
- //static uiox_fw_power_ctx_t  s_power;
- static uiox_fw_devsw_t      s_devsw;
- 
+ static uiox_fw_timer_t   s_timer;    /* Stage 4 */
+ static uiox_fw_uart_t    s_console;  /* used by console_read/write */
+ static uiox_fw_gpio_t    s_gpio;     /* Stage 5 */
+ static uiox_fw_devsw_t   s_devsw;    /* Stage 7 */
+
  /* =========================================================================
   * Firmware printf helpers — no 64-bit division
   * ====================================================================== */
@@ -283,7 +480,7 @@ static uint64_t div64_by_u32(uint64_t n, uint32_t d, uint32_t *rem_out)
 
 
   
- static void fw_puthex(uint64_t v, int width)
+static __attribute__((unused)) void fw_puthex(uint64_t v, int width)
  {
      static const char h[] = "0123456789abcdef";
      char buf[16]; int n = 0;
@@ -293,7 +490,7 @@ static uint64_t div64_by_u32(uint64_t n, uint32_t d, uint32_t *rem_out)
          uiox_fw_hw_uart_putc(buf[i]);
  }
  
- static void fw_putdec_u32(uint32_t v)
+ static __attribute__((unused)) void fw_putdec_u32(uint32_t v)
  {
      char buf[12]; int n = 0;
      if (v == 0u) { uiox_fw_hw_uart_putc('0'); return; }
@@ -306,7 +503,7 @@ static uint64_t div64_by_u32(uint64_t n, uint32_t d, uint32_t *rem_out)
          uiox_fw_hw_uart_putc(buf[i]);
  }
  
- static void fw_putdec_u64(uint64_t v)
+ static __attribute__((unused)) void fw_putdec_u64(uint64_t v)
 {
     if (v == 0u) { uiox_fw_hw_uart_putc('0'); return; }
     /* Split into three groups of 9 decimal digits using
@@ -399,8 +596,6 @@ static uint64_t div64_by_u32(uint64_t n, uint32_t d, uint32_t *rem_out)
   * RAM-disk storage (1 MB)
   * ====================================================================== */
  
- static uint8_t s_ramdisk_storage[512u * 2048u];
- 
  static uiox_fw_err_t ramdisk_read(void *priv, uint64_t lba,
                                      uint8_t *buf, uint32_t count)
  {
@@ -436,24 +631,59 @@ static uint64_t div64_by_u32(uint64_t n, uint32_t d, uint32_t *rem_out)
   * call the real handlers — no function-pointer casts needed anywhere.
   * ====================================================================== */
  
- static void uart_irq_shim(uint32_t irq, void *priv)
+ static __attribute__((unused)) void uart_irq_shim(uint32_t irq, void *priv)
  {
      UIOX_FW_UNUSED(irq);
      uiox_fw_uart_irq((uiox_fw_uart_t *)priv);
  }
  
- static void timer_irq_shim(uint32_t irq, void *priv)
+ static __attribute__((unused)) void timer_irq_shim(uint32_t irq, void *priv)
  {
      UIOX_FW_UNUSED(irq);
      uiox_fw_timer_irq((uiox_fw_timer_t *)priv);
  }
 
 /* =========================================================================
- * uiox_fw_main — complete function with Stage 0 prepended
+ * uiox_fw_main — the peripheral stages, then the hand-off to the kernel
+ *
+ * WHAT THIS DOES: arch HW registration plus the stages, then Stage 8.
  * ====================================================================== */
-void __attribute__((noreturn))
-uiox_fw_main(uint64_t dtb_pa)
+void uiox_fw_main(uint64_t dtb_pa)
 {
-  
+    (void)dtb_pa;    /* arm64/arm32/riscv64: the kernel entry takes no
+                      * argument — it reads dtb_pa from x0 (see
+                      * uiox_kernel_main.c:468).  Only x86_64 passes it
+                      * through, in the branch below. */
+
+    /* ── Stage 0 — arch HW registration, then the peripherals ────── */
+    UIOX_FW_HW_REGISTER();
+
+    fw_stage_i2c();
+    fw_stage_spi();
+    fw_stage_wdt();
+    fw_stage_pcie();
+    fw_stage_timer();
+    fw_stage_gpio();
+    fw_stage_ramdisk();
+    fw_stage_devsw();
+
+
+    uiox_fw_printf("[FW] " UIOX_FW_ARCH_STR " peripheral init done\n");
+
+    /* ── Stage 8 — hand-off.  noreturn. ─────────────────────────── */
+#if defined(__x86_64__)
+    uiox_kernel_main((uiox_boot_args_t *)0, dtb_pa);
+#else
+    uiox_kernel_main();
+#endif
+
+    /* Only reachable if the kernel entry ever returns, which its
+     * noreturn contract says it will not. */
+    for (;;) {
+#if defined(__x86_64__)
+        __asm__ volatile("hlt");
+#else
+        __asm__ volatile("wfi");
+#endif
+    }
 }
- 

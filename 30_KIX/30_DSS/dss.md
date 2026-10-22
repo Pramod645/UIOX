@@ -2381,7 +2381,17 @@ Family	Classes	Probes	Stacks	Notes
 6 BUS	tb4, usbhc	0	tb4 stack exists	
 Next natural step is family 3 EVENT — three classes, and the sweep already named the two tpwd files needing the include fix. Or close family 1's two open items (uiox_emmc_probe driving subsys, and the tick caller) since that's a small, already-scoped pair.
 
-
+=======
+The eight files — final shape
+#	File	State
+1	10_DI/01_Com/uart/uiox_uart_hw.h	three-value ip, rd8/wr8, uart_rx_ready() inversion
+2	10_DI/01_Com/uart/uiox_termios.h	relocated from 30_DSS/include/
+3	10_DI/01_Com/uart/uiox_uart_ioctl.h	class tag 0xC0, disjoint offsets
+4	10_DI/01_Com/uart/uiox_uart_fwops.c	transport-blind; set_baud splits PL011 IBRD/FBRD vs 16550 DLAB dance; ring + ISR
+5	20_DD/01_Com/uart/uiox_uart_if.h	driver state, termios, winsize, stats
+6	20_DD/01_Com/uart/uiox_uart_if.c	discipline; echo in read(); both RX bodies under UIOX_UART_RX_MODE
+7	20_DD/01_Com/uart/uiox_uart_blk.c	the seam — tif_of() + forwards
+8	20_DD/01_Com/uart/uiox_uart_probe.c	ip from UIOX_SOC_HW_CAP_PL011/_16550; base/IRQ from the map
 
 
 

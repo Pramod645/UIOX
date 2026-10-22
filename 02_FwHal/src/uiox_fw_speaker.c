@@ -11,7 +11,7 @@ static void spk_stop(uiox_spk_dev_t *d){(void)d;}
 static uiox_fw_err_t spk_set_volume(uiox_spk_dev_t *d,uint8_t pct)
 { d->volume_pct=(pct>100u?100u:pct);return UIOX_FW_OK; }
 static void spk_mute(uiox_spk_dev_t *d,bool en){d->muted=en;}
-static const uiox_spk_ops_t spk_i2s_ops={spk_i2s_init,spk_i2s_deinit,
+static const uiox_spk_ops_t spk_i2s_ops __attribute__((unused))={spk_i2s_init,spk_i2s_deinit,
     spk_play,spk_stop,spk_set_volume,spk_mute};
 uiox_fw_err_t uiox_fw_spk_init(uiox_spk_dev_t *d,const uiox_spk_ops_t *o,
                                   uint32_t r,uint8_t ch,uint8_t bits)

@@ -40,7 +40,7 @@ ENABLE_BMS      ?= yes
 ENABLE_CHG      ?= yes
 ENABLE_FAN      ?= yes
 ENABLE_PMIC     ?= yes
-ENABLE_RTC      ?= yes
+ENABLE_RTC      ?= no
 ENABLE_SPEAKER  ?= yes
 ENABLE_EMMC     ?= yes
 
@@ -54,6 +54,8 @@ COMMON_CFLAGS := \
   -nostdinc -Os -g                        \
   $(ARCH_CFLAGS) $(ARCH_CPUDEF)           \
   $(DEVICE_DEFS)                          \
+  -isystem $(shell $(CC) -print-file-name=include) \
+  -I$(MFDIR)../10_BSP/03_SoC/include \
   -I$(INCDIR)
 
 # ── Always-on infrastructure ──────────────────────────────────────────────────

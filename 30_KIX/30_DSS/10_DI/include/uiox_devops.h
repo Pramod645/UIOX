@@ -65,6 +65,7 @@ extern "C" {
  * returns 0 and stays correct.
  * ═════════════════════════════════════════════════════════════════════ */
 typedef struct {
+    //uiox_dev_ops_t  head;          /* ← the family head, first */ // added for teminal was not in orgonal
     int      (*read)       (uiox_dev_dev_t *dev, uint32_t blkno,
                             uint32_t count, uint8_t *buf);
     int      (*write)      (uiox_dev_dev_t *dev, uint32_t blkno,

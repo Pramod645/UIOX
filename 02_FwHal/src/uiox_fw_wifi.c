@@ -44,6 +44,7 @@ static uiox_fw_err_t wifi_disconnect(uiox_wifi_dev_t *d)
 static uiox_fw_err_t wifi_send(uiox_wifi_dev_t *d,
                                   const uint8_t *frame,uint32_t len)
 {
+    UIOX_FW_UNUSED(frame);
     if(!d->associated||len>UIOX_ETH_MTU)return UIOX_FW_ERR_IO;
     d->tx_bytes+=len;return UIOX_FW_OK;
 }

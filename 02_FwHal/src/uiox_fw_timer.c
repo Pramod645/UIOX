@@ -12,8 +12,10 @@
  * Add this near the top of each affected .c file,
  * or put it in a shared uiox_fw_math.h header.
  */
-static inline uint32_t udiv32_soft_timer(uint32_t n, uint32_t d,
-    uint32_t *rem_out)
+//static inline uint32_t udiv32_soft_timer(uint32_t n, uint32_t d,
+ //   uint32_t *rem_out)
+ static inline uint32_t __attribute__((unused))
+udiv32_soft_timer(uint32_t n, uint32_t d, uint32_t *rem_out)
 {
 uint32_t q = 0u, r = 0u;
 if (d == 0u) { if (rem_out) *rem_out = 0u; return 0u; }

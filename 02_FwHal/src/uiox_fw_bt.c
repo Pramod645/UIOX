@@ -23,23 +23,27 @@ static uiox_fw_err_t bt_uart_reset(uiox_bt_dev_t *dev)
 static uiox_fw_err_t bt_uart_send(uiox_bt_dev_t *dev,
                                     const uint8_t *pkt, uint32_t len)
 {
+    (void)dev; (void)pkt; (void)len;
     //if (!dev->uart) return UIOX_FW_ERR_NODEV;
     //uiox_uart_hw_t *hw = dev->uart;
     //for (uint32_t i = 0u; i < len; i++)
     //    uiox_uart_hw_putc(hw, (char)pkt[i]);
-    return UIOX_FW_OK;
+    //return UIOX_FW_OK;
+    return UIOX_FW_ERR_UNSUP;
 }
 
 static int32_t bt_uart_recv(uiox_bt_dev_t *dev, uint8_t *buf, uint32_t max)
 {
+    (void)dev; (void)buf; (void)max;
     //if (!dev->uart) return -1;
-    uint32_t n = 0u;
+    //uint32_t n = 0u;
     //while (n < max && uiox_uart_hw_rx_ready(dev->uart)) {
     //    int c = uiox_uart_hw_getc(dev->uart);
     //    if (c < 0) break;
     //    buf[n++] = (uint8_t)c;
     //}
-    return (int32_t)n;
+    //return (int32_t)n;
+    return 0;
 }
 
 static uiox_fw_err_t bt_uart_load_fw(uiox_bt_dev_t *dev,

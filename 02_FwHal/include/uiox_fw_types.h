@@ -13,6 +13,29 @@
 #ifndef UIOX_FW_TYPES_H
 #define UIOX_FW_TYPES_H
 
+/* ── The SoC base types come first when that header is reachable ──────
+ * 10_BSP/03_SoC/include/uiox_base_types.h defines UIOX_UINT8_MAX,
+ * UIOX_INLINE, UIOX_LIKELY and five more WITHOUT #ifndef guards, so
+ * whichever header loads second loses to -Werror=macro-redefined.
+ *
+ * Including it here — before this file's own guarded block — makes this
+ * header the second one, and every #ifndef below then sees the SoC
+ * definitions already present and skips.  One include, no #undef, and
+ * nothing in 10_BSP changes.
+ *
+ * The path is on COMMON_CFLAGS (02_FwHal/Makefile),
+ * -I$(MFDIR)../10_BSP/03_SoC/include.
+ *
+ * If the SoC header is NOT on the include path for some build, the
+ * __has_include test below keeps this header self-contained, which is
+ * what the file's own banner promises. */
+#if defined(__has_include)
+#  if __has_include("uiox_base_types.h")
+#    include "uiox_base_types.h"
+#  endif
+#endif
+
+
 #ifndef UIOX_KLIBC_H   /* uiox_klibc.h supplies base types + mem helpers */
 
 typedef __INT8_TYPE__    int8_t;

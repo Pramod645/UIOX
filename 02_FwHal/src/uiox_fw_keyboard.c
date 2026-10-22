@@ -7,6 +7,9 @@ static inline uint8_t _inb_kbd(uint16_t p){uint8_t v;__asm__ volatile("inb %1,%0
 #endif
 static uiox_fw_err_t ps2_kbd_init(uiox_kbd_dev_t *d)
 {
+    (void)d;    /* No PS/2 controller programmed yet — the init that
+                 * would set the scan-code set and enable the port is
+                 * not written.  Cast keeps the signature honest. */
 #if defined(__x86_64__)||defined(__i386__)
     /* Flush output buffer */
     while(_inb_kbd(PS2_CMD_PORT)&PS2_STATUS_OBF) _inb_kbd(PS2_DATA_PORT);

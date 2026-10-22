@@ -86,6 +86,7 @@ int  uiox_chg_probe(void);
 int  uiox_gpu_probe(void);
 int  uiox_hdmi_probe(void);
 int  uiox_mon_probe(void);
+int  uiox_uart_probe(void);     /* ◀ (CMD,15) — the console ttyS0 */
 /* ── family 6 — BUS ─────────────────────────────────────────── */
 int uiox_tb4_bringup(void);     /* 34_CSS supplies the instance */
 
@@ -144,6 +145,7 @@ int uiox_dss_init(void)
     (void) uiox_gpu_probe();
     (void) uiox_hdmi_probe();
     (void) uiox_mon_probe();
+    (void) uiox_uart_probe();      /* the console */
     /* ── family 6 — BUS ─────────────────────────────────────────── */
     (void) uiox_tb4_bringup();     /* usbhc is covered by uiox_usb_probe() */
 
