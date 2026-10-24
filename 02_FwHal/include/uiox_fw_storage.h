@@ -26,6 +26,8 @@
      UIOX_FW_STOR_NVME,
      UIOX_FW_STOR_IDE,
      UIOX_FW_STOR_RAMDISK,
+     //UIOX_FW_STOR_AHCI,          /* SATA: AHCI controller */
+     //UIOX_FW_STOR_NONE,          /* no device; what uiox_fw_none.c means */
  } uiox_fw_stor_type_t;
  
  typedef struct {
