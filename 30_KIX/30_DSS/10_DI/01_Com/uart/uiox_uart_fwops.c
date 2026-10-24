@@ -103,7 +103,7 @@ void uiox_uart_hw_isr(uiox_uart_hw_t *hw)
 
 /* The registered callback: (irq, priv).  priv is the hw pointer the
  * probe passed, so the ISR needs no global lookup. */
-static void uiox_uart_irq_handler(uiox_uint32_t irq, void *priv)
+static void uiox_uart_irq_handler(uint32_t irq, void *priv)
 { (void)irq; uiox_uart_hw_isr((uiox_uart_hw_t *)priv); }
 
 /* ── interrupt-line ownership ─────────────────────────────────────── */
@@ -160,7 +160,7 @@ int uiox_uart_hw_init(uiox_uart_hw_t *hw, uintptr_t base, uint32_t irq,
                       uiox_uart_wr8_t wr8)
 {
     if (!hw || !base || !rd8 || !wr8) return -1;
-    for (uiox_uint32_t i = 0u; i < sizeof(*hw); i++) ((uint8_t *)hw)[i] = 0u;
+    for (uint32_t i = 0u; i < sizeof(*hw); i++) ((uint8_t *)hw)[i] = 0u;
     hw->base        = base;
     hw->irq         = irq;
     hw->ip          = ip;

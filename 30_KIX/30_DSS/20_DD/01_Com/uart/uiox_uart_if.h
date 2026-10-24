@@ -1,6 +1,7 @@
 /**
  * @file  uiox_uart_if.h
- * @brief UIOX console driver — termios state and the line discipline.
+ * @brief UIOX console driver — termios state, the discipline, and the
+ *        class's own vtable.
  *
  * PATH  30_KIX/30_DSS/20_DD/01_Com/uart/uiox_uart_if.h
  *
@@ -9,7 +10,24 @@
  * specification, and it is libc-based, so it cannot be the kernel's
  * implementation.
  *
- * @version 1.0.0  @date 2026-10-21
+ * ── the class's own vtable lives HERE ───────────────────────────────
+ * Same placement as uiox_gpu_ops_t in uiox_gpu_if.h: declared in the
+ * class's 20_DD header, defined in the class's .c, and named nowhere
+ * above.  uiox_devops.h is frozen at family granularity — family 5
+ * (CMD) is uiox_devctl_ops_t, one ioctl slot — so a CMD class's byte
+ * stream is the class's own business.
+ *
+ * dev->ops gets the FAMILY slot (uiox_devctl_ops_t).  The byte stream
+ * is reached in-kernel through uiox_uart_if_read()/write()/pending() —
+ * the path the boot-context shell uses — with dev->drv_priv and
+ * hw->priv both pointing at the same uiox_uart_if_t.  read(2) on
+ * /dev/ttyS0 arrives when a second CMD-with-stream class makes the
+ * pattern worth generalising.
+ *
+ * KEYED BY (cls, unit): UIOX_DEVCLASS_UART = UIOX_DEVCLASS_(CMD, 15),
+ * unit 0.  No major/minor anywhere in this path.
+ *
+ * @version 1.0.0  @date 2026-10-24
  */
 #ifndef UIOX_UART_IF_H
 #define UIOX_UART_IF_H
@@ -28,6 +46,22 @@ typedef struct {
     uiox_tty_stats_t      stats;
     uint16_t              line_pos;   /* canonical assembly cursor     */
 } uiox_uart_if_t;
+
+/* ═════════════════════════════════════════════════════════════════════
+ * The class's own vtable — private to the class, as uiox_gpu_ops_t is.
+ *
+ * It takes uiox_uart_if_t *, not uiox_dev_dev_t *: the family head is
+ * generic, the class ops are the class's own.  Neither 10_scfs nor any
+ * shared header names this type.
+ * ═════════════════════════════════════════════════════════════════════ */
+typedef struct {
+    int  (*read)    (uiox_uart_if_t *tif, uint8_t *buf, uint32_t count);
+    int  (*write)   (uiox_uart_if_t *tif, const uint8_t *buf, uint32_t count);
+    bool (*pending) (uiox_uart_if_t *tif);
+} uiox_uart_class_ops_t;
+
+/* Defined in uiox_uart_blk.c. */
+extern const uiox_uart_class_ops_t s_uart_class_ops;
 
 int  uiox_uart_if_config(uiox_uart_if_t *tif, uiox_uart_hw_t *hw);
 int  uiox_uart_if_start (uiox_uart_if_t *tif);

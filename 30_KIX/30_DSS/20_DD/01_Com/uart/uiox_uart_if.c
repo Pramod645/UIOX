@@ -228,7 +228,7 @@ int uiox_uart_if_ioctl(uiox_uart_if_t *tif, unsigned long cmd, void *arg)
 int uiox_uart_if_config(uiox_uart_if_t *tif, uiox_uart_hw_t *hw)
 {
     if (!tif || !hw) return -1;
-    for (uiox_uint32_t i = 0u; i < sizeof(*tif); i++) ((uint8_t *)tif)[i] = 0u;
+    for (uint32_t i = 0u; i < sizeof(*tif); i++) ((uint8_t *)tif)[i] = 0u;
     tif->hw = hw;
     uiox_tty_defaults(&tif->tio);
     tif->win.ws_row = 24u;

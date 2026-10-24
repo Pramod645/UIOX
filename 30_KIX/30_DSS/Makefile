@@ -50,6 +50,7 @@ ENABLE_PMIC     ?= yes
 ENABLE_RTC      ?= yes
 ENABLE_SPEAKER  ?= yes
 ENABLE_EMMC     ?= yes
+ENABLE_UART     ?= yes
 
 _BUILD_DIR := $(BUILD_BASE)/$(_ARCH)
 
@@ -74,7 +75,7 @@ DI_SUBDIRS := \
   02_Sensors/als       02_Sensors/thermal  02_Sensors/touchpwd \
   03_NonSensors/bms    03_NonSensors/chg    03_NonSensors/fan   \
   03_NonSensors/pmic   03_NonSensors/rtc    03_NonSensors/speaker \
-  03_NonSensors/emmc
+  03_NonSensors/emmc   01_Com/uart
 
 DI_INCLUDES := -I$(MFDIR)$(DI_DIR)/include \
                $(foreach d,$(DI_SUBDIRS),-I$(MFDIR)$(DI_DIR)/$(d))
@@ -143,6 +144,9 @@ ifeq ($(ENABLE_SPEAKER),yes)
 endif
 ifeq ($(ENABLE_EMMC),yes)
   DD_SUBDIRS += 03_NonSensors/emmc
+endif
+ifeq ($(ENABLE_UART),yes)
+  DD_SUBDIRS += 01_Com/uart
 endif
 
 # ══════════════════════════════════════════════════════════════════════════
@@ -256,6 +260,7 @@ arm64 arm32 riscv64 x86_64:
 	    ENABLE_PMIC=$(ENABLE_PMIC)          \
 	    ENABLE_RTC=$(ENABLE_RTC)            \
 	    ENABLE_SPEAKER=$(ENABLE_SPEAKER)    \
+		ENABLE_SPEAKER=$(ENABLE_UART)       \
 	    ENABLE_EMMC=$(ENABLE_EMMC)
 
 # ── the build: 10_DI first, then 20_DD, because 20_DD includes 10_DI's headers

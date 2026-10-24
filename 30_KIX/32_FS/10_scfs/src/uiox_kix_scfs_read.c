@@ -168,6 +168,34 @@ int uiox_kix_scfs_read(int fd, char *buf, uint32_t count)
                     int rc = bus->read_reg(dev, reg, buf, want);
                     return (rc < 0) ? rc : (int)want;
                 }
+                            /* ══ CMD — the console byte stream ══════════════════════
+             * GPU/HDMI/monitor and UART are all CMD.  The family slot
+             * (uiox_devctl_ops_t) carries ioctl only, so read() has
+             * nothing in dev->ops to call; the class ops sit in the
+             * class's own 10_DI header and reach the driver through
+             * drv_priv — the same "typed struct behind that pointer,
+             * cast once at the top" shape the banner describes.
+             *
+             * NOTE: unlike REG and EVENT, CMD carries NO family head —
+             * uiox_gpu_if.c:174 binds .ops = &uiox_gpu_class_ops with
+             * no offset, and the commented-out head in uiox_blk_ops_t
+             * is not in the working type.  So there is no
+             * `+ sizeof(uiox_dev_ops_t)` here.
+             *
+             * A CMD class with no byte stream (gpu, hdmi, monitor)
+             * returns ENOTTY, the same answer the EVENT branch gives
+             * for a missing event_read. */
+            if (fam == UIOX_DEVFAM_CMD) {
+                const uiox_uart_class_ops_t *tty =
+                    (const uiox_uart_class_ops_t *)dev->ops;
+                if (!tty->read) return SCFS_ENOTTY;
+
+                uiox_uart_hw_t *hw = (uiox_uart_hw_t *)dev->drv_priv;
+                if (!hw) return SCFS_ENODEV;
+
+                int rc = tty->read(hw, buf, (uint32_t)count);
+                return (rc < 0) ? rc : rc;
+            }
     
                 /* ── EVENT — the record queue ──────────────────────────── */
                 if (fam != UIOX_DEVFAM_EVENT)

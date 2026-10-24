@@ -157,3 +157,18 @@ ls -d /Users/pramodkumar/Hack/WS/UIOX/30_KIX/34_DSS/02_FwHal /Users/pramodkumar/
 
 =====
 git checkout HEAD -- 02_FwHal/src/uiox_fw_main.c
+==========================
+What's still open — for whenever you pick this up
+In 02_FwHal:
+
+Four sources on disk, never built: uiox_fw_sd.c, uiox_fw_sata.c, uiox_fw_nvme.c, uiox_fw_net.c. No ENABLE_* flag exists for any of them. nvme is the storage FwHal that was described as real; none of the four is in the archive.
+uiox_fw_sata.c's fabricated transfers — ahci_read returns UIOX_FW_OK with (void)buf and no DMA; ahci_identify invents 4 GB. Dormant while unbuilt, live the moment it enters SRCS.
+Stage 3 of the pipeline — uart_irq_shim/timer_irq_shim are attributed for "no IRQ manager", but 10_BSP/10_Arch/arm64/include/irq.h has irq_request(irq, hw_irq_handler_t, void*, name) real, in libbsp.a. Wiring them needs hw_context_t in scope.
+-isystem $(CC -print-file-name=include) re-opens -nostdinc for the whole layer — a deliberate choice now, but a departure from 32_FS's freestanding discipline.
+Three copies of the software divider — udiv32_softp in main.c, udiv32_soft_timer in timer.c, udiv32_soft_uart in uart.c.
+Elsewhere:
+
+Console/terminal work is still parked. Eight uiox_uart_* files (HAL, termios header, ioctl, driver with the line discipline, the seam, the probe) plus uiox_sh.c — all specced in chat, none written to disk. Your git status showed 10_DI/01_Com/uart/ and 20_DD/01_Com/uart/ as untracked directories, so some of it may already be there.
+The arch_syscall_dispatch gap — the assembly calls it, arm32 and riscv64 implement it, arm64's is commented out at arch_init.c:42–61.
+uiox_fw_main.c is still half-integrated in one place — Stages 4/5 pass 0u for base/IRQ with a comment saying the BSP should thread them in; that's the uiox_fw_platform_t shape you chose (option A) but haven't built.
+Good session's work — the layer went from ~40 compile errors across a dozen files to a clean 37-object archive.
