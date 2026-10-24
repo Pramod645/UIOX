@@ -75,6 +75,10 @@ ENABLE_PMIC     ?= yes
 ENABLE_RTC      ?= yes
 ENABLE_SPEAKER  ?= yes
 ENABLE_EMMC     ?= yes
+ENABLE_UART     ?= yes
+ENABLE_SDMC     ?= yes
+ENABLE_NVME     ?= yes
+ENABLE_USMBS    ?= yes
 
 # -DUIOX_HAVE_<DEVICE> defines — passed to every compiler invocation
 DEVICE_DEFS = \
@@ -99,7 +103,12 @@ DEVICE_DEFS = \
   $(if $(filter yes,$(ENABLE_PMIC)),    -DUIOX_HAVE_PMIC,)     \
   $(if $(filter yes,$(ENABLE_RTC)),     -DUIOX_HAVE_RTC,)      \
   $(if $(filter yes,$(ENABLE_SPEAKER)), -DUIOX_HAVE_SPEAKER,)  \
-  $(if $(filter yes,$(ENABLE_EMMC)),    -DUIOX_HAVE_EMMC,)
+  $(if $(filter yes,$(ENABLE_EMMC)),    -DUIOX_HAVE_EMMC,)     \
+  $(if $(filter yes,$(ENABLE_UART)),    -DUIOX_HAVE_UART,)     \
+  $(if $(filter yes,$(ENABLE_SDMC)),    -DUIOX_HAVE_SDMC,)     \
+  $(if $(filter yes,$(ENABLE_NVME)),    -DUIOX_HAVE_NVME,)     \
+  $(if $(filter yes,$(ENABLE_USBMS)),    -DUIOX_HAVE_USBS,)
+
 
 # All ENABLE_* vars forwarded as a single block to sub-makes
 ENABLE_FLAGS = \
@@ -113,7 +122,9 @@ ENABLE_FLAGS = \
   ENABLE_TOUCHPWD=$(ENABLE_TOUCHPWD) ENABLE_BMS=$(ENABLE_BMS)           \
   ENABLE_CHG=$(ENABLE_CHG)           ENABLE_FAN=$(ENABLE_FAN)           \
   ENABLE_PMIC=$(ENABLE_PMIC)         ENABLE_RTC=$(ENABLE_RTC)           \
-  ENABLE_SPEAKER=$(ENABLE_SPEAKER)   ENABLE_EMMC=$(ENABLE_EMMC)
+  ENABLE_SPEAKER=$(ENABLE_SPEAKER)   ENABLE_EMMC=$(ENABLE_EMMC)         \
+  ENABLE_UART=$(ENABLE_UART)   		 ENABLE_SDMC=$(ENABLE_SDMC)         \
+  ENABLE_NVME=$(ENABLE_NVME)   		 ENABLE_USBMS=$(ENABLE_USBMS)
 
 UNAME_S := $(shell uname -s)
 ifeq ($(UNAME_S),Darwin)
@@ -278,13 +289,18 @@ _build_subsystems:
 	    ARCH_CFLAGS="$(ARCH_CFLAGS)" ARCH_CPUDEF="$(ARCH_CPUDEF)" \
 	    $(_ARCH) 2>/dev/null || echo "[KIX] 02_FwHal: no Makefile or skipped"
 	# 2. 10_DI
-	+$(MAKE) -C $(MFDIR)30_DSS/10_DI CC="$(CC)" AR="$(AR)" \
-	    ARCH_CFLAGS="$(ARCH_CFLAGS)" ARCH_CPUDEF="$(ARCH_CPUDEF)" \
-	    DEVICE_DEFS="$(DEVICE_DEFS)" $(ENABLE_FLAGS) $(_ARCH)
+	#+$(MAKE) -C $(MFDIR)30_DSS/10_DI CC="$(CC)" AR="$(AR)" \
+	#    ARCH_CFLAGS="$(ARCH_CFLAGS)" ARCH_CPUDEF="$(ARCH_CPUDEF)" \
+	#    DEVICE_DEFS="$(DEVICE_DEFS)" $(ENABLE_FLAGS) $(_ARCH)
 	# 3. 20_DD
-	+$(MAKE) -C $(MFDIR)30_DSS/20_DD CC="$(CC)" AR="$(AR)" \
-	    ARCH_CFLAGS="$(ARCH_CFLAGS)" ARCH_CPUDEF="$(ARCH_CPUDEF)" \
-	    DEVICE_DEFS="$(DEVICE_DEFS)" $(ENABLE_FLAGS) $(_ARCH)
+	#+$(MAKE) -C $(MFDIR)30_DSS/20_DD CC="$(CC)" AR="$(AR)" \
+	#    ARCH_CFLAGS="$(ARCH_CFLAGS)" ARCH_CPUDEF="$(ARCH_CPUDEF)" \
+	#    DEVICE_DEFS="$(DEVICE_DEFS)" $(ENABLE_FLAGS) $(_ARCH)
+	# 2. 30_DSS  (10_DI + 20_DD — no 20_DD/Makefile exists; the DSS
+    #            parent owns both halves and emits libdi.a + libdev.a)
+    +$(MAKE) -C $(MFDIR)30_DSS CC="$(CC)" AR="$(AR)" \
+        ARCH_CFLAGS="$(ARCH_CFLAGS)" ARCH_CPUDEF="$(ARCH_CPUDEF)" \
+        DEVICE_DEFS="$(DEVICE_DEFS)" $(ENABLE_FLAGS) $(_ARCH)
 	# 4. 31_BufferCache
 	+$(MAKE) -C $(MFDIR)31_BufferCache CC="$(CC)" AR="$(AR)" \
 	    ARCH_CFLAGS="$(ARCH_CFLAGS)" ARCH_CPUDEF="$(ARCH_CPUDEF)" \
@@ -312,7 +328,11 @@ _build_kernel_main:
 	    $(BSP_MODE_DEF)                                        \
 	    $(DEVICE_DEFS)                                         \
 	    -I$(_ARCH_INC)                                         \
-	    -c $(MFDIR)uiox_kernel_main.c                          \
+	    -I$(MFDIR)32_FS/01_fsa/include                         \
+	    -I$(MFDIR)32_FS/10_scfs/include                        \
+	    -I$(MFDIR)32_FS/00_bcache/include                      \
+	    -I$(MFDIR)32_FS/include                                \
+	    -c $(MFDIR)common/uiox_kernel_main.c                   \
 	    -o $(_BUILD_DIR)/uiox_kernel_main.o
 	@echo "  [CC]  uiox_kernel_main.c  (BSP_MODE=$(BSP_MODE))"
 
