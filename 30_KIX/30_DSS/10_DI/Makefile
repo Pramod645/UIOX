@@ -54,7 +54,8 @@ COMMON_CFLAGS := \
   $(ARCH_CFLAGS) $(ARCH_CPUDEF)           \
   $(DEVICE_DEFS)                          \
   -I$(INCDIR)                             \
-  -I$(MFDIR)../../../02_FwHal/include           \
+  -I$(MFDIR)../../../02_FwHal/include     \
+  -I$(MFDIR)../../../10_BSP/03_SoC/include \
   -I$(MFDIR)../../common
 
 # ── Device-conditional subdirectories ────────────────────────────────────────

@@ -107,8 +107,16 @@ typedef unsigned int       uint32_t;
  * aarch64 (LP64), arm32 (ILP32), riscv64 (LP64) and x86-64 (LP64).
  * GCC and Clang both guarantee it is at least 64; __SIZEOF_LONG_LONG__
  * pins it rather than assuming. */
-typedef long long          int64_t;
-typedef unsigned long long uint64_t;
+//typedef long long          int64_t;
+//typedef unsigned long long uint64_t;
+#ifndef UIOX_UINT64_T_DEFINED
+#define UIOX_UINT64_T_DEFINED
+typedef __UINT64_TYPE__  uint64_t;
+#endif
+#ifndef UIOX_INT64_T_DEFINED
+#define UIOX_INT64_T_DEFINED
+typedef __INT64_TYPE__   int64_t;
+#endif
 
 /* ── uintptr_t / intptr_t are deliberately NOT declared here ─────────
  * An earlier revision added them as `unsigned long` / `long`, on the

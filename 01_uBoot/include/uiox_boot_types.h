@@ -12,6 +12,25 @@
  #ifndef UIOX_BOOT_TYPES_H
 #define UIOX_BOOT_TYPES_H
 
+/* ── Base integer types ───────────────────────────────────────────────
+ * GUARDED, not rewritten.  Several layers define these independently —
+ * uiox_klibc.h, uiox_fw_types.h, bcache_types.h, uiox_pkg_types.h — and
+ * GCC treats `long unsigned int` and `long long unsigned int` as
+ * DIFFERENT types even though both are 64-bit.  So the moment two of
+ * those headers reach one translation unit the second is a
+ * -Werror=conflicting-types.
+ *
+ * UIOX_PRIMITIVES_DEFINED is the shared flag: whichever header is read
+ * first sets it, and every later one skips its block.  No ordering rule
+ * is imposed on the caller, and none of the spellings have to match.
+ *
+ * The same guard belongs in uiox_klibc.h, uiox_fw_types.h,
+ * bcache_types.h and uiox_pkg_types.h — uiox_fw_types.h already has an
+ * equivalent test (UIOX_KLIBC_H); adding this one to it makes the set
+ * uniform. */
+#ifndef UIOX_PRIMITIVES_DEFINED
+#define UIOX_PRIMITIVES_DEFINED
+
 #ifndef UIOX_FW_TYPES_H
 
 typedef unsigned char       uint8_t;
@@ -57,6 +76,8 @@ typedef _Bool bool;
 #else
 /* uiox_fw_types.h already included — bool/true/false/NULL defined there */
 #endif /* UIOX_FW_TYPES_H */
+
+#endif /* !UIOX_PRIMITIVES_DEFINED */
 
 typedef enum {
     UIOX_ARCH_ARM64  = 0,

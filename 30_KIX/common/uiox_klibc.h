@@ -90,23 +90,33 @@
 #define EPROTONOSUPPORT 93   /* Protocol not supported        */
 #define EWOULDBLOCK EAGAIN
 
+#ifndef UIOX_PRIMITIVES_DEFINED
+#define UIOX_PRIMITIVES_DEFINED
 /* ── §1  Integer types ──────────────────────────────────────── */
 typedef unsigned char       uint8_t;
 typedef unsigned short      uint16_t;
 typedef unsigned int        uint32_t;
-typedef unsigned long long  uint64_t;
+//typedef unsigned long long  uint64_t;
+#ifndef UIOX_UINT64_T_DEFINED
+#define UIOX_UINT64_T_DEFINED
+typedef __UINT64_TYPE__     uint64_t;
+#endif
 typedef signed char         int8_t;
 typedef short               int16_t;
 typedef int                 int32_t;
-typedef long long           int64_t;
+//typedef long long           int64_t;
+#ifndef UIOX_INT64_T_DEFINED
+#define UIOX_INT64_T_DEFINED
+typedef __INT64_TYPE__      int64_t;
+#endif
 //typedef uint64_t            uintptr_t;
 //#if defined(__aarch64__) || defined(__x86_64__) || defined(__riscv)
 #if __SIZEOF_POINTER__ == 8
-typedef uint64_t uintptr_t;
-typedef int64_t intptr_t;
+typedef __UINTPTR_TYPE__    uintptr_t;
+typedef __INTPTR_TYPE__     intptr_t;
 #else
-typedef uint32_t uintptr_t;
-typedef int32_t intptr_t;
+typedef __UINT32_TYPE__     uintptr_t;
+typedef __INT32_TYPE__      intptr_t;
 #endif
 //typedef int64_t             intptr_t;
 typedef uint64_t            uintmax_t;
@@ -179,7 +189,7 @@ typedef uint32_t  size_t;
 typedef int32_t   ssize_t;
 typedef int32_t   ptrdiff_t;
 #endif
-
+#endif /* !UIOX_PRIMITIVES_DEFINED */
 
 #ifndef offsetof
 #define offsetof(type, member) __builtin_offsetof(type, member)
@@ -209,7 +219,7 @@ typedef struct { int64_t tv_sec; int32_t tv_usec; } uiox_timeval_t;
  * than a cast or a typedef.
  * ═════════════════════════════════════════════════════════════════════ */
 
-#ifdef UIOX_SOC_STRING_H
+ #if defined(UIOX_SOC_STRING_H) || defined(UIOX_FW_TYPES_H)
   /* The SoC header owns uiox_memset / memcpy / memcmp / strlen / strncpy.
    * Nothing is redeclared here; the §9 aliases below point at them. */
 #else
@@ -235,7 +245,7 @@ static inline int uiox_memcmp(const void *a, const void *b, size_t n)
     while (n--) { if (*p != *q) return (int)*p - (int)*q; p++; q++; }
     return 0;
 }
-#endif /* UIOX_SOC_STRING_H */
+#endif /* UIOX_SOC_STRING_H || UIOX_FW_TYPES_H */
 
 /* uiox_memmove and the whole string set other than strlen/strncpy are
  * NOT in the SoC header, so they are always defined here. */

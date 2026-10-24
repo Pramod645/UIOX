@@ -43,7 +43,7 @@
 
 MFDIR     := $(dir $(abspath $(lastword $(MAKEFILE_LIST))))
 COMMONDIR := $(MFDIR)common
-LINK      ?= no
+LINK      ?= yes
 BSP_MODE  ?= static
 
 # ── BSP_MODE ──────────────────────────────────────────────────────────────────
@@ -287,7 +287,8 @@ _build_subsystems:
 	# 1. 02_FwHal
 	+$(MAKE) -C $(FWHAL) CC="$(CC)" AR="$(AR)" \
 	    ARCH_CFLAGS="$(ARCH_CFLAGS)" ARCH_CPUDEF="$(ARCH_CPUDEF)" \
-	    $(_ARCH) 2>/dev/null || echo "[KIX] 02_FwHal: no Makefile or skipped"
+	    $(_ARCH)
+        #$(_ARCH) 2>/dev/null || echo "[KIX] 02_FwHal: no Makefile or skipped"
 	# 2. 10_DI
 	#+$(MAKE) -C $(MFDIR)30_DSS/10_DI CC="$(CC)" AR="$(AR)" \
 	#    ARCH_CFLAGS="$(ARCH_CFLAGS)" ARCH_CPUDEF="$(ARCH_CPUDEF)" \
@@ -307,15 +308,18 @@ _build_subsystems:
 	    DEVICE_DEFS="$(DEVICE_DEFS)" $(ENABLE_FLAGS) $(_ARCH)
 	# 5. 32_FS  (includes 02_journal, 03_netfs — built by 32_FS/Makefile)
 	+$(MAKE) -C $(MFDIR)32_FS CC="$(CC)" AR="$(AR)" \
-	    ARCH_CFLAGS="$(ARCH_CFLAGS)" ARCH_CPUDEF="$(ARCH_CPUDEF)" $(_ARCH)
+	    ARCH_CFLAGS="$(ARCH_CFLAGS)" ARCH_CPUDEF="$(ARCH_CPUDEF)" \
+	    $(_ARCH)
 	# 6. 33_PCS  (includes 03_ksign, 04_fboot, 05_sec, 06_kpatch — built by 33_PCS/Makefile)
 	+$(MAKE) -C $(MFDIR)33_PCS CC="$(CC)" AR="$(AR)" \
-	    ARCH_CFLAGS="$(ARCH_CFLAGS)" ARCH_CPUDEF="$(ARCH_CPUDEF)" $(_ARCH)
+	    ARCH_CFLAGS="$(ARCH_CFLAGS)" ARCH_CPUDEF="$(ARCH_CPUDEF)" \
+	    $(_ARCH)
 	# 7. 34_CAS
 	+$(MAKE) -C $(MFDIR)34_CAS CC="$(CC)" AR="$(AR)" \
 	    ARCH_CFLAGS="$(ARCH_CFLAGS)" ARCH_CPUDEF="$(ARCH_CPUDEF)" \
 	    DEVICE_DEFS="$(DEVICE_DEFS)" $(ENABLE_FLAGS) \
-	    $(_ARCH) 2>/dev/null || echo "[KIX] 34_CAS: skipped"
+	    $(_ARCH)
+
 	# 8. 50_UIX/01_shell  (only remaining 50_UIX build step)
 	+$(MAKE) -C $(UIXDIR)/01_shell CC="$(CC)" AR="$(AR)" \
 	    ARCH_CFLAGS="$(ARCH_CFLAGS)" ARCH_CPUDEF="$(ARCH_CPUDEF)" \
@@ -332,6 +336,10 @@ _build_kernel_main:
 	    -I$(MFDIR)32_FS/10_scfs/include                        \
 	    -I$(MFDIR)32_FS/00_bcache/include                      \
 	    -I$(MFDIR)32_FS/include                                \
+		-I$(MFDIR)32_FS/10_scfs/include                        \
+        -I$(MFDIR)32_FS/10_unfs/include                        \
+        -I$(MFDIR)32_FS/00_bcache/include                      \
+        -I$(MFDIR)32_FS/include                                \
 	    -c $(MFDIR)common/uiox_kernel_main.c                   \
 	    -o $(_BUILD_DIR)/uiox_kernel_main.o
 	@echo "  [CC]  uiox_kernel_main.c  (BSP_MODE=$(BSP_MODE))"
@@ -344,15 +352,12 @@ _link_kernel:
 	    -Map=$(_BUILD_DIR)/uiox_kernel.map                         \
 	    --gc-sections                                              \
 	    $(_BUILD_DIR)/uiox_kernel_main.o                           \
-	    $(wildcard $(FWHAL)/build/$(_ARCH)/*.a)                    \
-	    $(wildcard $(MFDIR)30_DSS/10_DI/build/$(_ARCH)/*.a) \
-	    $(wildcard $(MFDIR)30_DSS/20_DD/build/$(_ARCH)/*.a)    \
-	    $(wildcard $(MFDIR)31_BufferCache/build/$(_ARCH)/*.a)      \
-	    $(wildcard $(MFDIR)32_FS/build/$(_ARCH)/*.a)               \
-	    $(wildcard $(MFDIR)33_PCS/build/$(_ARCH)/*.a)              \
-	    $(wildcard $(MFDIR)34_CAS/build/$(_ARCH)/*.a)              \
-	    $(wildcard $(UIXDIR)/01_shell/build/$(_ARCH)/*.a)          \
-	    $(BSP_LIB_ARG)                                             \
+            $(wildcard $(FWHAL)/build/$(_ARCH)/*.a)                    \
+            $(wildcard $(MFDIR)30_DSS/build/$(_ARCH)/*.a)              \
+            $(wildcard $(MFDIR)32_FS/build/$(_ARCH)/*.a)               \
+            $(wildcard $(MFDIR)33_PCS/build/$(_ARCH)/*.a)              \
+            $(wildcard $(MFDIR)10_BSP/build/$(_ARCH)/*.a)              \
+			$(BSP_LIB_ARG)                                             \
 	    -o $(_BUILD_DIR)/uiox_kernel.elf
 	@echo "[KIX] Kernel ELF → $(_BUILD_DIR)/uiox_kernel.elf"
 ifeq ($(BSP_MODE),dynamic)

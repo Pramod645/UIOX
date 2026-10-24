@@ -185,8 +185,17 @@ int uiox_kix_scfs_read(int fd, char *buf, uint32_t count)
              * A CMD class with no byte stream (gpu, hdmi, monitor)
              * returns ENOTTY, the same answer the EVENT branch gives
              * for a missing event_read. */
+            /* ── CMD — no byte stream at this level ─────────────────
+             * Family 5 carries ioctl only (uiox_devctl_ops_t, one slot
+             * in uiox_devops.h), and a class's own vtable is PRIVATE —
+             * uiox_gpu_ops_t sets that precedent.  There is no shared
+             * type 10_scfs can name for a CMD byte stream, so the
+             * console is reached in-kernel through uiox_uart_if_read().
+             * ENOTTY is the honest answer, the same one the EVENT
+             * branch gives for a missing event_read. */
             if (fam == UIOX_DEVFAM_CMD) {
-                const uiox_uart_class_ops_t *tty =
+                return SCFS_ENOTTY;
+                /*const uiox_uart_class_ops_t *tty =
                     (const uiox_uart_class_ops_t *)dev->ops;
                 if (!tty->read) return SCFS_ENOTTY;
 
@@ -194,12 +203,13 @@ int uiox_kix_scfs_read(int fd, char *buf, uint32_t count)
                 if (!hw) return SCFS_ENODEV;
 
                 int rc = tty->read(hw, buf, (uint32_t)count);
-                return (rc < 0) ? rc : rc;
+                return (rc < 0) ? rc : rc;*/
             }
+
     
-                /* ── EVENT — the record queue ──────────────────────────── */
-                if (fam != UIOX_DEVFAM_EVENT)
-                    return SCFS_ENOTTY;    
+            /* ── EVENT — the record queue ──────────────────────────── */
+            if (fam != UIOX_DEVFAM_EVENT)
+                return SCFS_ENOTTY;    
 
             const uiox_event_ops_t *ev =
                 (const uiox_event_ops_t *)((const char *)dev->ops

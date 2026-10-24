@@ -95,8 +95,17 @@ typedef uiox_int32_t   int32_t;
  * `unsigned long`, which is the other side of the conflict. */
 #ifndef UIOX_BARE_INT64_TYPES
 #define UIOX_BARE_INT64_TYPES
-typedef unsigned long long  uint64_t;
-typedef long long           int64_t;
+//typedef unsigned long long  uint64_t;
+//typedef long long           int64_t;
+#ifndef UIOX_UINT64_T_DEFINED
+#define UIOX_UINT64_T_DEFINED
+typedef __UINT64_TYPE__  uint64_t;
+#endif
+#ifndef UIOX_INT64_T_DEFINED
+#define UIOX_INT64_T_DEFINED
+typedef __INT64_TYPE__   int64_t;
+#endif
+
 #endif /* UIOX_BARE_INT64_TYPES */
 
 /* ═════════════════════════════════════════════════════════════════════

@@ -163,7 +163,7 @@ static void early_puts(const char *s);
  * 50_UIX/01_shell  — first user shell
  * 33_PCS internal  — scheduler and timer sub-modules
  */
-__attribute__((weak))
+//__attribute__((weak))
 void uiox_ks_boot_entry(const void *image,
                          size_t      image_size,
                          uintptr_t   text_base,
@@ -177,7 +177,7 @@ void uiox_ks_boot_entry(const void *image,
     early_puts("[kernel]   uiox_ks_boot_entry: stub (33_PCS/03_ksign not built)\r\n");
 }
 
-__attribute__((weak))
+//__attribute__((weak))
 uiox_fb_err_t uiox_fb_init(uiox_fb_master_ctx_t *ctx,
                              uiox_fb_mode_t        mode,
                              uint64_t              budget_ns)
@@ -187,7 +187,7 @@ uiox_fb_err_t uiox_fb_init(uiox_fb_master_ctx_t *ctx,
     return 0;
 }
 
-__attribute__((weak))
+//__attribute__((weak))
 uiox_fb_err_t uiox_fb_shell_ready(uiox_fb_master_ctx_t *ctx)
 {
     (void)ctx;
@@ -195,14 +195,14 @@ uiox_fb_err_t uiox_fb_shell_ready(uiox_fb_master_ctx_t *ctx)
     return 0;
 }
 
-__attribute__((weak))
+//__attribute__((weak))
 void uiox_fb_report(const uiox_fb_master_ctx_t *ctx)
 {
     (void)ctx;
     early_puts("[kernel]   uiox_fb_report: stub (33_PCS/04_fboot not built)\r\n");
 }
 
-__attribute__((weak))
+//__attribute__((weak))
 void uiox_shell_start(void)
 {
     early_puts("[kernel]   uiox_shell_start: stub (50_UIX/01_shell not built)\r\n");
@@ -216,37 +216,56 @@ void uiox_shell_start(void)
     }
 }
 
-__attribute__((weak))
+//__attribute__((weak))
 void uiox_sched_init(void)
 {
     early_puts("[kernel]   uiox_sched_init: stub (33_PCS/01_schedular not built)\r\n");
 }
 
-__attribute__((weak))
+//__attribute__((weak))
 void uiox_timer_init(void)
 {
     early_puts("[kernel]   uiox_timer_init: stub (33_PCS timer not built)\r\n");
 }
 
-__attribute__((weak))
+//__attribute__((weak))
 void uiox_kp_engine_init(void)
 {
     early_puts("[kernel]   uiox_kp_engine_init: stub (33_PCS/06_kpatch not built)\r\n");
 }
 
-__attribute__((weak))
+//__attribute__((weak))
 void uiox_sec_init(void)
 {
     early_puts("[kernel]   uiox_sec_init: stub (33_PCS/05_sec not built)\r\n");
 }
 
-__attribute__((weak))
+//__attribute__((weak))
 int uiox_fs_init(void)
 {
     early_puts("[kernel]   uiox_fs_init: stub (32_FS not built)\r\n");
     return 0;
 }
-
+/* ── 30_DSS device entry points that have no body yet ────────────────
+ * Called unconditionally from kernel_common_init (netif/socket) or
+ * inside UIOX_HAVE_ETH / UIOX_HAVE_EMMC (the other two).  Weak, so a
+ * real definition in its own layer wins the moment one exists — the
+ * rule the block above already follows. */
+__attribute__((weak))
+void uiox_socket_subsystem_init(void) { }
+__attribute__((weak))
+int uiox_eth_boot_init(uintptr_t eth_base, uint32_t eth_irq,
+                       uiox_fw_net_type_t eth_type)
+{
+    (void)eth_base; (void)eth_irq; (void)eth_type;
+    return -1;
+}
+__attribute__((weak))
+int uiox_drv_emmc_bind(uint8_t emmc_dev, uiox_fw_stor_dev_t *emmc_fw)
+{
+    (void)emmc_dev; (void)emmc_fw;
+    return -1;
+}
 /* ── Kernel BSS / stack symbols (provided by the linker script) ───────── */
 extern uint8_t _bss_start[];
 extern uint8_t _bss_end[];
