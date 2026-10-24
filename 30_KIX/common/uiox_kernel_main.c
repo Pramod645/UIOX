@@ -98,11 +98,11 @@
 #include "uiox_fboot.h"         /* uiox_fb_master_ctx_t, fb_init/ready/report*/
 #include "uiox_fw_net.h"        /* uiox_fw_net_type_t — eth boot call       */
 #include "uiox_fw_storage.h"    /* uiox_fw_stor_dev_t, uiox_fw_stor_get()   */
-#include "uiox_syscall.h"       /* uiox_syscall_dispatch — called by the
+/* #include "uiox_syscall.h"       uiox_syscall_dispatch — called by the
                                  * arch vector table's arch_syscall_entry().
                                  * No registration here: the table is wired
                                  * by the arch vectors, not at init.       */
-#include "uiox_uaccess.h"       /* copy_from_user / copy_to_user           */
+//#include "uiox_uaccess.h"       /* copy_from_user / copy_to_user           */
 #include "inode.h"              /* ROOT_DEV — the root device index        */
 
 /*
