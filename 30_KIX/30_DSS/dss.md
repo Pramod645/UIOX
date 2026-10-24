@@ -1393,7 +1393,7 @@ typedef enum {
     UIOX_DEVCLASS_MOUSE,     UIOX_DEVCLASS_ALS,    UIOX_DEVCLASS_THERMAL,
     UIOX_DEVCLASS_TOUCHPWD,  UIOX_DEVCLASS_BMS,    UIOX_DEVCLASS_CHG,
     UIOX_DEVCLASS_FAN,       UIOX_DEVCLASS_PMIC,   UIOX_DEVCLASS_RTC,
-    UIOX_DEVCLASS_SPEAKER,   UIOX_DEVCLASS_EMMC,
+    UIOX_DEVCLASS_SPEAKER,   ,
     UIOX_DEVCLASS__COUNT
 } uiox_devclass_t;
 mknod's flag in your tree's spelling: SCFS_S_IFBLK / SCFS_S_IFCHR, matching the existing SCFS_S_IF* set.
@@ -2393,7 +2393,140 @@ The eight files — final shape
 7	20_DD/01_Com/uart/uiox_uart_blk.c	the seam — tif_of() + forwards
 8	20_DD/01_Com/uart/uiox_uart_probe.c	ip from UIOX_SOC_HW_CAP_PL011/_16550; base/IRQ from the map
 
+========
+family 1 others also along with EMMC
 
+1. SD or SDMMC
+2. NVME: PCIe/NVMe
+3. SATA
+4. usbms
+
+
+
+uiox_fw_emmc.c     SDHCI-emmc          → powers the wired emmc class
+uiox_fw_sd.c       SDHCI               → sdmmc has a protocol half already
+uiox_fw_nvme.c     NVME_REG_CC/AQA/CSTS handshake, bar0 as a field
+uiox_fw_pcie.c     ECAM walk, cfg_read32/16, assign_bars, enable_dev
+uiox_fw_sata.c     AHCI
+uiox_fw_storage.c  block-device registration
+
+
+can you tell how nvme,sdmc and usbms can be read from userspace to till silicon and wthat is their usages?
+
+
+NVMe, SDMMC and USBMS — userspace to silicon
+All three are family-1 BLOCK classes, so they share one upper path and diverge at the controller. That shared part is worth stating first because it explains why the three read the same way from userspace even though the silicon has nothing in common.
+
+The shared upper path — identical for all three
+
+
+read(2) / write(2)
+  → 10_scfs                       look up the inode's (cls, unit)
+     → uiox_dev_lookup(cls, 0)    the registry returns a uiox_dev_dev_t
+        → dev->ops->read(dev, blkno, count, buf)      ← uiox_blk_ops_t
+           → bcache                 00_bcache keys buffers on (dev, blkno)
+              → the class's _blk.c  the seam: cast drv_priv, forward
+                 → uiox_<cls>_if_read()
+                    → the FwHal  → silicon
+Two things make that uniform:
+
+The registry key is (cls, unit), not major/minor. uiox_devclass.h packs family and class into one value: EMMC=(BLOCK,0), SDMMC=(BLOCK,1), NVME=(BLOCK,2), USBMS=(BLOCK,3). uiox_dev_lookup() is the only way in, and uiox_devparse.c maps a node name back to it.
+
+bcache sits in the middle — so userspace never talks to a driver directly. A read of count blocks fills count × BCACHE_SECTOR_SIZE bytes, keyed on (dev, blkno), and num_blocks returning 0 means unknown rather than empty.
+
+NVMe — the only one whose data path is real
+mermaid
+
+
+flowchart TD
+    A["read(2) on /dev/nvme0n1"] --> B["10_scfs → uiox_dev_lookup(BLOCK,2, 0)"]
+    B --> C["nvme_blk_read<br/>unwrap dev->drv_priv → uiox_nvme_if_t"]
+    C --> D["uiox_nvme_if_read(nif, lba, buf, count)"]
+    D --> E["FwHal: uiox_fw_nvme.c"]
+    E --> F["BAR0 MMIO — doorbell submission"]
+    F --> G["Admin/I-O queue pair → completion"]
+    G --> H["NVMe SSD over PCIe / M.2"]
+Where the BAR comes from is what makes NVMe different from the other two. eMMC and SD have a base address the SoC knows; an NVMe device's BAR is assigned by PCIe. So the probe's first step is not "read soc->base" but:
+
+c
+
+
+uiox_soc_pcie_ctrl_t *ctrl = uiox_soc_pcie_get();
+if (!ctrl || !ctrl->initialized) return -ENODEV;
+uiox_soc_pcie_dev_t *pdev = uiox_soc_pcie_find_class(ctrl, UIOX_PCI_CLASS_NVME);
+UIOX_PCI_CLASS_NVME is 0x010802 — base class 1, subclass 8, prog-IF 2. The SoC layer ran init → scan → assign_bars → enable_dev at boot; the probe only reads what that produced. uiox_soc_pcie_get() is the accessor you had to write — three lines beside s_pcie in uiox_soc_main.c, exactly the shape the other two need.
+
+Usage: an internal SSD. The FwHal owns CAP, CC, CSTS, AQA, ASQ/ACQ; admin IDENTIFY fills model/serial/fw-rev/nsid; I/O goes through queue doorbells. This is the one of the three you'd actually run a root filesystem on — and uiox_fw_nvme.c is the storage FwHal described as real, not placeholder.
+
+SDMMC — real card detect, fabricated transfer
+mermaid
+
+
+flowchart TD
+    A["read(2) on /dev/mmcblk0"] --> B["uiox_dev_lookup(BLOCK,1, 0)"]
+    B --> C["sdmmc_blk_read → uiox_sd_if_t"]
+    C --> D["uiox_sd_if_read()"]
+    D --> E["FwHal: uiox_fw_sd.c"]
+    E --> F["sdh_detect() — reads PRESENT_STATE, decodes CARD_INS + WP"]
+    E --> G["sdh_init() — CLK_CTRL, bounded poll, SD_CLK_EN"]
+    E --> H["sdh_read() — returns UIOX_FW_OK, moves nothing"]
+    F --> I["SDIO host controller → card slot"]
+sdh_detect and sdh_init are real register work. sdh_detect reads the present-state register and decodes two genuine bits — card inserted, write-protected. sdh_init writes CLK_CTRL, polls the internal-clock-stable bit with a bounded loop, then enables SD_CLK_EN.
+
+sdh_card_init and sdh_read are not. The comment says "Simplified init: CMD0 → ACMD41 → CMD2 → CMD3" and then executes none of them — it writes rca = 1, card_type = SDHC, capacity_sectors = 0x800000 and returns OK. That's a fabricated identity, the same defect class the session spent its time clearing. And sdh_read bounds-checks and returns OK having moved nothing, so a caller would read stale memory believing it was card data.
+
+Usage: removable storage — an SD card slot on a laptop, or the boot medium on a board where the card is the disk. The card-present state is trustworthy; the transfer is not.
+
+USBMS — a complete stack above a shut door
+mermaid
+
+
+flowchart TD
+    A["read(2) on /dev/sda"] --> B["uiox_dev_lookup(BLOCK,3, 0)"]
+    B --> C["usbms_blk_read → uiox_usbms_if_t"]
+    C --> D["uiox_usbms_if_read()"]
+    D --> E["uiox_usbms_scsi.c — CDB built<br/>READ(10), msb_set32 for the LBA"]
+    E --> F["BOT transport<br/>CBW → data → CSW"]
+    F --> G["uiox_usb_if_submit() → URB"]
+    G --> H["uiox_usb_fwops.c — 23 placeholder slots"]
+    H --> I["xHCI → USB port → stick"]
+This is the most-built and the most-blocked of the three, which is counter-intuitive but accurate:
+
+Above the fault: the class-driver framework (uiox_usb_class_drv_t with bind/unbind/setup/ep_event/tick), the BOT transport, the SCSI layer (uiox_usbms_scsi.c — INQUIRY, READ CAPACITY with msb_set32, sense data), the block seam, the probe's enumeration walk.
+At and below the fault: uiox_usb_fwops.c is 23 slots returning -ENOSYS. So uiox_usb_if_submit() fails, the CSW never arrives, and every transfer dies.
+The probe's walk is worth reading, because it's the piece you finished last:
+
+c
+
+
+uiox_usb_hw_t *hw = uiox_usb_hw_get();
+if (hw->role != UIOX_USB_ROLE_HOST && hw->role != UIOX_USB_ROLE_OTG) return -ENODEV;
+if (!hw->connected) return -ENODEV;
+
+uiox_usb_hc_dev_t *hc = uiox_usb_hw_fwdev(hw);
+for (uiox_uint32_t i = 0u; i < hc->num_devices; i++) {
+    if (!hc->devices[i].connected) continue;
+    if (hc->devices[i].class_code != 0x08u) continue;   /* MSC */
+    dev_addr = hc->devices[i].addr;
+    found = true;
+Note class_code != 0x08u checks one byte — the base class. Mass storage's full identity is three (0x08 base, 0x06 SCSI-transparent, 0x50 BOT), so a UAS or vendor device would also match. The file's own comment says so rather than hiding it.
+
+Usage: a USB stick or external drive. Binds, enumerates, answers ioctl for geometry and stats, refuses transfers — the same honest position emmc and sdmmc occupy.
+
+What each is for, and what actually works
+NVMe	SDMMC	USBMS
+Silicon	PCIe SSD, BAR0 MMIO	SDIO host + card slot	xHCI + USB stick
+Bus discovery	PCIe enum — BAR assigned at boot	SoC base	USB enum
+Registry	(BLOCK,2)	(BLOCK,1)	(BLOCK,3)
+Card/device detect	via PCIe find_class	✅ real register read	✅ real (from the FwHal list)
+Init	real	✅ real (CLK_CTRL, SD_CLK_EN)	23 -ENOSYS slots
+Data transfer	✅ real	❌ OK with nothing moved	❌ -ENOSYS
+Typical use	internal disk, root fs	removable card, boot medium	removable stick
+Blocking layer	—	uiox_fw_sd.c's fabricated read	uiox_usb_fwops.c
+The pattern is consistent and worth naming: all three bind and enumerate — they appear in the registry, answer ioctl, and report geometry. Only NVMe carries bytes. SD and USBMS are honest about the layer beneath them in different ways: SD returns OK (a defect to fix), USBMS returns -ENOSYS (correct behaviour).
+
+One thing that isn't visible from userspace
+None of the three has a read(2) path today in the sense the console lacked one — but for a different reason. A BLOCK inode reaches its driver through bcache, and uiox_blk_ops_t is the family vtable (no head, unlike EVENT/REG), so dev->ops->read() works. So the three storage classes are the ones userspace can genuinely read — that path is complete from read(2) down to dev->ops, and the only question is whether the silicon beneath answers.
 
 
 

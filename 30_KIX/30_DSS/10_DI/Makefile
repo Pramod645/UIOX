@@ -38,6 +38,8 @@ ENABLE_PMIC     ?= yes
 ENABLE_RTC      ?= yes
 ENABLE_SPEAKER  ?= yes
 ENABLE_EMMC     ?= yes
+ENABLE_SDMC     ?= yes
+ENABLE_NVME     ?= yes
 ENABLE_UART     ?= yes
 
 _BUILD_DIR := $(BUILD_BASE)/$(_ARCH)
@@ -126,6 +128,12 @@ endif
 ifeq ($(ENABLE_UART),yes)
   SUBDIRS += 01_Com/uart
 endif
+ifeq ($(ENABLE_SDMC),yes)
+  SUBDIRS += 03_NonSensors/SDMC
+endif
+ifeq ($(ENABLE_NVME),yes)
+  SUBDIRS += 03_NonSensors/NVME
+endif
 
 SRCS := $(foreach d,$(SUBDIRS),$(wildcard $(MFDIR)$(d)/*.c))
 SRCS += $(MFDIR)02_Sensors/als/uiox_als_fwops.c
@@ -166,7 +174,9 @@ arm64 arm32 riscv64 x86_64:
 	    ENABLE_RTC=$(ENABLE_RTC)        \
 	    ENABLE_SPEAKER=$(ENABLE_SPEAKER)\
 		ENABLE_SPEAKER=$(ENABLE_UART)   \
-	    ENABLE_EMMC=$(ENABLE_EMMC)
+	    ENABLE_EMMC=$(ENABLE_EMMC)      \
+		ENABLE_EMMC=$(ENABLE_SDMC)      \
+	    ENABLE_EMMC=$(ENABLE_NVME)
 
 .PHONY: _build
 _build: $(LIB)

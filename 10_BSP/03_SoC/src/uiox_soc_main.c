@@ -86,6 +86,22 @@
   * ====================================================================== */
  static uiox_soc_dma_ctrl_t  s_dma;
  static uiox_soc_pcie_ctrl_t s_pcie;
+
+/* ── uiox_soc_pcie_get ──────────────────────────────────────────────
+ * The controller soc_stage_pcie() initialised, handed to a class driver.
+ * s_pcie is file-static here, so this accessor belongs beside it — not
+ * in uiox_soc_pcie.c, which owns the register operations and never the
+ * storage.
+ *
+ * Same shape as the accessor the USB and SD classes need: the BSP keeps
+ * one bound controller, and a driver that is not the stage function has
+ * no other route to it.  Returns NULL before soc_stage_pcie() has run,
+ * which a caller tests with ctrl->initialized rather than a fabricated
+ * BAR. */
+uiox_soc_pcie_ctrl_t *uiox_soc_pcie_get(void)
+{
+    return &s_pcie;
+}
  
  /* =========================================================================
   * Global state — core subsystems

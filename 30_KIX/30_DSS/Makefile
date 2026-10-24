@@ -50,6 +50,9 @@ ENABLE_PMIC     ?= yes
 ENABLE_RTC      ?= yes
 ENABLE_SPEAKER  ?= yes
 ENABLE_EMMC     ?= yes
+ENABLE_SDMC     ?= yes
+ENABLE_NVME     ?= yes
+ENABLE_USBMS    ?= yes
 ENABLE_UART     ?= yes
 
 _BUILD_DIR := $(BUILD_BASE)/$(_ARCH)
@@ -75,10 +78,13 @@ DI_SUBDIRS := \
   02_Sensors/als       02_Sensors/thermal  02_Sensors/touchpwd \
   03_NonSensors/bms    03_NonSensors/chg    03_NonSensors/fan   \
   03_NonSensors/pmic   03_NonSensors/rtc    03_NonSensors/speaker \
-  03_NonSensors/emmc   01_Com/uart
+  03_NonSensors/emmc   01_Com/uart			03_NonSensors/sdmc  \
+  03_NonSensors/nvme   03_NonSensors/usbms
 
 DI_INCLUDES := -I$(MFDIR)$(DI_DIR)/include \
                $(foreach d,$(DI_SUBDIRS),-I$(MFDIR)$(DI_DIR)/$(d))
+DD_INCLUDES = $(foreach d,$(DD_SUBDIRS),-I$(MFDIR)$(DD_DIR)/$(d))
+
 
 # ── 20_DD: device-conditional (unchanged from v1.3.2) ─────────────────────
 DD_SUBDIRS :=
@@ -148,6 +154,15 @@ endif
 ifeq ($(ENABLE_UART),yes)
   DD_SUBDIRS += 01_Com/uart
 endif
+ifeq ($(ENABLE_SDMC),yes)
+  DD_SUBDIRS += 03_NonSensors/SDMC
+endif
+ifeq ($(ENABLE_NVME),yes)
+  DD_SUBDIRS += 03_NonSensors/NVME
+endif
+ifeq ($(ENABLE_USBMS),yes)
+  DD_SUBDIRS += 03_NonSensors/USBMS
+endif
 
 # ══════════════════════════════════════════════════════════════════════════
 # 32_FS/00_drvbuff — the driver-side pools
@@ -198,6 +213,7 @@ COMMON_CFLAGS := \
   -I$(MFDIR)../../02_FwHal/include         \
   -I$(MFDIR)../../10_BSP/03_SoC/include    \
   -I$(MFDIR)$(DD_DIR)                      \
+  $(DD_INCLUDES)                           \
   $(DI_INCLUDES)                           \
   $(DRVBUFF_INCLUDES)
 
@@ -261,7 +277,10 @@ arm64 arm32 riscv64 x86_64:
 	    ENABLE_RTC=$(ENABLE_RTC)            \
 	    ENABLE_SPEAKER=$(ENABLE_SPEAKER)    \
 		ENABLE_SPEAKER=$(ENABLE_UART)       \
-	    ENABLE_EMMC=$(ENABLE_EMMC)
+	    ENABLE_EMMC=$(ENABLE_EMMC)          \
+	    ENABLE_EMMC=$(ENABLE_SDMC)          \
+	    ENABLE_EMMC=$(ENABLE_NVME)          \
+	    ENABLE_EMMC=$(ENABLE_USBMS)
 
 # ── the build: 10_DI first, then 20_DD, because 20_DD includes 10_DI's headers
 .PHONY: _build

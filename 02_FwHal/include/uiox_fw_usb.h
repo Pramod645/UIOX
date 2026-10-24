@@ -35,7 +35,7 @@ typedef struct {
 
 #define UIOX_USB_MAX_DEVICES  16u
 
-typedef struct {
+typedef struct uiox_usb_hc_dev {
     uintptr_t         mmio_base;
     uint32_t          irq;
     uiox_usb_hc_t     hc_type;

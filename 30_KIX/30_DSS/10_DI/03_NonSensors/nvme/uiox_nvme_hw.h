@@ -75,6 +75,25 @@ extern "C" {
 #define UIOX_NVME_IRQ_ERROR      (1u << 2)
 
 /* =========================================================================
+ * Interrupt event — what the ISR reports when a queue completes
+ *
+ * uiox_nvme_if_irq_handle() returns one of these (declared in
+ * uiox_nvme_if.h:48).  The three bits above are its `pending` field;
+ * the HAL's own isr() signature is void(uiox_nvme_hw_t *), so the
+ * event is assembled by the driver from the HAL's pending bits plus
+ * the completion queue entry, not returned by the HAL.
+ *
+ * Same shape as the other classes' event records: what happened, and
+ * which queue/command it happened to.
+ * ====================================================================== */
+typedef struct {
+    uint32_t pending;     /* UIOX_NVME_IRQ_CMD_DONE / _IO_DONE / _ERROR */
+    uint16_t cq_id;       /* completion queue the entry came from        */
+    uint16_t status;      /* NVMe status field from the CQ entry         */
+    uint32_t cid;         /* command identifier                          */
+} uiox_nvme_evt_t;
+
+/* =========================================================================
  * Device identity — what identify() fills
  * ====================================================================== */
 typedef struct {

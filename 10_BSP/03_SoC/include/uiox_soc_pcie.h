@@ -150,6 +150,11 @@
   *  Returns pointer into ctrl->devices[], or NULL if not found. */
  uiox_soc_pcie_dev_t *uiox_soc_pcie_find_class(uiox_soc_pcie_ctrl_t *ctrl,
                                                  uiox_uint32_t class_code);
+
+ /* The controller the SoC stage function initialised — the handle a
+ * class driver reaches through.  Defined in uiox_soc_main.c beside the
+ * s_pcie storage.  Returns NULL before the PCIe stage has run. */
+ uiox_soc_pcie_ctrl_t *uiox_soc_pcie_get(void);                                                
  
  /* ── Backwards-compatible wrappers for old uiox_fw_pcie_* callers ──── */
  typedef uiox_soc_pcie_ctrl_t  uiox_pcie_ctrl_t;    /* old name alias   */

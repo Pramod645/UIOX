@@ -17,7 +17,7 @@
 
 /* ── helpers ──────────────────────────────────────────────────────── */
 
-static void msb_set16(uint8_t *p, uint16_t v) { p[0] = (uint8_t)(v >> 8u); p[1] = (uint8_t)v; }
+static void __attribute__((unused)) msb_set16(uint8_t *p, uint16_t v) { p[0] = (uint8_t)(v >> 8u); p[1] = (uint8_t)v; }
 static void msb_set32(uint8_t *p, uint32_t v)
 {
     p[0] = (uint8_t)(v >> 24u); p[1] = (uint8_t)(v >> 16u);

@@ -17,6 +17,8 @@
 #include "uiox_usb_if.h"        /* uiox_usb_if_t, uiox_usb_hw_get   */
 #include "uiox_usb_hw.h"
 #include "uiox_devclass.h"
+#include "uiox_devops.h"        /* uiox_blk_ops_t */
+#include "uiox_fw_usb.h"     /* uiox_usb_hc_dev_t — the struct body */
 #include "uiox_klibc.h"
 
 // also#include "uiox_usb_hw.h"        /* uiox_usb_hc_dev_t, uiox_usb_hw_fwdev */

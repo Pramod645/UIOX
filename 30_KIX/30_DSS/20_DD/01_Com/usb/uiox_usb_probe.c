@@ -32,10 +32,18 @@
  #include "uiox_usb_hw.h"     /* uiox_usb_hw_t, uiox_usb_fwbind, role      */
  #include "uiox_fw_i2c.h"     /* uiox_i2c_dev_t — the struct's definition  */
  #include "uiox_devclass.h"   /* UIOX_DEVCLASS_USBHID / _USBHC, UIOX_BUS_*  */
+ #include "uiox_devops.h"     /* uiox_blk_ops_t */
+ #include "uiox_fw_usb.h"     /* uiox_usb_hc_dev_t — the struct body */
  #include "uiox_klibc.h"
  
  static uiox_usb_hw_t   s_usb_hw;
  static uiox_usb_if_t   s_usb_if;
+ /* s_usb_hw and s_usb_if are file-static here, so a class driver that is
+ * not the probe (usbms now, HID/CDC later) has no route to either.  Same
+ * shape as uiox_soc_pcie_get() in uiox_soc_main.c. */
+uiox_usb_hw_t *uiox_usb_hw_get(void) { return &s_usb_hw; }
+uiox_usb_if_t *uiox_usb_if_get(void) { return &s_usb_if; }
+
  static uiox_dev_dev_t  s_usb_dev;
  static uiox_i2c_dev_t  s_usb_i2c;   /* unused; the guard needs non-NULL */
  

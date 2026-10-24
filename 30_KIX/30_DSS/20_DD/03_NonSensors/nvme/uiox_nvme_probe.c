@@ -13,8 +13,10 @@
 #include "uiox_nvme_if.h"
 #include "uiox_nvme_hw.h"
 #include "uiox_devclass.h"
+#include "uiox_devops.h"        /* uiox_blk_ops_t */
 #include "uiox_klibc.h"
 #include "uiox_soc_pcie.h"      /* uiox_soc_pcie_get, _find_class */
+#include "uiox_fw_i2c.h"      /* struct uiox_i2c_dev — the forward decl completed */
 
 /* The BLOCK vtable from uiox_nvme_blk.c — non-static there, so extern. */
 extern const uiox_blk_ops_t s_nvme_blk_ops;

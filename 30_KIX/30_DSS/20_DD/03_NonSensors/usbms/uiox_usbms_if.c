@@ -20,6 +20,14 @@
 static int usbms_xfer(uint64_t lba, uint32_t sectors, uint8_t *buf,
                       uint32_t bytes, bool data_in, void *io_ctx)
 {
+    /* lba and sectors address the transfer in the CDB, which the caller
+     * (uiox_usbms_scsi.c) has already built and sent.  This is the data
+     * phase only — the URB carries the payload — so the two are not
+     * needed here.  They stay in the signature because the xfer hook is
+     * the SCSI layer's interface. */
+    (void)lba; (void)sectors;
+
+
     uiox_usbms_if_t *bif = (uiox_usbms_if_t *)io_ctx;
     if (!bif || !bif->uif || !buf || !bytes) return -EINVAL;
 
@@ -164,7 +172,7 @@ int uiox_usbms_if_write(uiox_usbms_if_t *bif, uint32_t lba,
 {
     if (!bif || !buf || !count) return -EINVAL;
     if (!bif->scsi.geom.ready) return -ENODEV;
-    if (bif->scsi.geom.write_protected) return -EROFS;
+    if (bif->scsi.geom.write_protected) return -EACCES;
 
     uint8_t  cdb[10] = { USBMS_SCSI_WRITE10, 0 };
     uint32_t len     = count * USBMS_SECTOR_SIZE;

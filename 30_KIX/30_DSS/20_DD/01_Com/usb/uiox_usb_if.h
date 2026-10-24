@@ -103,6 +103,8 @@
                               uiox_usb_if_stats_t *out);
  void uiox_usb_if_stats_reset(uiox_usb_if_t *uif);
  
+ uiox_usb_if_t *uiox_usb_if_get(void);
+
  #ifdef __cplusplus
  }
  #endif

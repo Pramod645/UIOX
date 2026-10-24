@@ -232,6 +232,10 @@ struct uiox_i2c_dev;
  */
 int uiox_usb_fwbind(uiox_usb_hw_t *hw, struct uiox_i2c_dev *i2c);
 
+struct uiox_usb_hc_dev;    /* forward — the body is in uiox_fw_usb.h */
+
+uiox_usb_hw_t          *uiox_usb_hw_get (void);
+struct uiox_usb_hc_dev *uiox_usb_hw_fwdev(const uiox_usb_hw_t *hw);
 /* ================================ end patch =============================== */
  
  #ifdef __cplusplus

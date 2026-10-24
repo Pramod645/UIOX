@@ -43,6 +43,13 @@ static uiox_usb_fwbind_t *bind_of(uiox_usb_hw_t *hw)
             return &s_usb_bind[i];
     return NULL;
 }
+/* Exported so a class driver can read the enumerated list.  bind_of()
+ * above is file-static; this is its public face. */
+struct uiox_usb_hc_dev *uiox_usb_hw_fwdev(const uiox_usb_hw_t *hw)
+{
+    uiox_usb_fwbind_t *b = bind_of((uiox_usb_hw_t *)hw);
+    return b ? &b->fw : NULL;
+}
 
 /* ---- vtable slots ---- */
 static int fw_usb_init(uiox_usb_hw_t *hw)

@@ -14,6 +14,7 @@
  * addressable sector, not the count.
  */
 #include "uiox_usbms_if.h"
+#include "uiox_usbms_ioctl.h"   /* UIOX_USBMS_IOC_* — the control vocabulary */
 #include "uiox_devclass.h"
 #include "uiox_devops.h"
 #include "uiox_klibc.h"
@@ -37,7 +38,7 @@ static int usbms_blk_write(uiox_dev_dev_t *dev, uint32_t blkno,
 {
     uiox_usbms_if_t *bif = bif_of(dev);
     if (!bif || !bif->primed) return -ENODEV;
-    if (bif->scsi.geom.write_protected) return -EROFS;
+    if (bif->scsi.geom.write_protected) return -EACCES;
     return uiox_usbms_if_write(bif, blkno, buf, count);
 }
 
