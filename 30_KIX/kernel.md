@@ -4391,6 +4391,8 @@ Still outstanding
 
 4 — the four redirect edits in 30_KIX/Makefile (steps 1/5/6/7) would make the umbrella itself trustworthy, at which point rebuild.sh becomes a convenience rather than a necessity.
 
+
+
 What's left, in order of value
 
 uiox_dss_init.c — add int uiox_uart_probe(void); and (void) uiox_uart_probe(); in the family-5 group. The UART class is compiled; this call site makes ttyS0 register at boot.
