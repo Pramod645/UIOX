@@ -1,11 +1,24 @@
 # =============================================================================
-# 02_FwHal/Makefile  — v1.2.1
+# 02_FwHal/Makefile  — v1.3.0
 #
 # Builds only the device source files for enabled devices.
 # Always-on infrastructure (I2C, SPI, UART, GPIO, clock, timer, …) is
 # compiled unconditionally.  Device files are conditional on ENABLE_*.
 #
 # Outputs: build/<arch>/libuiox_fw_<arch>.a
+#
+# v1.3.0 — storage-class sources are now conditionally compiled:
+#   · uiox_fw_sd.c    is added for ENABLE_SDMC=yes   (flag already passed
+#     by the umbrella; previously the file existed but was never built).
+#   · uiox_fw_nvme.c  is added for ENABLE_NVME=yes   (same).
+#   · Both files sit above the umbrella's SDMC/NVME device list; before
+#     this change every build linked a kernel with no SD/NVMe firmware
+#     symbols at all.
+#   NOTE — uiox_fw_sd.c's read/write entry points still return
+#   UIOX_FW_OK without transferring data.  Wiring the file in does NOT
+#   make those paths real; they must return a failure code until the
+#   transfer layer exists, or the driver will report success on a buffer
+#   it never filled.  Fix the returns BEFORE relying on this build.
 #
 # v1.2.1 — two fixes:
 #   · The ENABLE_RTC block named uiox_fw_rtc.c, which does not exist.  The
@@ -16,7 +29,7 @@
 #     the archive without the RTC branch ever being reachable.  Defaulted
 #     to `yes` to match every other device flag.
 #
-# @version 1.2.1  @date 2026-10-25
+# @version 1.3.0  @date 2026-10-25
 # =============================================================================
 
 MFDIR      := $(dir $(abspath $(lastword $(MAKEFILE_LIST))))
@@ -53,6 +66,8 @@ ENABLE_PMIC     ?= yes
 ENABLE_RTC      ?= yes
 ENABLE_SPEAKER  ?= yes
 ENABLE_EMMC     ?= yes
+ENABLE_SDMC     ?= yes
+ENABLE_NVME     ?= yes
 
 _BUILD_DIR  := $(BUILD_BASE)/$(_ARCH)
 
@@ -147,6 +162,25 @@ ifeq ($(ENABLE_PMIC),yes)
   SRCS += $(SRCDIR)/uiox_fw_pmic.c
 endif
 
+# ── Storage classes (2026-10-25) ──────────────────────────────────────────────
+# The umbrella passes ENABLE_SDMC / ENABLE_NVME in $(ENABLE_FLAGS) and the
+# kernel's storage layer (uiox_fw_stor_get) expects these drivers to exist,
+# but no block here added the sources — so the archive shipped without them
+# and the link resolved the storage symbols from elsewhere (or not at all).
+#
+# Only files whose stubs are honest belong here.  uiox_fw_sd.c is included
+# because the file exists as a compile unit and its probe path is real; its
+# transfer paths are NOT, and must be corrected to return a failure code
+# before anything depends on them.  uiox_fw_sata.c and uiox_fw_net.c are
+# deliberately left out: SATA has no enable flag in the umbrella's device
+# list, and net duplicates what ENABLE_ETH/ENABLE_WIFI already cover.
+ifeq ($(ENABLE_SDMC),yes)
+  SRCS += $(SRCDIR)/uiox_fw_sd.c
+endif
+ifeq ($(ENABLE_NVME),yes)
+  SRCS += $(SRCDIR)/uiox_fw_nvme.c
+endif
+
 # ── RTC ───────────────────────────────────────────────────────────────────────
 # uiox_fw_ramrtc.c is in the unconditional SRCS block above: the RTC is a
 # driver (DS1307 + MC146818), not a device gated on ENABLE_*.  The old
@@ -201,7 +235,9 @@ arm64 arm32 riscv64 x86_64:
 	    ENABLE_PMIC=$(ENABLE_PMIC)      \
 	    ENABLE_RTC=$(ENABLE_RTC)        \
 	    ENABLE_SPEAKER=$(ENABLE_SPEAKER)\
-	    ENABLE_EMMC=$(ENABLE_EMMC)
+	    ENABLE_EMMC=$(ENABLE_EMMC)      \
+	    ENABLE_SDMC=$(ENABLE_SDMC)      \
+	    ENABLE_NVME=$(ENABLE_NVME)
 
 .PHONY: _build
 _build: $(LIB)
