@@ -350,7 +350,7 @@ InCoreInode *iget_dev(uint8_t dev, uint32_t ino)
         brelse(buf);                        /* buffer layer */
 
         printf("[iget] disk read: dev=%u ino=%u size=%u nlink=%u\n",
-               (unsigned)dev, (unsigned)ino, ip->size, ip->nlink);
+               (unsigned)dev, (unsigned)ino, (unsigned)ip->size, (unsigned)ip->nlink);
         return ip;
     }
 }

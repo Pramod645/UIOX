@@ -49,7 +49,7 @@
 #include "uiox_kix_scfs_internal.h"
 
 /* write() - Algorithm write. */
-int uiox_kix_scfs_write(int fd, const char *buf, uint32_t count)
+int32_t uiox_kix_scfs_write(int fd, const char *buf, uint32_t count)
 {
     /* -- 1. get the FILE TABLE entry from the fd ---------------------- */
     scfs_file_t *f = scfs_getf(fd);
@@ -103,7 +103,7 @@ int uiox_kix_scfs_write(int fd, const char *buf, uint32_t count)
  * f_offset is not touched, so a file table entry shared by dup() keeps
  * its position.  writei_at() takes the offset by value for that reason.
  */
-int uiox_kix_scfs_pwrite(int fd, const char *buf, uint32_t count, uint32_t off)
+int32_t uiox_kix_scfs_pwrite(int fd, const char *buf, uint32_t count, uint32_t off)
 {
     scfs_file_t *f = scfs_getf(fd);
     if (!f) return SCFS_EBADF;

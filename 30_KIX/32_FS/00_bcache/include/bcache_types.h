@@ -100,8 +100,8 @@ typedef signed char        int8_t;
 typedef unsigned char      uint8_t;
 typedef short              int16_t;
 typedef unsigned short     uint16_t;
-typedef int                int32_t;
-typedef unsigned int       uint32_t;
+typedef __INT32_TYPE__     int32_t;      /* was: int */
+typedef __UINT32_TYPE__    uint32_t;     /* was: unsigned int */
 
 /* long long is exactly 64 bits on every target this kernel builds for —
  * aarch64 (LP64), arm32 (ILP32), riscv64 (LP64) and x86-64 (LP64).

@@ -14,9 +14,14 @@
  * @version 1.0.1
  * @date    2026-06-26
  */
-
+ 
  #include "uiox_fw.h"
  //#include <stdarg.h>
+
+ #include "uiox_boot_handoff.h"    /* uiox_boot_args_t — the x86_64 kernel
+                                   * entry takes it as its first parameter
+                                   * (see the extern at line 428) */
+
  /**
  * Integration patch for 02_FwHal/src/uiox_fw_main.c
  * Add these includes and the Stage 0 block.

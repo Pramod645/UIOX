@@ -78,7 +78,7 @@
  * a file that large cannot be addressed by bmap() anyway (the block map
  * tops out at the triple-indirect range).
  */
-int uiox_kix_scfs_read(int fd, char *buf, uint32_t count)
+int32_t uiox_kix_scfs_read(int fd, char *buf, uint32_t count)
 {
     /* ── 1. get the FILE TABLE entry from the fd ────────────────────── */
     scfs_file_t *f = scfs_getf(fd);
@@ -271,7 +271,7 @@ int uiox_kix_scfs_read(int fd, char *buf, uint32_t count)
  * A device has no offset, so pread on a char node is refused rather than
  * silently served from a position that means nothing.
  */
-int uiox_kix_scfs_pread(int fd, char *buf, uint32_t count, uint32_t off)
+int32_t uiox_kix_scfs_pread(int fd, char *buf, uint32_t count, uint32_t off)
 {
     scfs_file_t *f = scfs_getf(fd);
     if (!f) return SCFS_EBADF;

@@ -1,0 +1,82 @@
+cd /Users/pramodkumar/Hack/WS/UIOX
+chmod +x rebuild.sh
+
+./rebuild.sh                 # all four, clean each, stop at first failure
+./rebuild.sh --continue      # all four, report every result
+./rebuild.sh arm64           # just arm64
+./rebuild.sh --no-clean arm64
+
+
+
+
+cd /Users/pramodkumar/Hack/WS/UIOX
+./rebuild.sh --no-clean arm64           # should stay green
+./rebuild.sh arm32 x86_64 --continue
+
+
+
+./rebuild.sh arm64 arm32 x86_64 --continue
+
+
+cd /Users/pramodkumar/Hack/WS/UIOX
+./rebuild.sh arm64 arm32 x86_64 riscv64 --continue 2>&1 | tail -8
+
+
+cd /Users/pramodkumar/Hack/WS/UIOX
+grep -n 'clean' rebuild.sh | head
+
+
+
+==============================================
+/rebuild.sh clean — if your script has a clean subcommand. Check first, since I wrote the arch loop but can't see the argument parser in the portion you've pasted:
+
+sh
+
+
+cd /Users/pramodkumar/Hack/WS/UIOX
+grep -n 'clean' rebuild.sh | head
+If it does, that's the whole command and it's cleaner than touching the Makefiles.
+
+If it doesn't — the Makefile route
+30_KIX/Makefile line 395 has exactly this:
+
+make
+
+
+395: clean: clean-arm64 clean-arm32 clean-riscv64 clean-x86_64 clean-subsys
+So from the repo root:
+
+sh
+
+
+cd /Users/pramodkumar/Hack/WS/UIOX
+make -C 30_KIX clean
+That hits all four arches plus clean-subsys, in one command.
+
+The manual route, if you want no make involved
+sh
+
+
+cd /Users/pramodkumar/Hack/WS/UIOX
+rm -rf 02_FwHal/build 10_BSP/build \
+       30_KIX/build 30_KIX/30_DSS/10_DI/build 30_KIX/30_DSS/20_DD/build \
+       30_KIX/31_BufferCache/build 30_KIX/32_FS/build 30_KIX/33_PCS/build \
+       30_KIX/34_CAS/build 30_KIX/50_UIX/01_shell/build
+One caveat that matters
+rebuild.sh already cleans each arch before building — that's what the rm -rf …/build/arm64 lines at the top of every run do, and it's why --no-clean exists. So a separate clean step is only needed when you want the tree empty without rebuilding. To build everything from scratch:
+
+sh
+
+
+cd /Users/pramodkumar/Hack/WS/UIOX
+./rebuild.sh --continue 2>&1 | tail -8
+That's already a clean build of all four. There's no separate clean needed first.
+
+And the reason the clean is fussy here
+From the script's own header — make clean alone is unreliable on this tree because clean-subsys deletes 02_FwHal/build and 30_KIX/30_DSS/10_DI/build, while the umbrella's steps 1/5/6/7 swallow their own failures with 2>/dev/null || echo "…skipped". The umbrella then finishes with archives missing and the link fails on uiox_fw_stor_get / uiox_proc_init / phys_alloc_page.
+
+That's precisely why rebuild.sh drives each layer directly instead. So the answer depends on what you want:
+
+Empty tree, no build → make -C 30_KIX clean, or the rm -rf above
+Clean rebuild of all four → ./rebuild.sh --continue on its own
+Run the grep -n 'clean' rebuild.sh first — if a clean subcommand is already there, that's your command and neither alternative is needed.

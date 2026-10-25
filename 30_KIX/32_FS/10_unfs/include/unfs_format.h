@@ -73,16 +73,18 @@
  * Both pads below are therefore named literals, verified by the field
  * sums printed above each struct and enforced by the asserts. */
 
+#ifndef UIOX_PRIMITIVES_DEFINED
+#define UIOX_PRIMITIVES_DEFINED
 #ifndef UIOX_BARE_INT_TYPES
 #define UIOX_BARE_INT_TYPES
-typedef uiox_uint8_t   uint8_t;
-typedef uiox_uint16_t  uint16_t;
-typedef uiox_uint32_t  uint32_t;
-typedef uiox_int8_t    int8_t;
-typedef uiox_int16_t   int16_t;
-typedef uiox_int32_t   int32_t;
+typedef __UINT8_TYPE__    uint8_t;
+typedef __UINT16_TYPE__   uint16_t;
+typedef __UINT32_TYPE__   uint32_t;
+typedef __INT8_TYPE__     int8_t;
+typedef __INT16_TYPE__    int16_t;
+typedef __INT32_TYPE__    int32_t;
 #endif /* UIOX_BARE_INT_TYPES */
-
+#endif /* UIOX_PRIMITIVES_DEFINED */
 /* The 64-bit spellings.
  *
  * These must match uiox_klibc.h EXACTLY — not uiox_base_types.h.
@@ -93,8 +95,8 @@ typedef uiox_int32_t   int32_t;
  *
  * __UINT64_TYPE__ is NOT usable: on aarch64-elf it expands to
  * `unsigned long`, which is the other side of the conflict. */
-#ifndef UIOX_BARE_INT64_TYPES
-#define UIOX_BARE_INT64_TYPES
+//#ifndef UIOX_BARE_INT64_TYPES
+//#define UIOX_BARE_INT64_TYPES
 //typedef unsigned long long  uint64_t;
 //typedef long long           int64_t;
 #ifndef UIOX_UINT64_T_DEFINED
@@ -106,7 +108,7 @@ typedef __UINT64_TYPE__  uint64_t;
 typedef __INT64_TYPE__   int64_t;
 #endif
 
-#endif /* UIOX_BARE_INT64_TYPES */
+//#endif /* UIOX_BARE_INT64_TYPES */
 
 /* ═════════════════════════════════════════════════════════════════════
  * Magic and version

@@ -93,17 +93,17 @@
 #ifndef UIOX_PRIMITIVES_DEFINED
 #define UIOX_PRIMITIVES_DEFINED
 /* ── §1  Integer types ──────────────────────────────────────── */
-typedef unsigned char       uint8_t;
-typedef unsigned short      uint16_t;
-typedef unsigned int        uint32_t;
+typedef __UINT8_TYPE__       uint8_t;
+typedef __UINT16_TYPE__      uint16_t;
+typedef __UINT32_TYPE__      uint32_t;
 //typedef unsigned long long  uint64_t;
 #ifndef UIOX_UINT64_T_DEFINED
 #define UIOX_UINT64_T_DEFINED
 typedef __UINT64_TYPE__     uint64_t;
 #endif
-typedef signed char         int8_t;
-typedef short               int16_t;
-typedef int                 int32_t;
+typedef __INT8_TYPE__        int8_t;
+typedef __INT16_TYPE__       int16_t;
+typedef __INT32_TYPE__       int32_t;
 //typedef long long           int64_t;
 #ifndef UIOX_INT64_T_DEFINED
 #define UIOX_INT64_T_DEFINED
@@ -115,12 +115,13 @@ typedef __INT64_TYPE__      int64_t;
 typedef __UINTPTR_TYPE__    uintptr_t;
 typedef __INTPTR_TYPE__     intptr_t;
 #else
-typedef __UINT32_TYPE__     uintptr_t;
-typedef __INT32_TYPE__      intptr_t;
+//typedef __UINT32_TYPE__     uintptr_t;
+//typedef __INT32_TYPE__      intptr_t;
 #endif
 //typedef int64_t             intptr_t;
 typedef uint64_t            uintmax_t;
 typedef int64_t             intmax_t;
+#endif /* !UIOX_PRIMITIVES_DEFINED */     /* ← §1 ends here */
 
 /* ── §2  Boolean ────────────────────────────────────────────── */
 #ifndef __cplusplus
@@ -167,29 +168,29 @@ typedef int64_t             intmax_t;
 #endif
 
 /* ── §3  Pointer / size types ───────────────────────────────── */
+/* ── §3  Pointer / size types ─────────────────────────────────
+ * Spelled from the COMPILER BUILTINS, matching uiox_fw_types.h:69 and
+ * uiox_fw_types.h:68 exactly.  Deriving them from int32_t/int64_t gives
+ * `long int` on arm32 where __PTRDIFF_TYPE__ is `int` — same width,
+ * DIFFERENT type to C, which is -Werror=conflicting-types.
+ *
+ * Unconditional (not inside UIOX_PRIMITIVES_DEFINED): the string and
+ * memory functions below use size_t and cannot do without it. */
 #ifndef NULL
 #define NULL ((void *)0)
 #endif
 
-//typedef uint64_t  size_t;
-//typedef int64_t   ssize_t;
-//typedef int64_t   ptrdiff_t;
-/* Pointer-width by definition.  sizeof yields size_t, so a 64-bit
- * size_t on a 32-bit target makes every address computation wrong —
- * silently, wherever the compiler does not happen to warn.
- * __SIZEOF_POINTER__ is the compiler's own answer and is correct for
- * every target; the architecture enumeration used elsewhere in this
- * file omits __arm__ and got ARM32 wrong. */
+typedef __SIZE_TYPE__    size_t;
+typedef __PTRDIFF_TYPE__ ptrdiff_t;
+typedef __INTPTR_TYPE__  intptr_t;
+typedef __UINTPTR_TYPE__ uintptr_t;
+
 #if __SIZEOF_POINTER__ == 8
-typedef uint64_t  size_t;
-typedef int64_t   ssize_t;
-typedef int64_t   ptrdiff_t;
+typedef __INT64_TYPE__   ssize_t;
 #else
-typedef uint32_t  size_t;
-typedef int32_t   ssize_t;
-typedef int32_t   ptrdiff_t;
+typedef __INT32_TYPE__   ssize_t;
 #endif
-#endif /* !UIOX_PRIMITIVES_DEFINED */
+
 
 #ifndef offsetof
 #define offsetof(type, member) __builtin_offsetof(type, member)

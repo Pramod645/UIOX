@@ -9,6 +9,13 @@
  * protected by the outer UIOX_FW_TYPES_H guard).
  *
  * FIX: uiox_memcpy() body reformatted to eliminate -Werror=misleading-indentation.
+ *
+ * FIX: The typedef block now also tests UIOX_PRIMITIVES_DEFINED.  It
+ *      previously tested UIOX_KLIBC_H only, so a prior uiox_boot_types.h
+ *      (which sets UIOX_PRIMITIVES_DEFINED, not UIOX_KLIBC_H) did not
+ *      suppress it — and the spellings differ: __UINT64_TYPE__ is
+ *      `long unsigned int` where boot_types' `unsigned long long` is a
+ *      DIFFERENT type to C.  Whichever header is read first now wins.
  */
 #ifndef UIOX_FW_TYPES_H
 #define UIOX_FW_TYPES_H
@@ -36,7 +43,16 @@
 #endif
 
 
-#ifndef UIOX_KLIBC_H   /* uiox_klibc.h supplies base types + mem helpers */
+#ifndef UIOX_KLIBC_H          /* uiox_klibc.h supplies base types + mem helpers */
+#ifndef UIOX_PRIMITIVES_DEFINED  /* …or uiox_boot_types.h already did.
+                                  * That header sets UIOX_PRIMITIVES_DEFINED
+                                  * (not UIOX_KLIBC_H), so without this test
+                                  * the block below is entered anyway and the
+                                  * two spellings conflict:
+                                  *   __UINT64_TYPE__      = long unsigned int
+                                  *   unsigned long long   = a DIFFERENT type
+                                  * Whichever header is read first wins; the
+                                  * second must skip. */
 
 typedef __INT8_TYPE__    int8_t;
 typedef __INT16_TYPE__   int16_t;
@@ -74,6 +90,7 @@ typedef _Bool bool;
 #define UIOX_FW_VERSION         0x00010000u  /**< v1.0.0                  */
 
 /* Error type */
+#endif /* !UIOX_PRIMITIVES_DEFINED */
 #endif /* !UIOX_KLIBC_H -- firmware vocabulary below stays visible */
 
 typedef int32_t uiox_fw_err_t;

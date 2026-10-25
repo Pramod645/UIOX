@@ -120,11 +120,11 @@ uintptr_t bcache_plat_dram_base(void)
  * that happens, this definition is unreachable and every caller sees the
  * header's default.
  */
-uint32_t bcache_plat_num_blocks(uint8_t dev)
+/*uint32_t bcache_plat_num_blocks(uint8_t dev)
 {
     (void)dev;
     return NUM_DISK_BLOCKS_DEFAULT;
-}
+}*/
 
 /* ── the byte address of a (dev, blkno) — bounds-checked ────────────── */
 static uintptr_t plat_addr(uint8_t dev, uint32_t blkno)

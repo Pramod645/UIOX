@@ -20,10 +20,25 @@
  *     #include "uiox_basetypes.h"
  *
  * Placed in:
- *   02_FwHal/include/uiox_basetypes.h
+ *   10_BSP/03_SoC/include/uiox_base_types.h
+ *   (byte-identical copy at 30_KIX/common/uiox_base_types.h)
  *
- * @version 1.0.0
- * @date    2026-07-18
+ * @version 1.0.1
+ * @date    2026-10-25
+ *
+ * FIX v1.0.1 — the UIOX_BASETYPES_COMPAT block now tests
+ * UIOX_PRIMITIVES_DEFINED.  Several layers define the plain uint32_t /
+ * int64_t / size_t names independently, and GCC treats some of those
+ * spellings as DIFFERENT types even when both are the same width
+ * (__UINT64_TYPE__ is `long unsigned int` where these are
+ * `unsigned long long`).  Two such headers in one translation unit is a
+ * -Werror=conflicting-types.  UIOX_PRIMITIVES_DEFINED is the shared flag:
+ * whichever header defines the names first sets it, and every later one
+ * skips.  No ordering rule is imposed on the caller.
+ *
+ * NOTE — this file is a byte-identical copy of the one in 10_BSP.  Both
+ * need this guard, or the copy that is read first still collides with the
+ * copy that is read second.
  */
 
  #ifndef UIOX_BASETYPES_H
@@ -48,7 +63,8 @@
  typedef signed short        uiox_int16_t;
  
  /** 32-bit signed integer */
- typedef signed int          uiox_int32_t;
+ //typedef signed int          uiox_int32_t;
+ typedef __INT32_TYPE__      uiox_int32_t;
  
  #if defined(__aarch64__) || defined(__x86_64__) || defined(__riscv)
  /** 64-bit signed integer (64-bit targets) */
@@ -69,7 +85,8 @@
  typedef unsigned short      uiox_uint16_t;
  
  /** 32-bit unsigned integer */
- typedef unsigned int        uiox_uint32_t;
+ //typedef unsigned int        uiox_uint32_t;
+ typedef __UINT32_TYPE__     uiox_uint32_t;
  
  #if defined(__aarch64__) || defined(__x86_64__) || defined(__riscv)
  /** 64-bit unsigned integer (64-bit targets) */
@@ -175,8 +192,14 @@
   *
   * IMPORTANT: do NOT define these if <stdint.h> is included anywhere in
   * the same translation unit — they will conflict.
+  *
+  * GUARDED v1.0.1: also skipped when UIOX_PRIMITIVES_DEFINED is already
+  * set, because several other headers (uiox_klibc.h, uiox_fw_types.h,
+  * unfs_format.h, bcache_types.h, uiox_pkg_types.h) define the same plain
+  * names in their own spellings.  Whichever header is read first wins.
   * ====================================================================== */
- #if defined(UIOX_BASETYPES_COMPAT)
+ #if defined(UIOX_BASETYPES_COMPAT) && !defined(UIOX_PRIMITIVES_DEFINED)
+ #define UIOX_PRIMITIVES_DEFINED
  typedef uiox_uint8_t    uint8_t;
  typedef uiox_uint16_t   uint16_t;
  typedef uiox_uint32_t   uint32_t;
@@ -190,7 +213,7 @@
  typedef uiox_size_t     size_t;
  typedef uiox_ptrdiff_t  ptrdiff_t;
  typedef uiox_bool_t     bool;
- #endif /* UIOX_BASETYPES_COMPAT */
+ #endif /* UIOX_BASETYPES_COMPAT && !UIOX_PRIMITIVES_DEFINED */
  
  /* =========================================================================
   * Compiler attribute helpers
@@ -219,4 +242,3 @@
  #define UIOX_BARRIER()      __asm__ volatile("" ::: "memory")
  
  #endif /* UIOX_BASETYPES_H */
- 

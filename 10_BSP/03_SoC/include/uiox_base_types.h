@@ -48,7 +48,8 @@
  typedef signed short        uiox_int16_t;
  
  /** 32-bit signed integer */
- typedef signed int          uiox_int32_t;
+ //typedef signed int          uiox_int32_t;
+ typedef __INT32_TYPE__   uiox_int32_t;
  
  #if defined(__aarch64__) || defined(__x86_64__) || defined(__riscv)
  /** 64-bit signed integer (64-bit targets) */
@@ -69,7 +70,8 @@
  typedef unsigned short      uiox_uint16_t;
  
  /** 32-bit unsigned integer */
- typedef unsigned int        uiox_uint32_t;
+ //typedef unsigned int        uiox_uint32_t;
+ typedef __UINT32_TYPE__  uiox_uint32_t;
  
  #if defined(__aarch64__) || defined(__x86_64__) || defined(__riscv)
  /** 64-bit unsigned integer (64-bit targets) */

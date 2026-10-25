@@ -1,12 +1,22 @@
 # =============================================================================
-# 02_FwHal/Makefile  — v1.2.0
+# 02_FwHal/Makefile  — v1.2.1
 #
 # Builds only the device source files for enabled devices.
 # Always-on infrastructure (I2C, SPI, UART, GPIO, clock, timer, …) is
 # compiled unconditionally.  Device files are conditional on ENABLE_*.
 #
 # Outputs: build/<arch>/libuiox_fw_<arch>.a
-# @version 1.2.0  @date 2026-07-26
+#
+# v1.2.1 — two fixes:
+#   · The ENABLE_RTC block named uiox_fw_rtc.c, which does not exist.  The
+#     RTC source is uiox_fw_ramrtc.c and it is already in the unconditional
+#     SRCS block above, so the conditional block was both stale and
+#     duplicate.  Removed.
+#   · ENABLE_RTC defaulted to `no`, which meant a plain `make arm64` built
+#     the archive without the RTC branch ever being reachable.  Defaulted
+#     to `yes` to match every other device flag.
+#
+# @version 1.2.1  @date 2026-10-25
 # =============================================================================
 
 MFDIR      := $(dir $(abspath $(lastword $(MAKEFILE_LIST))))
@@ -40,7 +50,7 @@ ENABLE_BMS      ?= yes
 ENABLE_CHG      ?= yes
 ENABLE_FAN      ?= yes
 ENABLE_PMIC     ?= yes
-ENABLE_RTC      ?= no
+ENABLE_RTC      ?= yes
 ENABLE_SPEAKER  ?= yes
 ENABLE_EMMC     ?= yes
 
@@ -56,6 +66,7 @@ COMMON_CFLAGS := \
   $(DEVICE_DEFS)                          \
   -isystem $(shell $(CC) -print-file-name=include) \
   -I$(MFDIR)../10_BSP/03_SoC/include \
+  -I$(MFDIR)../01_uBoot/include       \
   -I$(INCDIR)
 
 # ── Always-on infrastructure ──────────────────────────────────────────────────
@@ -135,9 +146,17 @@ endif
 ifeq ($(ENABLE_PMIC),yes)
   SRCS += $(SRCDIR)/uiox_fw_pmic.c
 endif
-ifeq ($(ENABLE_RTC),yes)
-  SRCS += $(SRCDIR)/uiox_fw_rtc.c
-endif
+
+# ── RTC ───────────────────────────────────────────────────────────────────────
+# uiox_fw_ramrtc.c is in the unconditional SRCS block above: the RTC is a
+# driver (DS1307 + MC146818), not a device gated on ENABLE_*.  The old
+# `ENABLE_RTC` block here named uiox_fw_rtc.c, a file that does not exist —
+# which made the archive fail with "No rule to make target uiox_fw_rtc.o"
+# whenever ENABLE_RTC resolved to yes.  That block is gone.
+#
+# Keeping ENABLE_RTC as a recognised flag: the umbrella passes it in
+# $(ENABLE_FLAGS), and an unrecognised variable is harmless, but a stale
+# SRCS line is not.
 ifeq ($(ENABLE_SPEAKER),yes)
   SRCS += $(SRCDIR)/uiox_fw_speaker.c
 endif

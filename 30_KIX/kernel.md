@@ -4381,3 +4381,31 @@ The change set is now complete and verified
 4	30_KIX/common/uiox_kernel_main.c	uiox_kernel_get_soc() beside the other two accessors	✅
 5	the consumers	0x09000000 → soc->uart0_base, 0x0a003e00 → soc->virtio_base	⚠️ early_putc keeps its literal
 The one caveat, unchanged: early_putc runs before stage 2.5 populates the map, so its literal stays as the pre-console fallback. Every driver can use the map; the very first UART output cannot.
+===================
+Still outstanding
+1 — uiox_fw_main.c needs #include "uiox_boot_types.h" for its x86_64 branch. That's the uiox_boot_args_t error when building x86; the include path is already in COMMON_CFLAGS, so it's one line in the source.
+
+2 — three headers still lack UIOX_PRIMITIVES_DEFINED — 30_KIX/common/uiox_klibc.h, 32_FS/00_bcache/include/bcache_types.h, 50_UIX/20_uios/pkg/include/uiox_pkg_types.h. Each is the same two lines. uiox_klibc.h matters most, since uiox_kernel_main.c includes it first.
+
+3 — four FwHal sources aren't in SRCS — uiox_fw_sd.c, uiox_fw_sata.c, uiox_fw_nvme.c, uiox_fw_net.c exist on disk but no ifeq block adds them, so they're not in the archive. Worth deciding whether they should be.
+
+4 — the four redirect edits in 30_KIX/Makefile (steps 1/5/6/7) would make the umbrella itself trustworthy, at which point rebuild.sh becomes a convenience rather than a necessity.
+
+What's left, in order of value
+
+uiox_dss_init.c — add int uiox_uart_probe(void); and (void) uiox_uart_probe(); in the family-5 group. The UART class is compiled; this call site makes ttyS0 register at boot.
+
+uiox_fw_sd.c — sdh_read returns OK without transferring, and sdh_card_init invents SDHC/4 GB. Now reachable through sdmmc.
+
+Three headers still lack UIOX_PRIMITIVES_DEFINED — 30_KIX/common/uiox_klibc.h, bcache_types.h, uiox_pkg_types.h. Two lines each; klibc matters most.
+
+uiox_fw_main.c needs #include "uiox_boot_types.h" for its x86_64 branch — one line, which is what blocked ./rebuild.sh x86_64.
+
+Four FwHal sources not in SRCS — uiox_fw_sd.c, uiox_fw_sata.c, uiox_fw_nvme.c, uiox_fw_net.c. Decide whether they belong in the archive.
+
+The four redirect edits in 30_KIX/Makefile (steps 1/5/6/7) — then make clean && make arm64 becomes trustworthy on its own.
+
+linker/kernel_arm64.ld — the RWX LOAD segment.
+
+
+Also still open: the -DUIOX_HAVE_USMBS typo in the umbrella's DEVICE_DEFS, and the ENABLE_SPEAKER/ENABLE_EMMC double-assignment in ENABLE_FLAGS.
