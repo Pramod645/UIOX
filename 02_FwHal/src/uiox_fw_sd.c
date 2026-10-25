@@ -25,7 +25,7 @@ static bool sdh_detect(uiox_sd_dev_t *d)
     d->write_protect   = !!(ps & SDIO_PS_WP);
     return d->card_present;
 }
-
+#if 0
 static uiox_fw_err_t sdh_card_init(uiox_sd_dev_t *d)
 {
     if (!sdh_detect(d)) return UIOX_FW_ERR_NODEV;
@@ -36,7 +36,37 @@ static uiox_fw_err_t sdh_card_init(uiox_sd_dev_t *d)
     d->capacity_bytes   = d->capacity_sectors * SD_BLOCK_SIZE;
     return UIOX_FW_OK;
 }
+#else
+static uiox_fw_err_t sdh_card_init(uiox_sd_dev_t *d)
+{
+    if (!sdh_detect(d)) return UIOX_FW_ERR_NODEV;
 
+    /* Initialisation only — no identification performed.
+     *
+     * The previous version wrote rca / card_type / capacity_sectors as
+     * constants and returned OK, with a comment describing a CMD0 →
+     * ACMD41 → CMD2 → CMD3 sequence that was never issued.  sdh_init()
+     * above programs CLK_CTRL and SD_CLK_EN only; no command, argument
+     * or response register is touched anywhere in this file.
+     *
+     * The invented 0x800000 sectors is exactly 4 GiB (SDHC's default) ×
+     * SD_BLOCK_SIZE, which is indistinguishable from a real answer.  It
+     * also defeated the bounds check in sdh_read / sdh_write, which test
+     * lba+blocks against capacity_sectors — a fabricated ceiling larger
+     * than the card can address accepts every LBA as valid.
+     *
+     * A card IS seated; nothing about its geometry has been read.  The
+     * honest report is CARD_NONE with zero capacity, and UNSUP so a
+     * caller learns on init rather than on the first read.  Return to
+     * OK once the command layer fills these fields for real. */
+    d->rca              = 0u;
+    d->card_type        = UIOX_SD_CARD_NONE;
+    d->capacity_sectors = 0u;
+    d->capacity_bytes   = 0u;
+
+    return UIOX_FW_ERR_UNSUP;
+}
+#endif
 static uiox_fw_err_t sdh_read(uiox_sd_dev_t *d, uint32_t lba,
                                  uint8_t *buf, uint32_t blocks)
 { (void)buf; if(lba+blocks>d->capacity_sectors)return UIOX_FW_ERR_IO;

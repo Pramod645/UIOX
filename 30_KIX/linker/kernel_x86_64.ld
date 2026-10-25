@@ -16,17 +16,28 @@
  *               .bss          (NOLOAD, zeroed by bss_zero())
  *               .stack        (NOLOAD, grows down from _stack_top)
  *
- * @version 1.0.0  @date 2026-07-25
+ * @version 1.1.0  @date 2026-10-25
+ *
+ * FIX v1.1.0 — explicit PHDRS, same as the other three.  Drop the RWE
+ * merge; code R+X, rodata R, data/bss/stack RW.
  */
 
 ENTRY(uiox_kernel_main)
 
 KERNEL_LOAD_ADDR = 0x00200000;
 STACK_SIZE       = 0x10000;     /* 64 KiB kernel stack */
+MAXPAGESIZE      = 0x1000;      /* 4 KiB — segment alignment */
 
 MEMORY
 {
     RAM (rwx) : ORIGIN = KERNEL_LOAD_ADDR, LENGTH = 64M
+}
+
+PHDRS
+{
+    text   PT_LOAD FLAGS(5);    /* R E — code only        */
+    rodata PT_LOAD FLAGS(4);    /* R   — read-only data   */
+    data   PT_LOAD FLAGS(6);    /* RW  — data, bss, stack */
 }
 
 SECTIONS
@@ -36,36 +47,35 @@ SECTIONS
     /*------------------------------------------------------------------
      * Entry point first so the BSP jmpq lands on uiox_kernel_main.
      *------------------------------------------------------------------*/
-    .text.entry : {
+    .text.entry : ALIGN(MAXPAGESIZE) {
         KEEP(*(.text.entry))
         KEEP(*(.text.uiox_kernel_main))
-    } > RAM
+    } > RAM :text
 
-    .text : {
+    .text : ALIGN(16) {
         *(.text .text.*)
-    } > RAM
+    } > RAM :text
 
-    .rodata : {
+    .rodata : ALIGN(MAXPAGESIZE) {
         _rodata_start = .;
         *(.rodata .rodata.*)
         _rodata_end = .;
-    } > RAM
+    } > RAM :rodata
 
     _text_start = ADDR(.text.entry);
     _text_end   = .;
 
-    .data : {
+    .data : ALIGN(MAXPAGESIZE) {
         *(.data .data.*)
-    } > RAM
+    } > RAM :data
 
-    .bss (NOLOAD) : {
-        . = ALIGN(16);
+    .bss (NOLOAD) : ALIGN(16) {
         _bss_start = .;
         *(.bss .bss.*)
         *(COMMON)
         . = ALIGN(16);
         _bss_end = .;
-    } > RAM
+    } > RAM :data
 
     /*------------------------------------------------------------------
      * Kernel stack — grows downward from _stack_top.
@@ -76,10 +86,11 @@ SECTIONS
         . += STACK_SIZE;
         . = ALIGN(16);
         _stack_top = .;
-    } > RAM
+    } > RAM :data
 
     /DISCARD/ : {
         *(.comment)
         *(.note*)
     }
+    /DISCARD/ : { *(.eh_frame*) }
 }
