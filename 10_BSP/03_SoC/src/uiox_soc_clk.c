@@ -447,10 +447,10 @@ void uiox_soc_clk_print(const uiox_clk_ctx_t *ctx)
                          ctx->enabled[i] ? "ON" : "OFF");
     }
     uiox_soc_printf("  pll_sys : %u MHz  locked=%s\n",
-                     ctx->pll_sys.out_hz / 1000000u,
+                     (unsigned)ctx->pll_sys.out_hz / 1000000u,
                      ctx->pll_sys.locked ? "yes" : "no");
     uiox_soc_printf("  pll_cpu : %u MHz  locked=%s\n",
-                     ctx->pll_cpu.out_hz / 1000000u,
+                     (unsigned)ctx->pll_cpu.out_hz / 1000000u,
                      ctx->pll_cpu.locked ? "yes" : "no");
 }
 

@@ -4411,3 +4411,18 @@ linker/kernel_arm64.ld — the RWX LOAD segment.
 
 
 Also still open: the -DUIOX_HAVE_USMBS typo in the umbrella's DEVICE_DEFS, and the ENABLE_SPEAKER/ENABLE_EMMC double-assignment in ENABLE_FLAGS.
+
+
+=======
+
+Updated status of the remaining points
+#	Item	State
+1	uiox_dss_init.c	✅ already in the file — declaration + call both present
+2	uiox_fw_sd.c stubs	✅ transfers fixed; ⏳ sdh_card_init still invents SDHC / 4 GB
+3	Three UIOX_PRIMITIVES_DEFINED headers	partly; __UINT32_TYPE__ is what's failing arm32
+4	uiox_fw_main.c x86_64 include	✅ — uiox_boot_handoff.h
+5	Four FwHal sources	✅ 2 wired, 2 deliberately out
+6	Four umbrella redirects	✅ verified
+7	linker/kernel_arm64.ld RWX	open
+—	-DUIOX_HAVE_USMBS typo	open
+—	ENABLE_SPEAKER/ENABLE_EMMC double-assign	open

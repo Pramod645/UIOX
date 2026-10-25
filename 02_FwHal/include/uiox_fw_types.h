@@ -16,6 +16,13 @@
  *      suppress it — and the spellings differ: __UINT64_TYPE__ is
  *      `long unsigned int` where boot_types' `unsigned long long` is a
  *      DIFFERENT type to C.  Whichever header is read first now wins.
+ *  * FIX v1.0.2 — the 32-bit spellings are now fixed C types, matching the
+ *      rest of the tree.  __INT32_TYPE__ / __UINT32_TYPE__ resolve to
+ *      `long int` / `long unsigned int` on arm32 and to the plain C types
+ *      on aarch64 / x86_64 / riscv64.  Both are 32-bit everywhere, so no
+ *      value changes — but they are different TYPES to the printf family
+ *      and to function-pointer signatures, so -Werror=format= reports a
+ *      mismatch on arm32 only.
  */
 #ifndef UIOX_FW_TYPES_H
 #define UIOX_FW_TYPES_H
@@ -43,25 +50,17 @@
 #endif
 
 
-#ifndef UIOX_KLIBC_H          /* uiox_klibc.h supplies base types + mem helpers */
-#ifndef UIOX_PRIMITIVES_DEFINED  /* …or uiox_boot_types.h already did.
-                                  * That header sets UIOX_PRIMITIVES_DEFINED
-                                  * (not UIOX_KLIBC_H), so without this test
-                                  * the block below is entered anyway and the
-                                  * two spellings conflict:
-                                  *   __UINT64_TYPE__      = long unsigned int
-                                  *   unsigned long long   = a DIFFERENT type
-                                  * Whichever header is read first wins; the
-                                  * second must skip. */
+#ifndef UIOX_KLIBC_H
+#ifndef UIOX_PRIMITIVES_DEFINED
+#define UIOX_PRIMITIVES_DEFINED          /* ← ADD THIS */
 
-typedef __INT8_TYPE__    int8_t;
-typedef __INT16_TYPE__   int16_t;
-typedef __INT32_TYPE__   int32_t;
-
+typedef signed char      int8_t;
+typedef signed short     int16_t;
+typedef signed int       int32_t;
+typedef unsigned char    uint8_t;
+typedef unsigned short   uint16_t;
+typedef unsigned int     uint32_t;
 typedef __INT64_TYPE__   int64_t;
-typedef __UINT8_TYPE__   uint8_t;
-typedef __UINT16_TYPE__  uint16_t;
-typedef __UINT32_TYPE__  uint32_t;
 typedef __UINT64_TYPE__  uint64_t;
 typedef __INTPTR_TYPE__  intptr_t;
 typedef __UINTPTR_TYPE__ uintptr_t;
@@ -69,7 +68,10 @@ typedef __SIZE_TYPE__    size_t;
 typedef __PTRDIFF_TYPE__ ptrdiff_t;
 
 #ifndef __cplusplus
+# ifndef UIOX_BOOL_DEFINED
+#  define UIOX_BOOL_DEFINED
 typedef _Bool bool;
+# endif
 # ifndef true
 #  define true  ((bool)1)
 # endif

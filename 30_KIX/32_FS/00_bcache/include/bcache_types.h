@@ -93,15 +93,15 @@
  * differently in different headers — see the note below.
  * ═════════════════════════════════════════════════════════════════════ */
 
-#ifndef UIOX_STDINT_TYPES_DEFINED
-#define UIOX_STDINT_TYPES_DEFINED
+ #ifndef UIOX_PRIMITIVES_DEFINED        /* was UIOX_STDINT_TYPES_DEFINED */
+ #define UIOX_PRIMITIVES_DEFINED
 
 typedef signed char        int8_t;
 typedef unsigned char      uint8_t;
 typedef short              int16_t;
 typedef unsigned short     uint16_t;
-typedef __INT32_TYPE__     int32_t;      /* was: int */
-typedef __UINT32_TYPE__    uint32_t;     /* was: unsigned int */
+typedef signed   int   int32_t;       /* was __INT32_TYPE__  */
+typedef unsigned int   uint32_t;      /* was __UINT32_TYPE__ */
 
 /* long long is exactly 64 bits on every target this kernel builds for —
  * aarch64 (LP64), arm32 (ILP32), riscv64 (LP64) and x86-64 (LP64).
@@ -144,7 +144,7 @@ typedef __INT64_TYPE__   int64_t;
  * Do not re-add them here.
  * ─────────────────────────────────────────────────────────────────── */
 
-#endif /* UIOX_STDINT_TYPES_DEFINED */
+#endif /* !UIOX_PRIMITIVES_DEFINED */
 
 /* bool, true and false.  Same reasoning as above, and the same #ifndef,
  * so whichever header an includer reached first wins and nothing is

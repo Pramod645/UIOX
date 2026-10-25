@@ -5,7 +5,7 @@
  * This is the only header that may be included by every other bootloader
  * module without risk of circular dependencies.
  *
- * @version 1.0.0  (1.0.0 + RISC-V RV64GC additions — 2026-07-12)
+ * @version 1.0.1  (1.0.0 + RISC-V RV64GC additions — 2026-07-12)
  * @date    2026-07-12
  */
 
@@ -58,10 +58,10 @@ typedef uint32_t size_t;
 #endif
 
 //typedef _Bool bool;
-#ifndef bool
+#ifndef UIOX_BOOL_DEFINED
+#define UIOX_BOOL_DEFINED
 typedef _Bool bool;
-#endif
-
+#endif /* !UIOX_BOOL_DEFINED */
 
 #ifndef true
 # define true  1
@@ -77,7 +77,7 @@ typedef _Bool bool;
 /* uiox_fw_types.h already included — bool/true/false/NULL defined there */
 #endif /* UIOX_FW_TYPES_H */
 
-#endif /* !UIOX_PRIMITIVES_DEFINED */
+#endif /* UIOX_PRIMITIVES_DEFINED */
 
 typedef enum {
     UIOX_ARCH_ARM64  = 0,
