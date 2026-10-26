@@ -66,7 +66,7 @@ ENABLE_PMIC     ?= yes
 ENABLE_RTC      ?= yes
 ENABLE_SPEAKER  ?= yes
 ENABLE_EMMC     ?= yes
-ENABLE_SDMC     ?= yes
+ENABLE_SDMMC    ?= yes
 ENABLE_NVME     ?= yes
 
 _BUILD_DIR  := $(BUILD_BASE)/$(_ARCH)
@@ -174,7 +174,7 @@ endif
 # before anything depends on them.  uiox_fw_sata.c and uiox_fw_net.c are
 # deliberately left out: SATA has no enable flag in the umbrella's device
 # list, and net duplicates what ENABLE_ETH/ENABLE_WIFI already cover.
-ifeq ($(ENABLE_SDMC),yes)
+ifeq ($(ENABLE_SDMMC),yes)
   SRCS += $(SRCDIR)/uiox_fw_sd.c
 endif
 ifeq ($(ENABLE_NVME),yes)
@@ -235,7 +235,7 @@ arm64 arm32 riscv64 x86_64:
 	    ENABLE_PMIC=$(ENABLE_PMIC)      \
 	    ENABLE_RTC=$(ENABLE_RTC)        \
 	    ENABLE_SPEAKER=$(ENABLE_SPEAKER)\
-	    ENABLE_EMMC=$(ENABLE_EMMC)      \
+	    ENABLE_EMMC=$(ENABLE_EMMMC)      \
 	    ENABLE_SDMC=$(ENABLE_SDMC)      \
 	    ENABLE_NVME=$(ENABLE_NVME)
 

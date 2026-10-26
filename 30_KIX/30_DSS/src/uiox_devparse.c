@@ -49,6 +49,7 @@ static const uiox_devname_t s_devname[] = {
     { "sdmmc",  UIOX_DEVCLASS_SDMMC    },
     { "nvme",   UIOX_DEVCLASS_NVME     },
     { "usbms",  UIOX_DEVCLASS_USBMS    },
+    { "sata",   UIOX_DEVCLASS_SATA     },
 
     /* family 2 — STREAM */
     { "eth",    UIOX_DEVCLASS_ETH      },

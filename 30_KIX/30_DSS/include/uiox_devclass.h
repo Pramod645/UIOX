@@ -85,6 +85,7 @@ typedef enum {
     UIOX_DEVCLASS_SDMMC      = UIOX_DEVCLASS_(UIOX_DEVFAM_BLOCK, 1),
     UIOX_DEVCLASS_NVME       = UIOX_DEVCLASS_(UIOX_DEVFAM_BLOCK, 2),
     UIOX_DEVCLASS_USBMS      = UIOX_DEVCLASS_(UIOX_DEVFAM_BLOCK, 3),
+    UIOX_DEVCLASS_SATA       = UIOX_DEVCLASS_(UIOX_DEVFAM_BLOCK, 4),
 
     /* ── family 2 — STREAM; buffer = 00_drvbuff ──────────────────────
      * Only ETH needs headroom (the protocol stack prepends headers).

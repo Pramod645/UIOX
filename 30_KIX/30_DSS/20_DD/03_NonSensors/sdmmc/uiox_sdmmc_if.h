@@ -57,8 +57,8 @@ int  uiox_sdmmc_if_read        (uiox_sdmmc_if_t *sif, uint32_t lba,
 int  uiox_sdmmc_if_write       (uiox_sdmmc_if_t *sif, uint32_t lba,
                                 const uint8_t *buf, uint32_t count);
 
-uiox_sdmmc_evt_t *uiox_sdmmc_if_irq_handle(uiox_sdmmc_if_t *sif,
-                                            uint32_t now_ms);
+//uiox_sdmmc_evt_t *uiox_sdmmc_if_irq_handle(uiox_sdmmc_if_t *sif,
+  //                                          uint32_t now_ms);
 void uiox_sdmmc_if_stats_get   (const uiox_sdmmc_if_t *sif,
                                 uiox_sdmmc_if_stats_t *out);
 

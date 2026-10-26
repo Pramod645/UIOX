@@ -54,7 +54,7 @@ int uiox_sdmmc_if_start(uiox_sdmmc_if_t *sif)
 
     uiox_sdmmc_hw_reg_write(sif->hw, SDMMC_HC_INT_STATUS_EN,
                             SDMMC_INT_CMD_COMPLETE | SDMMC_INT_XFER_COMPLETE);
-    uiox_sdmmc_hw_reg_write(sif->hw, SDMMC_INT_SIGNAL_EN,
+    uiox_sdmmc_hw_reg_write(sif->hw, SDMMC_HC_INT_SIGNAL_EN,
                             SDMMC_INT_CMD_COMPLETE | SDMMC_INT_XFER_COMPLETE);
 
     /* ── the step eMMC's start has no equivalent for ───────────────

@@ -54,6 +54,7 @@
 #define ENOENT    2   /* No such file or directory   */
 #define EIO       5   /* I/O error                   */
 #define ENXIO     6   /* No such device or address   */
+#define EROFS    30   /* Read-only filesystem        */
 #define EAGAIN   11   /* Try again                   */
 #define ENOMEM   12   /* Out of memory               */
 #define EACCES   13   /* Permission denied           */

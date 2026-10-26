@@ -12,6 +12,8 @@
 #include "uiox_sdmmc_if.h"
 #include "uiox_sdmmc_hw.h"
 #include "uiox_devclass.h"
+#include "uiox_devops.h"      /* uiox_blk_ops_t */
+#include "uiox_fw_i2c.h"      /* struct uiox_i2c_dev — the forward decl completed */
 #include "uiox_klibc.h"
 
 /* The BLOCK vtable from uiox_sdmmc_blk.c — non-static there, so extern. */

@@ -63,6 +63,7 @@ int uiox_emmc_probe(void);
 int uiox_sdmmc_probe(void);      /* removable — -ENODEV when no card seated */
 int uiox_nvme_probe(void);       /* PCIe-attached; needs uiox_soc_pcie_get() */
 int uiox_usbms_probe(void);      /* hot-plug: -ENODEV when nothing attached */
+int uiox_sata_probe(void);       /* PCIe-attached AHCI; -ENODEV for an empty port */
 /* ── family 2 — STREAM ────────────────────────────────────────
      * eth first: its interfaces are the fully-read ones, and the other
      * six follow the same shape. */
@@ -125,6 +126,7 @@ int uiox_dss_init(void)
     (void)uiox_sdmmc_probe();
     (void)uiox_nvme_probe();
     (void)uiox_usbms_probe();
+    (void)uiox_sata_probe();
     /* ── family 2 — STREAM ────────────────────────────────────────
      * eth first: its interfaces are the fully-read ones, and the other
      * six follow the same shape. */

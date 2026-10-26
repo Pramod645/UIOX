@@ -38,9 +38,10 @@ ENABLE_PMIC     ?= yes
 ENABLE_RTC      ?= yes
 ENABLE_SPEAKER  ?= yes
 ENABLE_EMMC     ?= yes
-ENABLE_SDMC     ?= yes
+ENABLE_SDMMC    ?= yes
 ENABLE_NVME     ?= yes
 ENABLE_UART     ?= yes
+ENABLE_SATA     ?= yes
 
 _BUILD_DIR := $(BUILD_BASE)/$(_ARCH)
 INCDIR      = $(MFDIR)include
@@ -129,11 +130,14 @@ endif
 ifeq ($(ENABLE_UART),yes)
   SUBDIRS += 01_Com/uart
 endif
-ifeq ($(ENABLE_SDMC),yes)
-  SUBDIRS += 03_NonSensors/SDMC
+ifeq ($(ENABLE_SDMMC),yes)
+  SUBDIRS += 03_NonSensors/sdmmc
 endif
 ifeq ($(ENABLE_NVME),yes)
-  SUBDIRS += 03_NonSensors/NVME
+  SUBDIRS += 03_NonSensors/nvme
+endif
+ifeq ($(ENABLE_SATA),yes)
+  SUBDIRS += 03_NonSensors/sata
 endif
 
 SRCS := $(foreach d,$(SUBDIRS),$(wildcard $(MFDIR)$(d)/*.c))
@@ -177,7 +181,8 @@ arm64 arm32 riscv64 x86_64:
 		ENABLE_SPEAKER=$(ENABLE_UART)   \
 	    ENABLE_EMMC=$(ENABLE_EMMC)      \
 		ENABLE_EMMC=$(ENABLE_SDMC)      \
-	    ENABLE_EMMC=$(ENABLE_NVME)
+	    ENABLE_EMMC=$(ENABLE_NVME)      \
+	    ENABLE_EMMC=$(ENABLE_SATA)
 
 .PHONY: _build
 _build: $(LIB)
