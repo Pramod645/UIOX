@@ -72,6 +72,7 @@ FSA_DIR  := $(MFDIR)01_fsa
 SCFS_DIR := $(MFDIR)10_scfs
 UNFS_DIR := $(MFDIR)10_unfs
 JRNL_DIR := $(MFDIR)02_jrnal
+PKG_DIR  := $(MFDIR)04_pkg
 FWHAL    := $(abspath $(MFDIR)../../02_FwHal)
 DRVBUFDIR := $(MFDIR)00_drvbuff
 
@@ -139,6 +140,7 @@ COMMON_INCLUDES := \
   -I$(SCFS_DIR)/include   \
   -I$(UNFS_DIR)/include   \
   -I$(JRNL_DIR)/include   \
+  -I$(PKG_DIR)/include    \
   -I$(FWHAL)/include      \
   -I$(DRVBUFDIR)/include  \
   -I$(MFDIR)../30_DSS/10_DI/include \
@@ -154,6 +156,7 @@ FS_SRCS_C += $(wildcard $(BCDIR)/src/*.c)
 FS_SRCS_C += $(wildcard $(FSA_DIR)/src/*.c)
 FS_SRCS_C += $(wildcard $(SCFS_DIR)/src/*.c)
 FS_SRCS_C += $(wildcard $(JRNL_DIR)/src/*.c)          # ◀ v2.3.0
+FS_SRCS_C += $(wildcard $(PKG_DIR)/src/*.c)  
 FS_SRCS_C += $(wildcard $(MFDIR)src/*.c)              # ◀ v2.3.0
 FS_SRCS_C += $(wildcard $(DRVBUFDIR)/*/*/*.c)       # ◀ the pools
 # ── the bcache platform pair — link exactly ONE ───────────────────────
@@ -171,6 +174,7 @@ vpath %.c \
   $(FSA_DIR)/src  \
   $(SCFS_DIR)/src \
   $(JRNL_DIR)/src \
+  $(PKG_DIR)/src  \
   $(MFDIR)src     \
   $(DRVBUFDIR)/01_Com/bt        \
   $(DRVBUFDIR)/01_Com/eth       \
