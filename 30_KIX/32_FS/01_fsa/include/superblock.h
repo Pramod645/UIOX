@@ -67,6 +67,14 @@ typedef struct {
 
     bool      locked;
     bool      modified;
+    /* Backend handle.  unfs_fs_t when UNFS is the backend (vfs.h:14 names
+     * this field as the design).  IN MEMORY ONLY — the on-disk superblock
+     * is unfs_sb_t (unfs_format.h:224), a different struct pinned to
+     * UNFS_BLOCK_SIZE at :304, so nothing about the format changes.
+     * Placed with locked/modified because those are also runtime-only.
+     *
+     * Indexed by dev: sb[] is per-device, so a second volume gets its own. */
+    void     *s_priv;
 } SuperBlock;
 
 /* ═════════════════════════════════════════════════════════════════════

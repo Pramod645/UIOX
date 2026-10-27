@@ -98,5 +98,8 @@
 #ifndef UNFS_EROFS
 #define UNFS_EROFS     -107   /* write attempted on a read-only mount    */
 #endif
+#ifndef UNFS_EINVAL
+#define UNFS_EINVAL     -108   /* write attempted on a read-only mount    */
+#endif
 
 #endif /* UNFS_ERRNO_H */

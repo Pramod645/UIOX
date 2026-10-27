@@ -25,6 +25,9 @@
 #include "uiox_kix_jrnl.h"      /* uiox_jr_ctx_alloc / init / mount /
                                  * register / uiox_jr_ctx_t              */
 #include "inode.h"              /* ROOT_DEV                               */
+#include "unfs_fs.h"            /* unfs_fs_t, unfs_kern_mount         */
+#include "unfs_errno.h"     /* UNFS_OK */
+
 
 extern void uiox_pc_init(void);
 
@@ -35,6 +38,15 @@ extern void uiox_pc_init(void);
  * handle, and uiox_jr_register() stores it in s_jr[ROOT_DEV], which is
  * what every hook reaches through uiox_jr_ctx_for(dev). */
 static uiox_jr_ctx_t *s_root_journal;
+/* ── the one UNFS mount handle ─────────────────────────────────────────
+ * Same pattern as s_root_journal above: 10_unfs owns the storage and this
+ * file holds only the pointer.  unfs_mount.c:5 is explicit that the mount
+ * layer keeps NO table — "the caller owns the unfs_fs_t it passes in" —
+ * so the handle lives here and is handed to unfs_register(). */
+static unfs_fs_t s_unfs_fs;
+
+/* 10_unfs — defined in unfs_vfs.c */
+//int unfs_register(uint8_t dev, unfs_fs_t *fs);
 
 /* ── weak stubs — overridden at link time ─────────────────────────── */
 __attribute__((weak)) void vfs_init(void)
@@ -67,7 +79,17 @@ int uiox_fs_init(void)
     if (rc != VFS_OK)
         return rc;
 
-    /* 3 — unfs_register(1) goes here when a second volume exists. */
+    /* 3 — UNFS on device 1: mount, THEN publish the handle.
+     *     Order matters.  Registration stashes fs into sb->s_priv, so
+     *     registering first would leave the table's mount() running
+     *     unfs_kern_mount() a second time on already-loaded state. */
+    //if (uiox_kern_mount(&s_unfs_fs, 1u) == UNFS_OK) {
+    if (unfs_kern_mount(&s_unfs_fs, 1u) == UNFS_OK) {
+        rc = unfs_register(1u, &s_unfs_fs);
+        if (rc != VFS_OK)
+            return rc;
+    }
+
 
     /* 4 — Obtain the journal context.  The module owns the storage, so
      *     a NULL here means the device index is out of range — not that

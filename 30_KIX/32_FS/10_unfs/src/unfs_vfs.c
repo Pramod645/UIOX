@@ -26,13 +26,19 @@
  *  dependency on unfs_fs_t, so it can be named here without dragging the
  *  mount state in.
  *
- *  ── what is still missing ────────────────────────────────────────────
- *  bmap_alloc is 01_fsa's, and it currently stops short of placing a
- *  block: bmap.h says the overflow tree "is not written by anything yet",
- *  and unfs_cow_block's own comment says COW is inert until bmap_alloc
- *  exists.  The table names it anyway — the dispatch is complete, the
- *  implementation below it is not, and that is a fact about 01_fsa
- *  rather than about this table.
+  *  ── what is still missing ────────────────────────────────────────────
+ *  bmap_alloc(), not this table.  It is implemented (bmap.c, @version
+ *  3.1.0): it allocates through unfs_alloc_run() and places the block into
+ *  the inode's extent map, covering the four placement cases inline.  The
+ *  ONE remaining limit is case 4 — no cover and the inline array is full —
+ *  where the overflow tree block is NOT written.  That case reports
+ *  valid = false and returns the allocated block in r.blkno for a reclaim
+ *  pass, rather than claiming a mapping it cannot make (bmap.c:359–360).
+ *
+ *  unfs_cow_block() has the same limit from the other direction: it copies
+ *  a block but the COW extent update is the same missing piece.
+ *
+ *  Nothing here is a fact about this table.  The dispatch is complete.
  *
  *  @version 1.0.0  @date 2026-10-03
  */
@@ -42,6 +48,7 @@
 #include "namei.h"          /* dir_lookup / dir_add / dir_remove       */
                             /* — 01_fsa's directory operations, whose  */
                             /*   addresses the ops table below takes   */
+#include "superblock.h"     /* SuperBlock, sb_get — for the mount shims */
 
 /* The bridge, from unfs_iget.c.  Declared in unfs_fs.h. */
 extern InCoreInode *unfs_iget(uiox_uint8_t dev, uiox_uint32_t inum);
@@ -62,23 +69,57 @@ static int unfs_ops_free_run(uint8_t dev, uint32_t first, uint32_t count)
                               (uiox_uint32_t)first,
                               (uiox_uint32_t)count);
 }
+/* ── the mount trio ───────────────────────────────────────────────────
+ * The table's signature is SuperBlock*, the kernel entry points take
+ * unfs_fs_t* (unfs_fs.h:135–137).  s_priv is the bridge: unfs_register()
+ * stashes the handle there, so these unwrap what was already stashed.
+ *
+ * NULL s_priv means the volume was never registered with a handle — a
+ * caller error, not a failed mount.  Do NOT invent a handle here.
+ *
+ * This is NOT a cast of SuperBlock* to unfs_fs_t*: they are different
+ * structs and the cast would compile, then read garbage. */
+static unfs_fs_t *unfs_priv(SuperBlock *sb)
+{
+    return (sb != NULL) ? (unfs_fs_t *)sb->s_priv : NULL;
+}
 
+static int unfs_ops_mount(SuperBlock *sb, uint32_t dev)
+{
+    unfs_fs_t *fs = unfs_priv(sb);
+    if (!fs) return UNFS_EINVAL;
+    return unfs_kern_mount(fs, (uiox_uint32_t)dev);
+}
+
+static int unfs_ops_unmount(SuperBlock *sb)
+{
+    unfs_fs_t *fs = unfs_priv(sb);
+    if (!fs) return UNFS_EINVAL;
+    return unfs_kern_unmount(fs);
+}
+
+static int unfs_ops_sync(SuperBlock *sb)
+{
+    unfs_fs_t *fs = unfs_priv(sb);
+    if (!fs) return UNFS_EINVAL;
+    return unfs_kern_sync(fs);
+}
 /* ── the table ────────────────────────────────────────────────────────*/
 static const uiox_fs_ops_t unfs_fsops = {
     .name    = "unfs",
+    /* The SuperBlock form, unwrapped through s_priv — see the shims above.
+     * NOT a cast: SuperBlock and unfs_fs_t are different structs and the
+     * cast would compile and then read garbage. */
+    .mount   = unfs_ops_mount,
+    .unmount = unfs_ops_unmount,
+    .sync    = unfs_ops_sync,
 
-    /* mount is unfs_kern_mount(unfs_fs_t*, dev), which needs the handle
-     * rather than a SuperBlock — so the SuperBlock form cannot be filled
-     * until s_priv carries the unfs_fs_t.  Left NULL rather than cast. */
-    .mount   = (int (*)(SuperBlock *, uint32_t))0,
-    .unmount = (int (*)(SuperBlock *))0,
-    .sync    = (int (*)(SuperBlock *))0,
 
     .iget    = unfs_iget,               /* 10_unfs — the byte→core bridge  */
     .iput    = iput,                    /* 01_fsa */
     .iupdate = iupdate,                 /* 01_fsa */
     .bmap    = bmap,                    /* 01_fsa */
-    .bmap_alloc = bmap_alloc,           /* 01_fsa — implementation pending */
+    .bmap_alloc = bmap_alloc,           /* 01_fsa — implemented (bmap.c 3.1.0) */
 
     .dir_lookup = dir_lookup,           /* 01_fsa */
     .dir_add    = dir_add,              /* 01_fsa */
@@ -88,8 +129,22 @@ static const uiox_fs_ops_t unfs_fsops = {
     .free_run    = unfs_ops_free_run,
     .free_inode_blocks = fs_free_inode_blocks,   /* 01_fsa */
 };
-
-int unfs_register(uint8_t dev)
+/* Register UNFS for 'dev', stashing the mount handle where the ops table
+ * can reach it.  The caller mounts first, then calls this — registration
+ * publishes the handle, so the reverse order would leave s_priv pointing
+ * at an unfilled struct.
+ *
+ * Called from uiox_fs_init.c after vfs_init() and before vfs_mount_root()
+ * (vfs.md:111). */
+int unfs_register(uint8_t dev, unfs_fs_t *fs)
 {
+    SuperBlock *sb;
+
+    if (!fs) return UNFS_EINVAL;
+
+    sb = sb_get(dev);
+    if (!sb) return UNFS_EINVAL;
+
+    sb->s_priv = fs;
     return vfs_register_fs(&unfs_fsops, dev);
 }

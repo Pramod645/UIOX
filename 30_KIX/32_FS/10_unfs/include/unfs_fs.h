@@ -61,6 +61,8 @@
 
 #include "unfs_format.h"      /* the on-disk format — the survivor  */
 #include "superblock.h"       /* SuperBlock, 01_fsa's own type      */
+#include "unfs_errno.h"     /* UNFS_OK */
+
 
 /* ── Kernel-only limits ─────────────────────────────────────────────── */
 #define UNFS_MAX_GROUPS       256u   /* max block groups per volume      */
@@ -221,5 +223,21 @@ int  unfs_xattr_set(unfs_inode_priv_t *priv, const char *name,
  * not implement.  Keeping them would compile into symbols nothing calls.
  * If a VFS is ever built, they come back with it.
  */
+
+ /*
+ * ── the ops table and unfs_register() live in unfs_vfs.c ─────────────
+ *
+ * An earlier revision removed them here on the grounds that uiox_vfs.h
+ * provided a dispatch layer 01_fsa did not implement, and that they
+ * would "compile into symbols nothing calls".  That was true then.  It
+ * is not now: 01_fsa/include/vfs.h defines uiox_fs_ops_t and
+ * vfs_register_fs(), and 10_unfs/src/unfs_vfs.c is the registrant.
+ *
+ * unfs_register() takes the mount handle and stashes it in
+ * SuperBlock.s_priv, which is how the table's SuperBlock* mount
+ * signature reaches the unfs_fs_t* that unfs_kern_mount() needs.
+ */
+int unfs_register(uint8_t dev, unfs_fs_t *fs);
+
 
 #endif /* UNFS_FS_H */

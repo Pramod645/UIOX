@@ -132,9 +132,19 @@ int unfs_format(uiox_uint32_t dev, uiox_uint32_t total_blocks,
         mem_zero(bmbuf, UNFS_BLOCK_SIZE);
         for (uiox_uint32_t b = 0u; b < nblocks && b < UNFS_BLOCK_SIZE * 8u; b++)
             bitmap_set_free(bmbuf, b);
+        /*if (i == 0u) {
+            for (uiox_uint32_t b = 0u; b < (meta_blocks - 2u * ncg); b++)
+                bitmap_set_used(bmbuf, b);
+        }*/
         if (i == 0u) {
             for (uiox_uint32_t b = 0u; b < (meta_blocks - 2u * ncg); b++)
                 bitmap_set_used(bmbuf, b);
+            /* Reserve the pkg index range (UNFS_GROUP0_PKG_INDEX ..
+             * UNFS_GROUP0_DATA_START) so unfs_alloc_run() cannot hand
+             * those blocks to a file.  set = used; see bitmap_set_used(). */
+            for (uiox_uint32_t r = UNFS_GROUP0_PKG_INDEX;
+                 r < UNFS_GROUP0_DATA_START; r++)
+                bitmap_set_used(bmbuf, r);
         }
         if (write_block(dev, gd.bg_block_bitmap, bmbuf) != UNFS_OK)
             return UNFS_EIO;
@@ -196,8 +206,10 @@ int unfs_format(uiox_uint32_t dev, uiox_uint32_t total_blocks,
             return UNFS_EIO;
 
         for (uiox_uint32_t b = 0u; b < UNFS_GROUP0_DATA; b++) {
-            if (bm[b >> 3] & (uiox_uint8_t)(1u << (b & 7u))) {
-                root_data_blk = UNFS_GROUP0_DATA + b;
+            //if (bm[b >> 3] & (uiox_uint8_t)(1u << (b & 7u))) {
+            if (!(bm[b >> 3] & (uiox_uint8_t)(1u << (b & 7u)))) {
+                //root_data_blk = UNFS_GROUP0_DATA + b;
+                root_data_blk = UNFS_GROUP0_DATA_START + b;
                 bitmap_set_used(bm, b);
                 break;
             }

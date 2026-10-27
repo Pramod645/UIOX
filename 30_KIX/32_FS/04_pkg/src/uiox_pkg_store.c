@@ -13,16 +13,21 @@
  *                        through the buffer cache, files created and unlinked
  *                        through the UNFS VFS entry points.
  *
- * The real-IO branch calls UNFS by the names the design comments give
- * (namei/iget, bread/bwrite, creat/write/unlink).  Those three families have
- * not been reconciled against the UNFS headers yet — see the note above
- * pkg_unfs_* below.  Build with UIOX_PKG_REAL_IO only after that is settled.
+ *   UIOX_PKG_REAL_IO     the UNFS path.  Block I/O is SETTLED:
+ *                        unfs_bdev_read/write(dev, blk, buf) — 4096-byte
+ *                        UNFS blocks, sector conversion internal
+ *                        (unfs_io.h:38-39).  File creation is NOT:
+ *                        extract and unlink stay UIOX_PKG_ERR_UNSUP until
+ *                        01_fsa grows a creat/write path above bmap_alloc().
  *
  * @version 1.0.0
  * @date    2026-10-26
  */
 
  #include "uiox_pkg_store.h"
+ #include "unfs_io.h"       /* unfs_bdev_read / unfs_bdev_write — 4096 B blocks */
+ #include "unfs_errno.h"    /* UNFS_OK */
+
 
  /* Kernel console — uiox_soc_stdio.h supplies uiox_printf/uiox_snprintf.
   * The if(0) keeps every argument referenced so variables computed only for
@@ -58,36 +63,70 @@
  
  #else  /* UIOX_PKG_REAL_IO */
  
- /* -------------------------------------------------------------------------
-  * UNFS bridge
-  *
-  * The design comments name three families and they are not yet reconciled:
-  *
-  *   namei() / iget()                 — path lookup, from the VFS header
-  *   bread() / bwrite()               — buffer cache sector I/O
-  *   buf_read() / buf_write()         — named in this file's own banner
-  *
-  * They may be the same calls under two names, or a VFS layer over a cache
-  * layer.  Until the UNFS headers say which, these three wrappers are the
-  * only place the choice is made, so reconciling it is a change here and
-  * nowhere else.
-  * ---------------------------------------------------------------------- */
- 
- /* Open the repository directory.  Returns a handle, NULL on failure. */
- static void *pkg_unfs_open_dir(const char *path);
- 
- /* Read one 512-byte sector at an absolute LBA into buf. */
- static int pkg_unfs_read_sector(void *dir, uint64_t lba, void *buf);
- 
- /* Write one 512-byte sector at an absolute LBA from buf. */
- static int pkg_unfs_write_sector(void *dir, uint64_t lba, const void *buf);
- 
- /* Create/truncate a file under dest_root and write len bytes. */
- static int pkg_unfs_write_file(const char *dest_root, const char *path,
-                                const void *data, uint32_t len);
- 
- /* Unlink a file by absolute path. */
- static int pkg_unfs_unlink(const char *path);
+/* -------------------------------------------------------------------------
+ * UNFS bridge
+ *
+ * The wrappers below are the SINGLE place the UNFS call choice is made.
+ * Everything else in this file calls them, so reconciling the API is a
+ * change here and nowhere else.
+ *
+ * Confirmed from the headers:
+ *   unfs_bdev_read/write(dev, blk, buf)   unfs_io.h:38-39
+ *     — takes a UNFS block number (4096-byte units) and does the sector
+ *       conversion internally.  Returns UNFS_OK or UNFS_EIO.
+ *
+ * NOT YET AVAILABLE, and the reason extract/unlink stay simulated:
+ *   a file-creation path above bmap_alloc().  bmap_alloc() itself is
+ *   implemented (bmap.c, @version 3.1.0 — see its case 3/4 placement
+ *   logic), but nothing turns "write these bytes to this path" into an
+ *   inode plus an extent run.  When it exists it will be:
+ *       namei(path, cwd, uid, gid)   namei.h:199
+ *       dir_add(dir, name, len, ino, type)   namei.h:186
+ *   Both already have definitions; they need a caller.
+ * ---------------------------------------------------------------------- */
+
+/* Read/write one UNFS BLOCK (4096 B) at an absolute block number.
+ *
+ * 'dir' is the store's device field boxed as void* — there is no directory
+ * object, because unfs_mount.c keeps no mount table ("it does NOT register
+ * in a mount table", :5).  Call sites pass &store->dev. */
+static int   pkg_unfs_read_blk (void *dir, uiox_uint32_t blk, void *buf);
+static int   pkg_unfs_write_blk(void *dir, uiox_uint32_t blk,
+                                const void *buf);
+
+/* BLOCKED — see the note above.  Return -1 until 01_fsa grows the path. */
+static int   pkg_unfs_write_file(const char *dest_root, const char *path,
+                                 const void *data, uiox_uint32_t len);
+static int   pkg_unfs_unlink   (const char *path);
+
+/* ── definitions for the three that are buildable now ──────────────── */
+
+static int pkg_unfs_read_blk(void *dir, uiox_uint32_t blk, void *buf)
+{
+    if (!dir || !buf) return -1;
+    return (unfs_bdev_read(*(uiox_uint32_t *)dir, blk, buf) == UNFS_OK)
+           ? 0 : -1;
+}
+
+static int pkg_unfs_write_blk(void *dir, uiox_uint32_t blk, const void *buf)
+{
+    if (!dir || !buf) return -1;
+    return (unfs_bdev_write(*(uiox_uint32_t *)dir, blk, buf) == UNFS_OK)
+           ? 0 : -1;
+}
+
+static int pkg_unfs_write_file(const char *dest_root, const char *path,
+                               const void *data, uiox_uint32_t len)
+{
+    (void)dest_root; (void)path; (void)data; (void)len;
+    return -1;   /* 01_fsa has no creat/write above bmap_alloc yet */
+}
+
+static int pkg_unfs_unlink(const char *path)
+{
+    (void)path;
+    return -1;   /* 01_fsa has no unlink above dir_remove yet */
+}
  
  #endif /* UIOX_PKG_REAL_IO */
  
@@ -111,13 +150,16 @@
      if (!store) return UIOX_PKG_ERR_INVAL;
  
  #ifdef UIOX_PKG_REAL_IO
-     void *dir = pkg_unfs_open_dir(store->repo_path);
-     if (!dir) {
-         store->stats.errors++;
-         return UIOX_PKG_ERR_IO;
-     }
-     store->root = dir;
+    /* No directory handle: the repository is addressed by block number.
+     * unfs_mount.c:5 is explicit that it keeps no mount table, so there is
+     * nothing to look up here — 'dev' and 'index_blk' are set by the
+     * caller before store_mount() runs. */
+    if (store->index_blk == 0u) {
+        store->stats.errors++;
+        return UIOX_PKG_ERR_INVAL;   /* unset location — not an I/O fault */
+    }
  #endif
+
  
      store->mounted = true;
      uiox_pkg_store_index_load(store);
@@ -143,12 +185,12 @@
  
  #ifdef UIOX_PKG_REAL_IO
      uiox_pkg_index_hdr_t hdr;
-     if (pkg_unfs_read_sector(store->root, UIOX_PKG_INDEX_LBA, &hdr) != 0) {
+     if (pkg_unfs_read_blk(&store->dev, store->index_blk, &hdr) != 0) {
          store->stats.errors++;
          return UIOX_PKG_ERR_IO;
      }
      store->stats.index_reads++;
-     store->stats.bytes_read += UIOX_PKG_INDEX_SECTOR_SIZE;
+     store->stats.bytes_read += UNFS_BLOCK_SIZE;
  
      if (hdr.magic != UIOX_PKG_INDEX_MAGIC) {
          /* No index on this medium yet — an empty registry is not an error. */
@@ -182,12 +224,12 @@
      hdr.version     = UIOX_PKG_VERSION;
      hdr.entry_count = store->index_count;
  
-     if (pkg_unfs_write_sector(store->root, UIOX_PKG_INDEX_LBA, &hdr) != 0) {
+     if (pkg_unfs_write_blk(&store->dev, store->index_blk, &hdr) != 0) {
          store->stats.errors++;
          return UIOX_PKG_ERR_IO;
      }
      store->stats.index_writes++;
-     store->stats.bytes_written += UIOX_PKG_INDEX_SECTOR_SIZE;
+     store->stats.bytes_written += UNFS_BLOCK_SIZE;
  #endif
  
      store->index_dirty = false;
@@ -316,8 +358,14 @@
      if (!store || !name || !hdr) return UIOX_PKG_ERR_INVAL;
  
  #ifdef UIOX_PKG_REAL_IO
-     if (pkg_unfs_read_sector(store->root, UIOX_PKG_ARCHIVE_LBA(name),
-                              hdr) != 0) {
+     /* The archive's block comes from the index entry — the struct already
+      * declares archive_lba (uiox_pkg_store.h).  There is no name→LBA
+      * function in the tree; the index IS that mapping. */
+     uiox_pkg_index_entry_t *ie = uiox_pkg_store_index_find(store, name);
+     if (!ie) return UIOX_PKG_ERR_NOTFOUND;
+
+     if (pkg_unfs_read_blk(&store->dev, (uiox_uint32_t)ie->archive_lba,
+                           hdr) != 0) {
          store->stats.errors++;
          return UIOX_PKG_ERR_IO;
      }
@@ -326,7 +374,7 @@
          return UIOX_PKG_ERR_BADMAGIC;
      }
      store->stats.archive_reads++;
-     store->stats.bytes_read += UIOX_PKG_INDEX_SECTOR_SIZE;
+     store->stats.bytes_read += UNFS_BLOCK_SIZE;
      return UIOX_PKG_OK;
  #else
      uiox_pkg_sim_archive_t *a = sim_find(name);
@@ -344,18 +392,15 @@
  {
      if (!store || !pkg || !dest_root) return UIOX_PKG_ERR_INVAL;
  
- #ifdef UIOX_PKG_REAL_IO
-     /* Per-file: decompress from the archive, then creat/write through UNFS. */
-     for (uint32_t i = 0u; i < pkg->file_count; i++) {
-         char full[UIOX_PKG_PATH_MAX * 2u];
-         pkg_path_join(full, sizeof(full), dest_root, pkg->files[i].path);
-         if (pkg_unfs_write_file(dest_root, full, NULL,
-                                 pkg->files[i].size) != 0) {
-             store->stats.errors++;
-             return UIOX_PKG_ERR_IO;
-         }
-         store->stats.bytes_written += pkg->files[i].size;
-     }
+  #ifdef UIOX_PKG_REAL_IO
+     /* BLOCKED: needs the 01_fsa creat/write path, which does not exist
+      * above bmap_alloc() yet.  Do NOT fake this — a successful return
+      * here would mark a package installed with no files on disk.
+      *
+      * When it lands: namei → unfs_alloc_inode_bit → unfs_write_inode_disk
+      * → dir_add, then writei for the data.  See pkg_unfs_write_file. */
+     store->stats.errors++;
+     return UIOX_PKG_ERR_UNSUP;
  #else
      PKG_LOG("  [store] extract %-32s -> %s  (%u files)\n",
              pkg->hdr.name, dest_root, pkg->file_count);
@@ -374,12 +419,16 @@
  {
      if (!store || !pkg) return UIOX_PKG_ERR_INVAL;
  
- #ifdef UIOX_PKG_REAL_IO
-     for (uint32_t i = 0u; i < pkg->file_count; i++) {
-         if (pkg_unfs_unlink(pkg->files[i].path) != 0)
-             store->stats.errors++;   /* keep going; report at the end */
-     }
+  #ifdef UIOX_PKG_REAL_IO
+     /* BLOCKED: same missing piece as extract — unlink needs namei plus
+      * dir_remove, and removing the data blocks needs the extent free path.
+      * Faking success would leave files on disk while the registry says
+      * they are gone. */
+     (void)pkg;
+     store->stats.errors++;
+     return UIOX_PKG_ERR_UNSUP;
  #else
+
      PKG_LOG("  [store] remove files of %-32s (%u files)\n",
              pkg->hdr.name, pkg->file_count);
  #endif

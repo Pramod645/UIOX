@@ -59,6 +59,7 @@
  *       │       ├─▶ uiox_kp_engine_init() — 33_PCS/06_kpatch: live patch engine
  *       │       └─▶ uiox_sec_init()       — 33_PCS/05_sec: ASLR + MAC
  *       ├─▶ uiox_netif_subsystem_init()   — 30_DSS: interface table
+ *       ├─▶ uiox_pkg_exec_start()        — 32_FS/04_pkg: package manager
  *       ├─▶ uiox_socket_subsystem_init()  — 30_DSS: socket table
  *       ├─▶ uiox_eth_boot_init()          — 30_DSS: the NIC, over 02_FwHal
  *       ├─▶ uiox_drv_emmc_bind()          — 30_DSS: the block device
@@ -105,6 +106,9 @@
 //#include "uiox_uaccess.h"       /* copy_from_user / copy_to_user           */
 #include "inode.h"              /* ROOT_DEV — the root device index        */
 
+/* 32_FS/04_pkg — package manager.  Non-fatal, like uiox_fs_init(). */
+#include "uiox_pkg_exec.h"
+#include "unfs_format.h"                          /* UNFS_GROUP0_PKG_INDEX */
 /*
  * Static build only: forward-declare the two BSP symbols we need without
  * including uiox_bsp.h (which conflicts with the headers above).
@@ -138,6 +142,7 @@ extern void uiox_proc_init(void);     /* 33_PCS — scheduler + process table */
  * written but not yet in the build, so this link will fail until that
  * lands.  That is the honest state, not an oversight to paper over. */
 extern void uiox_netif_subsystem_init(void);      /* 20_DD/eth   */
+static uiox_pkg_exec_t s_pkg;
 extern void uiox_socket_subsystem_init(void);     /* 34_CAS/eth             */
 extern int  uiox_eth_boot_init(uintptr_t base, uint32_t irq,
                                uiox_fw_net_type_t type);
@@ -460,6 +465,17 @@ static void __attribute__((noreturn)) kernel_common_init(void)
 #endif
 
         (void)soc;      /* unused when no device class is compiled in */
+    }
+    /* 32_FS/04_pkg — the package manager.  AFTER 30_DSS: exec_start()
+     * calls store_mount(), which reads index.upix off the block device,
+     * so there is nothing to mount until the devices are up.  Non-fatal;
+     * an absent or unformatted /pkg leaves the manager unstarted rather
+     * than failing the boot — same treatment as uiox_fs_init() above. */
+    early_puts("[kernel] uiox_pkg_exec_start()...\r\n");
+    if (uiox_pkg_exec_init(&s_pkg, UIOX_PKG_REPO_LOCAL, "/pkg") == UIOX_PKG_OK) {
+        s_pkg.store.dev       = 1u;                    /* UNFS device, fs_init.c:80 */
+        s_pkg.store.index_blk = UNFS_GROUP0_PKG_INDEX;  /* 269, reserved in mkfs */
+        (void)uiox_pkg_exec_start(&s_pkg);
     }
 
     /* 50_UIX/01_shell — first user shell (only remaining 50_UIX entry) */

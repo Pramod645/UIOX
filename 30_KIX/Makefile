@@ -173,6 +173,8 @@ KERNEL_CFLAGS_BASE := \
   -I$(MFDIR)32_FS/include                     \
   -I$(MFDIR)32_FS/02_journal/include          \
   -I$(MFDIR)32_FS/03_netfs/include            \
+  -I$(MFDIR)32_FS/04_pkg/include    \
+  -I$(MFDIR)32_FS/10_unfs/include   \
   -I$(MFDIR)33_PCS/include                    \
   -I$(MFDIR)33_PCS/03_ksign/include           \
   -I$(MFDIR)33_PCS/04_fboot/include           \

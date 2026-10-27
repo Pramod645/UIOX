@@ -32,7 +32,7 @@ unfs_alloc.c — hands out blocks and runs over the group bitmaps
 unfs_extra_unfs_xattr.c — xattr storage
 all of 00_buffcache, 01_fsa, and the 31 10_scfs syscall bodies
 Two known gaps, both named in the code
-bmap_alloc() is a stub. It returns valid = false so a write path stops with ENOSPC. unfs_alloc_run() supplies the run-finding half; merging into i_extents[] and spilling to i_extent_tree is still to write. Reads work, writes report out of space — coherent, not broken.
+bmap_alloc() is a implemented. It returns valid = false so a write path stops with ENOSPC. unfs_alloc_run() supplies the run-finding half; merging into i_extents[] and spilling to i_extent_tree is still to write. Reads work, writes report out of space — coherent, not broken.
 
 bmap.c's EXTREE_PER_BLOCK reads past its buffer. 4096 / sizeof(unfs_extent_t) is 341 entries, but bread() returns a 512-byte data[]. Entries 43–340 are an out-of-bounds read. Bound it at BLOCK_SIZE / sizeof(unfs_extent_t) — 42 — or read all eight sectors.
 

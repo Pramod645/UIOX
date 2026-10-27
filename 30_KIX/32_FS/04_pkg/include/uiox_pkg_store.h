@@ -5,23 +5,32 @@
  * PATH  32_FS/04_pkg/include/uiox_pkg_store.h
  *
  * The store reads and writes through the UIOX filesystem, the same way any
- * other module in 32_FS does: path lookup via the UNFS VFS layer, and the
- * /pkg/index.upix sector plus the .upkg archives through the buffer cache.
+ * other module in 32_FS does.  Two access shapes, deliberately different in
+ * kind — see the store context below for why:
+ *
+ *   index.upix and the .upkg archives   addressed by BLOCK NUMBER, read and
+ *                                       written directly (no path lookup).
+ *                                       unfs_bdev_read/write, 4096-byte
+ *                                       UNFS blocks.
+ *   extracted files under /usr/pkg      addressed by PATH, so they need the
+ *                                       UNFS VFS.  NOT YET AVAILABLE —
+ *                                       extract/remove return UNSUP until
+ *                                       01_fsa provides file creation above
+ *                                       bmap_alloc().
  *
  * RECORDS COME FROM THE POOL.  uiox_pkg_store_load_pkg() returns a pointer
  * into the record pool (uiox_pkg_buf.h), not a copy.  The caller owns that
  * slot and must call uiox_pkg_rec_free() when done.  uiox_pkg_store_index_add()
  * stores the pointer, so the index and the pool share one lifetime.
  *
- * @version 1.0.0
- * @date    2026-10-26
+ * @version 1.1.0
+ * @date    2026-10-27
  */
 
  #ifndef UIOX_PKG_STORE_H
  #define UIOX_PKG_STORE_H
  
  #include "uiox_pkg_buf.h"
-
  
  #ifdef __cplusplus
  extern "C" {
@@ -40,8 +49,10 @@
  /* =========================================================================
   * Package index (on-disk format)
   *
-  * Stored as a flat binary file at /pkg/index.upix
-  * Each entry = fixed-size slot: name + version + state + LBA offset.
+  * Stored at /pkg/index.upix — one UNFS block (4096 B) holding the header,
+  * with one block per index entry.  UIOX_PKG_INDEX_SECTOR_SIZE below is kept
+  * for the header's own 512-byte field alignment; the I/O unit is
+  * UNFS_BLOCK_SIZE, not this.
   * ====================================================================== */
  
  #define UIOX_PKG_INDEX_MAX_ENTRIES  256u
@@ -58,7 +69,7 @@
      char     name   [UIOX_PKG_NAME_MAX];
      uint32_t version;
      uint32_t state;                     /**< uiox_pkg_state_t             */
-     uint64_t archive_lba;               /**< First LBA of .upkg file      */
+     uint64_t archive_lba;               /**< UNFS block of the .upkg      */
      uint32_t archive_size;
      uint8_t  sha256[UIOX_PKG_SHA256_LEN];
      uint8_t  _pad[8];
@@ -86,6 +97,28 @@
      char                   repo_path[UIOX_PKG_URL_MAX]; /**< e.g. "/pkg" */
      uiox_pkg_store_stats_t stats;
      bool                   mounted;
+ 
+     /* ── real-IO addressing (UIOX_PKG_REAL_IO only) ───────────────────
+      * The repository is a region of a block device, not a directory walk,
+      * so the store addresses it by number.  'dev' is UNFS's device id —
+      * uiox_uint32_t, the type every unfs_bdev_* call takes (unfs_io.h:38).
+      * 'index_blk' is the UNFS block holding index.upix.
+      *
+      * UNFS blocks are 4096 bytes (unfs_format.h:129), NOT 512: one block
+      * spans 8 bcache sectors, and unfs_bdev_* does that conversion
+      * internally.  Pass BLOCK numbers here, never sectors.
+      *
+      * Use the uiox_ spelling throughout — uiox_fs.h warns that
+      * uiox_uint32_t and uint32_t are DIFFERENT types in C, and mixing
+      * them is a hard error under -Werror.
+      *
+      * BOTH MUST BE SET BY THE CALLER before uiox_pkg_store_mount():
+      * store_init() does not take them, and mount() validates index_blk
+      * rather than defaulting it — an unset location is a caller error
+      * (UIOX_PKG_ERR_INVAL), not a failed mount. */
+     uiox_uint32_t          dev;
+     uiox_uint32_t          index_blk;
+ 
      /* Index cache (in memory), backed by the record pool */
      uiox_pkg_index_entry_t index[UIOX_PKG_INDEX_MAX_ENTRIES];
      uint32_t               index_count;

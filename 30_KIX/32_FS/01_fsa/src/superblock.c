@@ -107,13 +107,15 @@ void sb_init(uint8_t dev)
      * fix; this is the value the tree can compute today. */
     sb->fs_size          = NUM_DISK_BLOCKS_DEFAULT;
     sb->inode_start      = UNFS_GROUP0_ITABLE;
-    sb->data_start       = UNFS_GROUP0_DATA;
+    //sb->data_start       = UNFS_GROUP0_DATA;
+    sb->data_start       = UNFS_GROUP0_DATA_START;
     sb->max_inodes       = (UNFS_ITABLE_BLOCKS * UNFS_INODES_PER_BLOCK);
     sb->free_inode_count = (UNFS_ITABLE_BLOCKS * UNFS_INODES_PER_BLOCK);
     sb->remembered_inode = 1u;
 
     /* ── the first run of free blocks goes into the window ─────────── */
-    blkno             = UNFS_GROUP0_DATA;
+    //blkno             = UNFS_GROUP0_DATA;
+    blkno               = UNFS_GROUP0_DATA_START;
     sb->free_block_count = 0u;
     sb->free_block_idx   = 0;
 
@@ -289,7 +291,8 @@ void fs_free(uint8_t dev, uint32_t blkno)
 
     if (!sb) return;
 
-    if (blkno < UNFS_GROUP0_DATA || blkno >= NUM_DISK_BLOCKS_DEFAULT) {
+    //if (blkno < UNFS_GROUP0_DATA || blkno >= NUM_DISK_BLOCKS_DEFAULT) {
+    if (blkno < UNFS_GROUP0_DATA_START || blkno >= NUM_DISK_BLOCKS_DEFAULT) {
         printf("[free] dev=%u ERROR: invalid blkno %u\n",
                (unsigned)dev, (unsigned)blkno);
         return;

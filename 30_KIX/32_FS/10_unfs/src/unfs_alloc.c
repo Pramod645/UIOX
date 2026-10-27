@@ -11,7 +11,10 @@
  *     UNFS_GROUP0_BBMAP  259   block bitmap, 1 bit per block, 1 = FREE
  *     UNFS_GROUP0_IBMAP  260   inode bitmap, same convention
  *     UNFS_GROUP0_ITABLE 261   inode table
- *     UNFS_GROUP0_DATA   269   first data block
+ *     //UNFS_GROUP0_DATA   269   first data block
+ *     UNFS_GROUP0_PKG_INDEX 269  pkg index (reserved, 269..525)
+ *     UNFS_GROUP0_DATA_START 526 first data block for allocation
+
  *
  * The superblock carries s_blocks_per_group, s_inodes_per_group and the
  * counts.  Everything below derives its bounds from those, so a volume
@@ -137,7 +140,7 @@
      {
          uiox_uint32_t stride = 2u + UNFS_ITABLE_BLOCKS;
          (void)sb;
-         return UNFS_GROUP0_DATA
+         return UNFS_GROUP0_DATA_START
               + (group - 1u) * (stride + UNFS_ITABLE_BLOCKS)
               + stride;
      }
@@ -145,7 +148,7 @@
  
  static uiox_uint32_t group_first_data_blk(const unfs_sb_t *sb, uiox_uint32_t group)
  {
-     if (group == 0u) return UNFS_GROUP0_DATA;
+     if (group == 0u) return UNFS_GROUP0_DATA_START;
      return group_bmap_blk(sb, group) + 2u + UNFS_ITABLE_BLOCKS;
  }
  

@@ -148,6 +148,20 @@ typedef __INT64_TYPE__   int64_t;
 #define UNFS_ITABLE_BLOCKS     8u             /* 8 x 16 = 128 inodes    */
 #define UNFS_GROUP0_DATA       269u
 
+/* Block reserved for the package manager's index (/pkg/index.upix).
+ *
+ * UNFS_GROUP0_DATA is the FIRST block unfs_alloc_run() will hand out, so
+ * an index placed there collides with the first file written to the
+ * volume.  This block is carved out of the head of the data region, and
+ * the allocator's scan must start after it — see Edit 2.
+ *
+ * One block holds the index header (uiox_pkg_index_hdr_t); the entries
+ * follow in the blocks above it, so an index of N entries consumes
+ * N + 1 blocks.  UNFS_PKG_INDEX_BLOCKS below bounds that. */
+#define UNFS_GROUP0_PKG_INDEX  269u
+#define UNFS_PKG_INDEX_BLOCKS  257u   /* 1 header + 256 entries */
+#define UNFS_GROUP0_DATA_START (UNFS_GROUP0_PKG_INDEX + UNFS_PKG_INDEX_BLOCKS)
+
 /* ── reserved inode numbers ──────────────────────────────────────────
  * The root directory is inode 2, as in ext2: inode 1 is the traditional
  * "bad blocks" inode and is never a live file, so numbering starts at 2.
