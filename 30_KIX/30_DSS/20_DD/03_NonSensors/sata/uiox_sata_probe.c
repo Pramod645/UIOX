@@ -112,7 +112,8 @@ int uiox_sata_probe(void)
      * the uiox_sata_ctrl_t enumerators in front of me, they take the
      * enum's zero value rather than a guessed variant. */
     s_sata_hw.ctrl_type = (uiox_sata_ctrl_t)0;
-    s_sata_hw.dev_type  = (uiox_sata_dev_t)0;
+    s_sata_hw.dev_type  = (uiox_sata_state_t)0;
+
 
     /* ── 6. bind ──────────────────────────────────────────────────
      * Stores the pointer.  0, or -EEXIST if (cls, unit) is already

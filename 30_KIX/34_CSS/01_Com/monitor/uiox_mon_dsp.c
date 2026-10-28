@@ -5,9 +5,7 @@
  */
 
  #include "uiox_mon_dsp.h"
- #include <string.h>
- #include <math.h>
- #include <errno.h>
+ #include "uiox_kix_math.h"
  
  #ifndef M_PI
  #define M_PI 3.14159265358979323846
@@ -26,7 +24,7 @@
  
      for (int i = 0; i < 256; i++) {
          float normalised = (float)i / 255.0f;
-         float corrected  = powf(normalised, g);
+         float corrected  = pow10f(normalised, g);
          uint8_t out      = (uint8_t)(corrected * 255.0f + 0.5f);
          dsp->gamma_r[i]  = out;
          dsp->gamma_g[i]  = out;

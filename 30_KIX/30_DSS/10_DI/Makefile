@@ -1,9 +1,24 @@
 # =============================================================================
-# 30_KIX/10_DI/Makefile  — v1.2.1
+# 30_KIX/10_DI/Makefile  — v1.3.0
 #
 # Hardware Abstraction Layer — builds only subdirectories for enabled devices.
 # Outputs: build/<arch>/libhw.a
-# @version 1.2.1  @date 2026-07-26
+#
+# ── v1.3.0 changes ────────────────────────────────────────────────────
+#   · FIXED: the arch re-invocation named the wrong variables.  Four lines
+#     read ENABLE_SPEAKER/ENABLE_EMMC where they meant ENABLE_UART/SDMMC/
+#     NVME/SATA, and one misspelled ENABLE_SDMC.  make keeps the LAST
+#     assignment for a repeated name, so the re-invoked _build saw
+#     ENABLE_SPEAKER=$(ENABLE_UART) and ENABLE_EMMC=$(ENABLE_SATA), and
+#     never saw the four it actually needed.  Their ?= yes defaults masked
+#     it — flipping any of them to `no` on the command line had no effect.
+#   · The flag list is now derived from the ENABLE_* variable names, so a
+#     new device needs one line (the ?= default) rather than three.  This
+#     is the same class of fix as v1.2.1's stale RTC block: a name that
+#     does not match silently does nothing.
+#   · ENABLE_USBMS added for USDMS/USBMS parity with 20_DD.
+#
+# @version 1.3.0  @date 2026-10-27
 # =============================================================================
 
 MFDIR      := $(dir $(abspath $(lastword $(MAKEFILE_LIST))))
@@ -16,6 +31,10 @@ ARCH_CPUDEF ?=
 DEVICE_DEFS ?=
 _ARCH       ?= arm64
 
+# ── device switches — the ONE place a flag is declared ────────────────
+# Each name here also selects its subdirectory below.  Add a device by
+# adding its ?= line here and its ifeq block in SUBDIRS; the arch rule
+# forwards every name in this list automatically.
 ENABLE_WIFI     ?= yes
 ENABLE_BT       ?= yes
 ENABLE_ETH      ?= yes
@@ -36,12 +55,17 @@ ENABLE_CHG      ?= yes
 ENABLE_FAN      ?= yes
 ENABLE_PMIC     ?= yes
 ENABLE_RTC      ?= yes
-ENABLE_SPEAKER  ?= yes
+ENABLE_SPEAKER  ?= yes	
 ENABLE_EMMC     ?= yes
+ENABLE_UART     ?= yes
 ENABLE_SDMMC    ?= yes
 ENABLE_NVME     ?= yes
-ENABLE_UART     ?= yes
 ENABLE_SATA     ?= yes
+ENABLE_USBMS    ?= yes
+
+# The names forwarded to _build.  Derived from the list above, so the two
+# cannot drift — the v1.2.1-style typo is impossible by construction.
+ENABLE_FLAGS := $(filter ENABLE_%,$(.VARIABLES))
 
 _BUILD_DIR := $(BUILD_BASE)/$(_ARCH)
 INCDIR      = $(MFDIR)include
@@ -59,7 +83,9 @@ COMMON_CFLAGS := \
   -I$(MFDIR)../../../10_BSP/03_SoC/include \
   -I$(MFDIR)../../common
 
-# ── Device-conditional subdirectories ────────────────────────────────────────
+# ── Device-conditional subdirectories ─────────────────────────────────
+# One ifeq per device.  A name here that matches no directory contributes
+# nothing, which `make info` now makes visible.
 SUBDIRS :=
 ifeq ($(ENABLE_WIFI),yes)
   SUBDIRS += 02_Sensors/WiFi
@@ -157,32 +183,7 @@ arm64 arm32 riscv64 x86_64:
 	    ARCH_CFLAGS="$(ARCH_CFLAGS)"    \
 	    ARCH_CPUDEF="$(ARCH_CPUDEF)"    \
 	    DEVICE_DEFS="$(DEVICE_DEFS)"    \
-	    ENABLE_WIFI=$(ENABLE_WIFI)      \
-	    ENABLE_BT=$(ENABLE_BT)          \
-	    ENABLE_ETH=$(ENABLE_ETH)        \
-	    ENABLE_USB=$(ENABLE_USB)        \
-	    ENABLE_HDMI=$(ENABLE_HDMI)      \
-	    ENABLE_TB4=$(ENABLE_TB4)        \
-	    ENABLE_MONITOR=$(ENABLE_MONITOR)\
-	    ENABLE_GPU=$(ENABLE_GPU)        \
-	    ENABLE_CAMERA=$(ENABLE_CAMERA)  \
-	    ENABLE_MIC=$(ENABLE_MIC)        \
-	    ENABLE_KBD=$(ENABLE_KBD)        \
-	    ENABLE_MOUSE=$(ENABLE_MOUSE)    \
-	    ENABLE_ALS=$(ENABLE_ALS)        \
-	    ENABLE_THERMAL=$(ENABLE_THERMAL)\
-	    ENABLE_TOUCHPWD=$(ENABLE_TOUCHPWD)\
-	    ENABLE_BMS=$(ENABLE_BMS)        \
-	    ENABLE_CHG=$(ENABLE_CHG)        \
-	    ENABLE_FAN=$(ENABLE_FAN)        \
-	    ENABLE_PMIC=$(ENABLE_PMIC)      \
-	    ENABLE_RTC=$(ENABLE_RTC)        \
-	    ENABLE_SPEAKER=$(ENABLE_SPEAKER)\
-		ENABLE_SPEAKER=$(ENABLE_UART)   \
-	    ENABLE_EMMC=$(ENABLE_EMMC)      \
-		ENABLE_EMMC=$(ENABLE_SDMC)      \
-	    ENABLE_EMMC=$(ENABLE_NVME)      \
-	    ENABLE_EMMC=$(ENABLE_SATA)
+	    $(foreach f,$(ENABLE_FLAGS),$(f)=$($(f)))
 
 .PHONY: _build
 _build: $(LIB)
@@ -203,6 +204,23 @@ $(_BUILD_DIR)/%.o: $(MFDIR)%.c
 
 -include $(wildcard $(BUILD_BASE)/$(_ARCH)/*.d)
 
-.PHONY: clean
+.PHONY: clean clean-arm64 clean-arm32 clean-riscv64 clean-x86_64
+clean-arm64:   ; @rm -rf $(BUILD_BASE)/arm64
+clean-arm32:   ; @rm -rf $(BUILD_BASE)/arm32
+clean-riscv64: ; @rm -rf $(BUILD_BASE)/riscv64
+clean-x86_64:  ; @rm -rf $(BUILD_BASE)/x86_64
 clean:
 	rm -rf $(BUILD_BASE)
+
+# ── info — which flags are on, and what SUBDIRS resolved to ───────────
+# An ifeq whose name matches no directory contributes nothing silently;
+# this makes the count visible, the same reason 32_FS carries srclist.
+.PHONY: info
+info:
+	@echo "DI         : $(MFDIR)"
+	@echo "arch       : $(_ARCH)  CC=$(CC)"
+	@echo "subsystems : $(words $(SUBDIRS))"
+	@echo "subdirs    : $(SUBDIRS)"
+	@echo "sources    : $(words $(SRCS)) -> $(LIB)"
+	@echo "flags      : $(foreach f,$(ENABLE_FLAGS),$(f)=$($(f)) )"
+	@echo "device defs: $(DEVICE_DEFS)"

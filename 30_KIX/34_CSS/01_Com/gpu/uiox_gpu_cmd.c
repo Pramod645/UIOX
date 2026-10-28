@@ -5,8 +5,7 @@
  */
 
  #include "uiox_gpu_cmd.h"
- #include <string.h>
- #include <errno.h>
+ #include "uiox_klibc.h"
  
  /* -------------------------------------------------------------------------
   * Internal write helper — appends bytes to command buffer

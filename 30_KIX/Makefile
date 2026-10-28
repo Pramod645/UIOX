@@ -13,7 +13,7 @@
 #   6. 33_PCS                → process control
 #                               (includes 03_ksign, 04_fboot,
 #                                         05_sec,   06_kpatch)
-#   7. 34_CAS                → kernel comms / IPC services
+#   7. 34_CSS                → communication and sensor subsystem and health managment
 #   8. 50_UIX/01_shell       → first user shell
 #   9. uiox_kernel_main.c    → kernel entry point
 #
@@ -316,8 +316,8 @@ _build_subsystems:
 	+$(MAKE) -C $(MFDIR)33_PCS CC="$(CC)" AR="$(AR)" \
 	    ARCH_CFLAGS="$(ARCH_CFLAGS)" ARCH_CPUDEF="$(ARCH_CPUDEF)" \
 	    $(_ARCH)
-	# 7. 34_CAS
-	+$(MAKE) -C $(MFDIR)34_CAS CC="$(CC)" AR="$(AR)" \
+	# 7. 34_CSS
+	+$(MAKE) -C $(MFDIR)34_CSS CC="$(CC)" AR="$(AR)" \
 	    ARCH_CFLAGS="$(ARCH_CFLAGS)" ARCH_CPUDEF="$(ARCH_CPUDEF)" \
 	    DEVICE_DEFS="$(DEVICE_DEFS)" $(ENABLE_FLAGS) \
 	    $(_ARCH)
@@ -357,6 +357,7 @@ _link_kernel:
             $(wildcard $(FWHAL)/build/$(_ARCH)/*.a)                    \
             $(wildcard $(MFDIR)30_DSS/build/$(_ARCH)/*.a)              \
             $(wildcard $(MFDIR)32_FS/build/$(_ARCH)/*.a)               \
+			$(wildcard $(MFDIR)34_CSS/build/$(_ARCH)/*.a)              \
             $(wildcard $(MFDIR)33_PCS/build/$(_ARCH)/*.a)              \
             $(wildcard $(MFDIR)10_BSP/build/$(_ARCH)/*.a)              \
 			$(BSP_LIB_ARG)                                             \
@@ -389,7 +390,7 @@ clean-x86_64:  ; rm -rf $(MFDIR)build/x86_64
 clean-subsys:
 	@for d in $(FWHAL) $(MFDIR)30_DSS/10_DI $(MFDIR)30_DSS/20_DD \
 	           $(MFDIR)31_BufferCache $(MFDIR)32_FS $(MFDIR)33_PCS \
-	           $(MFDIR)34_CAS $(UIXDIR)/01_shell; do \
+	           $(MFDIR)34_CSS $(UIXDIR)/01_shell; do \
 	    [ -f $$d/Makefile ] && $(MAKE) -C $$d clean || true; \
 	done
 

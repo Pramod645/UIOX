@@ -5,19 +5,10 @@
  */
 
  #include "uiox_hdmi_proto.h"
- #include <string.h>
- #include <errno.h>
  
  /* -------------------------------------------------------------------------
   * Infoframe checksum: sum of all bytes (type+version+length+payload) = 0
   * ---------------------------------------------------------------------- */
- 
- static uint8_t infoframe_checksum(const uint8_t *buf, uint8_t len)
- {
-     uint8_t sum = 0;
-     for (uint8_t i = 0; i < len; i++) sum += buf[i];
-     return (uint8_t)(0x100u - sum);
- }
  
  int uiox_hdmi_proto_init(uiox_hdmi_proto_t *proto,
                            uiox_hdmi_if_t    *hif,

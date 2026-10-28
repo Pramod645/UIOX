@@ -15,7 +15,9 @@ extern "C" {
 #define AHCI_GHC_GHC_AE     (1u << 31)
 #define AHCI_GHC_GHC_IE     (1u << 1)
 #define AHCI_GHC_GHC_HR     (1u << 0)
+#ifndef AHCI_PORT_BASE
 #define AHCI_PORT_BASE(p)   (0x0100u + (p)*0x80u)
+#endif
 #define AHCI_PX_SSTS        0x28u
 #define AHCI_PX_CMD         0x18u
 #define AHCI_PX_SIG         0x24u

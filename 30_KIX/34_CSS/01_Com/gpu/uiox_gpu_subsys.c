@@ -5,8 +5,7 @@
  */
 
  #include "uiox_gpu_subsys.h"
- #include <string.h>
- #include <errno.h>
+  #include "uiox_klibc.h"
  
  int uiox_gpu_subsys_init(uiox_gpu_subsys_t *sys,
                            uiox_gpu_hw_t *hw,

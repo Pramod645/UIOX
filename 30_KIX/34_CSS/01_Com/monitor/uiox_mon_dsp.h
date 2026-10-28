@@ -19,8 +19,6 @@
  #define UIOX_MON_DSP_H
  
  #include "uiox_mon_buf.h"
- #include <stdint.h>
- #include <stdbool.h>
  
  #ifdef __cplusplus
  extern "C" {

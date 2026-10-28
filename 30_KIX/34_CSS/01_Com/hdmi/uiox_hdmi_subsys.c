@@ -5,8 +5,6 @@
  */
 
  #include "uiox_hdmi_subsys.h"
- #include <string.h>
- #include <errno.h>
  
  static void fire(uiox_hdmi_subsys_t *sys, uiox_hdmi_evt_t evt)
  {

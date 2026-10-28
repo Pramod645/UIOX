@@ -19,7 +19,7 @@
  #ifndef UIOX_GPU_CMD_H
  #define UIOX_GPU_CMD_H
  
- #include "uiox_gpu_buf.h"
+ #include "uiox_gpu_mem.h"
  
  #ifdef __cplusplus
  extern "C" {

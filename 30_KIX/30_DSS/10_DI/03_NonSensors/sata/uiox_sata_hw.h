@@ -51,7 +51,7 @@
      UIOX_SATA_DEV_ATAPI,           /**< ATAPI (optical drive)            */
      UIOX_SATA_DEV_SEMB,            /**< Enclosure management bridge      */
      UIOX_SATA_DEV_PM,              /**< Port multiplier                  */
- } uiox_sata_dev_t;
+ } uiox_sata_state_t;
  
  /* =========================================================================
   * Hardware capability flags
@@ -110,7 +110,10 @@
   * AHCI Per-Port Registers (PxREG — base = BAR5 + 0x100 + port*0x80)
   * ====================================================================== */
  
+ #ifndef AHCI_PORT_BASE
  #define AHCI_PORT_BASE(p)           (0x0100u + (uint32_t)(p) * 0x80u)
+ #endif
+  
  
  #define AHCI_PX_CLB                 0x00u  /**< Cmd list base addr (lo)   */
  #define AHCI_PX_CLBU                0x04u  /**< Cmd list base addr (hi)   */
@@ -344,7 +347,7 @@
      uint8_t            port;           /**< Active SATA port (0–31)       */
      uint8_t            num_ports;      /**< Ports implemented             */
      /* Device state */
-     uiox_sata_dev_t    dev_type;
+     uiox_sata_state_t    dev_type;
      uiox_sata_ident_t  ident;
      bool               dev_present;
      bool               dev_ready;

@@ -20,7 +20,7 @@
  
  #include "uiox_hdmi_if.h"
  #include "uiox_hdmi_sink.h"
- #include <errno.h>
+ #include "uiox_klibc.h"
 
  #ifdef __cplusplus
  extern "C" {
