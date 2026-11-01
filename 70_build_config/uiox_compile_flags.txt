@@ -55,6 +55,6 @@
 -I30_DeviceDrivers/include
 -I31_BufferCache/include
 -I32_FileSystem
--I33_ProcessControlSubsystem
+-I30_KIX/33_PCS
 -I40_SystemCallInterface
 -I50_UIX/00_libs

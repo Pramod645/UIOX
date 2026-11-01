@@ -36,12 +36,12 @@ FS_FSA_DIR      := $(FS_DIR)/01_fsa
 FS_SCFS_DIR     := $(FS_DIR)/10_scfs
 
 # -- Process control subsystem --------------------------------
-PROC_DIR        := $(UIOX_ROOT)/33_ProcessControlSubsystem
-PROC_IPC_DIR    := $(PROC_DIR)/00_inter-process-communication
+PROC_DIR        := $(UIOX_ROOT)/30_KIX/33_PCS
+PROC_IPC_DIR    := $(PROC_DIR)/00_IPC
 PROC_SCHED_DIR  := $(PROC_DIR)/01_schedular
-PROC_MM_DIR     := $(PROC_DIR)/02_memory-managment
-PROC_STRUCT_DIR := $(PROC_DIR)/40_procStruct
-PROC_SCPS_DIR   := $(PROC_DIR)/50_scps
+PROC_MM_DIR     := $(PROC_DIR)/02_MemMngnt
+PROC_PSA_DIR    := $(PROC_DIR)/40_psa
+PROC_SCPS_DIR   := $(PROC_DIR)/50_scpcs
 
 # -- System call interface ------------------------------------
 SYSCALL_DIR     := $(UIOX_ROOT)/40_SystemCallInterface

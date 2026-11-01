@@ -56,7 +56,7 @@ BOOT_SRCS := \
 BOOT_OBJS := $(patsubst $(SRCDIR)/%.c,$(OBJDIR)/%.o,$(BOOT_SRCS))
 
 # ── Runtime sources (C + Assembly) ───────────────────────────
-# Used by 33_ProcessControlSubsystem (context switch),
+# Used by 33_PCS (context switch),
 # 32_FileSystem (MMU map/unmap), 40_SystemCallInterface (syscall entry)
 RUNTIME_C_SRCS := \
   $(SRCDIR)/arch_runtime.c
