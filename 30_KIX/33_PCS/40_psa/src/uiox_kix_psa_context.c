@@ -26,6 +26,7 @@
  */
 #include "../include/uiox_kix_psa_context.h"
 #include "../include/uiox_kix_psa_proc_algo.h"
+//#include "arch_runtime.h"   /* arch_context_t, arch_context_switch */
 
 /* ── Globals ───────────────────────────────────────────────────────── */
 uiox_kix_psa_intr_vector_t
@@ -113,8 +114,99 @@ void uiox_kix_psa_context_switch(uiox_kix_psa_sys_context_t *from,
                                  uiox_kix_psa_sys_context_t *to)
 {
     if (!to) return;
+
+    /* Bookkeeping first: record which context a later save belongs to.
+     * Doing it BEFORE the register transfer means an interrupt arriving
+     * immediately after lands its frame in the incoming context. */
     uiox_kix_psa_current_context = to;
-    (void)from;
+
+    /* The register transfer.
+     *
+     * arch_context_switch() saves the callee-saved frame into *from and
+     * loads *to.  It is per-architecture and lives in
+     * 10_BSP/10_Arch/<arch>/src/arch_context.S, one implementation per
+     * target, all with this signature.
+     *
+     * A NULL `from` is legal and means "first switch, from idle" -- the
+     * arm64 code branches on it (cbz x0, .Lload_new).
+     *
+     * THE CAST IS LOAD-BEARING, and the types are genuinely different:
+     *
+     *   arch_context_t  x19-x28, x29/x30, sp, spsr, elr, tpidr   (128 B)
+     *                   -- the callee-saved frame the ABI requires
+     *   reg_context_t   rc_pc, rc_sp, rc_sr, rc_carry, rc_gpr[16], ...
+     *                   -- the EXCEPTION frame, pushed by inthand onto
+     *                      sc_layers[]
+     *   hw_context_t    x[31], sp_el0, elr_el1, spsr_el1, ...
+     *                   -- what SAVE_REGS builds in arch_irq.S
+     *
+     * Three layouts, three purposes.  Passing sc_layers[0] here would
+     * make the arch code read x19 out of rc_pc -- see the field below,
+     * which is the one to use.
+     */
+    //arch_context_switch((arch_context_t *)from, (arch_context_t *)to);
+    arch_context_switch(from ? &from->sc_switch : (arch_context_t *)0, &to->sc_switch);
+
+}
+
+/* ── uiox_kix_psa_current_uarea ──────────────────────────────────────
+ * The u area belonging to whichever context is current.
+ *
+ * WHY THIS EXISTS: the u area type is documented as per-process --
+ * "Per-running-process state.  Everything reachable only by the process
+ * that owns it lives here" (uiox_kix_psa_proc_algo.h) -- but for most of
+ * this tree's life there was a single instance, uiox_kix_psa_u, and
+ * attachreg's u_pregs[] was therefore THE pregion table for every
+ * process.  The pool in uiox_kix_psa_sleep_wakeup.c gives them one each;
+ * this function is what makes the name uiox_kix_psa_u resolve to the
+ * right one.
+ *
+ * The macro in uiox_kix_psa_proc_algo.h:
+ *
+ *     #define uiox_kix_psa_u  (*uiox_kix_psa_current_uarea())
+ *
+ * keeps every existing call site textually unchanged -- region.c's
+ * attachreg/growreg, inthand's save/restore, the sleep path.
+ *
+ * ── the two fallbacks, and why they are not laziness ────────────────
+ *   1. no current context: nothing has switched yet.  Before the first
+ *      schedule_process() the kernel runs on the boot stack with no
+ *      process, and the singleton is what there is.
+ *   2. current context with no u area: sc_uarea is assigned only by
+ *      uiox_pcs_init.c for PID 1.  Every other proc_alloc() caller, and
+ *      every fork child, still has a NULL there until the same wiring is
+ *      repeated for them.
+ *
+ * In both cases the fallback is exactly today's behaviour -- the one
+ * global -- so completing the wiring later changes nothing for the
+ * processes that are already correct, and nothing that works now breaks
+ * while it is being completed.
+ *
+ * RETURN IS NEVER NULL.  A caller that dereferences the result cannot be
+ * given NULL by a context that merely has not been wired yet; that is a
+ * configuration state, not an error.
+ */
+uiox_kix_psa_u_area_t *uiox_kix_psa_current_uarea(void)
+{
+    uiox_kix_psa_u_area_t *ua;
+
+    if (uiox_kix_psa_current_context &&
+        uiox_kix_psa_current_context->sc_uarea) {
+        return (uiox_kix_psa_u_area_t *)uiox_kix_psa_current_context->sc_uarea;
+    }
+
+    /* No current context yet (nothing has switched) or the current
+     * context has no u area attached.  Fall back to SLOT 0 of the pool,
+     * which uiox_pcs_init.c wires to PID 1 -- the only process that
+     * exists before the first schedule_process().
+     *
+     * This used to return &uiox_kix_psa_u, the old single global.  That
+     * object no longer exists (it is gone from uiox_kix_psa_sleep_wakeup.c),
+     * and a fallback to a missing symbol compiles to a branch to itself
+     * rather than a return: any caller before the first switch -- notably
+     * inthand saving a register frame -- would spin forever. */
+     ua = uiox_kix_psa_uarea_for(0u);
+    return ua ? ua : (uiox_kix_psa_u_area_t *)0;
 }
 
 /* ── PSA Algorithm 1 — uiox_kix_psa_inthand ──────────────────────────
@@ -148,4 +240,15 @@ void uiox_kix_psa_inthand(int vec, uiox_kix_psa_reg_context_t *regs)
         ivp->iv_handler(vec, regs);
 
     uiox_kix_psa_context_restore(&uiox_kix_psa_u.u_sysctx, regs);
+}
+/*   updated below for OS upadte    */
+/* One context per process table slot.  Indexed parallel to
+ * uiox_kix_psa_proc_table[] in uiox_kix_psa_process.c, so a process and
+ * its context share an index — the slot IS the link, which keeps the two
+ * layers from including each other. */
+static uiox_kix_psa_sys_context_t s_sys_ctx[UIOX_KIX_PSA_NPROC];
+
+uiox_kix_psa_sys_context_t *uiox_kix_psa_context_for(uint32_t slot)
+{
+    return (slot < (uint32_t)UIOX_KIX_PSA_NPROC) ? &s_sys_ctx[slot] : NULL;
 }

@@ -184,13 +184,68 @@ The same arch_syscall_entry() pattern applies to the other three arch files
      __asm__ volatile("mrs %0, cntfrq_el0" : "=r"(freq));
  
      unsigned long tval = freq / 100u;   /* 100 Hz */
+
      __asm__ volatile("msr cntp_tval_el0, %0" :: "r"(tval));
      __asm__ volatile("msr cntp_ctl_el0,  %0" :: "r"(1UL));  /* enable */
  
      printf("[arm64] Generic timer: %lu Hz / 100 = %lu ticks (PPI %u)\n",
             freq, tval, ARCH_TIMER_IRQ_PHYS);
  }
- 
+/* ── arm64_timer_rearm ───────────────────────────────────────────────
+ * Program the next tick.
+ *
+ * arm64_timer_init() does this ONCE at boot: it writes CNTP_TVAL_EL0 and
+ * sets CNTP_CTL_EL0.EL0.  The generic timer is DOWN-COUNTER -- it fires
+ * when TVAL reaches zero and then stops -- so without this call the
+ * first interrupt is also the last, and the tick dies after one period.
+ *
+ * Same 100 Hz period as init, read from CNTFRQ_EL0 rather than a stored
+ * constant so the two cannot drift apart.
+ *
+ * CNTP_CTL_EL0 is left alone: bit 0 (ENABLE) is still set from init,
+ * and RE-ENABLING a timer that is already enabled is a no-op.  Writing
+ * it here would also clear IMASK on some implementations. */
+static void arm64_timer_rearm(void)
+{
+    unsigned long freq;
+    __asm__ volatile("mrs %0, cntfrq_el0" : "=r"(freq));
+
+    __asm__ volatile("msr cntp_tval_el0, %0" :: "r"(freq / 100u));
+
+
+}
+
+/* ── timer0_irq_handler ──────────────────────────────────────────────
+ * Registered for ARCH_TIMER_IRQ_PHYS (PPI 30) by arch_init() at line 223,
+ * and enabled at line 226 -- and until now this function had NO BODY
+ * anywhere in the tree, so the first timer interrupt would branch to
+ * address 0.
+ *
+ * Three things, in this order:
+ *   1. re-arm, FIRST.  The interrupt is edge-triggered by TVAL hitting
+ *      zero; leaving it un-re-armed until after the hook means a long
+ *      tick drops the next one.
+ *   2. the hook, if the kernel has installed one.
+ *   3. nothing else.  EOIR is written by irq_dispatch() after this
+ *      handler returns, which is the correct order -- the GIC must not
+ *      be told the interrupt is finished while a handler is still on it.
+ *
+ * ctx is the exception frame from arm64_irq_entry's SAVE_REGS.  It is
+ * unused here: the tick does not modify the interrupted process's
+ * registers, and a context switch taken from this path saves the stub's
+ * own callee-saved set via arch_context_switch. */
+void timer0_irq_handler(int irq, hw_context_t *ctx, void *id)
+{
+    (void)irq;
+    (void)ctx;
+    (void)id;
+
+    arm64_timer_rearm();
+
+    if (uiox_clock_tick_hook)
+        uiox_clock_tick_hook();
+}
+
  /* =========================================================================
   * arch_init — called by uiox_kernel_main() before uiox_soc_init()
   * ====================================================================== */

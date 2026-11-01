@@ -223,6 +223,44 @@ build_arch() {
         printf 'skipped (no Makefile)\n'
     fi
 
+    # ── userspace image ($ARCH) ─────────────────────────────────────────
+    # uios + the ten apps, built and STAGED into this arch's image tree:
+    #
+    #     ../../50_UIX/20_uios/build/$ARCH/image/bin/uios
+    #     ../../50_UIX/21_apps/build/$ARCH/image/21_apps_/app_*
+    #
+    # Those are the paths kinit_main execs and g_apps[] names.  The two
+    # makefiles do the staging themselves (_build_install in the arch
+    # target), so `make <arch>` both builds and installs -- the earlier
+    # form `make <arch> install` installed the arm64 binary into the arm64
+    # tree for every architecture, because `install` ran in the parent
+    # make where _ARCH is still its default.
+    #
+    # NON-FATAL.  The kernel does not depend on the image, and a userspace
+    # build failure must not stop four architectures from linking.  A
+    # "skipped" here means the tree has no UIOS sources yet, not that the
+    # kernel is broken.
+    for u in 20_uios 21_apps; do
+        printf '   %-34s' "50_UIX/$u"
+        if [ -f "$ROOT/50_UIX/$u/Makefile" ]; then
+            ( cd "$ROOT/50_UIX/$u" && make "$ARCH" CC="$CC" AR="$AR" \
+                ARCH_CFLAGS="$ARCH_CFLAGS" ARCH_CPUDEF="$ARCH_CPUDEF" ) >>"$LOG" 2>&1 \
+                && ok || printf '\033[33mfailed\033[0m (see %s)\n' "${LOG#"$ROOT/"}"
+        else
+            printf 'skipped (no Makefile)\n'
+        fi
+    done
+
+    # report what landed, so a silent staging failure is visible
+    printf '   %-34s' "  image/bin + 21_apps_"
+    if [ -x "$ROOT/50_UIX/20_uios/build/$ARCH/image/bin/uios" ]; then
+        printf 'uios=%s apps=%s\n' \
+            "$(wc -c <"$ROOT/50_UIX/20_uios/build/$ARCH/image/bin/uios" | tr -d ' ')" \
+            "$(ls "$ROOT/50_UIX/21_apps/build/$ARCH/image/21_apps_/" 2>/dev/null | wc -l | tr -d ' ')"
+    else
+        printf '\033[33mnot staged\033[0m\n'
+    fi
+
     # 2. verify every archive the link needs exists
     say "archives ($ARCH)"
     local MISSING=0 a
@@ -250,7 +288,9 @@ build_arch() {
         CC="$CC" AR="$AR" LD="$LD" \
         ARCH_CFLAGS="$ARCH_CFLAGS" ARCH_CPUDEF="$ARCH_CPUDEF" \
         ARCH_LD_EMUL="$ARCH_LD_EMUL" \
-        DEVICE_DEFS="$DEVICE_DEFS" LINK=yes || return 1
+        DEVICE_DEFS="$DEVICE_DEFS" LINK=yes \
+        LINK_GROUP_START="-Wl,--start-group" \
+        LINK_GROUP_END="-Wl,--end-group" || return 1
 
     # 4. verify the ELF
     say "result ($ARCH)"

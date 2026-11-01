@@ -12,8 +12,12 @@
 
 /* ── Word / pointer sizes ─────────────────────────────────────────── */
 #define UIOX_PTR_SIZE           4
+#ifndef UIOX_PAGE_SIZE
 #define UIOX_PAGE_SIZE          4096
+#endif
+#ifndef UIOX_PAGE_SHIFT
 #define UIOX_PAGE_SHIFT         12
+#endif
 #define UIOX_CACHE_LINE         32
 
 /* ── Physical memory map (QEMU virt / versatilepb defaults) ──────────

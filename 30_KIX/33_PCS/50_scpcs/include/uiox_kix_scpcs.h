@@ -40,8 +40,8 @@
  *   3. Miscellaneous
  *        setpgrp, setuid
  *
- * ── extension beyond the nine ───────────────────────────────────────
- * Only the calls 40psa's fields can actually support, then bound:
+ * ── extension beyond the nine ───────────────────────────────────────*/
+ /* Only the calls 40psa's fields can actually support, then bound:
  *   getpid/getppid  getuid/euid  getgid/egid  nice  times
  *   sigprocmask  sigpending  raise  pause  alarm
  *
@@ -51,9 +51,9 @@
  * Calls needing a field that does not exist are ABSENT, not stubbed:
  *   setpgrp  — no group field on the process table entry
  *   setsid   — no session model at all
- *
- * ── the type this binds to ──────────────────────────────────────────
- * uiox_kix_psa_proc_t from 40psa's uiox_kix_psa_process.h.  NOT
+ */
+ /* ── the type this binds to ──────────────────────────────────────────*/
+ /* uiox_kix_psa_proc_t from 40psa's uiox_kix_psa_process.h.  NOT
  * uiox_task_t, NOT the pe_* shape 02_MemMngnt/src/page_fault.c uses,
  * NOT the sim_proc_t that signal.c casts to.  This is the one model the
  * 40psa algorithms are written against.
@@ -89,6 +89,7 @@
 #define SCPCS_EBUSY     ((int64_t)-16)   /* device or resource busy     */
 #define SCPCS_EINVAL    ((int64_t)-22)   /* invalid argument            */
 #define SCPCS_ENOSYS    ((int64_t)-38)   /* not implemented             */
+#define SCPCS_ENOEXEC   ((int64_t) -8)   /* exec format error           */
 
 /* ══ Group 1 — memory Management ═══════════════════════════════════ */
 

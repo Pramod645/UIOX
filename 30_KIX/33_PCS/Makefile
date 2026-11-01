@@ -75,6 +75,8 @@ FWHAL     := $(abspath $(MFDIR)../../02_FwHal)
 SCIXDIR   := $(abspath $(MFDIR)../../40_SCIX)
 DSSDIR    := $(abspath $(MFDIR)..)
 
+FS_DIR:= $(MFDIR)../32_FS
+
 UNAME_S := $(shell uname -s)
 ifeq ($(UNAME_S),Darwin)
   ARM64_CC := aarch64-elf-gcc
@@ -129,6 +131,9 @@ COMMON_INCLUDES := \
   -I$(FWHAL)/include      \
   -I$(SCIXDIR)/include    \
   -I$(UBOOT)/include      \
+  -I$(FS_DIR)/01_fsa/include  \
+  -I$(FS_DIR)/10_unfs/include   \
+  -I$(FS_DIR)/00_bcache/include   \
   -I$(SOCINC)
 
 # ── the layers, in dependency order ───────────────────────────────────

@@ -111,6 +111,22 @@ void timer_init(void)
     wheel.running_timer = (TimerNode *)0;
 }
 
+/* ── uiox_timer_init ─────────────────────────────────────────────────
+ * The name the boot path calls.
+ *
+ * uiox_pcs_init.c:62 declares uiox_timer_init(void); the only definition
+ * of that name was the second stub in uiox_kernel_main.c, now commented
+ * out.  This file's initialiser is timer_init(), so this is the bridge.
+ *
+ * ORDER: timer_init() reads `jiffies`, the scheduler's global.  The boot
+ * sequence in uiox_pcs_init.c runs the scheduler (step 3) before the
+ * timer (step 4), which is what makes that read valid.
+ */
+void uiox_timer_init(void)
+{
+    timer_init();
+}
+
 /* ── tv1_index ───────────────────────────────────────────────────────
  * Which bucket a deadline falls in.  TVEC_SIZE is a power of two, so
  * the mask is the modulo — and a mask is what makes this safe when

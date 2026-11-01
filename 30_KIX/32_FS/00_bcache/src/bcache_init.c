@@ -98,10 +98,10 @@ BufStats bcache_stats;
 #define BCACHE_DEV_STRIDE_DEFAULT \
     ((((uintptr_t)NUM_DISK_BLOCKS_DEFAULT * BCACHE_SECTOR_SIZE) + 0xFFFu) & ~0xFFFu)
 
-uintptr_t bcache_plat_dram_base(void)
+/*uintptr_t bcache_plat_dram_base(void)
 {
     return (uintptr_t)BCACHE_DRAM_BASE_DEFAULT;
-}
+}*/
 
 /*
  * bcache_plat_num_blocks — how many blocks a device holds.
@@ -127,6 +127,7 @@ uintptr_t bcache_plat_dram_base(void)
 }*/
 
 /* ── the byte address of a (dev, blkno) — bounds-checked ────────────── */
+#if 0
 static uintptr_t plat_addr(uint8_t dev, uint32_t blkno)
 {
     uintptr_t base = bcache_plat_dram_base();
@@ -139,7 +140,8 @@ static uintptr_t plat_addr(uint8_t dev, uint32_t blkno)
          + (uintptr_t)dev * BCACHE_DEV_STRIDE_DEFAULT
          + (uintptr_t)blkno * BCACHE_SECTOR_SIZE;
 }
-
+#endif
+#if 0
 void bcache_plat_read_block(uint8_t dev, uint32_t blkno, uint8_t *buf)
 {
     uint32_t nblocks = bcache_plat_num_blocks(dev);
@@ -159,7 +161,8 @@ void bcache_plat_read_block(uint8_t dev, uint32_t blkno, uint8_t *buf)
     //memcpy(buf, (const void *)addr, BCACHE_SECTOR_SIZE); to fix error for arm32
     memcpy(buf, (const void *)(uiox_uintptr_t)addr, BCACHE_SECTOR_SIZE);
 }
-
+#endif
+#if 0
 void bcache_plat_write_block(uint8_t dev, uint32_t blkno, const uint8_t *buf)
 {
     uint32_t nblocks = bcache_plat_num_blocks(dev);
@@ -181,7 +184,7 @@ void bcache_plat_write_block(uint8_t dev, uint32_t blkno, const uint8_t *buf)
     memcpy((void *)(uiox_uintptr_t)addr, buf, BCACHE_SECTOR_SIZE);
    
 }
-
+#endif
 /* ═════════════════════════════════════════════════════════════════════
  * bcache_init — build the pool
  *

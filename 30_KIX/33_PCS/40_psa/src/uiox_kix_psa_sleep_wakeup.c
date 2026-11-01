@@ -47,10 +47,50 @@ uiox_kix_psa_sleep_queue_t
 int uiox_kix_psa_scheduler_flag = 0;
 int uiox_kix_psa_proc_level     = 0;
 
-/* The running process's u area.  PSA allocates this per running process,
- * not per table slot, so there is exactly one and it belongs to whoever
- * is executing. */
-uiox_kix_psa_u_area_t uiox_kix_psa_u;
+/* ── The running process's u area ────────────────────────────────────
+ * This used to be a single object:
+ *
+ *     uiox_kix_psa_u_area_t uiox_kix_psa_u;
+ *
+ * with the comment above claiming "there is exactly one and it belongs
+ * to whoever is executing".  The TYPE was per-process from the start --
+ * u_proc is a back-pointer to a table slot, which only means anything
+ * with several instances -- but the storage never was.  So
+ * attachreg's u_pregs[] (region.c:270) was THE pregion table for every
+ * process in the system.
+ *
+ * The singleton is now gone.  The name uiox_kix_psa_u is a macro in
+ * uiox_kix_psa_proc_algo.h resolving to the running process's entry in
+ * the pool below, so every existing call site -- region.c, context.c,
+ * this file -- reaches the right instance without being rewritten.
+ */
+
+/* ── The u area pool ─────────────────────────────────────────────────
+ * One u area per process table slot, indexed parallel to
+ * uiox_kix_psa_proc_table[] -- the same convention s_sys_ctx[] uses in
+ * uiox_kix_psa_context.c, so a process and its u area share an index and
+ * the slot IS the link.
+ *
+ * SIZE: 64 x ~5.4 KB = ~339 KB of BSS.  u_sysctx dominates, at
+ * sc_kstack[4096].
+ */
+uiox_kix_psa_u_area_t uiox_kix_psa_u_area_pool[UIOX_KIX_PSA_NPROC];
+
+/* ── uiox_kix_psa_uarea_for ──────────────────────────────────────────
+ * Turn a process table slot into that process's u area.
+ *
+ * Range-checked, so a boot path or a fork can fail cleanly rather than
+ * index past the end of a 339 KB array.
+ */
+
+uiox_kix_psa_u_area_t *uiox_kix_psa_uarea_for(uint32_t slot)
+{
+    if (slot >= (uint32_t)UIOX_KIX_PSA_NPROC)
+        return (uiox_kix_psa_u_area_t *)0;
+    return &uiox_kix_psa_u_area_pool[slot];
+}
+
+
 
 /* ── Processor-level stubs ───────────────────────────────────────────
  * In a real kernel these mask and unmask hardware interrupts around a

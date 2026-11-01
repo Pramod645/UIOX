@@ -220,18 +220,20 @@ void uiox_shell_start(void)
 #endif
     }
 }
-
+extern void uiox_sched_init(void);
 //__attribute__((weak))
-void uiox_sched_init(void)
-{
-    early_puts("[kernel]   uiox_sched_init: stub (33_PCS/01_schedular not built)\r\n");
-}
-
+//void uiox_sched_init(void)
+//{
+//    scheduler_init();      /* the real one, unchanged */
+ //   early_puts("[kernel]   uiox_sched_init: stub (33_PCS/01_schedular not built)\r\n");
+//}
+extern void uiox_timer_init(void);
 //__attribute__((weak))
-void uiox_timer_init(void)
-{
-    early_puts("[kernel]   uiox_timer_init: stub (33_PCS timer not built)\r\n");
-}
+//void uiox_timer_init(void)
+//{
+//    timer_init();          /* real one, unchanged */
+//    early_puts("[kernel]   uiox_timer_init: stub (33_PCS timer not built)\r\n");
+//}
 
 //__attribute__((weak))
 void uiox_kp_engine_init(void)
@@ -244,13 +246,13 @@ void uiox_sec_init(void)
 {
     early_puts("[kernel]   uiox_sec_init: stub (33_PCS/05_sec not built)\r\n");
 }
-
+extern int uiox_fs_init(void);
 //__attribute__((weak))
-int uiox_fs_init(void)
-{
-    early_puts("[kernel]   uiox_fs_init: stub (32_FS not built)\r\n");
-    return 0;
-}
+//int uiox_fs_init(void)
+//{
+//    early_puts("[kernel]   uiox_fs_init: stub (32_FS not built)\r\n");
+//    return 0;
+//}
 /* ── 30_DSS device entry points that have no body yet ────────────────
  * Called unconditionally from kernel_common_init (netif/socket) or
  * inside UIOX_HAVE_ETH / UIOX_HAVE_EMMC (the other two).  Weak, so a
@@ -479,10 +481,10 @@ static void __attribute__((noreturn)) kernel_common_init(void)
     }
 
     /* 50_UIX/01_shell — first user shell (only remaining 50_UIX entry) */
-    early_puts("[kernel] uiox_shell_start()...\r\n");
-    uiox_shell_start();
+    //early_puts("[kernel] uiox_shell_start()...\r\n");
+    //uiox_shell_start();
 
-    early_puts("[kernel] FATAL: shell returned — halting\r\n");
+    //early_puts("[kernel] FATAL: shell returned — halting\r\n");
     for (;;) {
 #if defined(__x86_64__)
         __asm__ volatile("hlt");

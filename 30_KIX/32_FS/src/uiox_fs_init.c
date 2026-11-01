@@ -67,15 +67,40 @@ int uiox_fs_init(void)
     int           rc;
 
     /* 0 — Page cache.  Must be first: VFS and SCFS allocate through it. */
-    uiox_pc_init();
+    //uiox_pc_init();
+    
+    /* 0 — Page cache.  Must be first: VFS and SCFS allocate through it.
+     * bcache_init() is the one definition; 01_fsa's buffer.h aliases the
+     * old name buf_init() to it (buffer.h:102).  uiox_pc_init() was a
+     * third name for the same function and was never written. */
+    bcache_init();
+
 
     /* 1 — VFS layer: inode / dentry / file caches */
     vfs_init();
 
-    /* 2 — Register the filesystems.  ROOT_DEV is 0 (inode.h), so the
-     *     root filesystem registers on device 0 and that is the index
-     *     every dispatch uses. */
-    rc = uiox_kix_scfs_register(ROOT_DEV);
+    /* 2 — SCFS is the FILE level, not a filesystem: it owns the mount
+     *     table and the syscall bodies, and has no on-disk format.  It
+     *     registers on its own index; device 0 belongs to the root
+     *     filesystem. */
+    //rc = uiox_kix_scfs_register(ROOT_DEV);
+    /* below 2b added due to OS chnages upadted  */
+    rc = uiox_kix_scfs_register(SCFS_DEV);
+    if (rc != VFS_OK)
+        return rc;
+    /* below 2b added due to OS chnages upadted  */
+    /* 2a — UNFS IS the UIOX native filesystem, and the root lives on it.
+     *      unfs_ops_mount is bound and unfs_kern_mount() is written, so
+     *      this is the mount that can actually resolve a root inode. */
+    if (unfs_kern_mount(&s_unfs_fs, ROOT_DEV) == UNFS_OK) {
+        rc = unfs_register((uint8_t)ROOT_DEV, &s_unfs_fs);
+        if (rc != VFS_OK) return rc;
+    }
+    /* below 2b added due to OS chnages upadted  */
+    /* 2b — mount it.  With UNFS on device 0 and its hook bound, this
+     *      returns VFS_OK and a root inode exists — which is what
+     *      execve("/bin/uios") needs to resolve a path at all. */
+    rc = vfs_mount_root((uint8_t)ROOT_DEV);
     if (rc != VFS_OK)
         return rc;
 

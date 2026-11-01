@@ -1,4 +1,4 @@
-#include "../../40_SystemCallInterface/uix_sys.h"
+#include "../../40_SCIX/uix_sys.h"
 
 static void busy_loop(int n)
 {

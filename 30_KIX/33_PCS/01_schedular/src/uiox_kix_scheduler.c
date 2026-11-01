@@ -34,6 +34,7 @@
  * @version 4.0.0  @date 2026-09-29
  */
 #include "../include/uiox_kix_scheduler.h"
+#include "uiox_kix_psa_context.h"
 
 #include "uiox_soc_stdio.h"      /* ADD — declares uiox_printf; BSP 03_SoC provides it */
 
@@ -71,6 +72,25 @@ void scheduler_init(void)
     for (q = 0; q < MAX_PRIORITY_QUEUES; q++) rq.heads[q] = (uiox_kix_psa_proc_t *)0;
     rq.count  = 0;
     s_current = (uiox_sched_proc_t *)0;
+}
+
+/* ── uiox_sched_init ─────────────────────────────────────────────────
+ * The name the boot path calls.
+ *
+ * uiox_pcs_init.c:175 calls uiox_sched_init().  This file's initialiser
+ * is named scheduler_init(), and until now the only definition of the
+ * other name was a stub in uiox_kernel_main.c -- which won the link,
+ * because uiox_kernel_main.o is a plain OBJECT while this file sits
+ * inside libpcs.a, and the linker pulls an archive member only for a
+ * symbol that is still undefined.
+ *
+ * That stub is now commented out, so the name is undefined and the
+ * linker reaches this file.  This is the bridge between the two names;
+ * scheduler_init() itself is unchanged.
+ */
+void uiox_sched_init(void)
+{
+    scheduler_init();
 }
 
 /* ── enqueue_process ─────────────────────────────────────────────────
@@ -176,6 +196,26 @@ uiox_sched_proc_t *schedule_process(void)
 
     chosen->s_time_slice = TIME_QUANTUM;
     s_current            = chosen;
+
+    /* ── the context bookkeeping ─────────────────────────────────────
+     * Record WHICH context is current, so a later save lands in the
+     * right u area.
+     *
+     * uiox_kix_psa_context_switch() moves no registers -- that is
+     * uiox_kix_psa_swtch(), which the arch layer supplies.  This is the
+     * hook the interrupt path needs: inthand saves into
+     * uiox_kix_psa_current_context->sc_uarea, so without this the
+     * interrupted process's registers land in whoever was current
+     * before, which is the one global.
+     *
+     * chosen->p.p_addr is the sys context for this process.  It is set
+     * by uiox_pcs_init.c when the context is built (init->p_addr = ctx).
+     * A process whose p_addr is NULL has no context yet -- the switch
+     * refuses a NULL target rather than clearing current_context, so
+     * such a process simply leaves the previous one current.
+     */
+    uiox_kix_psa_context_switch(uiox_kix_psa_current_context,
+                                (uiox_kix_psa_sys_context_t *)chosen->p.p_addr);
 
     return chosen;
 }
@@ -289,3 +329,5 @@ void scheduler_print(void)
 }
 
 RunQueue *get_run_queue(void) { return &rq; }
+
+uiox_sched_proc_t *uiox_sched_current(void) { return s_current; }

@@ -35,8 +35,10 @@ void uios_launch_apps(void)
             sys_execve(g_apps[i].ua_path, argv, (char*const*)0);
             sys_exit(1);
         } else if(pid > 0) {
+            uix_sched_param_t p;
+            p.sched_priority = g_apps[i].ua_priority;
+            sys_sched_setscheduler(pid, g_apps[i].ua_policy, &p);
             g_apps[i].ua_pid = pid;
-            sched_add_proc(pid, g_apps[i].ua_policy, g_apps[i].ua_priority);
         }
     }
 }
@@ -46,17 +48,16 @@ void uios_run(void)
     int running = UIOS_MAX_APPS;
     int i;
     while(running > 0) {
-        sched_tick();
-        for(i=0;i<UIOS_MAX_APPS;i++) {
+        sys_sched_yield();
+        for(i = 0; i < UIOS_MAX_APPS; i++) {
             if(g_apps[i].ua_pid <= 0) continue;
             int status = 0;
             uix_pid_t r = sys_wait4(g_apps[i].ua_pid, &status,
-                                     UIX_WNOHANG, (void*)0);
+                                    UIX_WNOHANG, (void*)0);
             if(r == g_apps[i].ua_pid) {
                 g_apps[i].ua_exit_code = status;
                 g_apps[i].ua_pid       = 0;
-                sched_remove_proc(r);
-                running--;
+                running--;      /* kernel reaped it — nothing to dequeue */
             }
         }
     }
@@ -83,3 +84,10 @@ int main(void)
     uios_shutdown();
     return 0;
 }
+
+/* No crt0: the kernel execs at _start.  main() keeps its normal shape. */
+//void _start(void)
+//{
+//    (void)main();
+//    for (;;) { }        /* a user process that returns is a bug */
+//}

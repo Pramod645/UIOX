@@ -322,10 +322,10 @@ _build_subsystems:
 	    DEVICE_DEFS="$(DEVICE_DEFS)" $(ENABLE_FLAGS) \
 	    $(_ARCH)
 
-	# 8. 50_UIX/01_shell  (only remaining 50_UIX build step)
-	+$(MAKE) -C $(UIXDIR)/01_shell CC="$(CC)" AR="$(AR)" \
-	    ARCH_CFLAGS="$(ARCH_CFLAGS)" ARCH_CPUDEF="$(ARCH_CPUDEF)" \
-	    $(_ARCH) 2>/dev/null || echo "[KIX] 50_UIX/01_shell: skipped"
+#	# 8. 50_UIX/01_shell  (only remaining 50_UIX build step)
+#	+$(MAKE) -C $(UIXDIR)/01_shell CC="$(CC)" AR="$(AR)" \
+#	    ARCH_CFLAGS="$(ARCH_CFLAGS)" ARCH_CPUDEF="$(ARCH_CPUDEF)" \
+#	    $(_ARCH) 2>/dev/null || echo "[KIX] 50_UIX/01_shell: skipped"
 
 .PHONY: _build_kernel_main
 _build_kernel_main:
@@ -354,6 +354,7 @@ _link_kernel:
 	    -Map=$(_BUILD_DIR)/uiox_kernel.map                         \
 	    --gc-sections                                              \
 	    $(_BUILD_DIR)/uiox_kernel_main.o                           \
+	    --start-group                                              \
             $(wildcard $(FWHAL)/build/$(_ARCH)/*.a)                    \
             $(wildcard $(MFDIR)30_DSS/build/$(_ARCH)/*.a)              \
             $(wildcard $(MFDIR)32_FS/build/$(_ARCH)/*.a)               \
@@ -361,6 +362,8 @@ _link_kernel:
             $(wildcard $(MFDIR)33_PCS/build/$(_ARCH)/*.a)              \
             $(wildcard $(MFDIR)10_BSP/build/$(_ARCH)/*.a)              \
 			$(BSP_LIB_ARG)                                             \
+	    --end-group                                                \
+		$(shell $(CC) -print-libgcc-file-name)                     \
 	    -o $(_BUILD_DIR)/uiox_kernel.elf
 	@echo "[KIX] Kernel ELF → $(_BUILD_DIR)/uiox_kernel.elf"
 ifeq ($(BSP_MODE),dynamic)

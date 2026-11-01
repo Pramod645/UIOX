@@ -230,7 +230,50 @@ static void riscv_clint_init(void)
     printf("[riscv] CLINT @ 0x%08lx  MTIME=0x%lx  CMP=0x%lx (100 Hz)\n",
            (unsigned long)CLINT_BASE, mtime, cmp);
 }
+/* ── riscv_clint_rearm ───────────────────────────────────────────────
+ * Program the next tick.
+ *
+ * riscv_clint_init() (above) sets MTIMECMP(0) = MTIME + freq/100 ONCE.
+ * CLINT fires when MTIME reaches MTIMECMP and then STAYS -- it does not
+ * reload -- so without this the first timer interrupt is also the last.
+ *
+ * Same 10 MHz nominal frequency as init, and the same two-32-bit-write
+ * sequence for the 64-bit comparator, so the two cannot disagree about
+ * what a tick is.
+ *
+ * NOTE: OpenSBI owns the real CLINT on many boards, and the tree's own
+ * notes say so -- "cannot access CLINT directly" appears in one of the
+ * arch tables.  If the SoC layer routes this through an SBI call
+ * instead, THAT call is what belongs here; the arithmetic below is the
+ * same either way. */
+static void riscv_clint_rearm(void)
+{
+    unsigned long mtime =
+        *(volatile unsigned long *)(unsigned long)CLINT_MTIME;
+    unsigned long freq = 10000000UL;               /* 10 MHz nominal */
+    unsigned long cmp  = mtime + freq / 100u;
 
+    mmio_write32(CLINT_MTIMECMP(0u) + 4u, (unsigned int)(cmp >> 32u));
+    mmio_write32(CLINT_MTIMECMP(0u),       (unsigned int)(cmp & 0xFFFFFFFFu));
+}
+
+/* ── timer0_irq_handler ──────────────────────────────────────────────
+ * Registered for ARCH_TIMER_IRQ_PHYS at step 7 and enabled at step 7's
+ * irq_enable; SIE.STIE is set at step 8.  Until now: no body.
+ *
+ * Same three things.  Must NOT carry ARCH_WEAK -- the declaration at
+ * line 112 is plain extern. */
+void timer0_irq_handler(int irq, hw_context_t *ctx, void *id)
+{
+    (void)irq;
+    (void)ctx;
+    (void)id;
+
+    riscv_clint_rearm();
+
+    if (uiox_clock_tick_hook)
+        uiox_clock_tick_hook();
+}
 /* =========================================================================
  * arch_init — called by uiox_kernel_main() before uiox_soc_init()
  *

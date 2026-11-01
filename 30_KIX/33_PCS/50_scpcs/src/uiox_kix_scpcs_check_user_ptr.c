@@ -40,7 +40,7 @@
 #define SCPS_USER_BASE   ((uiox_uint64_t)0x00001000ull)  /* skip NULL page */
 #define SCPS_USER_TOP    ((uiox_uint64_t)0xC0000000ull)  /* 32-bit VA model */
 
-int uiox_kix_scps_check_user_ptr(uiox_uintptr_t p, uiox_uint64_t len,
+int uiox_kix_scpcs_check_user_ptr(uiox_uintptr_t p, uiox_uint64_t len,
                                  uiox_uint64_t align)
 {
     uiox_uint64_t a   = (uiox_uint64_t)p;
@@ -53,7 +53,12 @@ int uiox_kix_scps_check_user_ptr(uiox_uintptr_t p, uiox_uint64_t len,
     if (end < a) return SCPCS_EFAULT;  /* the sum wrapped                */
     if (end > SCPS_USER_TOP) return SCPCS_EFAULT;
 
-    if (align && (a % align) != 0u) return SCPCS_EFAULT;
+    //if (align && (a % align) != 0u) return SCPCS_EFAULT;
+    /* Mask, not modulo: a 64-bit '%' lowers to __aeabi_uldivmod on arm32,
+     * which is a libgcc helper this freestanding link does not carry.
+     * Valid because align is only ever a power of two. */
+    if (align && (a & (align - 1ull)) != 0u) return SCPCS_EFAULT;
+
 
     return 0;
 }

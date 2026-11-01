@@ -218,7 +218,30 @@ void clock_tick(void)
             uiox_sched_proc_t *sp = SCHED_PROC(p);
             if (sp->s_cpu_usage < 255u) sp->s_cpu_usage++;
         }
+    /* ── the running process, and the dispatch ────────────────────────
+     * The loop above reaches only the QUEUED processes.  The one on the
+     * CPU is not on any queue, which is why tick_process() takes it as a
+     * parameter (scheduler.h:143) and why the scheduler has to be asked
+     * who that is -- uiox_sched_current() (scheduler.c).
+     *
+     * tick_process charges it, ages its CPU estimate, and decrements its
+     * slice.  Its return value IS the reschedule decision: TRUE means the
+     * slice is gone and it has already re-enqueued itself as READY.
+     *
+     * schedule_process then picks the highest-priority eligible process,
+     * dequeues it, marks it KERNEL_RUNNING, and -- via the hook in that
+     * function -- calls uiox_kix_psa_context_switch(), which calls
+     * arch_context_switch() and actually moves the registers.
+     *
+     * NULL current is normal before the first dispatch: the kernel is
+     * still on the boot stack and there is nothing to charge. */
+    {
+        uiox_sched_proc_t *running = uiox_sched_current();
 
+        if (tick_process(running)) {
+            schedule_process();
+        }
+    }
     /* ── Step 7: the once-per-second block ──────────────────────────
      * Bach: "if (1 second or more since last here and interrupt not in
      * critical region of code)".  The critical-region test has no

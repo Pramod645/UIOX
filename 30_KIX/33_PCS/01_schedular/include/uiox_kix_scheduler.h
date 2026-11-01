@@ -152,4 +152,7 @@ void  scheduler_print(void);
 /* Access the global run queue. */
 RunQueue *get_run_queue(void);
 
+uiox_sched_proc_t *uiox_sched_current(void);
+
+
 #endif /* UIOX_SCHEDULER_H */

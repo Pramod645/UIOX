@@ -95,6 +95,9 @@ typedef struct uiox_kix_pfdata {
     int                         pfd_on_hash;        /* linked into pc_hash  */
     struct uiox_kix_pfdata     *pfd_hash_next;      /* bucket chain         */
     int                         pfd_content_valid;  /* contents are current */
+    uintptr_t                   pfd_kva;            /* ← NEW: addr of frame, added during OS 
+                                                    upadted and this changes needed as Why: the struct has no address field, 
+                                                    so nothing can say where a frame's memory is.*/
 } uiox_kix_pfdata_t;
 
 /* ── Page cache ──────────────────────────────────────────────────────

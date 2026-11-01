@@ -101,6 +101,7 @@ SRCS := \
   $(SRCDIR)/uiox_fw_ramrtc.c  \
   $(SRCDIR)/uiox_fw_virtio.c  \
   $(SRCDIR)/uiox_fw_none.c  \
+  $(SRCDIR)/uiox_fw_printf.c \
   $(SRCDIR)/uiox_fw_sensor.c
 
 # ── Device-conditional sources ────────────────────────────────────────────────

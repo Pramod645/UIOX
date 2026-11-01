@@ -70,8 +70,9 @@ static inline void _fw_putu(uint32_t v,int base,int upper)
  buf[i]='\0';if(!v){buf[--i]='0';}else{while(v){buf[--i]=d[v%base];v/=base;}}
  _fw_puts(&buf[i]);}
 
-static __attribute__((unused)) void uiox_fw_printf(const char *fmt,...)
-{__builtin_va_list ap;__builtin_va_start(ap,fmt);
+ void uiox_fw_printf(const char *fmt,...);
+//static __attribute__((unused)) void uiox_fw_printf(const char *fmt,...);
+/*{__builtin_va_list ap;__builtin_va_start(ap,fmt);
  for(;*fmt;fmt++){
    if(*fmt!='%'){uiox_fw_putchar(*fmt);continue;}
    fmt++;if(*fmt=='-')fmt++;while(*fmt>='0'&&*fmt<='9')fmt++;
@@ -88,7 +89,7 @@ static __attribute__((unused)) void uiox_fw_printf(const char *fmt,...)
             _fw_putu((uint32_t)(uintptr_t)__builtin_va_arg(ap,void*),16,0);break;
    case '%':uiox_fw_putchar('%');break;
    default:uiox_fw_putchar('%');uiox_fw_putchar(*fmt);break;}}
- __builtin_va_end(ap);}
+ __builtin_va_end(ap);}*/
 
 #ifndef UIOX_FW_NO_LOG
 # define FW_LOG(mod,fmt,...) \

@@ -102,3 +102,5 @@ void irq_dispatch(hw_context_t *ctx) {
         mmio_write32((uintptr_t)(LAPIC_BASE + LAPIC_EOI_REG), 0u);
     }
 }
+
+void (*uiox_clock_tick_hook)(void) = (void (*)(void))0;

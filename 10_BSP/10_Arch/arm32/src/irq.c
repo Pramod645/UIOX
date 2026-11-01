@@ -59,3 +59,5 @@ void irq_dispatch(hw_context_t *ctx) {
         g_slots[irq].fn(irq, ctx, g_slots[irq].dev_id);
     mmio_write32(GIC_CPU_EOIR, iar);
 }
+
+void (*uiox_clock_tick_hook)(void) = (void (*)(void))0;

@@ -248,6 +248,10 @@ DiskInode    *inode_disk_read(uint8_t dev, uint32_t ino, BufHdr **out_buf);
  * otherwise.  Used by the iget(ino) convenience above. */
 #define ROOT_DEV  0u
 
+/* scfs is the FILE level, not a filesystem — it registers on its own
+ * index rather than ROOT_DEV, which belongs to the root filesystem. */
+#define SCFS_DEV  1u
+
 /* ── File type from the mode word ────────────────────────────────────
  * inode_type() is GONE, and the FileType enum with it.
  *

@@ -49,6 +49,17 @@
 #include "uiox_klibc.h"
 #include "uiox_kix_psa_process.h"   /* the ONE process type             */
 
+/* ── The tick rate ───────────────────────────────────────────────────
+ * 33_PCS/01_schedular/include/sched_types.h defines HZ = 1000, and
+ * clock_tick() derives TICK_NSEC from it.  The arch layer cannot see
+ * that header -- 10_BSP is built before 33_PCS and must not depend on
+ * it -- so the value is restated here.
+ *
+ * IT MUST MATCH HZ.  The kernel believes 1000 ticks are a second; a
+ * timer firing at 100 Hz makes xtime advance 10x too fast, stretches
+ * every time slice 10x, and turns the once-per-second block into
+ * once-per-ten-seconds.  Change this when HZ changes. */
+#define ARCH_TIMER_HZ   1000u
 /* ── Timing constants ─────────────────────────────────────────────────
  * HZ is the tick rate.  TIME_QUANTUM is how many ticks a process gets
  * before the scheduler preempts it — Bach's "time slice". */

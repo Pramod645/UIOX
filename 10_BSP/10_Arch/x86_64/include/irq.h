@@ -40,6 +40,8 @@ void irq_enable(int irq);
 void irq_free(int irq);
 void irq_dispatch(hw_context_t *ctx);
 
+extern void (*uiox_clock_tick_hook)(void);
+
 #ifdef __cplusplus
 }
 #endif

@@ -100,7 +100,19 @@ typedef struct uiox_kix_psa_u_area {
 } uiox_kix_psa_u_area_t;
 
 /* ── The running process's u area ──────────────────────────────────── */
-extern uiox_kix_psa_u_area_t uiox_kix_psa_u;
+//extern uiox_kix_psa_u_area_t uiox_kix_psa_u;
+uiox_kix_psa_u_area_t *uiox_kix_psa_current_uarea(void);
+#define uiox_kix_psa_u  (*uiox_kix_psa_current_uarea())
+
+
+/* adapted below chanegs for fork creation during OS update
+* Why: sleep_wakeup.c is one translation unit and uiox_pcs_init.c (step 2c) is another. 
+* Without the declaration in a header both can see, step 2c's call is an implicit 
+* declaration — which is -Werror in this tree, exactly as uiox_kix_page_fault_init was 
+* a few rounds back. 
+* which is the same kind of export.
+*/
+uiox_kix_psa_u_area_t *uiox_kix_psa_uarea_for(uint32_t slot);
 
 /* ── Sleep state, shared by both algorithms ──────────────────────────
  * scheduler_flag is set when a woken process outranks the running one,
@@ -137,6 +149,6 @@ int uiox_kix_psa_proc_sleep(uintptr_t wchan, int priority, int interruptible);
  * PSA names swtch as the switch itself.  The register transfer is
  * per-architecture, so this layer declares it and the arch layer
  * defines it.  Declaring it here keeps the dependency visible. */
-void uiox_kix_psa_swtch(void);
+//void uiox_kix_psa_switch(void); comented udring fork and switch currection for OS implmenetion
 
 #endif /* UIOX_KIX_PSA_PROC_ALGO_H */

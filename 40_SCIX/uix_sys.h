@@ -14,22 +14,22 @@
  *   1 = real calls into 32_FileSystem and 33_ProcessControlSubsystem
  */
 #include "sys/uix_types.h"
+//#define SYS_CALL_ENBLE_DISABLE  0   /* 0=stubs, 1=real kernel calls */
+/* uix_sys.h:17 — guard, so -D on the command line takes effect. */
+#ifndef SYS_CALL_ENBLE_DISABLE
 #define SYS_CALL_ENBLE_DISABLE  0   /* 0=stubs, 1=real kernel calls */
+#endif
 
 #define SYS_CALL_CAS_ENBLE  0   /* 0=stubs, 1=real kernel calls */
 
 //#define STUB 1// 0:STUB, 1:SYS funtinal call to Kernal
 /* ── Kernel layer headers ──────────────────────────────────── */
 #if SYS_CALL_ENBLE_DISABLE
-#  include "../32_FileSystem/10_scfs/include/fs.h"
-#  include "../33_ProcessControlSubsystem/50_scps/include/fork.h"
-#  include "../33_ProcessControlSubsystem/50_scps/include/exit_wait.h"
-#  include "../33_ProcessControlSubsystem/50_scps/include/exec.h"
-#  include "../33_ProcessControlSubsystem/50_scps/include/proc.h"
-#  include "../33_ProcessControlSubsystem/50_scps/include/signal.h"
-#  include "../33_ProcessControlSubsystem/00_inter-process-communication/include/ipc.h"
-#  include "../33_ProcessControlSubsystem/01_schedular/include/sched.h"
-#  include "../33_ProcessControlSubsystem/02_memory-managment/include/mm.h"
+#  include "../30_KIX/32_FS/10_scfs/include/uiox_kix_scfs.h"
+#  include "../30_KIX/33_PCS/50_scpcs/include/uiox_kix_scpcs.h"
+#  include "../30_KIX/33_PCS/00_IPC/include/uiox_kix_ipc_types.h"
+#  include "../30_KIX/33_PCS/01_schedular/include/uiox_kix_scheduler.h"
+#  include "../30_KIX/33_PCS/02_MemMngnt/include/uiox_mm.h"
 #endif
 #include "PoStd/uix_fcntl.h"
 #include "sys/uix_stat.h"
@@ -769,7 +769,11 @@
 /* ════════════════════════════════════════════════════════════
    SIGNAL SYSCALLS  →  33_ProcessControlSubsystem/50_scps/signal.h
    ════════════════════════════════════════════════════════════ */
-#if 0
+typedef void (*sig_handler_t)(int);
+
+/* Handler type for sys_signal().  The kernel's entry point is
+
+ * uiox_kix_scpcs_signal's sig_action shape; this is its userspace face. */
 static inline int sys_signal(int signum, sig_handler_t handler)
 {
 #if !SYS_CALL_ENBLE_DISABLE
@@ -779,8 +783,8 @@ static inline int sys_signal(int signum, sig_handler_t handler)
 #endif
 }
 static inline int sys_sigaction(int signum,
-                                  const sig_action_t *act,
-                                  sig_action_t *oldact)
+                                  const uix_sigaction_t *act,
+                                  uix_sigaction_t *oldact)
 {
 #if !SYS_CALL_ENBLE_DISABLE
     (void)signum; (void)act; (void)oldact; return -1;
@@ -788,7 +792,7 @@ static inline int sys_sigaction(int signum,
     return kernel_sigaction(signum, act, oldact);
 #endif
 }
-#endif
+
 /* ════════════════════════════════════════════════════════════
    TIME SYSCALLS
    ════════════════════════════════════════════════════════════ */
@@ -891,7 +895,7 @@ static inline int sys_shm_open(const char *name,
     return -1;
 #elif
     // acctual call to kernel
-    //UIOX/33_ProcessControlSubsystem/
+    //UI../30_KIX/33_PCS/
     kernel_shm_open();// definition not availble in and need to be created
 #endif
 }
@@ -903,7 +907,7 @@ static inline int sys_shm_unlink(const char *name) //not added
     return -1;
 #elif
     // acctual call to kernel
-    //UIOX/33_ProcessControlSubsystem/
+    //UI../30_KIX/33_PCS/
     kernel_shm_unlink();// definition not availble in and need to be created
 #endif
 }/*End of ememory mamanagment*/

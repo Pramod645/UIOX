@@ -60,10 +60,14 @@
 
 #include "uiox_soc_stdio.h"      /* ADD — declares uiox_printf; BSP 03_SoC provides it */
 
+
 /* ── Globals ────────────────────────────────────────────────────────── */
 uiox_kix_pfdata_t         uiox_kix_pfdata_table[UIOX_PHYS_PAGES];
 uiox_kix_page_cache_t     uiox_kix_page_cache;
 uiox_kix_free_page_list_t uiox_kix_free_pages;
+
+extern void *phys_alloc_page(void); // added for OS update
+#include "uiox_kix_scheduler.h"   /* recalculate_priority, SCHED_PROC */
 
 /* ── uiox_kix_page_fault_init ────────────────────────────────────────
  * Zero the descriptors and seed the free list with EVERY frame.
@@ -95,6 +99,13 @@ void uiox_kix_page_fault_init(void)
     uiox_kix_free_pages.fpl_tail  = 0;
 
     for (i = 0; i < UIOX_PHYS_PAGES; i++) {
+        /*  from here to till after 3 line, here added during OS updated  
+        Why: the loop currently only numbers slots 0…2047. No memory is behind any of them, 
+        so every frame is a phantom.*/
+        void *p = phys_alloc_page();          /* backed by uiox_mm_init's pool */
+        if (!p) break;                        /* DRAM exhausted — ring is shorter */
+        uiox_kix_pfdata_table[i].pfd_kva = (uintptr_t)p;
+        /* till here added during OS updated  */
         uiox_kix_free_pages.fpl_pages[uiox_kix_free_pages.fpl_tail] = i;
         uiox_kix_free_pages.fpl_tail =
             (uiox_kix_free_pages.fpl_tail + 1) % UIOX_PHYS_PAGES;

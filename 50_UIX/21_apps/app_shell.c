@@ -1,4 +1,4 @@
-#include "../../40_SystemCallInterface/uix_sys.h"
+#include "../../40_SCIX/uix_sys.h"
 
 #define BUF 256
 

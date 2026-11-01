@@ -29,6 +29,22 @@
 #include "../include/uiox_kix_psa_process.h"
 #include "../include/uiox_kix_psa_proc_algo.h"
 
+#include "uiox_kix_paging.h"
+#include "readwrite.h"   /* readi, InCoreInode */
+#include "inode.h"       /* InCoreInode */
+
+
+
+
+/* FRAME_ADDR — the kernel address backing a frame descriptor.
+ * Comes from pfd_kva, filled by uiox_kix_page_fault_init. 
+ * Why: pfd_pfn is a frame index, not an address. Multiplying it 
+ * by 4096 lands on address 0 at the first page — compiles clean, fails at boot.
+ * this added during OS update
+ */
+#define FRAME_ADDR(pfd)  ((char *)(uintptr_t)(pfd)->pfd_kva)
+
+
 /* ── Globals ───────────────────────────────────────────────────────── */
 uiox_kix_psa_region_t  uiox_kix_psa_region_table[UIOX_KIX_PSA_NREGION];
 uiox_kix_psa_region_t *uiox_kix_psa_free_region_list   = (uiox_kix_psa_region_t *)0;
@@ -331,6 +347,7 @@ void uiox_kix_psa_growreg(uiox_kix_psa_pregion_t *prp, int32_t delta)
  *
  * TO FINISH: read through the inode path in 01_fsa, filling pages and
  * marking each VALID as its contents arrive. */
+/* commented during OS upadted and below funtion added
 void uiox_kix_psa_loadreg(uiox_kix_psa_pregion_t *prp, uintptr_t vaddr,
                           struct inode *ip, uint32_t file_off,
                           uint32_t byte_count)
@@ -343,7 +360,94 @@ void uiox_kix_psa_loadreg(uiox_kix_psa_pregion_t *prp, uintptr_t vaddr,
     if (!prp || !prp->pr_region) return;
 
     prp->pr_region->r_status |= UIOX_KIX_PSA_REG_LOADING;
-}
+} */
+
+/*
+ * PSA Algorithm 6 -- uiox_kix_psa_loadreg
+ * Load a file's contents into a region.
+ *
+ * Grows the region to cover byte_count first, because growreg is what
+ * allocates r_pgtbl and recomputes r_npages.  Then allocates one frame
+ * per page and reads the file into it, marking each page PTE_VALID as
+ * its bytes arrive.  REG_VALID only when every byte was read.
+ *
+ * Requires: FRAME_ADDR macro (below) and pfd_kva in uiox_kix_pfdata_t.
+ */
+
+ #define FRAME_ADDR(pfd)  ((char *)(uintptr_t)(pfd)->pfd_kva)
+
+ void uiox_kix_psa_loadreg(uiox_kix_psa_pregion_t *prp, uintptr_t vaddr,
+                           struct inode *ip, uint32_t file_off,
+                           uint32_t byte_count)
+ {
+     uiox_kix_psa_region_t *rp;
+     InCoreInode *iip;
+     int32_t delta;
+     uint32_t pages, p, off, left;
+ 
+     (void)vaddr;
+ 
+     if (!prp || !prp->pr_region || !ip || byte_count == 0u)
+         return;
+ 
+     rp = prp->pr_region;
+     iip = (InCoreInode *)ip;
+ 
+     delta = (int32_t)byte_count - (int32_t)rp->r_size;
+ 
+     if (delta > 0) {
+         uiox_kix_psa_growreg(prp, delta);
+         if (!rp->r_pgtbl)
+             return;
+     }
+ 
+     if (!rp->r_pgtbl)
+         return;
+ 
+     pages = (byte_count + UIOX_KIX_PSA_PAGE_SIZE - 1u) / UIOX_KIX_PSA_PAGE_SIZE;
+ 
+     if (pages > rp->r_npages)
+         pages = rp->r_npages;
+ 
+     off = file_off;
+     left = byte_count;
+ 
+     for (p = 0u; p < pages; p++) {
+         uiox_kix_pfdata_t *pfd;
+         uiox_kix_psa_pte_t *pte;
+         uint32_t n;
+         int32_t rc;
+ 
+         pfd = uiox_kix_alloc_physical_page();
+         if (!pfd)
+             break;
+ 
+         n = (left < UIOX_KIX_PSA_PAGE_SIZE) ? left : UIOX_KIX_PSA_PAGE_SIZE;
+ 
+         rc = readi(iip, FRAME_ADDR(pfd), n, &off);
+ 
+         if (rc != (int32_t)n) {
+             uiox_kix_free_physical_page(pfd->pfd_pfn);
+             break;
+         }
+ 
+         pte = &rp->r_pgtbl[p];
+         pte->pte_pfn = pfd->pfd_pfn;
+         pte->pte_flags = UIOX_KIX_PSA_PTE_VALID | UIOX_KIX_PSA_PTE_USER;
+ 
+         pfd->pfd_pte = pte;
+         pfd->pfd_content_valid = 1;
+ 
+         left -= n;
+     }
+ 
+     rp->r_status &= (uint16_t)~UIOX_KIX_PSA_REG_LOADING;
+ 
+     if (left == 0u) {
+         rp->r_status |= UIOX_KIX_PSA_REG_VALID;
+     }
+ }
+ 
 
 /* ── PSA Algorithm 7 — uiox_kix_psa_freereg ──────────────────────────
  * Return a region to the free list.

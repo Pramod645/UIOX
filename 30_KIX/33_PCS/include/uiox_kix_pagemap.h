@@ -47,8 +47,12 @@
 /* ── Page geometry ─────────────────────────────────────────────────
  * PAGE_SHIFT is the authority; PAGE_SIZE is derived from it, so the
  * two cannot drift.  A 4 KB page on every target this kernel builds for. */
+#ifndef UIOX_PAGE_SHIFT
 #define UIOX_PAGE_SHIFT     12u
+#endif
+#ifndef UIOX_PAGE_SIZE
 #define UIOX_PAGE_SIZE      (1u << UIOX_PAGE_SHIFT)     /* 4096          */
+#endif
 #define UIOX_PAGE_MASK      (~(uintptr_t)(UIOX_PAGE_SIZE - 1u))
 
 /* The bare names, for the headers that used them before this one

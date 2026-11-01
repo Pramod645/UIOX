@@ -2,8 +2,9 @@
 #define __UIX_UIOS__H
 
 
-#include "../../40_SystemCallInterface/uix_sys.h"
-#include "../../33_ProcessControlSubsystem/01_schedular/include/sched.h" // its shuld be PoStd/uix_sched.h/.c
+#include "../../40_SCIX/uix_sys.h"
+//#include "PoStd/uix_sched.h"
+
 
 #define UIOS_MAX_APPS 10
 

@@ -112,7 +112,56 @@
      printf("[x86] LAPIC enabled at 0x%08lx (SVR=0x%08x)\n",
             (unsigned long)LAPIC_BASE, LAPIC_SPURIOUS_ENABLE);
  }
- 
+ /* ── x86_timer_rearm ─────────────────────────────────────────────────
+ * Program the next tick.
+ *
+ * THIS ONE IS DIFFERENT FROM THE OTHER THREE, and the difference is
+ * worth stating rather than hiding:
+ *
+ * The 8259A PIC is remapped and MASKED at arch_init step 3 -- this
+ * file's own comment says "mask all -- LAPIC takes all hardware IRQs".
+ * So IRQ 0 (PIT channel 0) is NOT reaching the CPU.  What delivers the
+ * tick is the LOCAL APIC timer, and THAT is programmed by
+ * x86_lapic_init() at step 4 -- which only sets the spurious vector and
+ * never touches LAPIC_TIMER_INITCNT or LAPIC_TIMER_DIVIDE.
+ *
+ * So the honest position: THE LAPIC TIMER IS NOT STARTED YET, and this
+ * re-arm has nothing to write to until it is.  Options, in order of
+ * value:
+ *
+ *   a) configure the LAPIC timer properly (DIVIDE + LVT timer vector +
+ *      INITCNT), which is one function and makes the tick real;
+ *   b) unmask PIT IRQ 0 instead and re-arm PIT channel 0's count
+ *      register 0x40 -- simpler, but the file deliberately masked it;
+ *   c) leave the tick dead on x86_64 and note it.
+ *
+ * The stub below takes (c) so the build is honest rather than pretending
+ * a register was written.  Replace the body when (a) or (b) is chosen. */
+static void x86_timer_rearm(void)
+{
+    /* no LAPIC timer configured yet -- see the note above */
+}
+
+/* ── timer_irq_handler ───────────────────────────────────────────────
+ * Registered for TIMER0_IRQ at step 6.  Unt il now: no body.
+ *
+ * Note the name: x86_64 uses timer_irq_handler, arm/riscv use
+ * timer0_irq_handler -- they are separate symbols and each arch file
+ * declares its own (line 33 here).
+ *
+ * Must NOT carry ARCH_WEAK. */
+void timer_irq_handler(int irq, hw_context_t *ctx, void *id)
+{
+    (void)irq;
+    (void)ctx;
+    (void)id;
+
+    x86_timer_rearm();
+
+    if (uiox_clock_tick_hook)
+        uiox_clock_tick_hook();
+}
+
  /* =========================================================================
   * 4. CPU identification via CPUID  (ISA instruction — same on all x86_64)
   * ====================================================================== */

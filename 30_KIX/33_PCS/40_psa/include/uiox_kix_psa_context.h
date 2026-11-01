@@ -31,6 +31,21 @@
 
 #include "uiox_klibc.h"
 
+#include "arch_runtime.h"   /* arch_context_t, arch_context_switch */
+
+/* ── Forward declaration ──────────────────────────────────────────────
+ * uiox_kix_psa_u_area_t is defined in uiox_kix_psa_proc_algo.h.  That
+ * header includes THIS one (it needs uiox_kix_psa_sys_context_t for
+ * u_sysctx), so including it back here would be a cycle.
+ *
+ * A struct-tag declaration is enough for a pointer return type and
+ * breaks the cycle.  uiox_kix_psa_proc_algo.h's `typedef struct
+ * uiox_kix_psa_u_area { ... } uiox_kix_psa_u_area_t;` completes it, and
+ * in C the tag and the typedef name the same type -- so the declaration
+ * below and the definition in uiox_kix_psa_context.c agree.
+ */
+struct uiox_kix_psa_u_area;
+
 /* ── Sizes ─────────────────────────────────────────────────────────────
  * NGPR is the general-purpose register count a saved context carries.
  * MAX_CTX_LAYERS bounds the system-level context stack depth.
@@ -75,6 +90,7 @@ typedef struct uiox_kix_psa_sys_context {
     uint8_t                            sc_kstack[UIOX_KIX_PSA_KERNEL_STACK_SZ];
     int                                sc_layer_top;  /* stack height        */
     uiox_kix_psa_reg_context_t         sc_layers[UIOX_KIX_PSA_MAX_CTX_LAYERS];
+    arch_context_t                     sc_switch;   /* ← the switch frame */
     struct uiox_kix_psa_sys_context   *sc_prev;
 } uiox_kix_psa_sys_context_t;
 
@@ -138,5 +154,22 @@ void uiox_kix_psa_context_switch(uiox_kix_psa_sys_context_t *from,
  * if one is installed, then pops the context.  An unknown or unhandled
  * vector is a no-op that still balances the push. */
 void uiox_kix_psa_inthand(int vec, uiox_kix_psa_reg_context_t *regs);
+
+uiox_kix_psa_sys_context_t *uiox_kix_psa_context_for(uint32_t slot);
+
+/* The u area of whichever context is current -- the running process's.
+ *
+ * This is what the name uiox_kix_psa_u resolves to (see the macro in
+ * uiox_kix_psa_proc_algo.h).  Every call site that used to reach the one
+ * global u area now reaches the running process's, textually unchanged.
+ *
+ * Falls back to the singleton uiox_kix_psa_u when there is no current
+ * context yet (before the first switch) or when the current context has
+ * no u area attached -- which is every process except the one
+ * uiox_pcs_init.c wires.  The fallback is today's behaviour, so nothing
+ * that works now breaks while the wiring is completed.
+ */
+struct uiox_kix_psa_u_area *uiox_kix_psa_current_uarea(void);
+
 
 #endif /* UIOX_KIX_PSA_CONTEXT_H */

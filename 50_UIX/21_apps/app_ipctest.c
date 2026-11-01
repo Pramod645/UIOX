@@ -1,4 +1,4 @@
-#include "../../40_SystemCallInterface/uix_sys.h"
+#include "../../40_SCIX/uix_sys.h"
 
 typedef struct { long mtype; char mtext[64]; } tmsg_t;
 

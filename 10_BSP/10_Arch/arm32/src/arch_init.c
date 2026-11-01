@@ -248,6 +248,59 @@ long arch_syscall_entry(unsigned long r0, unsigned long r1,
      /* uiox_soc_init() follows immediately in uiox_kernel_main() */
  }
  
+ /* ── arm32_timer_rearm ───────────────────────────────────────────────
+ * Program the next tick.
+ *
+ * UNLIKE arm64, THIS FILE HAS NO TIMER INIT to copy from.  Its own
+ * header says so:
+ *
+ *     "SP804 / private timer load   → uiox_soc_arm32.c"
+ *
+ * So the timer is started by the SoC layer AFTER arch_init() returns,
+ * and the load register is that layer's.  This re-arm therefore has to
+ * reach the same register the SoC used.
+ *
+ * The value below is the SP804 Timer1 load register on the QEMU virt
+ * board's default base.  IF uiox_soc_arm32.c uses a different base or
+ * the private timer instead, THIS ONE ADDRESS IS WHAT TO CHANGE -- the
+ * rest of the function is a plain store.
+ *
+ * The period is 100 Hz to match arm64's, so a tick means the same
+ * thing on both.  SP804 Timer1 is a DOWN-COUNTER: it reloads from
+ * Timer1Load on reaching zero, so a single write here is enough and
+ * the re-arm is only needed if the SoC configured one-shot mode. */
+#define ARM32_SP804_TIMER1_LOAD   0x10011000UL   /* QEMU virt default */
+#define ARM32_SP804_100HZ         1000000UL / 100UL
+
+static void arm32_timer_rearm(void)
+{
+    mmio_write32(ARM32_SP804_TIMER1_LOAD,
+                 (uint32_t)ARM32_SP804_100HZ);
+}
+
+/* ── timer0_irq_handler ──────────────────────────────────────────────
+ * Registered for TIMER0_IRQ at arch_init's step 7 and enabled at
+ * step 7's irq_enable.  Until now it had NO BODY anywhere in the tree,
+ * so the first timer interrupt branched to address 0.
+ *
+ * Same three things as arm64's: re-arm, hook, nothing else.  EOIR is
+ * written by the GIC dispatcher after this returns.
+ *
+ * The declaration at line 105 is plain `extern void`, so this must NOT
+ * carry ARCH_WEAK -- a weak body behind a strong declaration is what
+ * made arm64's version `W` in the ELF instead of `T`. */
+void timer0_irq_handler(int irq, hw_context_t *ctx, void *id)
+{
+    (void)irq;
+    (void)ctx;
+    (void)id;
+
+    arm32_timer_rearm();
+
+    if (uiox_clock_tick_hook)
+        uiox_clock_tick_hook();
+}
+
  void arch_fini(void)
  {
      cpu_irq_disable();
