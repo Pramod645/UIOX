@@ -45,7 +45,7 @@
  */
 #include "../include/uiox_kix_scpcs.h"
 
-extern int kernel_exit(int status);
+//extern int kernel_exit(int status);
 
 int64_t uiox_kix_scpcs_exit(uiox_uint64_t exit_code)
 {
@@ -59,6 +59,8 @@ int64_t uiox_kix_scpcs_exit(uiox_uint64_t exit_code)
      * falling through to the callee would fail there anyway. */
     if (p->p_state == UIOX_KIX_PSA_PROC_ZOMBIE) return SCPCS_EOK;
 
-    (void)kernel_exit((int)exit_code);
+    //(void)kernel_exit((int)exit_code);
+    uiox_kix_psa_proc_set_state(p, UIOX_KIX_PSA_PROC_ZOMBIE);
+
     return SCPCS_EOK;
 }

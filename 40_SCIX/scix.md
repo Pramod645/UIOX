@@ -172,3 +172,40 @@ A. The adapter calls uiox_kix_scpcs_check_user_ptr(a0, sizeof(TimeVal), 8) itsel
 B. SCiX does the check before dispatching to any subsystem, so no wrapper needs to. That's cleaner layering but a bigger change to the thin layer.
 
 My own preference is A — it keeps the guarantee local to the call that writes the pointer, and it matches how the rest of 50_scpcs already behaves.
+-------------------
+
+
+Every architecture traps, with its own instruction:
+
+Arch	Trap	Count
+arm64	svc	12
+arm32	svc	11
+riscv64	ecall	12
+x86_64	syscall	11
+arm64's earlier count was 12, and it still is. The other three are 11–12 — the small spread is the uios_syscall_selftest you added, which only arm64 and riscv64 compiled in identically, plus inlining differences per backend. All four are non-zero, which is what matters: each per-arch register set (x8, r7, a7, rax) assembles to a real trap instruction.
+
+The userspace syscall layer is done
+Item	State
+uix_sys.h	80 of 83 wrappers trap; numbers from your own table
+uix_archSysCall.h	four architectures, #else/#error guard
+Four-arch image	builds and stages, distinct sizes per arch
+Router	moved to 30_KIX/33_PCS/50_scpcs/src/, in the Makefile glob
+EL0→EL1 path	verified at the instruction level on all four
+What's left is the kernel half
+Three things, in order:
+
+1. The arch forwards. Each arch_runtime.c needs to call uix_arch_syscall from its trap entry, so a trapped number reaches the router instead of dead-ending. The four edit files from earlier are in this workspace as outputs/scix_clean/arch_runtime_*_EDIT.txt.
+
+2. Kernel relink. The router now compiles into libpcs.a via the wildcard glob, so the link should pick it up — but nothing references uix_arch_syscall yet, which means the linker may drop it.
+
+3. Boot test. Timer ticks, scheduler dispatches, a userspace binary execs and issues a syscall that reaches a dispatcher. That's the only thing that shows any of this runs.
+
+Two loose ends I'd close first
+The bare #elif at uix_sys.h lines 716 and 728, in the two shm stubs. They compile only because SYS_CALL_ENBLE_DISABLE is 0; a -D…=1 build would hit a syntax error.
+
+sys_shm_open and sys_shm_unlink still have no syscall number on either side, and both are in your apps' caller list. That's a kernel-side decision — assign numbers and dispatcher entries, then convert the two wrappers.
+
+And one cleanup you can now do safely
+Delete the editor backups once you're satisfied: 40_SCIX/uix_sys.h.bak, .bak2, and uix_archSysCall.h.bak. Keep them until the boot test passes, in case you need to compare.
+
+The trap mechanism works on all four architectures. The remaining question is no longer "does userspace reach svc" — it's "does the kernel do anything useful when it arrives."

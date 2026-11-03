@@ -37,7 +37,6 @@
  */
 #include "../include/uiox_kix_scpcs.h"
 
-extern int                 kernel_kill(uiox_uint32_t pid, int signum);
 extern uiox_kix_psa_proc_t *uiox_kix_psa_proc_find(uiox_uint32_t pid);
 
 int64_t uiox_kix_scpcs_kill(uiox_uint64_t pid, uiox_uint64_t sig)
@@ -54,6 +53,5 @@ int64_t uiox_kix_scpcs_kill(uiox_uint64_t pid, uiox_uint64_t sig)
 
     if (!uiox_kix_psa_proc_find((uiox_uint32_t)pid)) return SCPCS_ESRCH;
 
-    (void)kernel_kill;   /* present, does not deliver — see banner */
     return SCPCS_ENOSYS;
 }

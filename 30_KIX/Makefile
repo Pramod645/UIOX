@@ -327,24 +327,34 @@ _build_subsystems:
 #	    ARCH_CFLAGS="$(ARCH_CFLAGS)" ARCH_CPUDEF="$(ARCH_CPUDEF)" \
 #	    $(_ARCH) 2>/dev/null || echo "[KIX] 50_UIX/01_shell: skipped"
 
-.PHONY: _build_kernel_main
 _build_kernel_main:
 	@mkdir -p $(_BUILD_DIR)
 	$(CC) $(KERNEL_CFLAGS_BASE) $(ARCH_CFLAGS) $(ARCH_CPUDEF) \
-	    $(BSP_MODE_DEF)                                        \
-	    $(DEVICE_DEFS)                                         \
-	    -I$(_ARCH_INC)                                         \
-	    -I$(MFDIR)32_FS/01_fsa/include                         \
-	    -I$(MFDIR)32_FS/10_scfs/include                        \
-	    -I$(MFDIR)32_FS/00_bcache/include                      \
-	    -I$(MFDIR)32_FS/include                                \
-		-I$(MFDIR)32_FS/10_scfs/include                        \
-        -I$(MFDIR)32_FS/10_unfs/include                        \
-        -I$(MFDIR)32_FS/00_bcache/include                      \
-        -I$(MFDIR)32_FS/include                                \
-	    -c $(MFDIR)common/uiox_kernel_main.c                   \
+	    $(BSP_MODE_DEF) \
+	    $(DEVICE_DEFS) \
+	    -I$(_ARCH_INC) \
+	    -I$(MFDIR)32_FS/01_fsa/include \
+	    -I$(MFDIR)32_FS/10_scfs/include \
+	    -I$(MFDIR)32_FS/00_bcache/include \
+	    -I$(MFDIR)32_FS/10_unfs/include \
+	    -I$(MFDIR)32_FS/include \
+		-I$(MFDIR)33_PCS/50_scpcs/include \
+	    -c $(MFDIR)common/uiox_kernel_main.c \
 	    -o $(_BUILD_DIR)/uiox_kernel_main.o
 	@echo "  [CC]  uiox_kernel_main.c  (BSP_MODE=$(BSP_MODE))"
+	$(CC) $(KERNEL_CFLAGS_BASE) $(ARCH_CFLAGS) $(ARCH_CPUDEF) \
+	    $(BSP_MODE_DEF) \
+	    $(DEVICE_DEFS) \
+	    -I$(_ARCH_INC) \
+	    -I$(MFDIR)32_FS/01_fsa/include \
+	    -I$(MFDIR)32_FS/10_scfs/include \
+	    -I$(MFDIR)32_FS/00_bcache/include \
+	    -I$(MFDIR)32_FS/10_unfs/include \
+	    -I$(MFDIR)32_FS/include \
+		-I$(MFDIR)33_PCS/50_scpcs/include \
+	    -c $(MFDIR)common/uiox_kix_router.c \
+	    -o $(_BUILD_DIR)/uiox_kix_router.o
+	@echo "  [CC]  uiox_kix_router.c  (BSP_MODE=$(BSP_MODE))"
 
 .PHONY: _link_kernel
 _link_kernel:
@@ -354,6 +364,7 @@ _link_kernel:
 	    -Map=$(_BUILD_DIR)/uiox_kernel.map                         \
 	    --gc-sections                                              \
 	    $(_BUILD_DIR)/uiox_kernel_main.o                           \
+		$(_BUILD_DIR)/uiox_kix_router.o 						   \
 	    --start-group                                              \
             $(wildcard $(FWHAL)/build/$(_ARCH)/*.a)                    \
             $(wildcard $(MFDIR)30_DSS/build/$(_ARCH)/*.a)              \

@@ -50,27 +50,27 @@
  */
 #include "../include/uiox_kix_scpcs.h"
 
-extern int kernel_wait(int *status_ptr);
-
 int64_t uiox_kix_scpcs_wait_pid(uiox_uint64_t pid, uiox_uintptr_t status_out,
                                 uiox_uint64_t options)
 {
-    int status = 0;
-    int id;
+    uiox_kix_psa_proc_t *child;
+    uiox_kix_psa_proc_t *self;
 
     (void)options;   /* WNOHANG and WUNTRACED are not modelled */
 
-    if (!uiox_kix_scpcs_current()) return SCPCS_ESRCH;
+    self = uiox_kix_scpcs_current();
+    if (!self) return SCPCS_ESRCH;
     if (pid > 0x7FFFFFFFu) return SCPCS_EINVAL;
 
-    if (status_out != 0u) {
-        if (uiox_kix_scpcs_check_user_ptr(status_out, sizeof(int), 4u) != 0)
-            return SCPCS_EFAULT;
-        return SCPCS_EFAULT;   /* no copy_to_user to complete it */
-    }
+    /* no copy_to_user exists, so a non-NULL status pointer is refused */
+    if (status_out != 0u) return SCPCS_EFAULT;
 
-    id = kernel_wait(&status);
-    if (id < 0) return SCPCS_ECHILD;
+    child = uiox_kix_psa_proc_find((uint32_t)pid);
+    if (!child) return SCPCS_ECHILD;
+    if (child->p_state != UIOX_KIX_PSA_PROC_ZOMBIE) return SCPCS_ECHILD;
+    if (child->p_ppid != self->p_pid) return SCPCS_ECHILD;
 
-    return (int64_t)id;
+    uiox_kix_psa_proc_free(child);
+
+    return (int64_t)pid;   /* NOT child->p_pid -- that memory is freed */
 }

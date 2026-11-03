@@ -33,6 +33,8 @@
  * @version 1.0.0  @date 2026-09-29
  */
 #include "../include/uiox_kix_scpcs.h"
+#include "uiox_kix_timekeeping.h"
+
 
 #define SCPCS_CLOCK_REALTIME   0u
 #define SCPCS_CLOCK_MONOTONIC  1u
@@ -41,13 +43,13 @@
  * path — it MUST match what the scheduler's time syscall declares. */
 typedef struct { int64_t tv_sec; uiox_uint32_t tv_nsec; } scps_xtime_t;
 
-extern int sys_clock_gettime(uiox_uint64_t id, scps_xtime_t *out);
+//extern int sys_clock_gettime(uiox_uint64_t id, scps_xtime_t *out);
 
 int64_t uiox_kix_scpcs_clock_get_time(uiox_uint64_t clock_id,
                                       uiox_uintptr_t out)
 {
     scps_xtime_t ts;
-    int          rc;
+    //int          rc;
 
     if (clock_id != (uiox_uint64_t)SCPCS_CLOCK_REALTIME &&
         clock_id != (uiox_uint64_t)SCPCS_CLOCK_MONOTONIC)
@@ -63,11 +65,17 @@ int64_t uiox_kix_scpcs_clock_get_time(uiox_uint64_t clock_id,
             return SCPCS_EFAULT;
     }
 
-    ts.tv_sec  = 0;
-    ts.tv_nsec = 0u;
+    //ts.tv_sec  = 0;
+    //ts.tv_nsec = 0u;
 
-    rc = sys_clock_gettime(clock_id, &ts);
-    if (rc != 0) return SCPCS_EINVAL;
+    //rc = sys_clock_gettime(clock_id, &ts);
+    //if (rc != 0) return SCPCS_EINVAL;
+    {
+        uint64_t ns = timekeeping_monotonic_ns();
+        ts.tv_sec  = (int64_t)(ns / 1000000000ULL);
+        ts.tv_nsec = (int64_t)(ns % 1000000000ULL);
+    }
+
 
     if (ts.tv_sec < 0)            ts.tv_sec = 0;
     if (ts.tv_sec > 0xFFFFFFFFLL) ts.tv_sec = 0xFFFFFFFFLL;

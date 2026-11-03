@@ -3,12 +3,12 @@
 # rebuild.sh — UIOX kernel, all four architectures.
 #
 # USAGE
-#   ./rebuild.sh                  # all four arches, clean each
-#   ./rebuild.sh arm64            # one arch
-#   ./rebuild.sh arm64 riscv64    # a subset
-#   ./rebuild.sh --no-clean arm64 # rebuild + relink only
-#   ./rebuild.sh --continue       # don't stop on the first arch that fails
-#   ./rebuild.sh --help
+#   ./rebuildkernel.sh                  # all four arches, clean each
+#   ./rebuildkernel.sh arm64            # one arch
+#   ./rebuildkernel.sh arm64 riscv64    # a subset
+#   ./rebuildkernel.sh --no-clean arm64 # rebuild + relink only
+#   ./rebuildkernel.sh --continue       # don't stop on the first arch that fails
+#   ./rebuildkernel.sh --help
 #
 # WHY THIS EXISTS
 #   `make clean && make arm64` is not reliable on this tree:

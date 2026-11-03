@@ -50,8 +50,9 @@
  * @version 2.0.0  @date 2026-09-29
  */
 
- #include "uix_sys.h"                 /* the BSD numbers               */
- #include "uix_archSysCall.h"         /* the entry point this declares */
+ #include "uiox_base_types.h"       /* uiox_uint64_t, uiox_uintptr_t */
+#include "uiox_kix_scpcs_numbers.h"
+ #include "uiox_kix_scfs_numbers.h"
  
  /* ── The two subsystem dispatchers ─────────────────────────────────
   * Declared here rather than included, because including both headers
@@ -62,12 +63,12 @@
   * The regs parameter is void * rather than a typed pointer for the same
   * reason: SCiX must not depend on 40_psa's context layout to pass it
   * through. */
- extern int64_t uiox_kix_scpcs_dispatch(uiox_uint64_t nr,
+ extern uiox_int64_t uiox_kix_scpcs_dispatch(uiox_uint64_t nr,
                                         uiox_uintptr_t a0, uiox_uintptr_t a1,
                                         uiox_uintptr_t a2, uiox_uintptr_t a3,
                                         uiox_uintptr_t a4, uiox_uintptr_t a5,
                                         void *regs);
- extern int64_t uiox_kix_scfs_dispatch(uiox_uint64_t nr,
+ extern uiox_int64_t uiox_kix_scfs_dispatch(uiox_uint64_t nr,
                                        uiox_uintptr_t a0, uiox_uintptr_t a1,
                                        uiox_uintptr_t a2, uiox_uintptr_t a3,
                                        uiox_uintptr_t a4, uiox_uintptr_t a5,
@@ -77,8 +78,8 @@
   * Negative is an error, and it propagates unchanged from the subsystem
   * below.  This layer does not reinterpret one subsystem's error as
   * another's: a failure means the same thing wherever it came from. */
- #define SCIX_ENOSYS   ((int64_t)-38)
- #define SCIX_EINVAL   ((int64_t)-22)
+ #define SCIX_ENOSYS   ((uiox_int64_t)-38)
+ #define SCIX_EINVAL   ((uiox_int64_t)-22)
  
  /* ── Which subsystem owns which number ──────────────────────────────
   * The numbers are BSD's; the ranges are this kernel's decision about who
@@ -202,7 +203,7 @@
  }
  
  /* ────────────────────────────────────────────────────────────────────
-  * uix_arch_syscall — the SCiX entry point.
+  * syscall_dispatch — the SCiX entry point.
   *
   * Called by 10_Arch's trap handler with the syscall number and the six
   * argument registers, and with the interrupted register context so the
@@ -211,10 +212,10 @@
   * The ARM64 convention, which the arch layer implements:
   *   number in x8 · arguments in x0..x5 · return in x0 · svc #0
   *
-  * Returns the raw int64_t as well, so a caller with no register context
+  * Returns the raw uiox_int64_t as well, so a caller with no register context
   * — a test harness, or a hosted build — can still use it.
   * ──────────────────────────────────────────────────────────────────── */
- int64_t uix_arch_syscall(uiox_uint64_t nr,
+ uiox_int64_t syscall_dispatch(uiox_uint64_t nr,
                           uiox_uintptr_t a0, uiox_uintptr_t a1,
                           uiox_uintptr_t a2, uiox_uintptr_t a3,
                           uiox_uintptr_t a4, uiox_uintptr_t a5,

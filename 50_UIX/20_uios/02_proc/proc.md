@@ -333,4 +333,25 @@ If you want the next productive step without QEMU, uart0_irq_handler is the last
 
 
 ===========
+The list, final
+#	Item	State
+1–3c	context, kinit_main, UNFS, SCFS, vfs_mount_root	✅
+4	Loader + execve	✅ four arches
+5	fork	✅ four arches
+6	uios + apps, install into image	✅ four distinct trees, wired into rebuild.sh
+7	Stale paths	🔶 cosmetic, parked
+The list's functional work is done. Items 1–6 are complete and verified to the level static checking allows.
 
+What's left, ranked by whether it changes behaviour
+1. The boot test — the only thing that converts any of this from "linked" to "running." Everything to date is symbols in ELF files and sections in place. The frame pool filling, readi returning real bytes, the tick firing, arch_context_switch moving registers — all unobserved. Right now it's blocked on 01_uBoot hanging before [arch_init], which is a pre-existing bootloader issue rather than anything we touched.
+
+2. uart0_irq_handler × 4 — a real gap, same class as timer0_irq_handler was. Declared at each arch_init.c, registered via irq_request, no body anywhere. Depending on whether it lands strong or weak, the first UART interrupt either faults at address 0 or the handler is discarded by --gc-sections and serial input never works. That matters for 50_UIX/01_shell, which is a shell.
+
+3. x86_64's LAPIC timer — no tick on that architecture at all. The 8259A is masked at arch_init step 3 and x86_lapic_init only sets the spurious vector, never INITCNT/DIVIDE. timer_irq_handler is correctly wired; the re-arm is an empty stub because there's no timer register to write. Real new work.
+
+Two parked defects worth remembering
+riscv64's timer rate is still /100u against HZ = 1000 — 10× fast, so xtime and every time slice are stretched when it runs. You parked the value change; it's behavioural, not cosmetic.
+
+arm32's re-arm address (0x10011000) is my estimate of the SP804 Timer1 load register. Its arch_init.c has no timer init of its own — that's uiox_soc_arm32.c, which writes SOC_TIMER0_BASE + 0x000u. Worth one grep to confirm the base matches.
+
+If you'd rather stop here, this is a clean place: the kernel builds and links on all four architectures, six of seven list items are done, and the remaining items are each independently scoped. uart0_irq_handler is the smallest one that changes behaviour.

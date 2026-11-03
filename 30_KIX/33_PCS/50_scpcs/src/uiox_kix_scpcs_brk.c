@@ -41,21 +41,40 @@
  * @version 1.0.0  @date 2026-09-29
  */
 #include "../include/uiox_kix_scpcs.h"
+#include "uiox_kix_psa_region.h"
+#include "uiox_kix_psa_process.h"
+#include "uiox_kix_psa_context.h"
+#include "uiox_kix_psa_proc_algo.h"
 
-extern uintptr_t kernel_brk(uintptr_t new_brk);
+#include "uiox_kix_psa_region.h"
+#include "uiox_kix_psa_context.h"     /* for uiox_kix_psa_u_area_t */
+
 
 int64_t uiox_kix_scpcs_brk(uiox_uint64_t new_brk)
 {
-    uintptr_t old;
+    uiox_kix_psa_u_area_t  *u;
+    uiox_kix_psa_pregion_t *data = (uiox_kix_psa_pregion_t *)0;
+    uint32_t i;
+    uint32_t old;
 
     if (!uiox_kix_scpcs_current()) return SCPCS_ESRCH;
-
-    /* the model is 32-bit; a wider request cannot be honoured and must
-     * not be silently truncated into an address that is merely wrong */
     if (new_brk > 0xFFFFFFFFu) return SCPCS_EINVAL;
 
-    old = kernel_brk((uintptr_t)new_brk);
-    if (old == (uintptr_t)-1) return SCPCS_ENOMEM;
+    u = uiox_kix_psa_current_uarea();
+    if (!u) return SCPCS_ESRCH;
 
+    /* the data segment is the pregion whose cached type is DATA */
+    for (i = 0u; i < (uint32_t)UIOX_KIX_PSA_MAX_REG_PER_PROC; i++) {
+        if (u->u_pregs[i].pr_valid &&
+            u->u_pregs[i].pr_type == UIOX_KIX_PSA_REG_DATA) {
+            data = &u->u_pregs[i];
+            break;
+        }
+    }
+    if (!data) return SCPCS_ENOMEM;
+
+    /* brk's contract is the PREVIOUS break, so capture it before growing */
+    old = data->pr_size;
+    uiox_kix_psa_growreg(data, (int32_t)((uint32_t)new_brk - old));
     return (int64_t)old;
 }

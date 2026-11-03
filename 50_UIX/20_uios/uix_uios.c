@@ -76,8 +76,15 @@ void uios_shutdown(void)
     }
 }
 
+__attribute__((noinline)) void uios_syscall_selftest(void)
+{
+    volatile long r = my_syscall0(SYS_GETPID);
+    (void)r;
+}
+
 int main(void)
 {
+    uios_syscall_selftest();
     uios_init();
     uios_launch_apps();
     uios_run();

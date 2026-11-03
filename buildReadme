@@ -93,4 +93,18 @@ rm -rf 02_FwHal/build 10_BSP/build \
 cd /Users/pramodkumar/Hack/WS/UIOX
 ./rebuild.sh arm64 arm32 x86_64 riscv64 --continue
 
+--------
+user@host:~/Hack/WS/UIOX$ ./rebuild.sh arm64 arm32 x86_64 riscv64 --continue 2>&1 | tail -8
+
+userspace obly
+
+
+./build_uix.sh                       # all four, clean each
+./build_uix.sh arm64                 # one arch
+./build_uix.sh --no-clean arm64      # build + stage only
+./build_uix.sh --continue            # don't stop on the first failure
+
+
+
+
  

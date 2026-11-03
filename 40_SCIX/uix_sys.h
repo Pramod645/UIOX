@@ -24,13 +24,8 @@
 
 //#define STUB 1// 0:STUB, 1:SYS funtinal call to Kernal
 /* ── Kernel layer headers ──────────────────────────────────── */
-#if SYS_CALL_ENBLE_DISABLE
-#  include "../30_KIX/32_FS/10_scfs/include/uiox_kix_scfs.h"
-#  include "../30_KIX/33_PCS/50_scpcs/include/uiox_kix_scpcs.h"
-#  include "../30_KIX/33_PCS/00_IPC/include/uiox_kix_ipc_types.h"
-#  include "../30_KIX/33_PCS/01_schedular/include/uiox_kix_scheduler.h"
-#  include "../30_KIX/33_PCS/02_MemMngnt/include/uiox_mm.h"
-#endif
+/* ── Trap interface (userspace side of EL0/EL1) ─────────────── */
+#include "uix_archSysCall.h"
 #include "PoStd/uix_fcntl.h"
 #include "sys/uix_stat.h"
 #include "PoStd/uix_dirent.h"
@@ -495,276 +490,149 @@
    ════════════════════════════════════════════════════════════ */
    static inline int sys_open(const char *path, int flags, ...)
    {
-   #if !SYS_CALL_ENBLE_DISABLE
-       (void)path; (void)flags; return -1;
-   #else
-       uix_mode_t mode = 0;
-       return fs_open(path, flags, mode);
-   #endif
+       return my_syscall2(SYS_OPEN, (long)(path), (long)(flags));
    }
+   /* POSIX creat.  NOT WIRED -- no SYS_CREAT number on either side, and
+    * nothing calls it (sys_open covers the callers).  Stub by intent. */
    static inline int sys_creat(const char *path, uix_mode_t mode)
    {
-   #if !SYS_CALL_ENBLE_DISABLE
-       (void)path; (void)mode; return -1;
-   #else
-       return fs_creat(path, mode);
-   #endif
+       (void)path; (void)mode;
+       return -1;
    }
    static inline int sys_close(int fd)
    {
-   #if !SYS_CALL_ENBLE_DISABLE
-       (void)fd; return 0;
-   #else
-       return fs_close(fd);
-   #endif
+       return my_syscall1(SYS_CLOSE, (long)(fd));
    }
    static inline uix_ssize_t sys_read(int fd, void *buf, uix_size_t count)
    {
-   #if !SYS_CALL_ENBLE_DISABLE
-       (void)fd; (void)buf; (void)count; return -1;
-   #else
-       return fs_read(fd, buf, count);
-   #endif
+       return (uix_ssize_t)my_syscall3(SYS_READ, (long)(fd), (long)(buf), (long)(count));
    }
    static inline uix_ssize_t sys_write(int fd, const void *buf, uix_size_t count)
    {
-   #if !SYS_CALL_ENBLE_DISABLE
-       (void)fd; (void)buf; (void)count; return -1;
-   #else
-       return fs_write(fd, buf, count);
-   #endif
+       return (uix_ssize_t)my_syscall3(SYS_WRITE, (long)(fd), (long)(buf), (long)(count));
    }
    static inline uix_off_t sys_lseek(int fd, uix_off_t off, int whence)
    {
-   #if !SYS_CALL_ENBLE_DISABLE
-       (void)fd; (void)off; (void)whence; return -1;
-   #else
-       return fs_lseek(fd, off, whence);
-   #endif
+       return (uix_off_t)my_syscall3(SYS_LSEEK, (long)(fd), (long)(off), (long)(whence));
    }
    static inline int sys_fcntl(int fd, int cmd, ...)
    {
-   #if !SYS_CALL_ENBLE_DISABLE
-       (void)fd; (void)cmd; return -1;
-   #else
-       return fs_fcntl(fd, cmd);
-   #endif
+       return my_syscall2(SYS_FCNTL, (long)(fd), (long)(cmd));
    }
    static inline int sys_dup(int fd)
    {
-   #if !SYS_CALL_ENBLE_DISABLE
-       (void)fd; return -1;
-   #else
-       return fs_dup(fd);
-   #endif
+       return my_syscall1(SYS_DUP, (long)(fd));
    }
    static inline int sys_dup2(int oldfd, int newfd)
    {
-   #if !SYS_CALL_ENBLE_DISABLE
-       (void)oldfd; (void)newfd; return -1;
-   #else
-       return fs_dup2(oldfd, newfd);
-   #endif
+       return my_syscall2(SYS_DUP2, (long)(oldfd), (long)(newfd));
    }
    static inline int sys_pipe(int pipefd[2])
    {
-   #if !SYS_CALL_ENBLE_DISABLE
-       (void)pipefd; return -1;
-   #else
-       return fs_pipe(pipefd);
-   #endif
+       return my_syscall1(SYS_PIPE, (long)(pipefd));
    }
    static inline int sys_stat(const char *path, uix_stat_t *buf)
    {
-   #if !SYS_CALL_ENBLE_DISABLE
-       (void)path; (void)buf; return -1;
-   #else
-       return fs_stat(path, buf);
-   #endif
+       return my_syscall2(SYS_STAT, (long)(path), (long)(buf));
    }
    static inline int sys_fstat(int fd, uix_stat_t *buf)
    {
-   #if !SYS_CALL_ENBLE_DISABLE
-       (void)fd; (void)buf; return -1;
-   #else
-       return fs_fstat(fd, buf);
-   #endif
+       return my_syscall2(SYS_FSTAT, (long)(fd), (long)(buf));
    }
    static inline int sys_lstat(const char *path, uix_stat_t *buf)
    {
-   #if !SYS_CALL_ENBLE_DISABLE
-       (void)path; (void)buf; return -1;
-   #else
-       return fs_lstat(path, buf);
-   #endif
+       return my_syscall2(SYS_LSTAT, (long)(path), (long)(buf));
    }
    static inline int sys_chmod(const char *path, uix_mode_t mode)
    {
-   #if !SYS_CALL_ENBLE_DISABLE
-       (void)path; (void)mode; return -1;
-   #else
-       return fs_chmod(path, mode);
-   #endif
+       return my_syscall2(SYS_CHMOD, (long)(path), (long)(mode));
    }
    static inline int sys_chown(const char *path,
                                  uix_uid_t owner, uix_gid_t group)
    {
-   #if !SYS_CALL_ENBLE_DISABLE
-       (void)path; (void)owner; (void)group; return -1;
-   #else
-       return fs_chown(path, owner, group);
-   #endif
+       return my_syscall3(SYS_CHOWN, (long)(path), (long)(owner), (long)(group));
    }
    static inline int sys_mkdir(const char *path, uix_mode_t mode)
    {
-   #if !SYS_CALL_ENBLE_DISABLE
-       (void)path; (void)mode; return -1;
-   #else
-       return fs_mkdir(path, mode);
-   #endif
+       return my_syscall2(SYS_MKDIR, (long)(path), (long)(mode));
    }
    static inline int sys_mknod(const char *path,
                                  uix_mode_t mode, uix_dev_t dev)
    {
-   #if !SYS_CALL_ENBLE_DISABLE
-       (void)path; (void)mode; (void)dev; return -1;
-   #else
-       return fs_mknod(path, mode, (uint8_t)(dev>>8), (uint8_t)(dev&0xFF));
-   #endif
+       return (int)my_syscall4(SYS_MKNOD, (long)(path),
+                             (long)(mode),
+                             (long)(((dev)>>8) & 0xFF),
+                             (long)((dev) & 0xFF));
    }
    static inline int sys_unlink(const char *path)
    {
-   #if !SYS_CALL_ENBLE_DISABLE
-       (void)path; return -1;
-   #else
-       return fs_unlink(path);
-   #endif
+       return my_syscall1(SYS_UNLINK, (long)(path));
    }
    static inline int sys_link(const char *old, const char *nw)
    {
-   #if !SYS_CALL_ENBLE_DISABLE
-       (void)old; (void)nw; return -1;
-   #else
-       return fs_link(old, nw);
-   #endif
+       return my_syscall2(SYS_LINK, (long)(old), (long)(nw));
    }
    static inline int sys_rmdir(const char *path)
    {
-   #if !SYS_CALL_ENBLE_DISABLE
-       (void)path; return -1;
-   #else
-       return fs_rmdir(path);
-   #endif
+       return my_syscall1(SYS_RMDIR, (long)(path));
    }
    static inline int sys_chdir(const char *path)
    {
-   #if !SYS_CALL_ENBLE_DISABLE
-       (void)path; return -1;
-   #else
-       return fs_chdir(path);
-   #endif
+       return my_syscall1(SYS_CHDIR, (long)(path));
    }
    static inline int sys_chroot(const char *path)
    {
-   #if !SYS_CALL_ENBLE_DISABLE
-       (void)path; return -1;
-   #else
-       return fs_chroot(path);
-   #endif
+       return my_syscall1(SYS_CHROOT, (long)(path));
    }
    static inline int sys_mount(const char *special,
                                  const char *dir, int flags)
    {
-   #if !SYS_CALL_ENBLE_DISABLE
-       (void)special; (void)dir; (void)flags; return -1;
-   #else
-       return fs_mount(special, dir, flags);
-   #endif
+       return my_syscall3(SYS_MOUNT, (long)(special), (long)(dir), (long)(flags));
    }
    static inline int sys_umount(const char *special)
    {
-   #if !SYS_CALL_ENBLE_DISABLE
-       (void)special; return -1;
-   #else
-       return fs_umount(special);
-   #endif
+       return my_syscall1(SYS_UNMOUNT, (long)(special));
    }
    static inline int sys_getdents(int fd, uix_DIR *dirp, int count)
    {
-   #if !SYS_CALL_ENBLE_DISABLE
-       (void)fd; (void)dirp; (void)count; return -1;
-   #else
-       return fs_getdents(fd, dirp, count);
-   #endif
+       return my_syscall3(SYS_GETDENTS, (long)(fd), (long)(dirp), (long)(count));
    }
 /* ════════════════════════════════════════════════════════════
    PROCESS SYSCALLS  →  33_ProcessControlSubsystem/50_scps/
    ════════════════════════════════════════════════════════════ */
    static inline uix_pid_t sys_fork(void)
    {
-   #if !SYS_CALL_ENBLE_DISABLE
-       return -1;
-   #else
-       return (uix_pid_t)kernel_fork();
-   #endif
+       return (uix_pid_t)my_syscall0(SYS_FORK);
    }
    static inline uix_pid_t sys_getpid(void)
    {
-   #if !SYS_CALL_ENBLE_DISABLE
-       return 1;
-   #else
-       return (uix_pid_t)kernel_getpid();
-   #endif
+       return (uix_pid_t)my_syscall0(SYS_GETPID);
    }
    static inline uix_pid_t sys_getppid(void)
    {
-   #if !SYS_CALL_ENBLE_DISABLE
-       return 0;
-   #else
-       return (uix_pid_t)kernel_getppid();
-   #endif
+       return (uix_pid_t)my_syscall0(SYS_GETPPID);
    }
    static inline void sys_exit(int status)
    {
-   #if !SYS_CALL_ENBLE_DISABLE
-       (void)status; while(1){}
-   #else
-       kernel_exit(status);
-   #endif
+       (void)my_syscall1(SYS_EXIT, (long)(status));
    }
    static inline int sys_execv(const char *p, char *const av[])
    {
-   #if !SYS_CALL_ENBLE_DISABLE
-       (void)p; (void)av; return -1;
-   #else
-       return kernel_exec(p, av, (char *const*)0);
-   #endif
+       return my_syscall2(SYS_EXECV, (long)(p), (long)(av));
    }
    static inline int sys_execve(const char *p,
                                   char *const av[], char *const env[])
    {
-   #if !SYS_CALL_ENBLE_DISABLE
-       (void)p; (void)av; (void)env; return -1;
-   #else
-       return kernel_exec(p, av, env);
-   #endif
+       return my_syscall3(SYS_EXECVE, (long)(p), (long)(av), (long)(env));
    }
    static inline int sys_kill(uix_pid_t pid, int sig)
    {
-   #if !SYS_CALL_ENBLE_DISABLE
-       (void)pid; (void)sig; return -1;
-   #else
-       return kernel_kill((uint32_t)pid, sig);
-   #endif
+       return my_syscall2(SYS_KILL, (long)(pid), (long)(sig));
    }
    static inline uix_pid_t sys_wait4(uix_pid_t pid, int *wstatus,
                                        int options, void *rusage)
    {
-   #if !SYS_CALL_ENBLE_DISABLE
-       (void)pid; (void)wstatus; (void)options; (void)rusage; return -1;
-   #else
-       return (uix_pid_t)kernel_wait(wstatus);
-   #endif
+       return (uix_pid_t)my_syscall4(SYS_WAIT4, (long)(pid), (long)(wstatus), (long)(options), (long)(rusage));
    }
 /* ════════════════════════════════════════════════════════════
    SIGNAL SYSCALLS  →  33_ProcessControlSubsystem/50_scps/signal.h
@@ -776,21 +644,13 @@ typedef void (*sig_handler_t)(int);
  * uiox_kix_scpcs_signal's sig_action shape; this is its userspace face. */
 static inline int sys_signal(int signum, sig_handler_t handler)
 {
-#if !SYS_CALL_ENBLE_DISABLE
-    (void)signum; (void)handler; return -1;
-#else
-    return kernel_signal(signum, handler);
-#endif
+    return my_syscall2(SYS_SIGACTION, (long)(signum), (long)(handler));
 }
 static inline int sys_sigaction(int signum,
                                   const uix_sigaction_t *act,
                                   uix_sigaction_t *oldact)
 {
-#if !SYS_CALL_ENBLE_DISABLE
-    (void)signum; (void)act; (void)oldact; return -1;
-#else
-    return kernel_sigaction(signum, act, oldact);
-#endif
+    return my_syscall3(SYS_SIGACTION, (long)(signum), (long)(act), (long)(oldact));
 }
 
 /* ════════════════════════════════════════════════════════════
@@ -798,55 +658,31 @@ static inline int sys_sigaction(int signum,
    ════════════════════════════════════════════════════════════ */
 static inline uix_time_t sys_time(uix_time_t *tloc)
 {
-#if !SYS_CALL_ENBLE_DISABLE
-    (void)tloc; return 0;
-#else
-    return kernel_time(tloc);
-#endif
+    return (uix_time_t)my_syscall1(SYS_TIMES, (long)(tloc));
 }
 static inline int sys_gettimeofday(uix_timeval_t *tv, void *tz)
 {
-#if !SYS_CALL_ENBLE_DISABLE
-    (void)tv;(void)tz; return 0;
-#else
-    return kernel_gettimeofday(tv, tz);
-#endif
+    return my_syscall2(SYS_GETTIMEOFDAY, (long)(tv), (long)(tz));
 }
 static inline int sys_clock_gettime(int clkid, uix_timespec_t *tp)
 {
-#if !SYS_CALL_ENBLE_DISABLE
-    (void)clkid;(void)tp; return 0;
-#else
-    return kernel_clock_gettime(clkid, tp);
-#endif
+    return my_syscall2(SYS_CLOCK_GETTIME, (long)(clkid), (long)(tp));
 }
 static inline uix_clock_t sys_times(uix_tms_t *buf)
 {
-#if !SYS_CALL_ENBLE_DISABLE
-    (void)buf; return 0;
-#else
-    return kernel_times(buf);
-#endif
+    return (uix_clock_t)my_syscall1(SYS_TIMES, (long)(buf));
 }
 static inline int sys_utime(const char *path,
                             const uix_utimbuf_t *times)
 {
-#if !SYS_CALL_ENBLE_DISABLE
-    (void)path;(void)times; return 0;
-#else
-    return fs_utime(path, times);
-#endif
+    return my_syscall2(SYS_UTIME, (long)(path), (long)(times));
 }
 /* ════════════════════════════════════════════════════════════
    UTSNAME
    ════════════════════════════════════════════════════════════ */
 static inline int sys_uname(uix_utsname_t *buf)
 {
-#if !SYS_CALL_ENBLE_DISABLE
-    (void)buf; return 0;
-#else
-    return kernel_uname(buf);
-#endif
+    return my_syscall1(SYS_UNAME, (long)(buf));
 }
 /* ════════════════════════════════════════════════════════════
    MEMORY MANAGEMENT  →  33_ProcessControlSubsystem/02_memory-managment/
@@ -854,62 +690,38 @@ static inline int sys_uname(uix_utsname_t *buf)
 static inline void *sys_mmap(void *addr, uix_size_t length,
                     int prot, int flags, int fd, uix_off_t offset)
 {
-#if !SYS_CALL_ENBLE_DISABLE
-    (void)addr;(void)length;(void)prot;
-    (void)flags;(void)fd;(void)offset; return (void*)-1;
-#else
-    return kernel_mmap(addr, length, prot, flags, fd, offset);
-#endif
+    return (void *)my_syscall6(SYS_MMAP, (long)(addr), (long)(length), (long)(prot), (long)(flags), (long)(fd), (long)(offset));
 }
 static inline int sys_munmap(void *addr, uix_size_t length)
 {
-#if !SYS_CALL_ENBLE_DISABLE
-    (void)addr; (void)length; return 0;
-#else
-    return kernel_munmap(addr, length);
-#endif
+    return my_syscall2(SYS_MUNMAP, (long)(addr), (long)(length));
 }
 static inline int sys_mprotect(void *addr, uix_size_t len, int prot)
 {
-#if !SYS_CALL_ENBLE_DISABLE
-    (void)addr; (void)len; (void)prot; return 0;
-#else
-    return kernel_mprotect(addr, len, prot);
-#endif
+    return my_syscall3(SYS_MPROTECT, (long)(addr), (long)(len), (long)(prot));
 }
 static inline uix_uintptr_t sys_brk(uix_uintptr_t newbrk)
 {
-#if !SYS_CALL_ENBLE_DISABLE
-    (void)newbrk; return 0;
-#else
-    return kernel_brk(newbrk);
-#endif
+    return (uix_uintptr_t)my_syscall1(SYS_BREAK, (long)(newbrk));
 }
+/* POSIX shm.  NOT WIRED -- there is no SYS_SHM_OPEN number on either side
+ * of the boundary, and no kernel entry point.  Nothing calls this today:
+ * the apps use the System V family (sys_shmat/shmdt/shmget/shmctl), which
+ * IS wired.  Kept as a compiling stub so the header stays self-consistent;
+ * when a caller appears, assign the number in this file's table AND add the
+ * dispatcher entry in 30_KIX before converting the body to my_syscall3. */
 static inline int sys_shm_open(const char *name,
-                               int oflag, uix_mode_t mode)//not added
+                               int oflag, uix_mode_t mode)
 {
-#if !SYS_CALL_ENBLE_DISABLE
-    (void)name;
-    (void)oflag;
-    (void)mode;
+    (void)name; (void)oflag; (void)mode;
     return -1;
-#elif
-    // acctual call to kernel
-    //UI../30_KIX/33_PCS/
-    kernel_shm_open();// definition not availble in and need to be created
-#endif
 }
 
-static inline int sys_shm_unlink(const char *name) //not added
+/* POSIX shm.  NOT WIRED -- see sys_shm_open above. */
+static inline int sys_shm_unlink(const char *name)
 {
-#if !SYS_CALL_ENBLE_DISABLE
     (void)name;
     return -1;
-#elif
-    // acctual call to kernel
-    //UI../30_KIX/33_PCS/
-    kernel_shm_unlink();// definition not availble in and need to be created
-#endif
 }/*End of ememory mamanagment*/
 /* ════════════════════════════════════════════════════════════
    SOCKET / NETWORK  →  33_ProcessControlSubsystem/00_ipc/
@@ -917,116 +729,64 @@ static inline int sys_shm_unlink(const char *name) //not added
    //uiox_socket.h
 static inline int sys_socket(int domain, int type, int protocol)
 {
-#if !SYS_CALL_ENBLE_DISABLE
-    (void)domain;(void)type;(void)protocol; return -1;
-#else
-    return uiox_socket(domain, type, protocol);
-#endif
+    return my_syscall3(SYS_SOCKET, (long)(domain), (long)(type), (long)(protocol));
 }
 static inline int sys_bind(int sockfd, const uix_sockaddr_t *addr,
                                 uix_socklen_t addrlen)
 {
-#if !SYS_CALL_ENBLE_DISABLE
-    (void)sockfd;(void)addr;(void)addrlen; return -1;
-#else
-    return uiox_bind(sockfd, addr, addrlen);
-#endif
+    return my_syscall3(SYS_BIND, (long)(sockfd), (long)(addr), (long)(addrlen));
 }
 static inline int sys_listen(int sockfd, int backlog)
 {
-#if !SYS_CALL_ENBLE_DISABLE
-    (void)sockfd;(void)backlog; return -1;
-#else
-    return uiox_listen(sockfd, backlog);
-#endif
+    return my_syscall2(SYS_LISTEN, (long)(sockfd), (long)(backlog));
 }
 static inline int sys_accept(int sockfd, uix_sockaddr_t *addr,
                                   uix_socklen_t *addrlen)
 {
-#if !SYS_CALL_ENBLE_DISABLE
-    (void)sockfd;(void)addr;(void)addrlen; return -1;
-#else
-    return uiox_accept(sockfd, addr, addrlen);
-#endif
+    return my_syscall3(SYS_ACCEPT, (long)(sockfd), (long)(addr), (long)(addrlen));
 }
 static inline int sys_connect(int sockfd,
             const uix_sockaddr_t *addr,uix_socklen_t addrlen)
 {
-#if !SYS_CALL_ENBLE_DISABLE
-    (void)sockfd;(void)addr;(void)addrlen; return -1;
-#else
-    return uiox_connect(sockfd, addr, addrlen);
-#endif
+    return my_syscall3(SYS_CONNECT, (long)(sockfd), (long)(addr), (long)(addrlen));
 }
 static inline int sys_shutdown(int sockfd, int how)
 {
-#if !SYS_CALL_ENBLE_DISABLE
-    (void)sockfd;(void)how; return -1;
-#else
-    return uiox_shutdown(sockfd, how);
-#endif
+    return my_syscall2(SYS_SHUTDOWN, (long)(sockfd), (long)(how));
 }
 static inline uix_ssize_t sys_sendto(int sockfd, const void *buf,
                                           uix_size_t len, int flags,
                                           const uix_sockaddr_t *dest,
                                           uix_socklen_t addrlen)
 {
-#if !SYS_CALL_ENBLE_DISABLE
-    (void)sockfd;(void)buf;(void)len;(void)flags;
-    (void)dest;(void)addrlen; return -1;
-#else
-    return uiox_sendto(sockfd, buf, len, flags, dest, addrlen);
-#endif
+    return (uix_ssize_t)my_syscall6(SYS_SENDTO, (long)(sockfd), (long)(buf), (long)(len), (long)(flags), (long)(dest), (long)(addrlen));
 }
 static inline uix_ssize_t sys_recvfrom(int sockfd, void *buf,
                                             uix_size_t len, int flags,
                                             uix_sockaddr_t *src,
                                             uix_socklen_t *addrlen)
 {
-#if !SYS_CALL_ENBLE_DISABLE
-    (void)sockfd;(void)buf;(void)len;(void)flags;
-    (void)src;(void)addrlen; return -1;
-#else
-    return uiox_recvfrom(sockfd, buf, len, flags, src, addrlen);
-#endif
+    return (uix_ssize_t)my_syscall6(SYS_RECVFROM, (long)(sockfd), (long)(buf), (long)(len), (long)(flags), (long)(src), (long)(addrlen));
 }
 static inline int sys_getsockopt(int sockfd, int level, int optname,
                                       void *optval, uix_socklen_t *optlen)
 {
-#if !SYS_CALL_ENBLE_DISABLE
-    (void)sockfd;(void)level;(void)optname;
-    (void)optval;(void)optlen; return -1;
-#else
-    return uiox_getsockopt(sockfd, level, optname, optval, optlen);
-#endif
+    return my_syscall5(SYS_GETSOCKOPT, (long)(sockfd), (long)(level), (long)(optname), (long)(optval), (long)(optlen));
 }
 static inline int sys_setsockopt(int sockfd, int level, int optname,
                                     const void *optval, uix_socklen_t optlen)
 {
-#if !SYS_CALL_ENBLE_DISABLE
-    (void)sockfd;(void)level;(void)optname;
-    (void)optval;(void)optlen; return -1;
-#else
-    return uiox_setsockopt(sockfd, level, optname, optval, optlen);
-#endif
+    return my_syscall5(SYS_SETSOCKOPT, (long)(sockfd), (long)(level), (long)(optname), (long)(optval), (long)(optlen));
 }
 static inline int sys_getsockname(int sockfd, uix_sockaddr_t *addr,
                                     uix_socklen_t *addrlen)
 {
-#if !SYS_CALL_ENBLE_DISABLE
-    (void)sockfd;(void)addr;(void)addrlen; return -1;
-#else
-    return kernel_getsockname(sockfd, addr, addrlen);
-#endif
+    return my_syscall3(SYS_GETSOCKNAME, (long)(sockfd), (long)(addr), (long)(addrlen));
 }
 static inline int sys_getpeername(int sockfd, uix_sockaddr_t *addr,
                                        uix_socklen_t *addrlen)
 {
-#if !SYS_CALL_ENBLE_DISABLE
-    (void)sockfd;(void)addr;(void)addrlen; return -1;
-#else
-    return kernel_getpeername(sockfd, addr, addrlen);
-#endif
+    return my_syscall3(SYS_GETPEERNAME, (long)(sockfd), (long)(addr), (long)(addrlen));
 }
 /* ════════════════════════════════════════════════════════════
    I/O MULTIPLEXING
@@ -1034,29 +794,16 @@ static inline int sys_getpeername(int sockfd, uix_sockaddr_t *addr,
 static inline int sys_select(int nfds, uix_fd_set *rfds, uix_fd_set *wfds,
                                 uix_fd_set *efds, uix_timeval_t *timeout)
 {
-#if !SYS_CALL_ENBLE_DISABLE
-    (void)nfds;(void)rfds;(void)wfds;
-    (void)efds;(void)timeout; return 0;
-#else
-    return kernel_select(nfds, rfds, wfds, efds, timeout);
-#endif
+    return my_syscall5(SYS_SELECT, (long)(nfds), (long)(rfds), (long)(wfds), (long)(efds), (long)(timeout));
 }
 static inline int sys_poll(uix_pollfd_t *fds,
                             uix_nfds_t nfds, int timeout)
 {
-#if !SYS_CALL_ENBLE_DISABLE
-    (void)fds;(void)nfds;(void)timeout; return 0;
-#else
-    return kernel_poll(fds, nfds, timeout);
-#endif
+    return my_syscall3(SYS_POLL, (long)(fds), (long)(nfds), (long)(timeout));
 }
 static inline int sys_ioctl(int fd, unsigned long request, ...)
 {
-#if !SYS_CALL_ENBLE_DISABLE
-    (void)fd;(void)request; return -1;
-#else
-    return kernel_ioctl(fd, request);
-#endif
+    return my_syscall2(SYS_IOCTL, (long)(fd), (long)(request));
 }
 /* ════════════════════════════════════════════════════════════
    SCHEDULER  →  33_ProcessControlSubsystem/01_schedular/
@@ -1064,187 +811,102 @@ static inline int sys_ioctl(int fd, unsigned long request, ...)
 static inline int sys_sched_setscheduler(uix_pid_t pid, int policy,
                                             const uix_sched_param_t *p)
 {
-#if !SYS_CALL_ENBLE_DISABLE
-    (void)pid; (void)policy; (void)p; return 0;
-#else
-    return kernel_sched_setscheduler(pid, policy, p);
-#endif
+    return my_syscall3(SYS_SCHED_SETSCHEDULER, (long)(pid), (long)(policy), (long)(p));
 }
 static inline int sys_sched_getscheduler(uix_pid_t pid)
 {
-#if !SYS_CALL_ENBLE_DISABLE
-    (void)pid; return 0;
-#else
-    return kernel_sched_getscheduler(pid);
-#endif
+    return my_syscall1(SYS_SCHED_GETSCHEDULER, (long)(pid));
 }
 static inline int sys_sched_yield(void)
 {
-#if !SYS_CALL_ENBLE_DISABLE
-    return 0;
-#else
-    return kernel_sched_yield();
-#endif
+    return my_syscall0(SYS_SCHED_YIELD);
 }
 /* ════════════════════════════════════════════════════════════
    IPC: MSG / SHM / SEM  →  33_ProcessControlSubsystem/00_ipc/
    ════════════════════════════════════════════════════════════ */
 static inline int sys_msgget(uix_key_t key, int msgflg)
 {
-#if !SYS_CALL_ENBLE_DISABLE
-    (void)key; (void)msgflg; return 0;
-#else
-    return kernel_msgget(key, msgflg);
-#endif
+    return my_syscall2(SYS_MSGGET, (long)(key), (long)(msgflg));
 }
 static inline int sys_msgsnd(int msqid, const void *msgp,
                                 uix_size_t msgsz, int msgflg)
 {
-#if !SYS_CALL_ENBLE_DISABLE
-    (void)msqid;(void)msgp;(void)msgsz;(void)msgflg; return 0;
-#else
-    return kernel_msgsnd(msqid, msgp, msgsz, msgflg);
-#endif
+    return my_syscall4(SYS_MSGSND, (long)(msqid), (long)(msgp), (long)(msgsz), (long)(msgflg));
 }
 static inline uix_ssize_t sys_msgrcv(int msqid, void *msgp,
                     uix_size_t msgsz,long msgtyp, int msgflg)
 {
-#if !SYS_CALL_ENBLE_DISABLE
-    (void)msqid;(void)msgp;(void)msgsz;
-    (void)msgtyp;(void)msgflg; return 0;
-#else
-    return kernel_msgrcv(msqid, msgp, msgsz, msgtyp, msgflg);
-#endif
+    return (uix_ssize_t)my_syscall5(SYS_MSGRCV, (long)(msqid), (long)(msgp), (long)(msgsz), (long)(msgtyp), (long)(msgflg));
 }
 static inline int sys_msgctl(int msqid, int cmd, uix_msqid_ds_t *buf)
 {
-#if !SYS_CALL_ENBLE_DISABLE
-    (void)msqid;(void)cmd;(void)buf; return 0;
-#else
-    return kernel_msgctl(msqid, cmd, buf);
-#endif
+    return my_syscall3(SYS_MSGCTL, (long)(msqid), (long)(cmd), (long)(buf));
 }
 static inline int sys_shmget(uix_key_t key, uix_size_t size, int shmflg)
 {
-#if !SYS_CALL_ENBLE_DISABLE
-    (void)key;(void)size;(void)shmflg; return 0;
-#else
-    return kernel_shmget(key, size, shmflg);
-#endif
+    return my_syscall3(SYS_SHMGET, (long)(key), (long)(size), (long)(shmflg));
 }
 static inline void *sys_shmat(int shmid,
                                 const void *shmaddr, int shmflg)
 {
-#if !SYS_CALL_ENBLE_DISABLE
-    (void)shmid;(void)shmaddr;(void)shmflg; return (void*)-1;
-#else
-    return kernel_shmat(shmid, shmaddr, shmflg);
-#endif
+    return (void *)my_syscall3(SYS_SHMAT, (long)(shmid), (long)(shmaddr), (long)(shmflg));
 }
 static inline int sys_shmdt(const void *shmaddr)
 {
-#if !SYS_CALL_ENBLE_DISABLE
-    (void)shmaddr; return 0;
-#else
-    return kernel_shmdt(shmaddr);
-#endif
+    return my_syscall1(SYS_SHMDT, (long)(shmaddr));
 }
 static inline int sys_shmctl(int shmid, int cmd, uix_shmid_ds_t *buf)
 {
-#if !SYS_CALL_ENBLE_DISABLE
-    (void)shmid;(void)cmd;(void)buf; return 0;
-#else
-    return kernel_shmctl(shmid, cmd, buf);
-#endif
+    return my_syscall3(SYS_SHMCTL, (long)(shmid), (long)(cmd), (long)(buf));
 }
 static inline int sys_semget(uix_key_t key, int nsems, int semflg)
 {
-#if !SYS_CALL_ENBLE_DISABLE
-    (void)key;(void)nsems;(void)semflg; return 0;
-#else
-    return kernel_semget(key, nsems, semflg);
-#endif
+    return my_syscall3(SYS_SEMGET, (long)(key), (long)(nsems), (long)(semflg));
 }
 static inline int sys_semop(int semid,
                             uix_sembuf_t *sops, uix_size_t nsops)
 {
-#if !SYS_CALL_ENBLE_DISABLE
-    (void)semid;(void)sops;(void)nsops; return 0;
-#else
-    return kernel_semop(semid, sops, nsops);
-#endif
+    return my_syscall3(SYS_SEMOP, (long)(semid), (long)(sops), (long)(nsops));
 }
 static inline int sys_semctl(int semid, int semnum, int cmd, ...)
 {
-#if !SYS_CALL_ENBLE_DISABLE
-    (void)semid;(void)semnum;(void)cmd; return 0;
-#else
-    return kernel_semctl(semid, semnum, cmd);
-#endif
+    return my_syscall3(SYS_SEMCTL, (long)(semid), (long)(semnum), (long)(cmd));
 }
 /* ════════════════════════════════════════════════════════════
    NETWORK HELPERS
    ════════════════════════════════════════════════════════════ */
 static inline int sys_getifaddrs(uix_ifaddrs_t **ifap)
 {
-#if !SYS_CALL_ENBLE_DISABLE
-    (void)ifap; return -1;
-#else
-    return kernel_getifaddrs(ifap);
-#endif
+    return (int)my_syscall1(SYS_GETIFADDRS, (long)(ifap));
 }
 static inline uix_hostent_t *sys_gethostbyname(const char *name)
 {
-#if !SYS_CALL_ENBLE_DISABLE
-    (void)name; return (uix_hostent_t*)0;
-#else
-    return kernel_gethostbyname(name);
-#endif
+    return (uix_hostent_t *)my_syscall1(SYS_GETHOSTBYNAME, (long)(name));
 }
 /* ════════════════════════════════════════════════════════════
    MQUEUE  →  33_ProcessControlSubsystem/00_ipc/
    ════════════════════════════════════════════════════════════ */
 static inline uix_mqd_t sys_mq_open(const char *name, int oflag, ...)
 {
-#if !SYS_CALL_ENBLE_DISABLE
-    (void)name;(void)oflag; return (uix_mqd_t)-1;
-#else
-    return kernel_mq_open(name, oflag);
-#endif
+    return (uix_mqd_t)my_syscall2(SYS_MQ_OPEN, (long)(name), (long)(oflag));
 }
 static inline int sys_mq_close(uix_mqd_t mqdes)
 {
-#if !SYS_CALL_ENBLE_DISABLE
-    (void)mqdes; return 0;
-#else
-    return kernel_mq_close(mqdes);
-#endif
+    return my_syscall1(SYS_MQ_CLOSE, (long)(mqdes));
 }
 static inline int sys_mq_unlink(const char *name)
 {
-#if !SYS_CALL_ENBLE_DISABLE
-    (void)name; return 0;
-#else
-    return kernel_mq_unlink(name);
-#endif
+    return my_syscall1(SYS_MQ_UNLINK, (long)(name));
 }
 static inline int sys_mq_send(uix_mqd_t mqdes, const char *msg_ptr,
                                 uix_size_t msg_len, unsigned int msg_prio)
 {
-#if !SYS_CALL_ENBLE_DISABLE
-    (void)mqdes;(void)msg_ptr;(void)msg_len;(void)msg_prio; return -1;
-#else
-    return kernel_mq_send(mqdes, msg_ptr, msg_len, msg_prio);
-#endif
+    return my_syscall4(SYS_MQ_SEND, (long)(mqdes), (long)(msg_ptr), (long)(msg_len), (long)(msg_prio));
 }
 static inline uix_ssize_t sys_mq_receive(uix_mqd_t mqdes, char *msg_ptr,
                                 uix_size_t msg_len,unsigned int *msg_prio)
 {
-#if !SYS_CALL_ENBLE_DISABLE
-    (void)mqdes;(void)msg_ptr;(void)msg_len;(void)msg_prio; return -1;
-#else
-    return kernel_mq_receive(mqdes, msg_ptr, msg_len, msg_prio);
-#endif
+    return (uix_ssize_t)my_syscall4(SYS_MQ_RECEIVE, (long)(mqdes), (long)(msg_ptr), (long)(msg_len), (long)(msg_prio));
 }
 /* ******** End system call here for core kernel  ***************** */
 

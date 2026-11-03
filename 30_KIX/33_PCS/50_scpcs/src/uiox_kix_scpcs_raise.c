@@ -26,8 +26,6 @@
  */
 #include "../include/uiox_kix_scpcs.h"
 
-extern void               send_signal(uiox_kix_psa_proc_t *p, int signum);
-extern uiox_kix_psa_proc_t *uiox_kix_psa_current_proc;
 
 int64_t uiox_kix_scpcs_raise(uiox_uint64_t sig)
 {
@@ -37,7 +35,5 @@ int64_t uiox_kix_scpcs_raise(uiox_uint64_t sig)
     if (sig == 0u || sig > (uiox_uint64_t)UIOX_KIX_PSA_NSIG)
         return SCPCS_EINVAL;
 
-    (void)send_signal;                 /* direct-to-self delivery */
-    (void)uiox_kix_psa_current_proc;
     return SCPCS_ENOSYS;
 }
