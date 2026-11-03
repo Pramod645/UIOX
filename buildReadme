@@ -107,4 +107,18 @@ userspace obly
 
 
 
+cd /Users/pramodkumar/Hack/WS/UIOX
+./rebuildkernel.sh arm64 arm32 x86_64 riscv64 --continue
+
+cd /Users/pramodkumar/Hack/WS/UIOX
+./rebuildoverall.sh arm64 arm32 x86_64 riscv64 --continue
+
  
+
+ cd /Users/pramodkumar/Hack/WS/UIOX && chmod +x rebuild_uix.sh && ./rebuild_uix.sh --continue
+
+
+bash rebuild_uix.sh --continue
+
+
+sh rebuild_uix.sh --continue

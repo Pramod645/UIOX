@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 #
-# rebuild.sh — UIOX kernel, all four architectures.
+# rebuildkernel.sh — UIOX kernel, all four architectures.
 #
 # USAGE
 #   ./rebuildkernel.sh                  # all four arches, clean each
