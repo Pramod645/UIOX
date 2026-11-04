@@ -420,7 +420,7 @@ Two tidy-ups while the tree is green: the editor backups (40_SCIX/uix_sys.h.bak,
 -----
 -============
 ========================================================
-how image lod by kernel????
+how image load by kernel????
 
 
 ok good, this we can stop here. now another question but it repeatative foyou as above already explain but i wantr in step wise step. can you explain how kernel load the userspave image to excute it? and another question it good iead to keep one image for user space to multiple images from user space. please explanin in details and step wise step?

@@ -354,4 +354,10 @@ static inline int uiox_ilog2(uint64_t v)
 /* stderr / fprintf do not exist in a freestanding build.
  * Any fprintf(stderr,...) must be replaced with printf(...).   */
 
+/* early boot console — defined in 30_KIX/common/uiox_kernel_main.c */
+void early_putc(char c);
+void early_puts(const char *s);
+void early_puthex(uint64_t v);
+
+
 #endif /* UIOX_KLIBC_H */

@@ -118,18 +118,27 @@
  *
  * A kernel thread that returns is a bug.  Both exits park. */
 #include "uiox_kix_scpcs.h"     /* uiox_kix_scpcs_execve — same tree */
+extern int vfs_mount_root(uint8_t dev);
 
 void kinit_main(void)
 {
+    int64_t rc;
     char *argv[] = { (char *)"/bin/uios", (char *)0 };
     char *envp[] = { (char *)0 };
+    early_puts("[init] mount root...\r\n");
+    if (vfs_mount_root(0u) != 0) {          /* ROOT_DEV 0 — where UNFS is mounted */
+        early_puts("[init] mount failed\r\n");
+        for (;;) { }
+    }
 
     /* Kernel thread: no svc, no user stack.  Call the kernel function,
      * not 50_UIX's sys_execve — that one traps and would come back
      * through arch_sys_call_dispatch we are already beneath. */
-    (void)uiox_kix_scpcs_execve((uiox_uintptr_t)"/bin/uios",
+    early_puts("[init] exec /bin/uios...\r\n");
+    rc = uiox_kix_scpcs_execve((uiox_uintptr_t)"/bin/uios",
                                 (uiox_uintptr_t)argv,
                                 (uiox_uintptr_t)envp);
+    early_puts("[init] exec rc="); early_puthex((uint64_t)rc); early_puts("\r\n");
     for (;;) { }
 }
 
@@ -157,6 +166,8 @@ void kinit_main(void)
       * would hand out pages the bootloader never mapped, and the fault
       * surfaces later as corruption at an unrelated address. */
      if (!pcs_ram_window(&ram_base, &ram_size)) return;
+     early_puts("[kernel] ram window OK\r\n");   /* or the failure case */
+
  
      uiox_mm_init((uiox_uint64_t)ram_base, (uiox_uint64_t)ram_size);
 

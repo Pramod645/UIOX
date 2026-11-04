@@ -153,7 +153,7 @@ const uiox_soc_runtime_t *uiox_kernel_get_soc(void);
 
 /* Forward declaration so weak stubs below can call early_puts()
  * before its static definition appears later in this file.        */
-static void early_puts(const char *s);
+void early_puts(const char *s);
 
 /*
  * Weak stub implementations for subsystems not yet built.
@@ -334,7 +334,7 @@ static void stack_setup(void)
  * Drivers use soc->uart0_base from the SoC map; these literals are the
  * fallback that makes the first banner print at all.  Do not "fix" them to
  * read the map: early boot output would be lost. */
-static void early_putc(char c)
+void early_putc(char c)
 {
 #if defined(__aarch64__) || defined(__arm__)
     volatile uint32_t *fr = (volatile uint32_t *)(
@@ -364,7 +364,7 @@ static void early_putc(char c)
 #endif
 }
 
-static void early_puts(const char *s)
+void early_puts(const char *s)
 {
     while (*s) {
         if (*s == '\n') early_putc('\r');
@@ -372,7 +372,7 @@ static void early_puts(const char *s)
     }
 }
 
-static void early_puthex(uint64_t v)
+void early_puthex(uint64_t v)
 {
     static const char hex[] = "0123456789ABCDEF";
     early_puts("0x");
