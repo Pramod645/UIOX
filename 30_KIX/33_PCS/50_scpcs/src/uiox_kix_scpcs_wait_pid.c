@@ -72,6 +72,6 @@ int64_t uiox_kix_scpcs_wait_pid(uiox_uint64_t pid, uiox_uintptr_t status_out,
     if (child->p_ppid != self->p_pid) return SCPCS_ECHILD;
     status = child->p_exit_code;                        /* ← add */
     uiox_kix_psa_proc_free(child);
-
+    (void)status;                    /* kernel-side only until copy_to_user */
     return (int64_t)pid;   /* NOT child->p_pid -- that memory is freed */
 }

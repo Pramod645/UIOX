@@ -191,7 +191,34 @@ void timer_irq_handler(int irq, hw_context_t *ctx, void *id)
      printf("[x86] CPU vendor='%s'  family=%u  model=%u  logical=%u\n",
             vendor, family, model, logical);
  }
- 
+ /* ── LAPIC timer — periodic, 100 Hz ─────────────────────────────────────
+ * The controller is enabled earlier in arch_init() (IA32_APIC_BASE +
+ * SVR); this starts its TIMER, which those two do not do.  Register
+ * offsets are in arch_defs.h:44-47.
+ *
+ * Vector 48 sits in the IDT's hardware range (arch_irq.S:116, ISR_NOERR
+ * 32..), clear of the 0x20-0x2F PIC remap and the 128 syscall entry. */
+#define X86_TIMER_VECTOR     48u
+#define X86_LAPIC_DIVIDE_16  0x03u      /* divide by 16 */
+#define X86_TIMER_HZ         100u
+
+/* Bus clock in Hz.  Sets the RATE, not whether ticks arrive — a wrong
+ * guess gives the wrong frequency, not silence.  Calibrate against the
+ * PIT if the rate ever matters. */
+#define X86_BUS_HZ           100000000UL
+
+static void x86_lapic_timer_init(void)
+{
+    /* 1. divide — must be written BEFORE the init count */
+    mmio_write32(LAPIC_TIMER_DIVIDE, X86_LAPIC_DIVIDE_16);
+
+    /* 2. LVT timer: bare vector = periodic + unmasked.
+     *    bit 16 = masked, bit 17 = one-shot; neither is set. */
+    mmio_write32(LAPIC_TIMER_LVT, X86_TIMER_VECTOR);
+
+    /* 3. initial count — this is what starts it */
+    mmio_write32(LAPIC_TIMER_INIT, (uint32_t)(X86_BUS_HZ / 16u / X86_TIMER_HZ));
+}
  /* =========================================================================
   * arch_init — called by uiox_kernel_main() before uiox_soc_init()
   * ====================================================================== */
@@ -210,6 +237,7 @@ void timer_irq_handler(int irq, hw_context_t *ctx, void *id)
  
      /* 4. Enable Local APIC (ISA MSR) */
      x86_lapic_init();
+     x86_lapic_timer_init();     /* ← the call */
  
      /* 5. Initialise driver-interface layer */
      mmio_init();
