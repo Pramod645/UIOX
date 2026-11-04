@@ -129,4 +129,10 @@ EFAULT (−13) if execve's user-pointer gate rejects the kernel string literal k
 Every piece before those has been read in the tree and links cleanly on all four targets. A boot is the next thing worth doing, and the banner's last line names whatever fails.
 
 ================================
-
+Honest summary
+Point	Status
+1. loadreg	Closed — live version is complete, readi wired. My claim was wrong.
+2. 01_fsa block functions	Closed — bodies are real. My reading was wrong.
+3. exit status	Partly closed — zombie works, no status field exists
+4. Signal delivery	Open, by design — ENOSYS, documented
+5. Timer tick	Wiring closed on all four; whether it fires is runtime

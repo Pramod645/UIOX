@@ -58,7 +58,7 @@ int64_t uiox_kix_scpcs_exit(uiox_uint64_t exit_code)
      * The state diagram refuses every transition out of ZOMBIE, so
      * falling through to the callee would fail there anyway. */
     if (p->p_state == UIOX_KIX_PSA_PROC_ZOMBIE) return SCPCS_EOK;
-
+    p->p_exit_code = (int)exit_code;                    /* ← add */
     //(void)kernel_exit((int)exit_code);
     uiox_kix_psa_proc_set_state(p, UIOX_KIX_PSA_PROC_ZOMBIE);
 

@@ -55,7 +55,8 @@ int64_t uiox_kix_scpcs_wait_pid(uiox_uint64_t pid, uiox_uintptr_t status_out,
 {
     uiox_kix_psa_proc_t *child;
     uiox_kix_psa_proc_t *self;
-
+    int                  status;
+    
     (void)options;   /* WNOHANG and WUNTRACED are not modelled */
 
     self = uiox_kix_scpcs_current();
@@ -69,7 +70,7 @@ int64_t uiox_kix_scpcs_wait_pid(uiox_uint64_t pid, uiox_uintptr_t status_out,
     if (!child) return SCPCS_ECHILD;
     if (child->p_state != UIOX_KIX_PSA_PROC_ZOMBIE) return SCPCS_ECHILD;
     if (child->p_ppid != self->p_pid) return SCPCS_ECHILD;
-
+    status = child->p_exit_code;                        /* ← add */
     uiox_kix_psa_proc_free(child);
 
     return (int64_t)pid;   /* NOT child->p_pid -- that memory is freed */
