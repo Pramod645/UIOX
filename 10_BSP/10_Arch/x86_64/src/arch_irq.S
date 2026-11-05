@@ -387,6 +387,7 @@ isr_common:
     call    arch_syscall_dispatch
     add     $8, %rsp
     mov     %rax, FRAME_GPR+112(%rsp)
+    call    x86_64_signal_check     /* ← new added for sig during OS Update*/
 
 .Ldone:
     mov     %rdx, %rsp

@@ -125,6 +125,46 @@ static int user_copyin_str(char *dst, uiox_uintptr_t usrc, uint32_t cap)
     return -1;                      /* no NUL within cap */
 }
 
+/* Mirror of user_copyin_str: validate through the shared gate, then
+ * write.  Returns 0 on success. */
+int uiox_kix_scpcs_copy_to_user(uiox_uintptr_t udst, const void *src, uint32_t len)
+{
+    const char *s = (const char *)src;
+    uint32_t i;
+
+    if (uiox_kix_scpcs_check_user_ptr(udst, len, 1u) != 0) return -1;
+
+    for (i = 0u; i < len; i++)
+        ((volatile char *)udst)[i] = s[i];   /* volatile: the target may be
+                                              * unmapped on a bad pointer */
+    return 0;
+}
+
+/* ── uiox_kix_scpcs_copy_from_user ──────────────────────────────────
+ * The inbound mirror of copy_to_user: validate through the shared gate,
+ * then read.  Returns 0 on success.
+ *
+ * Not the same thing as user_copyin_str above: that one is bound to a
+ * NUL-terminated path with a cap, and fails rather than truncating.  A
+ * fixed-width copy has no terminator to look for and knows its length
+ * up front, so it is a separate function rather than a mode of that one.
+ *
+ * volatile on the SOURCE: a user pointer may name a page that is unmapped
+ * or has changed underneath us, and the read must not be optimised into a
+ * wider access than the caller validated. */
+int uiox_kix_scpcs_copy_from_user(void *dst, uiox_uintptr_t usrc, uint32_t len)
+{
+    char *d = (char *)dst;
+    uint32_t i;
+
+    if (!dst) return -1;
+    if (uiox_kix_scpcs_check_user_ptr(usrc, len, 1u) != 0) return -1;
+
+    for (i = 0u; i < len; i++)
+        d[i] = ((volatile const char *)usrc)[i];
+    return 0;
+}
+
 /* ── is_elf64_for_this_arch ─────────────────────────────────────────
  * The test the stub could not fail.  Reads nothing: it is handed a
  * header already read from the file. */

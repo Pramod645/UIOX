@@ -35,5 +35,6 @@ int64_t uiox_kix_scpcs_raise(uiox_uint64_t sig)
     if (sig == 0u || sig > (uiox_uint64_t)UIOX_KIX_PSA_NSIG)
         return SCPCS_EINVAL;
 
-    return SCPCS_ENOSYS;
+    uiox_kix_scpcs_send_signal(p, (int)sig);
+    return SCPCS_EOK;
 }

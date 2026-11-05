@@ -3,23 +3,24 @@
  *
  * sigpending() — Group 2, Synchronization.
  *
- * ── this one can answer today ───────────────────────────────────────
- * The value POSIX asks for is the set of signals BOTH pending and
- * blocked, and both masks are real fields on the process table entry.
- * So the answer is computed here and returned directly.
+ * ── the value ───────────────────────────────────────────────────────
+ * The set of signals both pending and blocked.  The intersection is the
+ * whole meaning: a signal that is pending but NOT blocked is about to be
+ * delivered, so it is not "waiting" for anything.  Returning the pending
+ * mask alone would overstate the set.
  *
- * The intersection is the whole meaning: a signal that is pending but
- * NOT blocked is about to be delivered, so it is not "waiting" for
- * anything.  Returning the pending mask alone would overstate the set.
+ * The expression is
+ *     p->p_sig & ~p->p_sigmask
+ * — pending AND not blocked.  It previously read `& p->p_sigmask`, which
+ * is the EXACT INVERSE: it returned the signals the process had blocked.
+ * No error, just the wrong answer, and it silently disagreed with
+ * uiox_kix_psa_proc_sig_pending(), which had it right.
  *
  * ── the user pointer ────────────────────────────────────────────────
- * There is no copy_to_user, so the mask comes back in the return value
- * instead of being written to set.  A caller can therefore observe its
- * blocked-pending set today, which is more than the sibling calls in this
- * group can offer.
- *
- * A non-NULL set is refused rather than ignored: accepting it would tell
- * the caller a write happened.
+ * copy_to_user exists now, so writing the mask to `set` is possible and
+ * has not been wired up.  Until it is, the mask comes back in the return
+ * value and a non-NULL set is refused with EFAULT rather than ignored:
+ * accepting it would tell the caller a write happened.
  *
  * @version 1.0.0  @date 2026-09-29
  */
@@ -32,5 +33,6 @@ int64_t uiox_kix_scpcs_sig_pending(uiox_uintptr_t set)
     if (!p) return SCPCS_ESRCH;
     if (set != 0u) return SCPCS_EFAULT;   /* no copy_to_user */
 
-    return (int64_t)(p->p_sig & p->p_sigmask);
+    //return (int64_t)(p->p_sig & p->p_sigmask);
+    return (int64_t)(p->p_sig & ~p->p_sigmask);   /* was: & p->p_sigmask */
 }

@@ -136,3 +136,175 @@ Point	Status
 3. exit status	Partly closed — zombie works, no status field exists
 4. Signal delivery	Open, by design — ENOSYS, documented
 5. Timer tick	Wiring closed on all four; whether it fires is runtime
+============================================================================
+
+Six gaps, in the order they'd bite
+1. It launches everything unconditionally. uios_launch_apps walks g_apps[] and forks all ten, with no config file, no runlevel, no dependencies. Real init reads /etc/inittab or a service directory. Ten fixed paths compiled into the binary means changing what boots requires recompiling uios — the one thing init exists to avoid.
+
+2. No reaping discipline, and no respawn. uios_run loops on sys_wait4(..., WNOHANG) and decrements a counter. Once running hits zero it returns and main exits — so PID 1 exiting means the kernel has no init left. Real init either respawns a service that died or deliberately shuts the system down. There's also no orphan reparenting: when an app's child exits, nothing points it at PID 1.
+
+3. It can't see exit statuses. sys_wait4 returns a pid and nothing else — no copy_to_user exists, so status stays kernel-side. g_apps[i].ua_exit_code is therefore always whatever it was. Real init's entire failure-detection job depends on that value.
+
+4. Shutdown doesn't work. uios_shutdown calls sys_kill(pid, 15) for each live app, which returns SCPCS_ENOSYS today — no send_signal writer exists. So nothing is signalled and the apps are never told to stop.
+
+5. No console, no shell. The boot sequence comments out uiox_shell_start(), and 50_UIX/01_shell has no sources. So even when uios runs, there's no way to interact with the system. Real init's first job after mounting is usually to open a console and spawn getty/shell.
+
+6. The app set is fixed and unordered. g_apps[] lists ten apps with priority fields, but there's no dependency ordering — app_fileserver needs / mounted, app_netserver needs the network table. They're launched in array order with no readiness gate.
+
+What's actually good
+The design decisions are right, and worth saying:
+
+Privilege separation is correct — uios is a normal userspace process, not kernel code running with kernel privilege.
+The exec path is the real one — sys_fork then sys_execve, exactly how a Unix init spawns a service.
+Priorities are per-app — ua_policy and ua_priority in the table, applied via sys_sched_setscheduler.
+The wait loop has the right shape — WNOHANG polling with a yield, not a blocking wait that would freeze init.
+The priority order I'd suggest
+Order	Item	Why
+1	A config source for the app list — even a static array in one file, separate from the launcher logic	Turns uios from a program into an init
+2	Respawn-or-shutdown policy when running reaches 0	PID 1 exiting is undefined behaviour today
+3	copy_to_user so exit status reaches userspace	Unblocks failure detection, and wait's whole purpose
+4	send_signal, so uios_shutdown can actually kill	Item 4 from the earlier list
+5	A console path — uiox_shell_start or a serial getty	Without it nothing is observable
+Items 3 and 4 are kernel-side and already on your list. Items 1, 2 and 5 are uios-side and don't depend on anything missing.
+
+What I'd need
+To make this concrete rather than architectural:
+
+sh
+
+
+cd /Users/pramodkumar/Hack/WS/UIOX && cat 50_UIX/20_uios/uix_uios.c && cat 50_UIX/20_uios/uix_uios.h
+With those two files I can give you specific edits — the config split, the respawn policy, and the readiness gate — against the code that exists rather than the fragments I've seen.
+
+---------------------------
+Now I have the real uix_uios.c. Here's the analysis against what a real init does.
+
+What it does well
+The structure is genuinely right. uios is a normal userspace process; it uses sys_fork + sys_execve exactly as a Unix init spawns a service; priorities are per-app via sys_sched_setscheduler; and uios_run uses WNOHANG polling with a yield rather than a blocking wait that would freeze init. Those are the four decisions that matter most, and all four are correct.
+
+Nine gaps, ordered by what they'd cost you
+1. uios_run can never exit correctly, and can hang forever.
+
+c
+
+
+int running = UIOS_MAX_APPS;
+while(running > 0) { ... }
+running starts at 10 and only decrements when a child is reaped. Two problems:
+
+If a fork fails, pid < 0, so ua_pid stays -1, and the loop waits forever for a child that was never created. Nothing decrements running.
+If sys_wait4 returns 0 (child still running, which is the normal WNOHANG answer), the loop spins on sys_sched_yield() — burning CPU at 100% for as long as any app lives. That's a busy-wait, not a scheduler-friendly poll.
+A real init sleeps on a wait channel or blocks in wait. Neither exists here yet.
+
+2. PID 1 exits. When uios_run returns, main runs uios_shutdown and returns — and the comment at the bottom of the file says it plainly: "a user process that returns is a bug." On real systems PID 1 exiting panics the kernel. Either main should loop forever and only reboot/halt deliberately, or uios_run should never return.
+
+3. Exit status is unreachable. g_apps[i].ua_exit_code = status; reads a local that sys_wait4 never fills, because there's no copy_to_user. So every app's exit code stays -1 and init cannot tell a clean exit from a crash. This is the single most consequential gap for a real init.
+
+4. uios_shutdown blocks on a killed child.
+
+c
+
+
+sys_kill(g_apps[i].ua_pid, 15);
+sys_wait4(g_apps[i].ua_pid, &st, 0, (void*)0);   /* no WNOHANG */
+Two issues: sys_kill returns ENOSYS today (no send_signal writer), so nothing is signalled; and the wait4 has no WNOHANG, so if the child ignores the signal — or was never killed — init blocks forever on the first app and never reaches the rest.
+
+5. The child's sys_exit(1) is a fixed code. If sys_execve fails, the child exits with 1 — indistinguishable from an app that ran and returned 1. A real init distinguishes exec failure from normal exit. Also, sys_exit never returns, so the following statement is unreachable — correct as written, but the failure is invisible.
+
+6. No respawn, no restart policy. With running-- the app is simply forgotten. Apps that die — a crashed service, a short-lived test — are never restarted, and there's no way to express "restart always" versus "run once."
+
+7. The app list is compiled in with no ordering or readiness.
+
+c
+
+
+{ "filesvr", "/../21_apps_/app_fileserver", 2, 5, -1, 0 },
+{ "netsvr",  "/../21_apps_/app_netserver",  2, 5, -1, 0 },
+Ten fixed paths, launched in array order with no dependencies. app_fileserver needs the root mounted, app_netserver needs the network table — and nothing gates on either. Changing what boots means recompiling uios, which is the one thing an init exists to avoid.
+
+8. Paths are relative to a build tree.
+
+
+
+"/../21_apps_/app_shell"
+That's 50_UIX/21_apps/build/<arch>/image/21_apps_/, a build-tree path reached by .. from wherever the process's cwd sits. Combined with the earlier finding that the UNFS volume is empty, these paths resolve to nothing. A real init uses absolute paths in a mounted filesystem.
+
+9. No console, no signal handling, no environment.
+
+sys_execve(..., (char*const*)0) passes a NULL envp — apps get no environment at all.
+No getty/shell is spawned, so nothing is interactive (uiox_shell_start is commented out in the kernel).
+PID 1 ignores no signals: a real init blocks or ignores SIGINT/SIGTERM so it can't be killed, and handles SIGCHLD to reap. Neither is done.
+The five I'd fix first
+Order	Change	Size
+1	uios_run: count only successfully forked children; treat wait4 == 0 as a yield, not a spin	~6 lines
+2	main: never return — loop after shutdown, with an explicit halt path	~4 lines
+3	uios_shutdown: WNOHANG on the wait, with a bounded retry	~6 lines
+4	Split the app table into its own file (uios_apps.c), so the list is data not code	new file
+5	Give the child a distinguishable exec-failure code (sys_exit(127), as a shell does)	1 line
+Items 3 and 4 of my earlier kernel list — copy_to_user and send_signal — are what items 3 and 4 above depend on, and both are kernel-side.
+
+The honest framing
+uios today is a launcher, not yet an init. It starts ten known programs and waits for them. That's a reasonable first stage: it exercises fork, exec, scheduling and wait, which is exactly what the syscall work was for. What it lacks is everything that makes PID 1 supervise rather than launch — status collection, respawn policy, ordering, and an exit that doesn't kill the system.
+
+If you want, paste uix_uios.h's current contents alone — the header you showed defines uios_app_t and the four prototypes, which is enough for me to write the revised uix_uios.c with items 1, 2, 3 and 5 in it.
+=============================
+Tracker
+#	Item	Status
+1–8	uios supervisor + policy	✅ built, 4 arches
+9	Exit status to userspace	✅ built and correct
+10b–f	send_signal, declaration, sig_pending, kill target, raise	✅ built and correct
+10g	copy_from_user + sig_procmask	⚠️ built, but oldset is dropped — fix above
+10h	issig/psig delivery at EL0 return	⬜ the last unwritten piece
+—	Banners (kill.c, send_signal.c, sig_pending.c, sig_procmask.c)	⚠️ all still say delivery is commented out / no copy_to_user
+—	UNFS image (/bin/uios, /bin/app_*)	⬜ separate; volume empty
+Apply the function and the banner, rebuild — then 10h is the only thing left in this layer that's unwritten rather than merely mis-documented.
+
+Where the whole signal path stands
+Piece	State
+kill / raise → send_signal, target resolved	✅ built, 4 arches
+p_sig set with 1u << signum	✅ built
+Resident sleeper woken; swapped sleeper left marked	✅ built
+sig_pending reads p_sig & ~p_sigmask	✅ fixed, built
+sig_procmask sets p_sigmask, oldset = previous mask	✅ built, ordering verified
+
+So three prerequisites, in that order:
+
+Prerequisite	State
+A disposition array on the process entry in 40psa	❌ doesn't exist — p_sig, p_sigmask, p_flag, p_exit_code were the signal-related fields
+The cast in the signal implementation removed	⬜ "reached by casting a process pointer to it" — a private struct standing in
+sigaction able to store a handler	❌ returns ENOSYS; act/oldact are (void)-discarded
+issig/psig	❌ don't exist — three comment references only
+
+y read on what to do
+This is a four-part piece across two layers, not a fix:
+
+40psa — add the disposition array to the process entry
+signal impl — delete the cast, read the array
+50_scpcs — sigaction stores through copy_from_user/copy_to_user
+arch — issig/psig hook on the EL0 return, per architecture
+
+Delivery depends on storage that doesn't exist
+Prerequisite	State
+Disposition array on uiox_kix_psa_proc_t	❌ absent — only p_sig and p_sigmask
+sigaction able to store a handler	❌ returns ENOSYS, act/oldact are (void)-discarded
+issig/psig	❌ three comment references, no code
+A hook on the EL0 return	❌ arch_init.c:245 has the timer hook; no signal equivalent
+
+
+What that means for issig/psig
+Prerequisite	State
+u_signal[] on the process entry	❌ doesn't exist — only p_sig, p_sigmask
+The cast to remove	❌ not found in 33_PCS/*.c
+sigaction stores a handler	❌ returns ENOSYS, act/oldact are (void)-discarded
+issig/psig	❌ three comment references, no code
+A hook beside arch_init.c:245's timer hook	❌ nothing
+
+
+What that makes issig/psig
+Prerequisite	State
+u_signal[] with UIOX_KIX_PSA_NSIG entries	✅ exists, uiox_kix_psa_proc_algo.h:88
+Signal number enum (SIGHUP 1 … SIGKILL 9)	✅ exists, uiox_kix_psa_process.h:67-75
+Reaching it from a process pointer	⚠️ via a cast — that's the defect sig_action.c names
+sigaction storing into it	❌ returns ENOSYS; act/oldact are (void)-discarded
+issig/psig themselves	❌ unwritten — three comment references
+Hook beside arch_init.c:245	❌ nothing on the return path

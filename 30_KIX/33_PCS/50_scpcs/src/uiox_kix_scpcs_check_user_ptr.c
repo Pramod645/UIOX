@@ -3,17 +3,21 @@
  *
  * The single gate between a syscall wrapper and a user address.
  *
- * ── why a gate rather than a copy ───────────────────────────────────
- * There is no copy_from_user or copy_to_user in this tree.  That leaves
- * a wrapper exactly two honest options for a user pointer:
+ * ── why a gate rather than a bare dereference ───────────────────────
+ * copy_to_user() lives beside this file (uiox_kix_scpcs_copy_to_user),
+ * so a wrapper that wants to move bytes has a third option:
  *
  *   a) refuse it                      -> EFAULT
  *   b) VALIDATE it, then dereference
+ *   c) VALIDATE it, then copy_to_user / user_copyin_str
  *
- * Option (b) without validation is how a syscall becomes an arbitrary
- * read/write primitive in kernel mode: the caller supplies an address
- * inside the kernel's own image and the kernel faithfully reads or
- * writes it.  This function is what makes (b) defensible.
+ * (b) remains the fallback for a pointer used as an out-parameter where
+ * no byte transfer is needed — a bare read or write of one scalar.
+ * Without validation either (b) or (c) is how a syscall becomes an
+ * arbitrary read/write primitive in kernel mode: the caller supplies an
+ * address inside the kernel's own image and the kernel obliges.
+ * This function is what makes both defensible.
+ *
  *
  * ── the three checks ────────────────────────────────────────────────
  *   1. the LOW end must be at or above the user window's base

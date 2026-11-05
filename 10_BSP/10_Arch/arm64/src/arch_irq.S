@@ -120,7 +120,7 @@ arm64_svc_entry:
     mov     x0,  x8    /* syscall number */
     bl      arch_syscall_dispatch
     str     x0,  [sp, #OFF_X0]   /* write return value back to frame  */
-
+    bl      arm64_signal_check      /* ← new added for sig during OS Update*/
     RESTORE_REGS
     eret
 

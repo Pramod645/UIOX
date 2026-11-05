@@ -80,10 +80,10 @@ _build_install: $(TARGET)
 	@cp $(TARGET) $(IMAGE_ROOT)/bin/uios
 	@echo "[UIOS] installed → $(IMAGE_ROOT)/bin/uios"
 
-$(TARGET): uix_uios.c uix_uios.h
+$(TARGET): uix_uios.c uios_apps.c uix_uios.h
 	@mkdir -p $(dir $@)
 	@echo "  [CC]  $<"
-	$(CC) $(CFLAGS) $(LDFLAGS) -o $@ $<
+	$(CC) $(CFLAGS) $(LDFLAGS) -o $@ uix_uios.c uios_apps.c
 
 # ── install ───────────────────────────────────────────────────────────
 # /bin/uios is the path kinit_main execs (uiox_pcs_init.c).  Nothing else

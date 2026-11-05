@@ -345,4 +345,20 @@ uiox_kix_psa_proc_t *uiox_kix_scpcs_current(void);
 int uiox_kix_scpcs_check_user_ptr(uiox_uintptr_t p, uiox_uint64_t len,
                                   uiox_uint64_t align);
 
+
+int uiox_kix_scpcs_copy_to_user(uiox_uintptr_t udst, const void *src, uint32_t len);
+int uiox_kix_scpcs_copy_from_user(void *dst, uiox_uintptr_t usrc, uint32_t len);
+
+
+void uiox_kix_scpcs_send_signal(uiox_kix_psa_proc_t *p, int signum);
+
+int  uiox_kix_scpcs_issig(uiox_kix_psa_proc_t *p);
+void uiox_kix_scpcs_psig (uiox_kix_psa_proc_t *p, int sig);
+
+void arm64_signal_check(void);
+void arm32_signal_check(void);
+void riscv64_signal_check(void);
+void x86_64_signal_check(void);
+
+
 #endif /* UIOX_KIX_SCPCS_H */

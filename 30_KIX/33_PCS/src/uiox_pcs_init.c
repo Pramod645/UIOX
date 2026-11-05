@@ -244,8 +244,14 @@ void kinit_main(void)
 * a pool entry self-identifying.
 */
                 ctx->sc_uarea = uiox_kix_psa_uarea_for(slot);
-                if (ctx->sc_uarea)
+                if (ctx->sc_uarea){
+                    //((uiox_kix_psa_u_area_t *)ctx->sc_uarea)->u_proc = init;
+                    /* pool storage, and uarea_for() is a pure index: a reused slot
+                    * carries the previous process's handlers, uid, open-file table
+                    * and regions.  Clear BEFORE the back-pointer, or it is wiped. */
+                    memset(ctx->sc_uarea, 0, sizeof(uiox_kix_psa_u_area_t));
                     ((uiox_kix_psa_u_area_t *)ctx->sc_uarea)->u_proc = init;
+                }
             }
             if (uiox_kix_psa_proc_set_state(init, UIOX_KIX_PSA_PROC_READY) == 0)
                 uiox_kix_psa_sched_enqueue(init);

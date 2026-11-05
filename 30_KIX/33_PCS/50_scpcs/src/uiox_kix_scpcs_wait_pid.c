@@ -40,8 +40,8 @@
  * ── the status pointer ──────────────────────────────────────────────
  * The callee takes a KERNEL int pointer.  Passing a user address through
  * would make the kernel write wherever the caller chose, so a non-NULL
- * status_out is validated through the shared gate and then refused for
- * want of a copy_to_user.  NULL is legal per POSIX and accepted.
+ * status_out is validated through the shared gate and then written with
+ * copy_to_user.  NULL is legal per POSIX and accepted.
  *
  * Anything other than a specific PID is unrepresentable: there is no
  * p_pgrp, so "any child in the group" cannot be named.
@@ -62,16 +62,26 @@ int64_t uiox_kix_scpcs_wait_pid(uiox_uint64_t pid, uiox_uintptr_t status_out,
     self = uiox_kix_scpcs_current();
     if (!self) return SCPCS_ESRCH;
     if (pid > 0x7FFFFFFFu) return SCPCS_EINVAL;
-
-    /* no copy_to_user exists, so a non-NULL status pointer is refused */
-    if (status_out != 0u) return SCPCS_EFAULT;
+    
 
     child = uiox_kix_psa_proc_find((uint32_t)pid);
     if (!child) return SCPCS_ECHILD;
     if (child->p_state != UIOX_KIX_PSA_PROC_ZOMBIE) return SCPCS_ECHILD;
     if (child->p_ppid != self->p_pid) return SCPCS_ECHILD;
-    status = child->p_exit_code;                        /* ← add */
+
+    status = child->p_exit_code;          /* read BEFORE the entry is freed */
+
+    if (status_out != 0u) {
+        if (uiox_kix_scpcs_check_user_ptr(status_out, sizeof(int), 4u) != 0) {
+            uiox_kix_psa_proc_free(child);
+            return SCPCS_EFAULT;
+        }
+        if (uiox_kix_scpcs_copy_to_user(status_out, &status, sizeof(status)) != 0) {
+            uiox_kix_psa_proc_free(child);
+            return SCPCS_EFAULT;
+        }
+    }
+
     uiox_kix_psa_proc_free(child);
-    (void)status;                    /* kernel-side only until copy_to_user */
-    return (int64_t)pid;   /* NOT child->p_pid -- that memory is freed */
+    return (int64_t)pid;
 }

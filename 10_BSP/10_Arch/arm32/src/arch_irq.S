@@ -67,7 +67,7 @@ arm32_svc_entry:
     mov     r0,  r7                 /* syscall number from r7          */
     bl      arch_syscall_dispatch
     str     r0,  [sp, #0]          /* write return value to r0 slot   */
-
+    bl      arm32_signal_check      /* ← new added for sig during OS Update*/
     pop     {r0-r12, lr}
     rfeia   sp!                     /* return to user, restore CPSR    */
 

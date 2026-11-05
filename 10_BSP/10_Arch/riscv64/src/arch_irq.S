@@ -127,6 +127,7 @@ _vector_table:
     ld      a6, 15*8(sp)    /* a5 */
     call    arch_syscall_dispatch
     sd      a0, 10*8(sp)    /* write return value to a0 in frame */
+    call    riscv64_signal_check    /* ← new added for sig during OS Update*/
     j       .Ltrap_done
 
 .Linterrupt:
