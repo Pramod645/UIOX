@@ -7,7 +7,6 @@
  * ── scope: interrupts only ──────────────────────────────────────────
  * PSA numbers two algorithms here — inthand (1) and syscall (2) — but
  * only inthand is implemented in this layer.  System calls belong to
- * 50_scps, which owns the dispatch mechanism and the syscall numbers.
  * A second dispatcher in this header would mean two places decide what
  * syscall number 9 does, which is a class of bug this tree already has
  * between its two process models.

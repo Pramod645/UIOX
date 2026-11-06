@@ -19,6 +19,20 @@
  #include "../include/uiox_kix_scpcs.h"
  #include "uiox_kix_psa_proc_algo.h"
  
+/* ── signal dispositions ─────────────────────────────────────────────
+ * u_signal[] holds one int per signal.  These are the two sentinel
+ * values; anything else is a handler address.
+ *
+ * 0 - SIG_DFL — the default.  Fatal signals terminate the process;
+ *               non-fatal ones are ignored.
+ * -1 - SIG_IGN — the process asked not to be disturbed.
+ *
+ * 0 as the default is not arbitrary: the u area lives in .bss, which is
+ * zeroed at boot, so every disposition starts as SIG_DFL by
+ * construction rather than by an initialiser that could be forgotten. */
+#define SIG_DFL   ((int)0)
+#define SIG_IGN   ((int)(-1))
+
 void uiox_kix_scpcs_psig(uiox_kix_psa_proc_t *p, int sig)
 {
     uiox_kix_psa_u_area_t *u;
@@ -34,11 +48,24 @@ void uiox_kix_scpcs_psig(uiox_kix_psa_proc_t *p, int sig)
     u    = uiox_kix_psa_uarea_for(slot);
     disp = u ? u->u_signal[sig] : 0;      /* 0 == SIG_DFL */
 
-    if (disp != 0) {
-        /* SIG_IGN is -1 conventionally; a real handler is an address.
-         * Both need sigaction to be settable first. */
+        /* ── SIG_IGN ─────────────────────────────────────────────────────
+     * -1: the process asked not to be disturbed by this signal.  The
+     * pending bit is already cleared above, so nothing re-tests it. */
+    if (disp == SIG_IGN)
         return;
-    }
+
+    /* ── a handler is installed ──────────────────────────────────────
+     * A non-zero, non-SIG_IGN disposition is a handler ADDRESS.  Calling
+     * it needs a frame set up — the handler's pc, a stack for it, and a
+     * path back through sigreturn — which is the remaining piece.
+     *
+     * Until that exists, this returns rather than falling through to the
+     * SIG_DFL branch below: a process that installed a handler has NOT
+     * asked to be killed, and treating its disposition as default would
+     * terminate it.  Refusing is honest; terminating on a caught signal
+     * is not. */
+    if (disp != SIG_DFL)
+        return;
 
     /* SIG_DFL: fatal signals terminate.  The exit path sets ZOMBIE, so
      * a parent's wait() collects the status. */

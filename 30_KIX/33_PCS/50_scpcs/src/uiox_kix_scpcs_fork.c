@@ -195,11 +195,52 @@ int64_t uiox_kix_scpcs_fork(void)
     child_ctx->sc_layers[0].rc_pc = 0u;      /* overwritten below */
     child_ctx->sc_layers[0].rc_sp = 0u;
 
+    //child_ctx->sc_uarea = uiox_kix_psa_uarea_for(child_slot);
+    //if (child_ctx->sc_uarea) {
+    //    uiox_kix_psa_u_area_t *cua = (uiox_kix_psa_u_area_t *)child_ctx->sc_uarea;
+    //    memset(cua, 0, sizeof(*cua));
+    //    cua->u_proc = child;
+    //}
     child_ctx->sc_uarea = uiox_kix_psa_uarea_for(child_slot);
     if (child_ctx->sc_uarea) {
         uiox_kix_psa_u_area_t *cua = (uiox_kix_psa_u_area_t *)child_ctx->sc_uarea;
-        memset(cua, 0, sizeof(*cua));
+
+        memset(cua, 0, sizeof(*cua));        /* clear FIRST, then every field */
         cua->u_proc = child;
+
+        /* ── inheritance ────────────────────────────────────────────
+         * POSIX: a child inherits its parent's signal dispositions and
+         * credentials, and shares the OPEN FILE ENTRIES (not the
+         * descriptor slots).  parent_ua was captured at step 2, before
+         * any context switch, so it is still the parent's. */
+        if (parent_ua) {
+            /* dispositions are INHERITED.  Since sigaction() can store
+             * one, losing this would silently drop a handler the parent
+             * installed and take the default on a caught signal. */
+            memcpy(cua->u_signal, parent_ua->u_signal,
+                   sizeof(cua->u_signal));
+
+            cua->u_uid  = parent_ua->u_uid;
+            cua->u_gid  = parent_ua->u_gid;
+            cua->u_euid = parent_ua->u_euid;
+            cua->u_egid = parent_ua->u_egid;
+
+            /* u_ofile[] is deliberately NOT copied.  struct file has no
+             * definition in this tree and nothing populates the array,
+             * so both sides are all-NULL.  When sys_open stores an
+             * entry, this is where the descriptors are duplicated and
+             * the SHARED entry's count is incremented — POSIX shares the
+             * entry, not the slot. */
+        }
+
+        /* left at zero on purpose:
+         *   u_sig / u_sigmask   a child starts with nothing pending and
+         *                       nothing blocked
+         *   u_error / u_rval    per-call, meaningless across a fork
+         *   u_pregs[]           filled by the region duplication below
+         *   u_io / u_qsave      an interrupt or abort in flight does not
+         *                       transfer to a child
+         */
     }
 
     child->p_addr = child_ctx;
