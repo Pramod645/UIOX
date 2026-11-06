@@ -71,6 +71,9 @@ SECTIONS
     .rodata : ALIGN(MAXPAGESIZE) {
         _rodata_start = .;
         *(.rodata .rodata.*)
+        _uios_blob_start = .;
+        KEEP(*(.uios_blob))
+        _uios_blob_end = .;
         _rodata_end = .;
     } > DRAM :rodata
 

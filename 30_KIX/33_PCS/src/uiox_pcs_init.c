@@ -119,6 +119,8 @@
  * A kernel thread that returns is a bug.  Both exits park. */
 #include "uiox_kix_scpcs.h"     /* uiox_kix_scpcs_execve — same tree */
 extern int vfs_mount_root(uint8_t dev);
+extern int uiox_fs_populate_root(void);   /* 32_FS/src/uiox_fs_populate.c */
+
 
 void kinit_main(void)
 {
@@ -130,6 +132,10 @@ void kinit_main(void)
         early_puts("[init] mount failed\r\n");
         for (;;) { }
     }
+
+    early_puts("[init] populate /bin...\r\n");
+    if (uiox_fs_populate_root() != 0)
+        early_puts("[init] populate failed\r\n");
 
     /* Kernel thread: no svc, no user stack.  Call the kernel function,
      * not 50_UIX's sys_execve — that one traps and would come back

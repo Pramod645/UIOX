@@ -308,3 +308,11 @@ Reaching it from a process pointer	⚠️ via a cast — that's the defect sig_a
 sigaction storing into it	❌ returns ENOSYS; act/oldact are (void)-discarded
 issig/psig themselves	❌ unwritten — three comment references
 Hook beside arch_init.c:245	❌ nothing on the return path
+
+
+Priority, honestly
+Order	Item	Why
+1	UNFS image	The only one that changes what the system does at runtime
+2	Banners	Cheap, and prevents the next misreading
+3	10i sigaction	Unlocks the handler branch
+4	10j inheritance	Only matters after 10i

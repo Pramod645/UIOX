@@ -200,6 +200,7 @@ _do_arm64:
 	    _ARCH=arm64 CC=$(ARM64_CC) AR=$(ARM64_AR) LD=$(ARM64_LD) \
 	    ARCH_CFLAGS="-march=armv8-a -mabi=lp64 -mlittle-endian" \
 	    ARCH_CPUDEF="-D__aarch64__" ARCH_LD_EMUL=aarch64elf \
+		OBJCOPY_BFD=elf64-littleaarch64 OBJCOPY_ARCH=aarch64 \
 	    BSP_MODE=$(BSP_MODE) $(ENABLE_FLAGS)
 
 .PHONY: arm32
@@ -214,6 +215,7 @@ _do_arm32:
 	    _ARCH=arm32 CC=$(ARM32_CC) AR=$(ARM32_AR) LD=$(ARM32_LD) \
 	    ARCH_CFLAGS="-march=armv7-a -marm -mfloat-abi=soft -mlittle-endian" \
 	    ARCH_CPUDEF="-D__arm__" ARCH_LD_EMUL=armelf \
+		OBJCOPY_BFD=elf32-littlearm OBJCOPY_ARCH=arm \
 	    BSP_MODE=$(BSP_MODE) $(ENABLE_FLAGS)
 
 .PHONY: riscv64
@@ -228,6 +230,7 @@ _do_riscv64:
 	    _ARCH=riscv64 CC=$(RV64_CC) AR=$(RV64_AR) LD=$(RV64_LD) \
 	    ARCH_CFLAGS="-march=rv64imafdc_zicsr_zifencei -mabi=lp64d -mcmodel=medany" \
 	    ARCH_CPUDEF="-D__riscv -D__riscv_xlen=64" ARCH_LD_EMUL=elf64lriscv \
+		OBJCOPY_BFD=elf64-littleriscv OBJCOPY_ARCH=riscv \
 	    BSP_MODE=$(BSP_MODE) $(ENABLE_FLAGS)
 
 .PHONY: x86_64
@@ -242,6 +245,7 @@ _do_x86_64:
 	    _ARCH=x86_64 CC=$(X86_CC) AR=$(X86_AR) LD=$(X86_LD)   \
 	    ARCH_CFLAGS="-m64 -mno-red-zone -mno-mmx -mno-sse -mno-sse2 -fno-pic -mcmodel=kernel" \
 	    ARCH_CPUDEF="-D__x86_64__" ARCH_LD_EMUL=elf_x86_64 \
+		OBJCOPY_BFD=elf64-x86-64 OBJCOPY_ARCH=i386:x86-64 \
 	    BSP_MODE=$(BSP_MODE) $(ENABLE_FLAGS)
 
 # =============================================================================
@@ -354,6 +358,18 @@ _build_kernel_main:
 		-I$(MFDIR)33_PCS/50_scpcs/include \
 	    -c $(MFDIR)common/uiox_kix_router.c \
 	    -o $(_BUILD_DIR)/uiox_kix_router.o
+		@if [ -f "$(MFDIR)../50_UIX/20_uios/build/$(_ARCH)/image/bin/uios" ]; then \
+	    $(OBJCOPY) -I binary -O $(OBJCOPY_BFD) -B $(OBJCOPY_ARCH) \
+	        --rename-section .data=.uios_blob,alloc,load,readonly,data,contents \
+	        $(MFDIR)../50_UIX/20_uios/build/$(_ARCH)/image/bin/uios \
+	        $(_BUILD_DIR)/uios_blob.o ; \
+	    echo "  [OBJ] uios_blob.o  (embedded $(_ARCH) userspace image)" ; \
+	else \
+	    $(OBJCOPY) -I binary -O $(OBJCOPY_BFD) -B $(OBJCOPY_ARCH) \
+	        --rename-section .data=.uios_blob,alloc,load,readonly,data,contents \
+	        /dev/null $(_BUILD_DIR)/uios_blob.o ; \
+	    echo "  [OBJ] uios_blob.o  (EMPTY — run rebuild_uix.sh first)" ; \
+	fi
 	@echo "  [CC]  uiox_kix_router.c  (BSP_MODE=$(BSP_MODE))"
 
 .PHONY: _link_kernel
@@ -365,6 +381,7 @@ _link_kernel:
 	    --gc-sections                                              \
 	    $(_BUILD_DIR)/uiox_kernel_main.o                           \
 		$(_BUILD_DIR)/uiox_kix_router.o 						   \
+		$(_BUILD_DIR)/uios_blob.o                                  \
 	    --start-group                                              \
             $(wildcard $(FWHAL)/build/$(_ARCH)/*.a)                    \
             $(wildcard $(MFDIR)30_DSS/build/$(_ARCH)/*.a)              \
