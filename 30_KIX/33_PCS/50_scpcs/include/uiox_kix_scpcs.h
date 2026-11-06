@@ -141,15 +141,15 @@ int64_t uiox_kix_scpcs_exit(uiox_uint64_t exit_code);
 
 /* waitpid() — PSA Algorithm 5.
  *
- * Returns the reaped child's PID, or ECHILD when there is nothing to
- * reap.  A non-NULL status pointer is refused with EFAULT because the
- * kernel has no copy_to_user, and writing through a raw user address
- * from kernel mode is the bug that layer exists to prevent.  NULL is
- * legal per POSIX.
+ * Reaps a zombie child and returns its PID, or ECHILD when there is
+ * nothing to reap.  The child must be a ZOMBIE and must be the caller's
+ * own (p_ppid == self), which is what stops one process reaping another's.
  *
- * ENOSYS while the zombie transition and the child scan are unfinished:
- * the callee's "has_children" flag is never set, so it always reports
- * no children. */
+ * A non-NULL status pointer is validated through the shared gate and the
+ * status is written with copy_to_user.  NULL is legal per POSIX and
+ * accepted.  The status is read from the child BEFORE the entry is
+ * freed, and both EFAULT paths free the child so a rejected pointer
+ * cannot leak a table slot. */
 int64_t uiox_kix_scpcs_wait_pid(uiox_uint64_t pid, uiox_uintptr_t status,
                                 uiox_uint64_t options);
 
@@ -157,8 +157,9 @@ int64_t uiox_kix_scpcs_wait_pid(uiox_uint64_t pid, uiox_uintptr_t status,
  *
  * Returns 0 on success, ESRCH when the PID names no live process.
  *
- * The PID lookup is real, so ESRCH is a genuine answer.  Delivery is
- * ENOSYS: the send is commented out in the signal implementation.
+ * The PID lookup is real, so ESRCH is a genuine answer.  The signal is
+ * MARKED pending on the TARGET — resolved from the table walk, not the
+ * caller — and delivered on the target's next return to EL0.
  *
  * Signal 0 is POSIX's existence check rather than a signal, and the
  * kill(0, ...) and kill(-1, ...) group forms cannot be expressed — the
@@ -170,10 +171,15 @@ int64_t uiox_kix_scpcs_kill(uiox_uint64_t pid, uiox_uint64_t sig);
  * Returns 0 on success, EINVAL for an invalid signal or an attempt to
  * change SIGKILL/SIGSTOP.
  *
- * ENOSYS because the process table entry carries no handler array: the
- * dispositions live on a private structure inside the signal
- * implementation, reached by a cast.  Returning success would claim a
- * handler was installed when nothing was stored. */
+ * The disposition lives on the u area: u_signal[] in
+ * uiox_kix_psa_u_area_t, indexed by signal number and reached through
+ * uiox_kix_psa_uarea_for(slot).  One int per signal:
+ *
+ *     0   SIG_DFL   default — a fatal signal terminates
+ *    -1   SIG_IGN   the process asked not to be disturbed
+ *     x   a handler address
+ *
+ * oldact returns the disposition from BEFORE the change. */
 int64_t uiox_kix_scpcs_sig_action(uiox_uint64_t sig, uiox_uintptr_t act,
                                   uiox_uintptr_t oldact);
 
@@ -181,23 +187,25 @@ int64_t uiox_kix_scpcs_sig_action(uiox_uint64_t sig, uiox_uintptr_t act,
  *
  * Returns 0 on success, EINVAL for an unknown operation code.
  *
- * The storage is real — p_sigmask exists — but the call is ENOSYS for
- * two reasons: set and oldset are user addresses with no copy_to_user,
- * and the signal implementation tests a CAST mask rather than
- * p_sigmask, so writing the real field would have no effect.  A write
- * nothing reads is a silent no-op dressed as success. */
+ * set and oldset are user addresses, read and written through
+ * copy_from_user / copy_to_user.  oldset returns the mask from BEFORE the
+ * change, which is what makes save-modify-restore work.
+ *
+ * The bit convention is bit number == signal number, matching
+ * send_signal's (1u << signum) — the two fields are masked against each
+ * other bit-for-bit. */
 int64_t uiox_kix_scpcs_sig_procmask(uiox_uint64_t how, uiox_uintptr_t set,
                                     uiox_uintptr_t oldset);
 
 /* sigpending() — Group 2.  Returns the signals both pending and blocked.
  *
- * The mask comes back in the return value, because there is no
- * copy_to_user to write it to set.  A non-NULL set is refused with
- * EFAULT rather than ignored: accepting it would tell the caller a write
- * happened.
- *
  * The intersection is the meaning — a pending signal that is NOT blocked
- * is about to be delivered, so it waits for nothing. */
+ * is about to be delivered, so it waits for nothing.  The expression is
+ * p_sig & ~p_sigmask, the same one the delivery path uses.
+ *
+ * copy_to_user exists, so writing the mask to `set` is possible and is
+ * not wired up yet; until it is, the mask comes back in the return value
+ * and a non-NULL set is refused with EFAULT rather than ignored. */
 int64_t uiox_kix_scpcs_sig_pending(uiox_uintptr_t set);
 
 /* raise() — Group 2.  Sends a signal to the calling process.

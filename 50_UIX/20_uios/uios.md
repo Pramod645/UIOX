@@ -316,3 +316,38 @@ Order	Item	Why
 2	Banners	Cheap, and prevents the next misreading
 3	10i sigaction	Unlocks the handler branch
 4	10j inheritance	Only matters after 10i
+
+===========================
+Where the four items stand
+#	Item	Status
+10i	sigaction + psig three-way + constants	✅ built
+10j	fork inheritance — u_signal[], uid/gid/euid/egid	✅ built
+—	Banners: kill.c, send_signal.c, sig_pending.c, uiox_kix_scpcs.h 140–200	✅ done
+10i-d	Calling a handler	⬜ not started — needs a handler frame
+10j-a	struct file + u_ofile[]	❌ prerequisite absent
+—	App binaries in the volume	⬜ populate writes /bin/uios only
+Three of the six are closed. The remaining three are all genuinely new work rather than edits.
+
+Which to take next, and why
+App binaries in the volume is the one that changes what a boot does. Today uios starts and dies on its first app exec — populate_root creates /bin/uios and nothing else. Extending it to /bin/app_* uses machinery that already works:
+
+the same objcopy rule, parameterised over a filename instead of hardcoded
+a table of names in populate_root, looping the ialloc_dev / writei / dir_add sequence it already runs once
+the ten binaries are already staged at 50_UIX/21_apps/build/<arch>/image/21_apps_/app_*
+It's mechanical, and the result is a boot that could reach a running app rather than stopping at the first exec.
+
+10i-d (calling a handler) needs a frame pushed onto the process's stack, rc_pc redirected to the handler address, and a sigreturn path — per-architecture, because the frame layout is. That's a new mechanism, and it makes caught signals run rather than be dropped.
+
+10j-a (struct file) is a prerequisite, not a fix: there's no struct file definition anywhere in the tree and nothing populates u_ofile[], so this is the front end of writing sys_open with descriptors.
+
+For the app binaries I'd need uiox_fs_populate.c and the objcopy rule as they stand:
+
+sh
+
+
+cd /Users/pramodkumar/Hack/WS/UIOX && sed -n '1,80p' 30_KIX/32_FS/src/uiox_fs_populate.c && sed -n '358,375p' 30_KIX/Makefile
+Paste those and I'll turn the single-blob populate into a table-driven loop over all eleven binaries, with the objcopy rules that produce them.
+
+
+
+

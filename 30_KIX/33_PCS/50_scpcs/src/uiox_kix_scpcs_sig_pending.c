@@ -22,6 +22,13 @@
  * value and a non-NULL set is refused with EFAULT rather than ignored:
  * accepting it would tell the caller a write happened.
  *
+ * ── the mask, and the bug it had ────────────────────────────────────
+ * It reads p->p_sig & ~p->p_sigmask — pending AND not blocked.  It
+ * previously read `& p->p_sigmask`, which is the EXACT INVERSE: it
+ * returned the signals the process had blocked.  No error, just the
+ * wrong answer, and it silently disagreed with
+ * uiox_kix_psa_proc_sig_pending(), which had it right.
+ *
  * @version 1.0.0  @date 2026-09-29
  */
 #include "../include/uiox_kix_scpcs.h"
