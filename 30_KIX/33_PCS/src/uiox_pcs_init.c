@@ -50,6 +50,10 @@
  #include "arch_runtime.h"
  #include "irq.h"              /* uiox_clock_tick_hook */
  #include "uiox_kix_clock.h"   /* clock_tick           */
+
+ #include "uiox_fs_populate.h"
+ #include "uiox_pkg_store.h"
+
  /* ── the layers this file drives ──────────────────────────────────────*/
   /* Declared here rather than pulled in, so a layer that is not compiled
   * produces a missing symbol at link time instead of a missing include at
@@ -119,7 +123,6 @@
  * A kernel thread that returns is a bug.  Both exits park. */
 #include "uiox_kix_scpcs.h"     /* uiox_kix_scpcs_execve — same tree */
 extern int vfs_mount_root(uint8_t dev);
-extern int uiox_fs_populate_root(void);   /* 32_FS/src/uiox_fs_populate.c */
 
 
 void kinit_main(void)
@@ -133,9 +136,32 @@ void kinit_main(void)
         for (;;) { }
     }
 
-    early_puts("[init] populate /bin...\r\n");
-    if (uiox_fs_populate_root() != 0)
-        early_puts("[init] populate failed\r\n");
+    /* ── populate, then mount the store ────────────────────────────
+     * Two calls, and the order is forced by what each knows:
+     * populate_root writes /pkg and learns the index's block, and the
+     * store cannot locate its own index without that number.  Passing
+     * it here is why uiox_pkg_store_mount never needs namei — see the
+     * note at uiox_pkg_store.c:153. */
+    {
+        uiox_uint32_t index_blk = 0u;
+        //uiox_uint32_t dummy_blk = 0u;
+
+        if (uiox_fs_populate_root(&index_blk) != 0) {
+            early_puts("[KIX] populate FAILED\n");
+        } else if (index_blk == 0u) {
+            early_puts("[KIX] populate ok — no package store\n");
+        } else {
+            static uiox_pkg_store_t s_pkg;
+            s_pkg.index_blk = index_blk;
+            (void)uiox_pkg_store_init(&s_pkg, UIOX_PKG_REPO_LOCAL, "/pkg");
+            s_pkg.index_blk = index_blk;
+            if (uiox_pkg_store_mount(&s_pkg) == UIOX_PKG_OK) {
+                early_puts("[KIX] store mounted\n");
+            } else {
+                early_puts("[KIX] store mount FAILED\n");
+            }
+        }
+    }
 
     /* Kernel thread: no svc, no user stack.  Call the kernel function,
      * not 50_UIX's sys_execve — that one traps and would come back

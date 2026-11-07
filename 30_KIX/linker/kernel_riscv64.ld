@@ -62,6 +62,10 @@ SECTIONS
         _uios_blob_start = .;
         KEEP(*(.uios_blob))
         _uios_blob_end = .;
+        _uix_pkg_start = .;
+        KEEP(*(.uix_pkg_blob))
+        _uix_pkg_end = .;
+
         _rodata_end = .;
     } > DRAM :rodata
 

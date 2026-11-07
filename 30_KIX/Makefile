@@ -50,6 +50,7 @@ BSP_MODE  ?= static
 BSP_LIB_ARG  = $(if $(filter dynamic,$(BSP_MODE)),,$(BSPDIR)/build/$(_ARCH)/libbsp.a)
 BSP_MODE_DEF = $(if $(filter dynamic,$(BSP_MODE)),-DUIOX_BSP_DYNAMIC_BOOT,)
 
+PKG_STAGE := $(MFDIR)../50_UIX/21_apps/build/$(_ARCH)/image/21_apps_
 # =============================================================================
 # Device enable/disable flags
 # =============================================================================
@@ -174,7 +175,10 @@ KERNEL_CFLAGS_BASE := \
   -I$(MFDIR)32_FS/02_journal/include          \
   -I$(MFDIR)32_FS/03_netfs/include            \
   -I$(MFDIR)32_FS/04_pkg/include    \
+  -I$(MFDIR)32_FS/include           \
+  -DUIOX_PKG_REAL_IO                \
   -I$(MFDIR)32_FS/10_unfs/include   \
+  -I$(MFDIR)32_FS/04_pkg/include        \
   -I$(MFDIR)33_PCS/include                    \
   -I$(MFDIR)33_PCS/03_ksign/include           \
   -I$(MFDIR)33_PCS/04_fboot/include           \
@@ -358,7 +362,7 @@ _build_kernel_main:
 		-I$(MFDIR)33_PCS/50_scpcs/include \
 	    -c $(MFDIR)common/uiox_kix_router.c \
 	    -o $(_BUILD_DIR)/uiox_kix_router.o
-		@if [ -f "$(MFDIR)../50_UIX/20_uios/build/$(_ARCH)/image/bin/uios" ]; then \
+	@if [ -f "$(MFDIR)../50_UIX/20_uios/build/$(_ARCH)/image/bin/uios" ]; then \
 	    $(OBJCOPY) -I binary -O $(OBJCOPY_BFD) -B $(OBJCOPY_ARCH) \
 	        --rename-section .data=.uios_blob,alloc,load,readonly,data,contents \
 	        $(MFDIR)../50_UIX/20_uios/build/$(_ARCH)/image/bin/uios \
@@ -369,6 +373,18 @@ _build_kernel_main:
 	        --rename-section .data=.uios_blob,alloc,load,readonly,data,contents \
 	        /dev/null $(_BUILD_DIR)/uios_blob.o ; \
 	    echo "  [OBJ] uios_blob.o  (EMPTY — run rebuild_uix.sh first)" ; \
+	fi
+	@if [ -d "$(PKG_STAGE)" ]; then \
+	    sh $(MFDIR)tools/mk_uix_pkg_all.sh $(PKG_STAGE) $(_BUILD_DIR)/pkg $(_ARCH) ; \
+	    $(OBJCOPY) -I binary -O $(OBJCOPY_BFD) -B $(OBJCOPY_ARCH) \
+	        --rename-section .data=.uix_pkg_blob,alloc,load,readonly,data,contents \
+	        $(_BUILD_DIR)/pkg/store.img $(_BUILD_DIR)/uix_pkg.o ; \
+	    echo "  [PKG] uix_pkg.o  (packed store)" ; \
+	else \
+	    $(OBJCOPY) -I binary -O $(OBJCOPY_BFD) -B $(OBJCOPY_ARCH) \
+	        --rename-section .data=.uix_pkg_blob,alloc,load,readonly,data,contents \
+	        /dev/null $(_BUILD_DIR)/uix_pkg.o ; \
+	    echo "  [PKG] uix_pkg.o  (EMPTY — run rebuild_uix.sh first)" ; \
 	fi
 	@echo "  [CC]  uiox_kix_router.c  (BSP_MODE=$(BSP_MODE))"
 
@@ -382,6 +398,7 @@ _link_kernel:
 	    $(_BUILD_DIR)/uiox_kernel_main.o                           \
 		$(_BUILD_DIR)/uiox_kix_router.o 						   \
 		$(_BUILD_DIR)/uios_blob.o                                  \
+		$(_BUILD_DIR)/uix_pkg.o                                   \
 	    --start-group                                              \
             $(wildcard $(FWHAL)/build/$(_ARCH)/*.a)                    \
             $(wildcard $(MFDIR)30_DSS/build/$(_ARCH)/*.a)              \

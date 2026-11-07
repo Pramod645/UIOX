@@ -134,6 +134,8 @@ COMMON_INCLUDES := \
   -I$(FS_DIR)/01_fsa/include  \
   -I$(FS_DIR)/10_unfs/include   \
   -I$(FS_DIR)/00_bcache/include   \
+  -I$(MFDIR)../32_FS/04_pkg/include    \
+  -I$(MFDIR)../32_FS/include           \
   -I$(SOCINC)
 
 # ── the layers, in dependency order ───────────────────────────────────
