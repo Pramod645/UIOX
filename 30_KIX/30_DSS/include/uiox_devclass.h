@@ -356,6 +356,11 @@ int             uiox_dev_at    (uint16_t index,
                                 uint16_t *unit_out);
 
 
+/* 30_DSS/src/uiox_dss_init.c — Bach's switch table.  Must run before
+ * uiox_fs_init(): SCFS's ioctl path does uiox_dev_lookup((CMD,15), 0)
+ * and the table has to be populated first. */
+int uiox_dss_init(void);
+
 #ifdef __cplusplus
 }
 #endif

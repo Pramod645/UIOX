@@ -10,4 +10,7 @@ Types of Shells:
 Shell Type                                    Description                           Examples
 1.Command line INterfaces(CLI)            Text based interfaces,efficient           Linux(Bash),Windows(PowerShell)
 2.Graphical User Interfaces(GUI)          Visual Interfase with icons               Window, macOS
-3.Voice-BAsed INterfacse                  User voice command for interaction        Siri, Alexa
+3.Voice-Based INterfacse                  User voice command for interaction        Siri, Alexa
+4.Network-Based INterfacse(nli)                  
+=====================================================================================================
+

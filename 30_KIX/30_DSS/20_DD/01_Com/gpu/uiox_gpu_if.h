@@ -16,7 +16,7 @@
  #define UIOX_GPU_IF_H
  
  #include "uiox_gpu_hw.h"
- #include "uiox_gpu_buf.h"
+
  #include "uiox_gpu_mem.h"
  #include "uiox_devclass.h"
  

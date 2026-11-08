@@ -84,6 +84,7 @@ SOC_COMMON_SRCS := \
   soc/src/uiox_soc_pcie.c         \
   soc/src/uiox_soc_hw.c           \
   soc/src/uiox_soc_stdio.c        \
+  soc/src/uiox_soc_stub.c         \
   uiox_arch_main.c                \
   $(DYNAMIC_SRC)                  # empty in static, loader in dynamic
 

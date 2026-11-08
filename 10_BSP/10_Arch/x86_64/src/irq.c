@@ -29,6 +29,9 @@
 
 #include "arch_defs.h"
 
+//#include "uiox_soc_irq.h"    /* uiox_soc_irq_fire — the platform table */
+
+
 /* 8259A PIC I/O ports */
 #define PIC1_CMD   0x20u   /* Master PIC command port */
 #define PIC2_CMD   0xA0u   /* Slave  PIC command port */
@@ -87,6 +90,13 @@ void irq_dispatch(hw_context_t *ctx) {
     if (!ctx) return;
     int irq = (int)ctx->vector;
     ctx->irq_num = irq;
+
+    /* The arch table is the CPU's; the SoC table (10_BSP/03_SoC/
+     * uiox_soc_irq.c) is the platform's.  A line registered through
+     * uiox_soc_irq_register() — which is how uiox_uart_hw_irq_attach
+     * takes the console line — reaches its handler only from here.
+     * uiox_soc_irq.c:67 names this as the caller. */
+    //((uiox_uint32_t)irq);
 
     if ((uint32_t)irq < IRQ_MAX && g_slots[irq].active && g_slots[irq].fn)
         g_slots[irq].fn(irq, ctx, g_slots[irq].dev_id);

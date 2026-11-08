@@ -122,40 +122,94 @@ int uiox_tb4_bringup(void);     /* 34_CSS supplies the instance */
 int uiox_dss_init(void)
 {
     /* ── family 1 — BLOCK ───────────────────────────────────────── */
-    (void)uiox_emmc_probe();
-    (void)uiox_sdmmc_probe();
-    (void)uiox_nvme_probe();
-    (void)uiox_usbms_probe();
-    (void)uiox_sata_probe();
+    #if defined(UIOX_HAVE_EMMC)
+        (void)uiox_emmc_probe();
+    #endif
+    #if defined(UIOX_HAVE_SDMC)
+        (void)uiox_sdmmc_probe();
+    #endif
+    #if defined(UIOX_HAVE_NVME)
+        (void)uiox_nvme_probe();
+    #endif
+    #if defined(UIOX_HAVE_USBMS)
+        (void)uiox_usbms_probe();
+    #endif
+    #if defined(UIOX_HAVE_SATA)
+        (void)uiox_sata_probe();
+    #endif
     /* ── family 2 — STREAM ────────────────────────────────────────
      * eth first: its interfaces are the fully-read ones, and the other
      * six follow the same shape. */
-    (void)uiox_eth_probe();
-    (void)uiox_wifi_probe(); 
-    (void)uiox_bt_probe();
-    (void)uiox_usb_probe();        /* live call, after (void)uiox_bt_probe(); */
-    (void)uiox_cam_probe();
-    (void)uiox_mic_probe();
-    (void)uiox_spk_probe();
+    #if defined(UIOX_HAVE_ETH)
+        (void)uiox_eth_probe();
+    #endif
+    #if defined(UIOX_HAVE_WIFI)
+        (void)uiox_wifi_probe(); 
+    #endif
+    #if defined(UIOX_HAVE_BT)
+        (void)uiox_bt_probe();
+    #endif
+    #if defined(UIOX_HAVE_USB)
+        (void)uiox_usb_probe();        /* live call, after (void)uiox_bt_probe(); */
+    #endif
+    #if defined(UIOX_HAVE_CAM)
+        (void)uiox_cam_probe();
+    #endif
+    #if defined(UIOX_HAVE_MIC)
+        (void)uiox_mic_probe();
+    #endif
+   // #if defined(UIOX_HAVE_SPEAKER)
+     //   (void)uiox_spk_probe();
+    //#endif
     /* ── family 3 — EVENT ──────────────────────────────────────── */
-    (void) uiox_kbd_probe();
-    (void) uiox_mouse_probe();
-    (void)uiox_tpwd_probe();
+    #if defined(UIOX_HAVE_KBD)
+        (void) uiox_kbd_probe();
+    #endif
+    #if defined(UIOX_HAVE_MOUSE)
+        (void) uiox_mouse_probe();
+    #endif
+    #if defined(UIOX_HAVE_TOUCHPWD)
+        (void)uiox_tpwd_probe();
+    #endif
     /* ── family 4 — REG ──────────────────────────────────────── */
-    (void) uiox_als_probe();        /* in the probe sequence     */
-    (void) uiox_therm_probe();
-    (void) uiox_rtc_probe();
-    (void) uiox_fan_probe();
-    (void) uiox_bms_probe();        /* in the probe sequence     */
-    (void) uiox_pmic_probe();
-    (void) uiox_chg_probe();
+    #if defined(UIOX_HAVE_ALS)
+        (void) uiox_als_probe();        /* in the probe sequence     */
+    #endif
+    #if defined(UIOX_HAVE_THERMAL)
+        (void) uiox_therm_probe();
+    #endif
+    #if defined(UIOX_HAVE_RTC)
+        (void) uiox_rtc_probe();
+    #endif
+    //#if defined(UIOX_HAVE_FAN)
+    //    (void) uiox_fan_probe();
+    //#endif
+    #if defined(UIOX_HAVE_BMS)
+        (void) uiox_bms_probe();        /* in the probe sequence     */
+    #endif
+    #if defined(UIOX_HAVE_PMIC)
+        (void) uiox_pmic_probe();
+    #endif
+    #if defined(UIOX_HAVE_CHG)
+        (void) uiox_chg_probe();
+    #endif
     /* ── family 5 — CMD ──────────────────────────────────────── */
-    (void) uiox_gpu_probe();
-    (void) uiox_hdmi_probe();
-    (void) uiox_mon_probe();
-    (void) uiox_uart_probe();      /* the console */
+    //#if defined(UIOX_HAVE_GPU)
+    //    (void) uiox_gpu_probe();
+    //#endif
+    //#if defined(UIOX_HAVE_HDMI)
+     //   (void) uiox_hdmi_probe();
+    //#endif
+    #if defined(UIOX_HAVE_MONITOR)
+        (void) uiox_mon_probe();
+    #endif
+    #if defined(UIOX_HAVE_UART)
+        (void)uiox_uart_probe();      /* the console */
+    #endif
     /* ── family 6 — BUS ─────────────────────────────────────────── */
-    (void) uiox_tb4_bringup();     /* usbhc is covered by uiox_usb_probe() */
+    //#if defined(UIOX_HAVE_TB4)
+     //   (void) uiox_tb4_bringup();     /* usbhc is covered by uiox_usb_probe() */
+    //#endif
 
     /* ── the remaining five families ─────────────────────────────
      * One call each, as their probes are written:

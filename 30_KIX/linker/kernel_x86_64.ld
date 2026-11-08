@@ -65,7 +65,6 @@ SECTIONS
         _uix_pkg_start = .;
         KEEP(*(.uix_pkg_blob))
         _uix_pkg_end = .;
-
         _rodata_end = .;
     } > RAM :rodata
 
@@ -93,6 +92,7 @@ SECTIONS
         . += STACK_SIZE;
         . = ALIGN(16);
         _stack_top = .;
+        _soc_stack_base = _stack_top;
     } > RAM :data
 
     /DISCARD/ : {

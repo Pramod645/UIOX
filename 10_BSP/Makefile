@@ -111,6 +111,7 @@ SOC_SHARED_SRCS_C := \
     $(SOC_DIR)/src/uiox_soc_psci.c        \
     $(SOC_DIR)/src/uiox_soc_secboot.c     \
     $(SOC_DIR)/src/uiox_soc_stdio.c       \
+    $(SOC_DIR)/src/uiox_soc_stub.c        \
     $(SOC_DIR)/src/uiox_soc_tz.c          \
     $(SOC_DIR)/src/uiox_kernel_loader.c
 

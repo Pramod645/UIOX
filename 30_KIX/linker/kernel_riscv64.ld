@@ -93,6 +93,7 @@ SECTIONS
         . += STACK_SIZE;
         . = ALIGN(16);
         _stack_top = .;
+        _soc_stack_base = _stack_top;
     } > DRAM :data
 
     /DISCARD/ : {

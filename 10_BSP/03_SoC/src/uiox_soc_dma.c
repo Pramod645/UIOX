@@ -175,6 +175,7 @@
          .src_inc     = true,
          .dst_inc     = true,
          .complete_cb = NULL,
+         .cb_priv     = NULL,      /* ← the unnamed tail */
      };
  
      uiox_soc_err_t rc = uiox_soc_dma_transfer(ctrl, (uiox_uint32_t)chan, &x);

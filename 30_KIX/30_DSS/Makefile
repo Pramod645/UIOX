@@ -33,9 +33,9 @@ ENABLE_BT       ?= yes
 ENABLE_ETH      ?= yes
 ENABLE_USB      ?= yes
 ENABLE_HDMI     ?= yes
-ENABLE_TB4      ?= yes
+ENABLE_TB4      ?= no
 ENABLE_MONITOR  ?= yes
-ENABLE_GPU      ?= yes
+ENABLE_GPU      ?= no
 ENABLE_CAMERA   ?= yes
 ENABLE_MIC      ?= yes
 ENABLE_KBD      ?= yes
@@ -45,15 +45,16 @@ ENABLE_THERMAL  ?= yes
 ENABLE_TOUCHPWD ?= yes
 ENABLE_BMS      ?= yes
 ENABLE_CHG      ?= yes
-ENABLE_FAN      ?= yes
+ENABLE_FAN      ?= no
 ENABLE_PMIC     ?= yes
 ENABLE_RTC      ?= yes
-ENABLE_SPEAKER  ?= yes
+ENABLE_SPEAKER  ?= no
 ENABLE_EMMC     ?= yes
 ENABLE_SDMMC    ?= yes
 ENABLE_NVME     ?= yes
 ENABLE_USBMS    ?= yes
 ENABLE_UART     ?= yes
+ENABLE_CONSOLE  ?= yes
 ENABLE_SATA     ?= yes
 
 _BUILD_DIR := $(BUILD_BASE)/$(_ARCH)
@@ -155,6 +156,9 @@ endif
 ifeq ($(ENABLE_UART),yes)
   DD_SUBDIRS += 01_Com/uart
 endif
+ifeq ($(ENABLE_CONSOLE),yes)
+  DD_SUBDIRS += 01_Com/console
+endif
 ifeq ($(ENABLE_SDMMC),yes)
   DD_SUBDIRS += 03_NonSensors/sdmmc
 endif
@@ -167,6 +171,10 @@ endif
 ifeq ($(ENABLE_SATA),yes)
   DD_SUBDIRS += 03_NonSensors/sata
 endif
+ifeq ($(ENABLE_GPU),yes)
+  DD_SUBDIRS += 01_Com/gpu
+endif
+
 
 # ══════════════════════════════════════════════════════════════════════════
 # 32_FS/00_drvbuff — the driver-side pools
@@ -226,7 +234,8 @@ COMMON_CFLAGS := \
 # 30_DSS/include and 30_DSS/src (the registry) build into libdi.a as well,
 # because uiox_devclass.h/uiox_devtable.c ARE the switch table both halves need.
 DI_SRCS := $(wildcard $(MFDIR)$(DI_DIR)/*.c) \
-           $(wildcard $(MFDIR)$(DI_DIR)/*/[0-9]*/*.c) \
+           $(wildcard $(MFDIR)$(DI_DIR)/*/*/*.c) \
+           $(wildcard $(MFDIR)$(DI_DIR)/*/*/*/*.c) \
            $(wildcard $(MFDIR)src/*.c)
 
 DD_SRCS := $(foreach d,$(DD_SUBDIRS),$(wildcard $(MFDIR)$(DD_DIR)/$(d)/*.c))

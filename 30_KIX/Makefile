@@ -54,32 +54,34 @@ PKG_STAGE := $(MFDIR)../50_UIX/21_apps/build/$(_ARCH)/image/21_apps_
 # =============================================================================
 # Device enable/disable flags
 # =============================================================================
-ENABLE_WIFI     ?= yes
-ENABLE_BT       ?= yes
-ENABLE_ETH      ?= yes
-ENABLE_USB      ?= yes
-ENABLE_HDMI     ?= yes
-ENABLE_TB4      ?= yes
-ENABLE_MONITOR  ?= yes
-ENABLE_GPU      ?= yes
-ENABLE_CAMERA   ?= yes
-ENABLE_MIC      ?= yes
-ENABLE_KBD      ?= yes
-ENABLE_MOUSE    ?= yes
-ENABLE_ALS      ?= yes
-ENABLE_THERMAL  ?= yes
-ENABLE_TOUCHPWD ?= yes
-ENABLE_BMS      ?= yes
-ENABLE_CHG      ?= yes
-ENABLE_FAN      ?= yes
-ENABLE_PMIC     ?= yes
-ENABLE_RTC      ?= yes
-ENABLE_SPEAKER  ?= yes
-ENABLE_EMMC     ?= yes
-ENABLE_UART     ?= yes
-ENABLE_SDMC     ?= yes
-ENABLE_NVME     ?= yes
-ENABLE_USMBS    ?= yes
+	ENABLE_WIFI     ?= yes
+	ENABLE_BT       ?= yes
+	ENABLE_ETH      ?= yes
+	ENABLE_USB      ?= yes
+	ENABLE_SATA     ?= yes
+	ENABLE_HDMI     ?= no
+	ENABLE_TB4      ?= no
+	ENABLE_MONITOR  ?= yes
+	ENABLE_GPU      ?= no
+	ENABLE_CAMERA   ?= yes
+	ENABLE_MIC      ?= yes
+	ENABLE_KBD      ?= yes
+	ENABLE_MOUSE    ?= yes
+	ENABLE_ALS      ?= yes
+	ENABLE_THERMAL  ?= yes
+	ENABLE_TOUCHPWD ?= yes
+	ENABLE_BMS      ?= yes
+	ENABLE_CHG      ?= yes
+	ENABLE_FAN      ?= no
+	ENABLE_PMIC     ?= yes
+	ENABLE_RTC      ?= yes
+	ENABLE_SPEAKER  ?= no
+	ENABLE_EMMC     ?= yes
+	ENABLE_UART     ?= yes
+	ENABLE_CONSOLE  ?= yes
+	ENABLE_SDMMC    ?= yes
+	ENABLE_NVME     ?= yes
+	ENABLE_USBMS    ?= yes
 
 # -DUIOX_HAVE_<DEVICE> defines — passed to every compiler invocation
 DEVICE_DEFS = \
@@ -87,6 +89,7 @@ DEVICE_DEFS = \
   $(if $(filter yes,$(ENABLE_BT)),      -DUIOX_HAVE_BT,)       \
   $(if $(filter yes,$(ENABLE_ETH)),     -DUIOX_HAVE_ETH,)      \
   $(if $(filter yes,$(ENABLE_USB)),     -DUIOX_HAVE_USB,)      \
+  $(if $(filter yes,$(ENABLE_SATA)),     -DUIOX_HAVE_SATA,)    \
   $(if $(filter yes,$(ENABLE_HDMI)),    -DUIOX_HAVE_HDMI,)     \
   $(if $(filter yes,$(ENABLE_TB4)),     -DUIOX_HAVE_TB4,)      \
   $(if $(filter yes,$(ENABLE_MONITOR)), -DUIOX_HAVE_MONITOR,)  \
@@ -106,9 +109,10 @@ DEVICE_DEFS = \
   $(if $(filter yes,$(ENABLE_SPEAKER)), -DUIOX_HAVE_SPEAKER,)  \
   $(if $(filter yes,$(ENABLE_EMMC)),    -DUIOX_HAVE_EMMC,)     \
   $(if $(filter yes,$(ENABLE_UART)),    -DUIOX_HAVE_UART,)     \
-  $(if $(filter yes,$(ENABLE_SDMC)),    -DUIOX_HAVE_SDMC,)     \
+  $(if $(filter yes,$(ENABLE_CONSOLE)), -DUIOX_HAVE_CONSOLE,)  \
+  $(if $(filter yes,$(ENABLE_SDMMC)),    -DUIOX_HAVE_SDMMC,)     \
   $(if $(filter yes,$(ENABLE_NVME)),    -DUIOX_HAVE_NVME,)     \
-  $(if $(filter yes,$(ENABLE_USBMS)),    -DUIOX_HAVE_USBS,)
+  $(if $(filter yes,$(ENABLE_USBMS)),   -DUIOX_HAVE_USBMS,)
 
 
 # All ENABLE_* vars forwarded as a single block to sub-makes
@@ -124,8 +128,9 @@ ENABLE_FLAGS = \
   ENABLE_CHG=$(ENABLE_CHG)           ENABLE_FAN=$(ENABLE_FAN)           \
   ENABLE_PMIC=$(ENABLE_PMIC)         ENABLE_RTC=$(ENABLE_RTC)           \
   ENABLE_SPEAKER=$(ENABLE_SPEAKER)   ENABLE_EMMC=$(ENABLE_EMMC)         \
-  ENABLE_UART=$(ENABLE_UART)   		 ENABLE_SDMC=$(ENABLE_SDMC)         \
-  ENABLE_NVME=$(ENABLE_NVME)   		 ENABLE_USBMS=$(ENABLE_USBMS)
+  ENABLE_UART=$(ENABLE_UART)   		 ENABLE_SDMC=$(ENABLE_SDMMC)         \
+  ENABLE_NVME=$(ENABLE_NVME)   		 ENABLE_USBMS=$(ENABLE_USBMS)       \
+  ENABLE_CONSOLE=$(ENABLE_CONSOLE)   ENABLE_SATA=$(ENABLE_SATA)
 
 UNAME_S := $(shell uname -s)
 ifeq ($(UNAME_S),Darwin)
@@ -184,6 +189,7 @@ KERNEL_CFLAGS_BASE := \
   -I$(MFDIR)33_PCS/04_fboot/include           \
   -I$(MFDIR)33_PCS/05_sec/include             \
   -I$(MFDIR)33_PCS/06_kpatch/include          \
+  -I$(MFDIR)30_DSS/include                    \
   -I$(SOCINC)                                 \
   -I$(MFDIR)../01_uBoot/include               \
   -I$(BSPDIR)/include

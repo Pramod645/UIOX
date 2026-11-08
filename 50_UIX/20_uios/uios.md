@@ -528,3 +528,19 @@ Do you have a way to run it — QEMU for arm64, or real hardware? If QEMU, the c
 Separately, and lower priority: 50_UIX/01_shell skipped (no Makefile) still appears on every arch. That's the shell gap — the boot will get to uios without a console to type at.
 ========================================
 
+Where the OS stands
+Picking up from the gap analysis before this detour, with what the build has since proven:
+
+Gap	State
+1. Nothing has booted	❌ still the gate — no syscall has run
+2. Volume has one file	✅ closed — /pkg holds ten packages plus the index
+3. Only /bin created	🟡 /pkg now too; no /usr/pkg, /etc, /dev
+4. No struct file, no u_ofile[]	❌ unchanged
+5. No copy_from_user for path strings	❌ user_copyin_str still static in execve.c
+6. No sigreturn	❌ unchanged
+7. No console input path	❌ uart0_irq_handler still a weak stub
+So the detour closed gap 2 — and it closed it properly: the store is built, verified byte-for-byte across four architectures, linked into every kernel image, and mounted at boot by code that compiles on all four targets.
+
+7.
+❌ uart0_irq_handler still a weak stub
+So the detour closed gap 2 — and it closed it properly: the store is built, verified byte-for-byte across four architectures, linked into every kernel image, and mounted at boot by code that compiles on all four targets.

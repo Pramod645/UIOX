@@ -40,6 +40,8 @@
 #include "uiox_soc_map.h"        /* SOC_UART0_BASE / SOC_UART0_PORT */
 #include "uiox_klibc.h"
 
+#include "uiox_console.h"
+
 /* Per-arch UART IRQ line.  The arch header that carries it
  * (10_BSP/10_Arch/<arch>/include/irq.h — UART0_IRQ 33 on arm64) is not
  * on this layer's include path, and the SoC map holds no UART IRQ
@@ -128,6 +130,8 @@ int uiox_uart_probe(void)
          * than absent, and the state is visible in hw->irq_owned. */
         s_uart_hw.irq_owned = false;
     }
+    /* ── 4xx. the console ───────────────────────────────────────────── */
+    (void)uiox_console_bind(&s_uart_if);
 
     /* ── 5. descriptor — every field sourced, none invented ─────────
      *   .cls      UIOX_DEVCLASS_UART = UIOX_DEVCLASS_(CMD, 15)

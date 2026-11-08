@@ -109,6 +109,8 @@
 /* 32_FS/04_pkg — package manager.  Non-fatal, like uiox_fs_init(). */
 #include "uiox_pkg_exec.h"
 #include "unfs_format.h"                          /* UNFS_GROUP0_PKG_INDEX */
+
+#include "uiox_devclass.h"
 /*
  * Static build only: forward-declare the two BSP symbols we need without
  * including uiox_bsp.h (which conflicts with the headers above).
@@ -207,19 +209,6 @@ void uiox_fb_report(const uiox_fb_master_ctx_t *ctx)
     early_puts("[kernel]   uiox_fb_report: stub (33_PCS/04_fboot not built)\r\n");
 }
 
-//__attribute__((weak))
-void uiox_shell_start(void)
-{
-    early_puts("[kernel]   uiox_shell_start: stub (50_UIX/01_shell not built)\r\n");
-    early_puts("[kernel]   System halted — shell not available.\r\n");
-    for (;;) {
-#if defined(__x86_64__)
-        __asm__ volatile("hlt");
-#else
-        __asm__ volatile("wfi");
-#endif
-    }
-}
 extern void uiox_sched_init(void);
 //__attribute__((weak))
 //void uiox_sched_init(void)
@@ -428,6 +417,9 @@ static void __attribute__((noreturn)) kernel_common_init(void)
     uiox_fb_init(&fb_ctx, UIOX_FB_MODE_COLD, 3000000u);
     uiox_fb_shell_ready(&fb_ctx);
     uiox_fb_report(&fb_ctx);
+
+    early_puts("[kernel] uiox_dss_init()...\r\n");
+    (void)uiox_dss_init();
 
     /* 32_FS — filesystem: page cache, VFS, SCFS register, journal, then
      *        the (not yet attempted) root mount.  Weak above, so the link

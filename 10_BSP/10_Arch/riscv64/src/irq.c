@@ -20,6 +20,9 @@
 #include "../include/mmio.h"
 #include "arch_defs.h"
 
+//#include "uiox_soc_irq.h"    /* uiox_soc_irq_fire — the platform table */
+
+
 typedef struct { hw_irq_handler_t fn; void *dev_id; uint32_t active; } irq_slot_t;
 static irq_slot_t g_slots[IRQ_MAX];
 
@@ -60,6 +63,14 @@ void irq_dispatch(hw_context_t *ctx) {
     if (src == 0u) return;   /* no pending interrupt */
     int irq = (int)src;
     if (ctx) ctx->irq_num = irq;
+    
+    /* The arch table is the CPU's; the SoC table (10_BSP/03_SoC/
+     * uiox_soc_irq.c) is the platform's.  A line registered through
+     * uiox_soc_irq_register() — which is how uiox_uart_hw_irq_attach
+     * takes the console line — reaches its handler only from here.
+     * uiox_soc_irq.c:67 names this as the caller. */
+    //((uiox_uint32_t)irq);
+
     if ((uint32_t)irq < IRQ_MAX && g_slots[irq].active && g_slots[irq].fn)
         g_slots[irq].fn(irq, ctx, g_slots[irq].dev_id);
     mmio_write32(PLIC_CTX1_CLAIM, src);   /* complete */
