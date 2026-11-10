@@ -2,11 +2,7 @@
 #include "../PoStd/uix_errno.h"
 
 
-#if STUB
-#include "../uix_sys.h"
-#else
-#include "../../../40_SystemCallInterface/uix_sys.h"
-#endif
+#include "uix_sys.h"
 
 uix_pid_t uix_wait(int *wstatus)
 {

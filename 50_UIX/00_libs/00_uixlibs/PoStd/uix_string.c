@@ -126,6 +126,10 @@ void *uix_memcpy(void *d, const void *s, uix_size_t n)
     while (n--) *dp++ = *sp++;
     return d;
 }
+void *memcpy(void *dst, const void *src, uix_size_t n)
+{
+    return uix_memcpy(dst, src, n);
+}
 
 void *uix_memmove(void *d, const void *s, uix_size_t n)
 {

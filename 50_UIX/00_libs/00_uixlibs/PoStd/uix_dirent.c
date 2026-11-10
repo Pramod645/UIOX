@@ -5,11 +5,7 @@
 #include "uix_unistd.h"
 #include "uix_errno.h"
 
-#if STUB
-#include "../uix_sys.h"
-#else
-#include "../../../40_SystemCallInterface/uix_sys.h"
-#endif
+#include "uix_sys.h"
 
 uix_DIR *uix_opendir(const char *name)
 {

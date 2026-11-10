@@ -10,7 +10,7 @@
  #ifndef UIX_POSIX_IO_H
  #define UIX_POSIX_IO_H
  
- #include "uix_syscall.h"
+ #include "uix_sys.h"
  #include "uix_stddef.h"
  #include "uix_stdint.h"
  #include "uix_fcntl.h"
@@ -21,17 +21,15 @@
  #endif
  
  /* =========================================================================
-  * off_t, ssize_t (defined in sys/uix_types.h — declared here for clarity)
+  * uix_off_t, uix_ssize_t (defined in sys/uix_types.h — declared here for clarity)
   * ====================================================================== */
  
  #ifndef _UIX_SSIZE_T_DEFINED
  #define _UIX_SSIZE_T_DEFINED
- typedef long ssize_t;
  #endif
  
  #ifndef _UIX_OFF_T_DEFINED
  #define _UIX_OFF_T_DEFINED
- typedef long long off_t;
  #endif
  
  /* =========================================================================
@@ -40,7 +38,7 @@
  
  struct uix_iovec {
      void   *iov_base;
-     size_t  iov_len;
+     uix_size_t  iov_len;
  };
  
  /* =========================================================================
@@ -48,11 +46,11 @@
   * ====================================================================== */
  
  /* Core I/O */
- ssize_t  uix_read    (int fd, void *buf, size_t count);
- ssize_t  uix_write   (int fd, const void *buf, size_t count);
+ uix_ssize_t  uix_read    (int fd, void *buf, uix_size_t count);
+ uix_ssize_t  uix_write   (int fd, const void *buf, uix_size_t count);
  int      uix_open    (const char *path, int flags, ...); /* mode optional */
  int      uix_close   (int fd);
- off_t    uix_lseek   (int fd, off_t offset, int whence);
+ uix_off_t    uix_lseek   (int fd, uix_off_t offset, int whence);
  
  /* Duplicate file descriptors */
  int      uix_dup     (int oldfd);
@@ -60,20 +58,20 @@
  int      uix_dup3    (int oldfd, int newfd, int flags);
  
  /* Positioned I/O */
- ssize_t  uix_pread   (int fd, void *buf, size_t count, off_t offset);
- ssize_t  uix_pwrite  (int fd, const void *buf, size_t count, off_t offset);
+ uix_ssize_t  uix_pread   (int fd, void *buf, uix_size_t count, uix_off_t offset);
+ uix_ssize_t  uix_pwrite  (int fd, const void *buf, uix_size_t count, uix_off_t offset);
  
  /* Scatter / gather I/O */
- ssize_t  uix_readv   (int fd, const struct uix_iovec *iov, int iovcnt);
- ssize_t  uix_writev  (int fd, const struct uix_iovec *iov, int iovcnt);
+ uix_ssize_t  uix_readv   (int fd, const struct uix_iovec *iov, int iovcnt);
+ uix_ssize_t  uix_writev  (int fd, const struct uix_iovec *iov, int iovcnt);
  
  /* Pipes */
  int      uix_pipe    (int pipefd[2]);
  int      uix_pipe2   (int pipefd[2], int flags);
  
  /* File truncation */
- int      uix_truncate  (const char *path, off_t length);
- int      uix_ftruncate (int fd, off_t length);
+ int      uix_truncate  (const char *path, uix_off_t length);
+ int      uix_ftruncate (int fd, uix_off_t length);
  
  /* Sync */
  void     uix_sync    (void);

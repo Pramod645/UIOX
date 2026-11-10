@@ -2,11 +2,9 @@
 #include "uix_errno.h"
 #include "uix_string.h"
 
-#if STUB
-#include "../uix_sys.h"
-#else
-#include "../../../40_SystemCallInterface/uix_sys.h"
-#endif
+#include "uix_posix_proc.h"    /* uix_getpid, uix_kill */
+#include "uix_sys.h"
+
 
 static uix_sigaction_t sig_handlers[UIX_NSIG + 1];
 
@@ -33,17 +31,21 @@ int uix_sigaction(int signum, const uix_sigaction_t *act,
 
 int uix_kill(uix_pid_t pid, int sig)
 {
-    //extern int sys_kill(uix_pid_t, int) __attribute__((weak));
-    return sys_kill ? sys_kill(pid, sig) : (uix_errno = UIX_EPERM, -1);
-
+    /* No kernel kill yet — 33_PCS exposes no signal delivery to userspace
+     * (uiox_tty_signal_from_char is a weak stub for the same reason).
+     * Reported rather than faked: EPERM, the honest answer. */
+    (void)pid; (void)sig;
+    uix_errno = UIX_EPERM;
+    return -1;
 }
+
 
 int uix_raise(int sig)
 {
-    //extern uix_pid_t sys_getpid(void) __attribute__((weak));
-    //uix_pid_t pid = sys_getpid ? (uix_pid_t)sys_getpid() : 1;
+    //extern uix_pid_t uix_getpid(void) __attribute__((weak));
+    //uix_pid_t pid = uix_getpid ? (uix_pid_t)uix_getpid() : 1;
     //return uix_kill(pid, sig);
-    return uix_kill((uix_pid_t)sys_getpid(), sig);
+    return uix_kill((uix_pid_t)uix_getpid(), sig);
 }
 
 int uix_sigemptyset(uix_sigset_t *set)

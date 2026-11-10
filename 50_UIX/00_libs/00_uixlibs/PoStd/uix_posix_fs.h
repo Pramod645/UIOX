@@ -8,7 +8,7 @@
  #ifndef UIX_POSIX_FS_H
  #define UIX_POSIX_FS_H
  
- #include "uix_syscall.h"
+#include "uix_sys.h"
  #include "../sys/uix_stat.h"
  #include "uix_dirent.h"
  #include "../sys/uix_types.h"
@@ -31,8 +31,8 @@
   * Directory operations
   * ====================================================================== */
  
- int  uix_mkdir     (const char *path, mode_t mode);
- int  uix_mkdirat   (int dirfd, const char *path, mode_t mode);
+ int  uix_mkdir     (const char *path, uix_mode_t mode);
+ int  uix_mkdirat   (int dirfd, const char *path, uix_mode_t mode);
  int  uix_rmdir     (const char *path);
  
  /* =========================================================================
@@ -50,22 +50,22 @@
  int  uix_symlink   (const char *target, const char *linkpath);
  int  uix_symlinkat (const char *target, int newdirfd,
                       const char *linkpath);
- ssize_t uix_readlink(const char *path, char *buf, size_t bufsiz);
- ssize_t uix_readlinkat(int dirfd, const char *path,
-                         char *buf, size_t bufsiz);
+ uix_ssize_t uix_readlink(const char *path, char *buf, uix_size_t bufsiz);
+ uix_ssize_t uix_readlinkat(int dirfd, const char *path,
+                         char *buf, uix_size_t bufsiz);
  
  /* =========================================================================
   * Permissions
   * ====================================================================== */
  
- int  uix_chmod     (const char *path, mode_t mode);
- int  uix_fchmod    (int fd,           mode_t mode);
- int  uix_fchmodat  (int dirfd, const char *path, mode_t mode, int flags);
- int  uix_chown     (const char *path, uid_t owner, gid_t group);
- int  uix_fchown    (int fd,           uid_t owner, gid_t group);
- int  uix_lchown    (const char *path, uid_t owner, gid_t group);
+ int  uix_chmod     (const char *path, uix_mode_t mode);
+ int  uix_fchmod    (int fd,           uix_mode_t mode);
+ int  uix_fchmodat  (int dirfd, const char *path, uix_mode_t mode, int flags);
+ int  uix_chown     (const char *path, uix_uid_t owner, uix_gid_t group);
+ int  uix_fchown    (int fd,           uix_uid_t owner, uix_gid_t group);
+ int  uix_lchown    (const char *path, uix_uid_t owner, uix_gid_t group);
  int  uix_fchownat  (int dirfd, const char *path,
-                      uid_t owner, gid_t group, int flags);
+                      uix_uid_t owner, uix_gid_t group, int flags);
  int  uix_access    (const char *path, int mode);
  int  uix_faccessat (int dirfd, const char *path, int mode, int flags);
  
@@ -87,9 +87,9 @@
   * mknod / device files
   * ====================================================================== */
  
- int  uix_mknod     (const char *path, mode_t mode, dev_t dev);
+ int  uix_mknod     (const char *path, uix_mode_t mode, uix_dev_t dev);
  int  uix_mknodat   (int dirfd, const char *path,
-                      mode_t mode, dev_t dev);
+                      uix_mode_t mode, uix_dev_t dev);
  
  /* POSIX aliases */
  #define stat        uix_stat

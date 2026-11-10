@@ -132,6 +132,7 @@ int uiox_uart_probe(void)
     }
     /* ── 4xx. the console ───────────────────────────────────────────── */
     (void)uiox_console_bind(&s_uart_if);
+    uiox_console_puts("[kernel] console bound\r\n");
 
     /* ── 5. descriptor — every field sourced, none invented ─────────
      *   .cls      UIOX_DEVCLASS_UART = UIOX_DEVCLASS_(CMD, 15)

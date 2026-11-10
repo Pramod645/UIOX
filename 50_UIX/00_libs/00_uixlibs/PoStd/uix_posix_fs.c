@@ -5,6 +5,10 @@
 
  #include "uix_posix_fs.h"
  #include "uix_posix_io.h"
+ #include "uix_errno.h"     /* uix_errno, UIX_ENOMEM */
+#include "uix_unistd.h"
+#include "uix_sys.h"    /* UIX_SEEK_SET */
+
  
  static inline long _ret(long r)
  {
@@ -16,168 +20,168 @@
  
  int uix_stat(const char *path, struct uix_stat *st)
  {
-     return (int)_ret(uix_syscall2(SYS_STAT,(long)path,(long)st));
+     return (int)_ret(my_syscall2(SYS_STAT,(long)path,(long)st));
  }
  
  int uix_fstat(int fd, struct uix_stat *st)
  {
-     return (int)_ret(uix_syscall2(SYS_FSTAT,(long)fd,(long)st));
+     return (int)_ret(my_syscall2(SYS_FSTAT,(long)fd,(long)st));
  }
  
  int uix_lstat(const char *path, struct uix_stat *st)
  {
-     return (int)_ret(uix_syscall2(SYS_LSTAT,(long)path,(long)st));
+     return (int)_ret(my_syscall2(SYS_LSTAT,(long)path,(long)st));
  }
  
  int uix_fstatat(int dirfd, const char *path,
                   struct uix_stat *st, int flags)
  {
-     return (int)_ret(uix_syscall4(SYS_FSTATAT,
+     return (int)_ret(my_syscall4(SYS_FSTATAT,
                        (long)dirfd,(long)path,(long)st,(long)flags));
  }
  
  /* ── Directories ─────────────────────────────────────────────── */
  
- int uix_mkdir(const char *path, mode_t mode)
+ int uix_mkdir(const char *path, uix_mode_t mode)
  {
-     return (int)_ret(uix_syscall2(SYS_MKDIR,(long)path,(long)mode));
+     return (int)_ret(my_syscall2(SYS_MKDIR,(long)path,(long)mode));
  }
  
- int uix_mkdirat(int dirfd, const char *path, mode_t mode)
+ int uix_mkdirat(int dirfd, const char *path, uix_mode_t mode)
  {
-     return (int)_ret(uix_syscall3(SYS_MKDIRAT,
+     return (int)_ret(my_syscall3(SYS_MKDIRAT,
                                     (long)dirfd,(long)path,(long)mode));
  }
  
  int uix_rmdir(const char *path)
  {
-     return (int)_ret(uix_syscall1(SYS_RMDIR,(long)path));
+     return (int)_ret(my_syscall1(SYS_RMDIR,(long)path));
  }
  
  /* ── File operations ─────────────────────────────────────────── */
  
  int uix_rename(const char *oldpath, const char *newpath)
  {
-     return (int)_ret(uix_syscall2(SYS_RENAME,(long)oldpath,(long)newpath));
+     return (int)_ret(my_syscall2(SYS_RENAME,(long)oldpath,(long)newpath));
  }
  
  int uix_renameat(int olddirfd, const char *oldpath,
                    int newdirfd, const char *newpath)
  {
-     return (int)_ret(uix_syscall4(SYS_RENAMEAT,
+     return (int)_ret(my_syscall4(SYS_RENAMEAT,
                        (long)olddirfd,(long)oldpath,
                        (long)newdirfd,(long)newpath));
  }
  
  int uix_link(const char *oldpath, const char *newpath)
  {
-     return (int)_ret(uix_syscall2(SYS_LINK,(long)oldpath,(long)newpath));
+     return (int)_ret(my_syscall2(SYS_LINK,(long)oldpath,(long)newpath));
  }
  
  int uix_linkat(int olddirfd, const char *oldpath,
                  int newdirfd, const char *newpath, int flags)
  {
-     return (int)_ret(uix_syscall5(SYS_LINKAT,
+     return (int)_ret(my_syscall5(SYS_LINKAT,
                        (long)olddirfd,(long)oldpath,
                        (long)newdirfd,(long)newpath,(long)flags));
  }
  
  int uix_unlink(const char *path)
  {
-     return (int)_ret(uix_syscall1(SYS_UNLINK,(long)path));
+     return (int)_ret(my_syscall1(SYS_UNLINK,(long)path));
  }
  
  int uix_unlinkat(int dirfd, const char *path, int flags)
  {
-     return (int)_ret(uix_syscall3(SYS_UNLINKAT,
+     return (int)_ret(my_syscall3(SYS_UNLINKAT,
                                     (long)dirfd,(long)path,(long)flags));
  }
  
  int uix_symlink(const char *target, const char *linkpath)
  {
-     return (int)_ret(uix_syscall2(SYS_SYMLINK,(long)target,(long)linkpath));
+     return (int)_ret(my_syscall2(SYS_SYMLINK,(long)target,(long)linkpath));
  }
  
  int uix_symlinkat(const char *target, int newdirfd, const char *linkpath)
  {
-     return (int)_ret(uix_syscall3(SYS_SYMLINKAT,
+     return (int)_ret(my_syscall3(SYS_SYMLINKAT,
                                     (long)target,(long)newdirfd,
                                     (long)linkpath));
  }
  
- ssize_t uix_readlink(const char *path, char *buf, size_t bufsiz)
+ uix_ssize_t uix_readlink(const char *path, char *buf, uix_size_t bufsiz)
  {
-     return (ssize_t)_ret(uix_syscall3(SYS_READLINK,
+     return (uix_ssize_t)_ret(my_syscall3(SYS_READLINK,
                                         (long)path,(long)buf,(long)bufsiz));
  }
  
- ssize_t uix_readlinkat(int dirfd, const char *path,
-                         char *buf, size_t bufsiz)
+ uix_ssize_t uix_readlinkat(int dirfd, const char *path,
+                         char *buf, uix_size_t bufsiz)
  {
-     return (ssize_t)_ret(uix_syscall4(SYS_READLINKAT,
+     return (uix_ssize_t)_ret(my_syscall4(SYS_READLINKAT,
                            (long)dirfd,(long)path,(long)buf,(long)bufsiz));
  }
  
  /* ── Permissions ─────────────────────────────────────────────── */
  
- int uix_chmod(const char *path, mode_t mode)
+ int uix_chmod(const char *path, uix_mode_t mode)
  {
-     return (int)_ret(uix_syscall2(SYS_CHMOD,(long)path,(long)mode));
+     return (int)_ret(my_syscall2(SYS_CHMOD,(long)path,(long)mode));
  }
  
- int uix_fchmod(int fd, mode_t mode)
+ int uix_fchmod(int fd, uix_mode_t mode)
  {
-     return (int)_ret(uix_syscall2(SYS_FCHMOD,(long)fd,(long)mode));
+     return (int)_ret(my_syscall2(SYS_FCHMOD,(long)fd,(long)mode));
  }
  
- int uix_fchmodat(int dirfd, const char *path, mode_t mode, int flags)
+ int uix_fchmodat(int dirfd, const char *path, uix_mode_t mode, int flags)
  {
-     return (int)_ret(uix_syscall4(SYS_FCHMODAT,
+     return (int)_ret(my_syscall4(SYS_FCHMODAT,
                                     (long)dirfd,(long)path,
                                     (long)mode,(long)flags));
  }
  
- int uix_chown(const char *path, uid_t owner, gid_t group)
+ int uix_chown(const char *path, uix_uid_t owner, uix_gid_t group)
  {
-     return (int)_ret(uix_syscall3(SYS_CHOWN,
+     return (int)_ret(my_syscall3(SYS_CHOWN,
                                     (long)path,(long)owner,(long)group));
  }
  
- int uix_fchown(int fd, uid_t owner, gid_t group)
+ int uix_fchown(int fd, uix_uid_t owner, uix_gid_t group)
  {
-     return (int)_ret(uix_syscall3(SYS_FCHOWN,
+     return (int)_ret(my_syscall3(SYS_FCHOWN,
                                     (long)fd,(long)owner,(long)group));
  }
  
- int uix_lchown(const char *path, uid_t owner, gid_t group)
+ int uix_lchown(const char *path, uix_uid_t owner, uix_gid_t group)
  {
-     return (int)_ret(uix_syscall3(SYS_LCHOWN,
+     return (int)_ret(my_syscall3(SYS_LCHOWN,
                                     (long)path,(long)owner,(long)group));
  }
  
  int uix_fchownat(int dirfd, const char *path,
-                   uid_t owner, gid_t group, int flags)
+                   uix_uid_t owner, uix_gid_t group, int flags)
  {
-     return (int)_ret(uix_syscall5(SYS_FCHOWNAT,
+     return (int)_ret(my_syscall5(SYS_FCHOWNAT,
                        (long)dirfd,(long)path,
                        (long)owner,(long)group,(long)flags));
  }
  
  int uix_access(const char *path, int mode)
  {
-     return (int)_ret(uix_syscall2(SYS_ACCESS,(long)path,(long)mode));
+     return (int)_ret(my_syscall2(SYS_ACCESS,(long)path,(long)mode));
  }
  
  int uix_faccessat(int dirfd, const char *path, int mode, int flags)
  {
-     return (int)_ret(uix_syscall4(SYS_FACCESSAT,
+     return (int)_ret(my_syscall4(SYS_FACCESSAT,
                                     (long)dirfd,(long)path,
                                     (long)mode,(long)flags));
  }
  
- int uix_mknod(const char *path, mode_t mode, dev_t dev)
+ int uix_mknod(const char *path, uix_mode_t mode, uix_dev_t dev)
  {
-     return (int)_ret(uix_syscall3(SYS_MKNOD,
+     return (int)_ret(my_syscall3(SYS_MKNOD,
                                     (long)path,(long)mode,(long)dev));
  }
  
@@ -185,12 +189,7 @@
  
  #define UIX_DENTS_BUF_SIZE  2048u
  
- struct uix_DIR {
-     int           fd;
-     int           buf_pos;
-     int           buf_len;
-     char          buf[UIX_DENTS_BUF_SIZE];
- };
+
  
  static struct uix_DIR s_dir_pool[8];  /* small fixed pool */
  static int            s_dir_used[8];
@@ -212,10 +211,10 @@
  
  UIX_DIR *uix_opendir(const char *name)
  {
-     int fd = uix_open(name, O_RDONLY | O_DIRECTORY, 0);
+     int fd = uix_open(name, UIX_O_RDONLY | UIX_O_DIRECTORY, 0);
      if (fd < 0) return NULL;
      struct uix_DIR *d = dir_alloc();
-     if (!d) { uix_close(fd); uix_errno = ENOMEM; return NULL; }
+     if (!d) { uix_close(fd); uix_errno = UIX_ENOMEM; return NULL; }
      d->fd = fd; d->buf_pos = 0; d->buf_len = 0;
      return d;
  }
@@ -223,7 +222,7 @@
  UIX_DIR *uix_fdopendir(int fd)
  {
      struct uix_DIR *d = dir_alloc();
-     if (!d) { uix_errno = ENOMEM; return NULL; }
+     if (!d) { uix_errno = UIX_ENOMEM; return NULL; }
      d->fd = fd; d->buf_pos = 0; d->buf_len = 0;
      return d;
  }
@@ -232,7 +231,7 @@
  {
      if (!dirp) return NULL;
      if (dirp->buf_pos >= dirp->buf_len) {
-         long n = uix_syscall3(SYS_GETDENTS,
+         long n = my_syscall3(SYS_GETDENTS,
                                 (long)dirp->fd,
                                 (long)dirp->buf,
                                 (long)UIX_DENTS_BUF_SIZE);
@@ -248,7 +247,7 @@
  void uix_rewinddir(UIX_DIR *dirp)
  {
      if (!dirp) return;
-     uix_lseek(dirp->fd, 0, SEEK_SET);
+     uix_lseek(dirp->fd, 0, UIX_SEEK_SET);
      dirp->buf_pos = dirp->buf_len = 0;
  }
  

@@ -2,11 +2,7 @@
 #include "uix_errno.h"
 #include "../sys/uix_time.h"
 
-#if STUB
-#include "../uix_sys.h"
-#else
-#include "../../../40_SystemCallInterface/uix_sys.h"
-#endif
+#include "uix_sys.h"
 
 int uix_poll(uix_pollfd_t *fds, uix_nfds_t nfds, int timeout)
 {

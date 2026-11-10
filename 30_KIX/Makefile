@@ -336,11 +336,6 @@ _build_subsystems:
 	    DEVICE_DEFS="$(DEVICE_DEFS)" $(ENABLE_FLAGS) \
 	    $(_ARCH)
 
-#	# 8. 50_UIX/01_shell  (only remaining 50_UIX build step)
-#	+$(MAKE) -C $(UIXDIR)/01_shell CC="$(CC)" AR="$(AR)" \
-#	    ARCH_CFLAGS="$(ARCH_CFLAGS)" ARCH_CPUDEF="$(ARCH_CPUDEF)" \
-#	    $(_ARCH) 2>/dev/null || echo "[KIX] 50_UIX/01_shell: skipped"
-
 _build_kernel_main:
 	@mkdir -p $(_BUILD_DIR)
 	$(CC) $(KERNEL_CFLAGS_BASE) $(ARCH_CFLAGS) $(ARCH_CPUDEF) \

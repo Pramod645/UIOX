@@ -51,8 +51,19 @@
  */
 
  #include "uiox_base_types.h"       /* uiox_uint64_t, uiox_uintptr_t */
-#include "uiox_kix_scpcs_numbers.h"
+ #include "uiox_kix_scpcs_numbers.h"
  #include "uiox_kix_scfs_numbers.h"
+ //#include "uiox_console.h"    /* uiox_console_readline / _write */
+ /* ── the console, by prototype only ──────────────────────────────────
+ * Declared here rather than by including uiox_console.h: that header
+ * pulls in uiox_uart_if.h, which pulls uiox_uart_hw.h and uiox_termios.h
+ * — three more directories on the kernel's include path for two
+ * function signatures.  Same pattern as `extern int uiox_dss_init(void);`
+ * at the top of uiox_kernel_main.c. */
+int uiox_console_readline(void *buf, uiox_uint32_t cap);
+int uiox_console_write(const void *buf, uiox_uint32_t count);
+
+
  
  /* ── The two subsystem dispatchers ─────────────────────────────────
   * Declared here rather than included, because including both headers
@@ -221,6 +232,28 @@
                           uiox_uintptr_t a4, uiox_uintptr_t a5,
                           void *regs)
  {
+     /* ── fd 0/1/2 are the console, not files ────────────────────────
+     * The console is bound to these three at boot by
+     * uiox_console_bind(), called from uiox_uart_probe().  A read or
+     * write on them is the terminal's byte stream, and there is no
+     * scfs_file_t behind it — 10_scfs answers SCFS_ENOTTY for a CMD
+     * inode, correctly, because a CMD inode is not a byte stream.
+     *
+     * So intercept by DESCRIPTOR NUMBER before the file table is
+     * consulted.  This is the whole of Option 1: the dispatcher and
+     * 10_scfs both stay untouched, and 32_FS never learns the console
+     * exists — the rule uiox_devtable.c states.
+     *
+     * The line editing is the kernel discipline's: canon_feed() runs
+     * ERASE, KILL, VEOF and ECHO inside uiox_uart_if_read(), so a
+     * userspace shell gets a whole line and no editor of its own. */
+     if(a0 <= 2u) {
+         if (nr == SYS_READ)
+             return (uiox_int64_t)uiox_console_readline((void *)a1, (uiox_uint32_t)a2);
+         if (nr == SYS_WRITE)
+            return (uiox_int64_t)uiox_console_write((const void *)a1, (uiox_uint32_t)a2);
+     }
+
      /* ── file system ────────────────────────────────────────────── */
      if (scfs_owns(nr))
          return uiox_kix_scfs_dispatch(nr, a0, a1, a2, a3, a4, a5, regs);

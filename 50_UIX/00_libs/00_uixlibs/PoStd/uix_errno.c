@@ -1,7 +1,8 @@
 #include "uix_errno.h"
 #include "../sys/uix_types.h"
 
-int uix_errno = 0;
+int  uix_errno   = 0;
+char **uix_environ = 0;
 
 static const char *_errlist[] = {
     [0]                  = "Success",

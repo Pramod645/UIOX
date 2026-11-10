@@ -23,6 +23,7 @@ typedef signed   long long uix_int64_t;
 typedef unsigned long  uix_size_t; // Maps to size_t from <stddef.h> — result of sizeof, used in all memory/string functions
 typedef signed   long  uix_ssize_t; // Maps to ssize_t — POSIX signed size, returned by read()/write()
 typedef unsigned long  uix_uintptr_t;
+
 typedef signed   long  uix_ptrdiff_t;
 
 typedef int            uix_pid_t; // Maps to pid_t — POSIX process ID type, used in fork(), getpid(), kill()
@@ -38,7 +39,10 @@ typedef long           uix_clock_t;
 typedef unsigned int   uix_blksize_t;
 typedef unsigned long  uix_blkcnt_t;
 
-typedef int            uix_bool_t; // Boolean type, equivalent to _Bool in C99 or stdbool.h
+typedef int            uix_bool_t; // Boolean type, equivalent to _Bool in C99 or stdbool.
+
+typedef int            uix_clockid_t; // Maps to clockid_t — clock selector for clock_gettime()
+
 #define UIX_TRUE  1 // Boolean true constant
 #define UIX_FALSE 0
 

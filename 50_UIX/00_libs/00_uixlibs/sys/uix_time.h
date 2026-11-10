@@ -46,7 +46,7 @@ typedef struct uix_itimerval {
 
 uix_time_t   uix_time        (uix_time_t *tloc);  // Returns seconds since epoch, optionally stores in tloc
 int          uix_gettimeofday(uix_timeval_t *tv, void *tz);  //Microsecond precision wall time — POSIX (deprecated in favor of clock_gettime)
-int          uix_settimeofday(const uix_timeval_t *tv, const void *tz);
+int          uix_settimeofday(const uix_timeval_t *tv, const void *tz);  // Sets wall time, requires superuser privileges
 int          uix_clock_gettime(int clkid, uix_timespec_t *tp);  // Nanosecond precision — POSIX.1-2001
 int          uix_clock_settime(int clkid, const uix_timespec_t *tp);
 int          uix_clock_getres (int clkid, uix_timespec_t *res);

@@ -4,6 +4,9 @@
  */
 
  #include "uix_posix_mm.h"
+#include "uix_errno.h"
+#include "uix_sys.h"
+ #include "uix_errno.h"     /* uix_errno, UIX_ENOMEM */
 
  static void *_mret(long r)
  {
@@ -20,46 +23,46 @@
      return r;
  }
  
- void *uix_mmap(void *addr, size_t length, int prot, int flags,
-                 int fd, off_t offset)
+ void *uix_mmap(void *addr, uix_size_t length, int prot, int flags,
+                 int fd, uix_off_t offset)
  {
-     return _mret(uix_syscall6(SYS_MMAP,
+     return _mret(my_syscall6(SYS_MMAP,
                                 (long)addr, (long)length,
                                 (long)prot, (long)flags,
                                 (long)fd,   (long)offset));
  }
  
- int uix_munmap(void *addr, size_t length)
+ int uix_munmap(void *addr, uix_size_t length)
  {
-     return (int)_ret(uix_syscall2(SYS_MUNMAP,(long)addr,(long)length));
+     return (int)_ret(my_syscall2(SYS_MUNMAP,(long)addr,(long)length));
  }
  
- int uix_mprotect(void *addr, size_t length, int prot)
+ int uix_mprotect(void *addr, uix_size_t length, int prot)
  {
-     return (int)_ret(uix_syscall3(SYS_MPROTECT,
+     return (int)_ret(my_syscall3(SYS_MPROTECT,
                                     (long)addr,(long)length,(long)prot));
  }
  
- int uix_mlock(const void *addr, size_t length)
+ int uix_mlock(const void *addr, uix_size_t length)
  {
-     return (int)_ret(uix_syscall2(SYS_MLOCK,(long)addr,(long)length));
+     return (int)_ret(my_syscall2(SYS_MLOCK,(long)addr,(long)length));
  }
  
- int uix_munlock(const void *addr, size_t length)
+ int uix_munlock(const void *addr, uix_size_t length)
  {
-     return (int)_ret(uix_syscall2(SYS_MUNLOCK,(long)addr,(long)length));
+     return (int)_ret(my_syscall2(SYS_MUNLOCK,(long)addr,(long)length));
  }
  
- int uix_msync(void *addr, size_t length, int flags)
+ int uix_msync(void *addr, uix_size_t length, int flags)
  {
-     return (int)_ret(uix_syscall3(SYS_MSYNC,
+     return (int)_ret(my_syscall3(SYS_MSYNC,
                                     (long)addr,(long)length,(long)flags));
  }
  
- void *uix_mremap(void *old_addr, size_t old_size,
-                   size_t new_size, int flags, void *new_addr)
+ void *uix_mremap(void *old_addr, uix_size_t old_size,
+                   uix_size_t new_size, int flags, void *new_addr)
  {
-     return _mret(uix_syscall5(SYS_MREMAP,
+     return _mret(my_syscall5(SYS_MREMAP,
                                 (long)old_addr,(long)old_size,
                                 (long)new_size,(long)flags,
                                 (long)new_addr));
@@ -67,16 +70,16 @@
  
  static void *s_brk_cur = NULL;
  
- void *uix_brk_sbrk(intptr_t increment)
+ void *uix_brk_sbrk(uix_intptr_t increment)
  {
      if (!s_brk_cur) {
-         s_brk_cur = (void *)uix_syscall1(SYS_BRK, 0L);
+         s_brk_cur = (void *)my_syscall1(SYS_BRK, 0L);
      }
      if (increment == 0) return s_brk_cur;
      void *new_brk = (char *)s_brk_cur + increment;
-     void *result  = (void *)uix_syscall1(SYS_BRK, (long)new_brk);
+     void *result  = (void *)my_syscall1(SYS_BRK, (long)new_brk);
      if (result == new_brk) { s_brk_cur = result; return s_brk_cur; }
-     uix_errno = ENOMEM;
+     uix_errno = UIX_ENOMEM;
      return (void *)-1L;
  }
  

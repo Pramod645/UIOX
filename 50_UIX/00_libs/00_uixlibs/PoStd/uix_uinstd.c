@@ -4,11 +4,8 @@
 
 #include "uix_dirent.h"
 
-#if STUB
-#include "../uix_sys.h"
-#else
-#include "../../../40_SystemCallInterface/uix_sys.h"
-#endif
+#include "uix_sys.h"
+
 
 
 /* ── File I/O stubs — hook into your 40_syscall_interface ───── */

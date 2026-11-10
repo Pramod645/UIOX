@@ -3,11 +3,8 @@
 #include "../PoStd/uix_errno.h"
 #include "../PoStd/uix_string.h"
 
-#if STUB
-#include "../uix_sys.h"
-#else
-#include "../../../40_SystemCallInterface/uix_sys.h"
-#endif
+
+#include "uix_sys.h"
 
 
 void *uix_mmap(void *addr, uix_size_t length, int prot,
@@ -73,17 +70,11 @@ int uix_munlock(const void *addr, uix_size_t len)
 int uix_mlockall(int flags)   { (void)flags; return 0; }
 int uix_munlockall(void)      { return 0; }
 
-void *uix_mremap(void *old_address, uix_size_t old_size,
-                 uix_size_t new_size, int flags)
-{
-    (void)flags;
-    void *p = uix_malloc(new_size);
-    if (!p) return UIX_MAP_FAILED;
-    uix_size_t copy = old_size < new_size ? old_size : new_size;
-    uix_memcpy(p, old_address, copy);
-    uix_free(old_address);
-    return p;
-}
+/* uix_mremap is defined in PoStd/uix_posix_mm.c — the trap
+ * layer.  The userspace malloc+memcpy emulation that
+ * stood here was a second implementation of the same
+ * symbol; it is gone. */
+
 
 int uix_shm_open(const char *name, int oflag, uix_mode_t mode)
 {

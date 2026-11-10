@@ -1,30 +1,35 @@
 /**
  * @file    uiox_sh.c
- * @brief   The first user program — a shell over the console tty.
+ * @brief   The command-line front-end — a shell over the console tty.
  *
- * PATH    50_UIX/01_shell/src/uiox_sh.c
+ * PATH    50_UIX/01_shell/01_cli/src/uiox_sh.c
  *
- * Replaces the stub at 30_KIX/common/uiox_kernel_main.c:206, which today
- * prints "[kernel] uiox_shell_start: stub (50_UIX/01_shell not built)".
+ * A USER program.  It runs at EL0 and reaches the kernel through the
+ * the uixlibs wrapper layer — uix_read()/uix_write() in PoStd, which call
+ * my_syscallN in 40_SCIX underneath.  A front-end uses the wrappers, not
+ * the trap layer: 40_SCIX is reached by the libs, not by programs.
  *
- * ── why this file is the same in boot context and as pid 1 ──────────
- * uiox_sh_main() opens its tty, runs the loop, and never returns.  Who
- * calls it is the only difference:
+ * ── fd 0/1/2 ARE the console ────────────────────────────────────────
+ * The console is bound to descriptors 0, 1 and 2 at boot by
+ * uiox_console_bind(), called from uiox_uart_probe().  Nothing here
+ * opens a path: /dev/ttyS0 is not a node this program can resolve, and
+ * under this design it does not need to be.
  *
- *   today    uiox_shell_start() → uiox_sh_main()      (boot context)
- *   later    arch_context_init(&ctx, uiox_sh_main, 0)
- *            arch_context_switch(&boot_ctx, &ctx)     (a process)
+ *   write(1, ...)  →  uiox_console_write()      tx_char applies OPOST|ONLCR
+ *   read (0, ...)  →  uiox_console_readline()   canon_feed edits the line
  *
- * Nothing below reaches for a pcb, so no line changes when that swap
- * happens.  That is deliberate: the shell is the piece that should not
- * have to be rewritten when the process layer lands.
+ * Both are intercepted in uiox_kix_router.c by descriptor number, ahead
+ * of the SCFS table — so a CMD inode never has to answer SCFS_ENOTTY.
+ * That is why the shell does not call uiox_kix_scfs_*() and why it must
+ * not: those are the kernel's file-level entry points, one layer below
+ * the boundary this program sits above.
  *
  * ── readline is almost free ─────────────────────────────────────────
- * The line discipline in uiox_uart_if.c already does the hard part of a
- * readline: ICANON assembles the line, ERASE emits BS-SP-BS, KILL drops
- * it, VEOF ends it, and ECHO writes every accepted byte back.  So
- * uiox_sh_readline() is a read() loop until the line completes — the
- * editor lives in the kernel, where it belongs.
+ * The line discipline in uiox_uart_if.c already does the hard part:
+ * ICANON assembles the line, ERASE emits BS-SP-BS, KILL drops it, VEOF
+ * ends it, and ECHO writes every accepted byte back.  So
+ * sh_readline() is a read() loop until the line completes — the editor
+ * lives in the kernel, where it belongs.
  *
  * ── what this shell does NOT have, and says so ──────────────────────
  * No pipes, no redirection, no job control, no $PATH search, no
@@ -32,370 +37,350 @@
  * "Not built in" is reported as such rather than silently ignored —
  * the same rule the rest of the tree follows.
  *
- * @version 1.0.0  @date 2026-10-21
+ * @version 1.1.0  @date 2026-11-08
+ *           1.1.0 moves this to userspace: uix_sys.h replaces
+ *                 uiox_kix_scfs.h, output goes through uix_write(),
+ *                 fd 0/1/2 are used as the console rather than opened,
+ *                 and the builtins call the 40_SCIX wrappers.
+ *           1.0.0 was a boot-context shell calling 10_scfs directly.
  */
 
- #include "uiox_klibc.h"
- #include "uiox_kix_scfs.h"        /* SCFS_*, the syscall surface      */
- #include "uiox_termios.h"         /* UIOX_ICANON, UIOX_ICRNL and so on */
- 
- /* ── limits ─────────────────────────────────────────────────────────── */
- #define SH_LINE_MAX    256u
- #define SH_ARGV_MAX     32u
- #define SH_PROMPT      "uiox> "
- 
- /* ═════════════════════════════════════════════════════════════════════
-  * Output
-  *
-  * Everything leaves through write() on fd 1 — NOT through early_puts(),
-  * which is the boot path's direct UART sink.  Once the console driver
-  * is bound, the shell must print through the tty so OPOST|ONLCR applies
-  * and so the output is attributed to the process, not to the kernel.
-  * ═════════════════════════════════════════════════════════════════════ */
- 
- static int sh_fd0 = 0, sh_fd1 = 0, sh_fd2 = 2;
- 
- static void sh_puts(const char *s)
- {
-     uint32_t n = 0u;
-     while (s[n]) n++;
-     if (n) (void)uiox_kix_scfs_write(sh_fd1, (void *)s, n);
- }
- 
- static void sh_putc(char c)
- {
-     (void)uiox_kix_scfs_write(sh_fd1, &c, 1u);
- }
- 
- static void sh_putu(uint32_t v)
- {
-     char b[11];
-     int  i = 0;
-     if (v == 0u) { sh_putc('0'); return; }
-     while (v > 0u && i < 10) { b[i++] = (char)('0' + (v % 10u)); v /= 10u; }
-     while (i > 0) sh_putc(b[--i]);
- }
- 
- /* ═════════════════════════════════════════════════════════════════════
-  * readline — a read() loop.  The editing is the line discipline's.
-  *
-  * Returns the byte count, 0 on EOF (VEOF), or -1 on error.
-  * The returned line is NUL-terminated and has the terminating newline
-  * stripped, so every caller gets a clean command.
-  * ═════════════════════════════════════════════════════════════════════ */
- static int sh_readline(char *buf, uint32_t cap)
- {
-     uint32_t n = 0u;
- 
-     while (n + 1u < cap) {
-         char    c;
-         int32_t r = uiox_kix_scfs_read(sh_fd0, &c, 1u);
- 
-         if (r < 0)  return -1;
-         if (r == 0) return 0;              /* EOF                      */
-         if (r == -2) continue;             /* EAGAIN — nothing yet     */
- 
-         /* The discipline returns the line INCLUDING its terminator:
-          * canon_feed() appends NL (or VEOF) before completing.  Both
-          * end the command, and the character itself is not part of it. */
-         if (c == '\n' || c == '\r') { buf[n] = '\0'; return (int)n; }
-         if (c == 4) { buf[n] = '\0'; return (int)n; }   /* VEOF        */
-         if (c == 3) { buf[n] = '\0'; return -3; }       /* ^C — see below */
- 
-         buf[n++] = c;
-     }
- 
-     buf[n] = '\0';
-     return (int)n;                          /* line hit the cap        */
- }
- 
- /* ═════════════════════════════════════════════════════════════════════
-  * Tokenizer — split on runs of whitespace.  No quoting yet; it is
-  * listed as absent rather than half-done.
-  * ═════════════════════════════════════════════════════════════════════ */
- static int sh_tokenize(char *line, char **argv, int max)
- {
-     int argc = 0;
-     char *p  = line;
- 
-     while (*p && argc < max) {
-         while (*p == ' ' || *p == '\t') p++;
-         if (!*p) break;
-         argv[argc++] = p;
-         while (*p && *p != ' ' && *p != '\t') p++;
-         if (*p) *p++ = '\0';
-     }
-     argv[argc] = (char *)0;
-     return argc;
- }
- 
- static bool sh_streq(const char *a, const char *b)
- {
-     while (*a && *a == *b) { a++; b++; }
-     return *a == *b;
- }
- 
- /* ═════════════════════════════════════════════════════════════════════
-  * Builtins
-  * ═════════════════════════════════════════════════════════════════════ */
- 
- /* ── echo ─────────────────────────────────────────────────────────── */
- static int bi_echo(int argc, char **argv)
- {
-     for (int i = 1; i < argc; i++) {
-         if (i > 1) sh_putc(' ');
-         sh_puts(argv[i]);
-     }
-     sh_putc('\n');
-     return 0;
- }
- 
- /* ── help ─────────────────────────────────────────────────────────── */
- static int bi_help(int argc, char **argv)
- {
-     (void)argc; (void)argv;
-     sh_puts("uiox shell — builtins:\n");
-     sh_puts("  help            this list\n");
-     sh_puts("  echo ARG...     print the arguments\n");
-     sh_puts("  cd [DIR]        change directory (no arg: /)\n");
-     sh_puts("  pwd             print the working directory\n");
-     sh_puts("  ls [DIR]        list a directory\n");
-     sh_puts("  cat FILE...     print file contents\n");
-     sh_puts("  ps              list processes\n");
-     sh_puts("  exit            leave the shell\n");
-     sh_puts("\nNo pipes, redirection, job control or external programs.\n");
-     return 0;
- }
- 
- /* ── cd / pwd ─────────────────────────────────────────────────────────
-  * cd hands the path to 10_scfs's chdir, which resolves and updates the
-  * process's cwd.  No argument means "/", the same as a bare `cd` in a
-  * shell with no $HOME. */
- static int bi_cd(int argc, char **argv)
- {
-     const char *path = (argc > 1) ? argv[1] : "/";
-     int32_t r = uiox_kix_scfs_chdir(path);
-     if (r < 0) { sh_puts("cd: "); sh_puts(path); sh_puts(": no such directory\n"); }
-     return (int)r;
- }
- 
- static int bi_pwd(int argc, char **argv)
- {
-     (void)argc; (void)argv;
-     char cwd[256];
-     int32_t r = uiox_kix_scfs_getcwd(cwd, sizeof cwd);
-     if (r < 0) { sh_puts("pwd: cannot read cwd\n"); return -1; }
-     sh_puts(cwd);
-     sh_putc('\n');
-     return 0;
- }
- 
- /* ── ls ───────────────────────────────────────────────────────────────
-  * getdents64 fills a raw dirent buffer; we walk it and print d_name.
-  * The record layout is the kernel's — d_ino, d_off, d_reclen, d_type,
-  * then the name — and the name is NUL-terminated in the last byte of
-  * the record, which is why the pointer arithmetic is explicit. */
- static int bi_ls(int argc, char **argv)
- {
-     const char *path = (argc > 1) ? argv[1] : ".";
-     int32_t fd = uiox_kix_scfs_open(path, 0, 0);
-     if (fd < 0) { sh_puts("ls: "); sh_puts(path); sh_puts(": cannot open\n"); return (int)fd; }
- 
-     char    buf[512];
-     int32_t n;
-     while ((n = uiox_kix_scfs_getdents64((int)fd, buf, sizeof buf)) > 0) {
-         int32_t off = 0;
-         while (off < n) {
-             struct sh_dirent {
-                 uint64_t d_ino;
-                 int64_t  d_off;
-                 uint16_t d_reclen;
-                 uint8_t  d_type;
-                 char     d_name[];
-             } *d = (struct sh_dirent *)(void *)(buf + off);
- 
-             if (d->d_reclen == 0u) break;         /* corrupt: stop */
-             if (!(d->d_name[0] == '.' &&
-                   (d->d_name[1] == '\0' ||
-                    (d->d_name[1] == '.' && d->d_name[2] == '\0')))) {
-                 sh_puts(d->d_name);
-                 sh_putc('\n');
-             }
-             off += (int32_t)d->d_reclen;
-         }
-     }
-     (void)uiox_kix_scfs_close((int)fd);
-     return 0;
- }
- 
- /* ── cat ──────────────────────────────────────────────────────────── */
- static int bi_cat(int argc, char **argv)
- {
-     if (argc < 2) { sh_puts("cat: no file\n"); return -1; }
- 
-     for (int i = 1; i < argc; i++) {
-         int32_t fd = uiox_kix_scfs_open(argv[i], 0, 0);
-         if (fd < 0) {
-             sh_puts("cat: "); sh_puts(argv[i]); sh_puts(": cannot open\n");
-             continue;
-         }
-         char    buf[256];
-         int32_t n;
-         while ((n = uiox_kix_scfs_read((int)fd, buf, sizeof buf)) > 0)
-             (void)uiox_kix_scfs_write(sh_fd1, buf, (uint32_t)n);
-         (void)uiox_kix_scfs_close((int)fd);
-     }
-     return 0;
- }
- 
- /* ── ps ───────────────────────────────────────────────────────────────
-  * Walks uiox_kix_psa_proc_table[] — the real table 40_psa owns.  This
-  * is the first thing in the tree that lists processes from userspace,
-  * and it works today because the table is real even though nothing
-  * switches registers yet.
-  *
-  * state names mirror uiox_kix_psa_proc_state_t's closed enum. */
- #if defined(UIOX_SHELL_HAVE_PSA)
- #include "uiox_kix_psa_process.h"
- 
- static const char *sh_state_name(uiox_kix_psa_proc_state_t s)
- {
-     switch (s) {
-     case UIOX_KIX_PSA_PROC_UNUSED:          return "UNUSED";
-     case UIOX_KIX_PSA_PROC_USER_RUNNING:    return "RUN(u)";
-     case UIOX_KIX_PSA_PROC_KERNEL_RUNNING:  return "RUN(k)";
-     default:                                return "OTHER";
-     }
- }
- 
- static int bi_ps(int argc, char **argv)
- {
-     (void)argc; (void)argv;
-     sh_puts("  PID  STATE     CTX\n");
-     for (uint32_t i = 0u; i < UIOX_KIX_PSA_NPROC; i++) {
-         uiox_kix_psa_proc_t *p = &uiox_kix_psa_proc_table[i];
-         if (p->p_state == UIOX_KIX_PSA_PROC_UNUSED) continue;
-         sh_puts("  ");
-         sh_putu(i);
-         sh_puts("    ");
-         sh_puts(sh_state_name(p->p_state));
-         sh_puts("\n");
-     }
-     return 0;
- }
- #else
- static int bi_ps(int argc, char **argv)
- {
-     (void)argc; (void)argv;
-     /* Reported, not faked: the process table is real (40_psa) but this
-      * build did not pull its header in, so the shell cannot walk it. */
-     sh_puts("ps: process table not compiled in"
-             " (build with -DUIOX_SHELL_HAVE_PSA)\n");
-     return 0;
- }
- #endif
- 
- /* ── exit ─────────────────────────────────────────────────────────────
-  * In boot context there is nothing to return to, so exit halts the
-  * machine — the honest end state.  When this becomes pid 1, this is the
-  * call that becomes uiox_proc_exit(0). */
- static void bi_exit(int argc, char **argv)
- {
-     (void)argc; (void)argv;
-     sh_puts("shell exiting — halting\n");
-     for (;;) {
- #if defined(__x86_64__)
-         __asm__ volatile("hlt");
- #else
-         __asm__ volatile("wfi");
- #endif
-     }
- }
- 
- /* ═════════════════════════════════════════════════════════════════════
-  * Dispatch
-  * ═════════════════════════════════════════════════════════════════════ */
- static int sh_execute(char *line)
- {
-     char *argv[SH_ARGV_MAX];
-     int   argc = sh_tokenize(line, argv, SH_ARGV_MAX - 1);
-     if (argc == 0) return 0;                       /* blank line */
- 
-     if (sh_streq(argv[0], "help")) return bi_help(argc, argv);
-     if (sh_streq(argv[0], "echo")) return bi_echo(argc, argv);
-     if (sh_streq(argv[0], "cd"))   return bi_cd(argc, argv);
-     if (sh_streq(argv[0], "pwd"))  return bi_pwd(argc, argv);
-     if (sh_streq(argv[0], "ls"))   return bi_ls(argc, argv);
-     if (sh_streq(argv[0], "cat"))  return bi_cat(argc, argv);
-     if (sh_streq(argv[0], "ps"))   return bi_ps(argc, argv);
-     if (sh_streq(argv[0], "exit")) bi_exit(argc, argv);
- 
-     /* Not a builtin.  There is no $PATH search and no exec yet, so this
-      * is reported rather than silently ignored — the same rule the rest
-      * of the tree follows for an absent layer. */
-     sh_puts(argv[0]);
-     sh_puts(": not a builtin (no external programs yet)\n");
-     return -1;
- }
- 
- /* ═════════════════════════════════════════════════════════════════════
-  * The program
-  *
-  * Opens its tty and loops forever.  It never returns, which is why the
-  * boot body's "FATAL: shell returned — halting" at uiox_kernel_main.c:450
-  * is unreachable while this is the real shell.
-  * ═════════════════════════════════════════════════════════════════════ */
- int uiox_sh_main(void)
- {
-     sh_fd0 = uiox_kix_scfs_open("/dev/ttyS0", 0, 0);           /* O_RDONLY */
-     if (sh_fd0 < 0) {
-         /* The console device is not in the registry yet.  Say which
-          * layer is missing instead of looping on a dead fd. */
-         sh_puts("shell: /dev/ttyS0 not openable — console not bound\n");
-         return -1;
-     }
-     sh_fd1 = uiox_kix_scfs_open("/dev/ttyS0", 1, 0);           /* O_WRONLY */
-     sh_fd2 = sh_fd1;
- 
-     sh_puts("\nUIOX shell — type 'help'\n");
- 
-     for (;;) {
-         char line[SH_LINE_MAX];
-         sh_puts(SH_PROMPT);
- 
-         int n = sh_readline(line, sizeof line);
- 
-         if (n == -3) {                 /* ^C: the discipline consumed it
-                                         * as a signal; nothing to run. */
-             sh_putc('\n');
-             continue;
-         }
-         if (n == 0) {                  /* VEOF: ^D on an empty line   */
-             sh_puts("EOF\n");
-             bi_exit(0, (char **)0);
-         }
-         if (n < 0) {
-             sh_puts("read error\n");
-             continue;
-         }
- 
-         (void)sh_execute(line);
-     }
- }
- 
- /* ═════════════════════════════════════════════════════════════════════
-  * uiox_shell_start — what the kernel calls today
-  *
-  * 30_KIX/common/uiox_kernel_main.c:448 calls this from the boot body.
-  * The stub it replaces lived at :206; delete that stub and keep this.
-  *
-  * When the process layer is wired, this function is the ONLY thing that
-  * changes: it becomes arch_context_init(&ctx, uiox_sh_main, 0) plus a
-  * switch.  uiox_sh_main() itself is untouched — which is the point of
-  * building it this way.
-  * ═════════════════════════════════════════════════════════════════════ */
- void uiox_shell_start(void)
- {
-     (void)uiox_sh_main();      /* does not return */
- }
- 
+/* The userspace syscall surface.  SYS_READ, SYS_WRITE and the sys_*()
+ * inline wrappers live here — NOT in 30_KIX/32_FS/10_scfs, which holds
+ * the kernel's implementations and is the wrong side of the boundary. */
+#include "uix_types.h"         /* uix_size_t, uix_ssize_t, uix_bool_t */
+#include "uix_posix_io.h"      /* uix_read / uix_write / uix_open */
+#include "uix_posix_proc.h"    /* uix_chdir / uix_getcwd           */
+#include "uix_dirent.h"        /* uix_fdopendir / uix_readdir      */
+
+/* ── forward declarations ─────────────────────────────────────────────
+ * main() calls these; their definitions sit below it. */
+static int  sh_readline(char *buf, uix_size_t cap);
+static void sh_puts(const char *s);
+static void sh_putc(char c);
+
+/* ── limits ─────────────────────────────────────────────────────────── */
+#define SH_LINE_MAX    256u
+#define SH_ARGV_MAX     32u
+#define SH_PROMPT      "uiox> "
+
+/* ═════════════════════════════════════════════════════════════════════
+ * Output
+ *
+ * Everything leaves through write() on fd 1.  NOT through early_puts(),
+ * which is the boot path's direct UART sink, and NOT through a 10_scfs
+ * function call.  The console is bound to fd 1, so the output is
+ * attributed to this program and tx_char() applies OPOST|ONLCR on the
+ * way out — a "\n" here reaches the wire as CRLF without the shell
+ * knowing about it.
+ * ═════════════════════════════════════════════════════════════════════ */
+
+/* The console descriptors.  These are not opened — they ARE the console,
+ * bound at boot by uiox_console_bind().  sh_fd1 was 0 in v1.0.0, which
+ * routed every prompt through SYS_READ; that only worked because the
+ * boot-context shell reached 10_scfs directly and never went through a
+ * descriptor at all. */
+static int sh_fd0 = 0, sh_fd1 = 1, sh_fd2 = 2;
+
+static void sh_puts(const char *s)
+{
+    uix_size_t n = 0u;
+    while (s[n]) n++;
+    if (n) (void)uix_write(sh_fd1, s, (uix_size_t)n);
+}
+
+static void sh_putc(char c)
+{
+    (void)uix_write(sh_fd1, &c, (uix_size_t)1u);
+}
+
+static void sh_putu(uix_size_t v)
+{
+    char b[11];
+    int  i = 0;
+    if (v == 0u) { sh_putc('0'); return; }
+    while (v > 0u && i < 10) { b[i++] = (char)('0' + (v % 10u)); v /= 10u; }
+    while (i > 0) sh_putc(b[--i]);
+}
+
+/* ═════════════════════════════════════════════════════════════════════
+ * readline — a read() loop.  The editing is the line discipline's.
+ *
+ * uix_read() on fd 0 reaches uiox_console_readline(), which drives
+ * canon_feed(): ICANON assembles the line, ERASE backs the cursor up,
+ * KILL drops the line, VEOF ends it, ECHO writes every accepted byte
+ * back.  So this is a loop until a complete line arrives — there is no
+ * editor here to get wrong.
+ *
+ * Return:  byte count excluding the NUL, 0 on VEOF at an empty line,
+ *          -3 when the discipline consumed a ^C as a signal.
+ * ═════════════════════════════════════════════════════════════════════ */
+
+/* The line arrives already assembled, so one call is enough.  The -3 for
+ * VINTR is uiox_uart_if.c's convention: canon_feed() consumes the byte
+ * and hands it to uiox_tty_signal_from_char() without delivering it. */
+static int sh_readline(char *buf, uix_size_t cap)
+{
+    if (!buf || cap == 0u) return -1;
+
+    for (;;) {
+        uix_ssize_t r = uix_read(sh_fd0, buf, (uix_size_t)(cap - 1u));
+
+        if (r > 0) {
+            buf[r] = '\0';
+            return (int)r;
+        }
+        if (r == 0)  return 0;      /* VEOF */
+        if (r == -3) return -3;     /* VINTR — consumed as a signal */
+        /* -2 is the discipline's EAGAIN: nothing had arrived.  Loop
+         * rather than report it — the caller asked for a line. */
+        if (r != -2) return (int)r;
+    }
+}
+
+/* ═════════════════════════════════════════════════════════════════════
+ * Tokenize
+ * ═════════════════════════════════════════════════════════════════════ */
+static int sh_tokenize(char *line, char **argv, int max)
+{
+    int argc = 0;
+    char *p = line;
+
+    while (*p) {
+        while (*p == ' ' || *p == '\t' || *p == '\n') p++;
+        if (!*p) break;
+        if (argc >= max) break;
+
+        argv[argc++] = p;
+        while (*p && *p != ' ' && *p != '\t' && *p != '\n') p++;
+        if (*p) *p++ = '\0';
+    }
+    return argc;
+}
+
+static uix_bool_t sh_streq(const char *a, const char *b)
+{
+    while (*a && *a == *b) { a++; b++; }
+    return (*a == *b) ? 1 : 0;
+}
+
+/* ═════════════════════════════════════════════════════════════════════
+ * Builtins
+ * ═════════════════════════════════════════════════════════════════════ */
+
+/* ── echo ─────────────────────────────────────────────────────────── */
+static int bi_echo(int argc, char **argv)
+{
+    for (int i = 1; i < argc; i++) {
+        if (i > 1) sh_putc(' ');
+        sh_puts(argv[i]);
+    }
+    sh_putc('\n');
+    return 0;
+}
+
+/* ── help ─────────────────────────────────────────────────────────── */
+static int bi_help(int argc, char **argv)
+{
+    (void)argc; (void)argv;
+    sh_puts("uiox shell — builtins:\n");
+    sh_puts("  help            this list\n");
+    sh_puts("  echo ARG...     print the arguments\n");
+    sh_puts("  cd [DIR]        change directory (no arg: /)\n");
+    sh_puts("  pwd             print the working directory\n");
+    sh_puts("  ls [DIR]        list a directory\n");
+    sh_puts("  cat FILE...     print file contents\n");
+    sh_puts("  ps              list processes\n");
+    sh_puts("  exit            leave the shell\n");
+    sh_puts("\nNo pipes, redirection, job control or external programs.\n");
+    return 0;
+}
+
+/* ── cd / pwd ─────────────────────────────────────────────────────────
+ * Both go through the 40_SCIX wrappers, which trap.  v1.0.0 called
+ * uiox_kix_scfs_chdir()/getcwd() directly, which is a kernel function
+ * call — the wrong side of the boundary this program lives above. */
+static int bi_cd(int argc, char **argv)
+{
+    const char *path = (argc > 1) ? argv[1] : "/";
+    uix_ssize_t r = uix_chdir(path);
+
+    if (r < 0) { sh_puts("cd: "); sh_puts(path); sh_puts(": no such directory\n"); }
+    return (int)r;
+}
+
+static int bi_pwd(int argc, char **argv)
+{
+    (void)argc; (void)argv;
+    char cwd[SH_LINE_MAX];
+    /* uix_posix_proc.h:102 — char *uix_getcwd(char *buf, uix_size_t size) */
+    if (!uix_getcwd(cwd, (uix_size_t)sizeof cwd)) {
+        sh_puts("pwd: cannot read cwd\n");
+        return -1;
+    }
+    sh_puts(cwd);
+    sh_putc('\n');
+    return 0;
+}
+
+/* ── ls ───────────────────────────────────────────────────────────────
+ * uix_opendir/uix_readdir walk the stream; uix_dirent_t carries d_name. */
+static int bi_ls(int argc, char **argv)
+{
+    const char *path = (argc > 1) ? argv[1] : ".";
+
+    uix_ssize_t fd = uix_open(path, 0);
+    if (fd < 0) {
+        /* The FS layer answers ENOTSUP for an unimplemented open.  Say
+         * which layer is missing rather than reporting a bogus errno. */
+        sh_puts("ls: "); sh_puts(path); sh_puts(": cannot open\n");
+        return -1;
+    }
+
+    /* The path is opened by uix_opendir(), not by hand: uix_DIR is a
+     * struct ({fd, buf[4096], buf_pos, buf_len, offset, entry}), so the
+     * raw-offset walk an earlier draft used was never right for this
+     * tree — that was Linux dirent layout, not uix_dirent_t. */
+    uix_DIR *dir = uix_fdopendir((int)fd);
+    if (!dir) {
+        sh_puts("ls: "); sh_puts(path); sh_puts(": cannot read directory\n");
+        (void)uix_close((int)fd);
+        return -1;
+    }
+
+    for (;;) {
+        uix_dirent_t *de = uix_readdir(dir);
+        if (!de) break;
+
+        const char *name = de->d_name;
+        if (!name || !name[0]) continue;
+        if (sh_streq(name, ".") || sh_streq(name, "..")) continue;
+
+        sh_puts(name);
+        sh_putc('\n');
+    }
+
+    (void)uix_closedir(dir);   /* closes the fd too */
+    return 0;
+}
+
+/* ── cat ─────────────────────────────────────────────────────────────
+ * One file per argument; the bytes go straight to fd 1, so the
+ * discipline's OPOST|ONLCR applies and a text file with bare \n lines
+ * prints correctly. */
+static int bi_cat(int argc, char **argv)
+{
+    if (argc < 2) { sh_puts("cat: missing file\n"); return -1; }
+
+    for (int i = 1; i < argc; i++) {
+        uix_ssize_t fd = uix_open(argv[i], 0);
+        if (fd < 0) { sh_puts("cat: "); sh_puts(argv[i]); sh_puts(": cannot open\n"); continue; }
+
+        char buf[256];
+        for (;;) {
+            uix_ssize_t n = uix_read((int)fd, buf, (uix_size_t)sizeof buf);
+            if (n <= 0) break;
+            (void)uix_write(sh_fd1, buf, (uix_size_t)n);
+        }
+        (void)uix_close((int)fd);
+        sh_putc('\n');
+    }
+    return 0;
+}
+
+/* ── ps ──────────────────────────────────────────────────────────────
+ * No process table to walk yet — 33_PCS has a scheduler but does not
+ * publish an enumeration to userspace.  Reported rather than faked. */
+static int bi_ps(int argc, char **argv)
+{
+    (void)argc; (void)argv;
+    sh_puts("ps: no process enumeration exposed yet\n");
+    return 0;
+}
+
+/* ── exit ────────────────────────────────────────────────────────────
+ * There is no exit() to call — 33_PCS has no syscall for it in this
+ * build — so this halts the machine, the honest end state.  When this
+ * becomes pid 1, this is the call that becomes uiox_proc_exit(0). */
+static void bi_exit(int argc, char **argv)
+{
+    (void)argc; (void)argv;
+    sh_puts("shell exiting — halting\n");
+    for (;;) {
+#if defined(__x86_64__)
+        __asm__ volatile("hlt");
+#else
+        __asm__ volatile("wfi");
+#endif
+    }
+}
+
+/* ═════════════════════════════════════════════════════════════════════
+ * Dispatch
+ * ═════════════════════════════════════════════════════════════════════ */
+static int sh_execute(char *line)
+{
+    char *argv[SH_ARGV_MAX];
+    int   argc = sh_tokenize(line, argv, SH_ARGV_MAX - 1);
+    if (argc == 0) return 0;                       /* blank line */
+
+    if (sh_streq(argv[0], "help")) return bi_help(argc, argv);
+    if (sh_streq(argv[0], "echo")) return bi_echo(argc, argv);
+    if (sh_streq(argv[0], "cd"))   return bi_cd(argc, argv);
+    if (sh_streq(argv[0], "pwd"))  return bi_pwd(argc, argv);
+    if (sh_streq(argv[0], "ls"))   return bi_ls(argc, argv);
+    if (sh_streq(argv[0], "cat"))  return bi_cat(argc, argv);
+    if (sh_streq(argv[0], "ps"))   return bi_ps(argc, argv);
+    if (sh_streq(argv[0], "exit")) bi_exit(argc, argv);
+
+    /* Not a builtin.  There is no $PATH search and no exec yet, so this
+     * is reported rather than silently ignored — the same rule the rest
+     * of the tree follows for an absent layer. */
+    sh_puts(argv[0]);
+    sh_puts(": not a builtin (no external programs yet)\n");
+    return -1;
+}
+
+/* ═════════════════════════════════════════════════════════════════════
+ * The program
+ *
+ * Runs its loop forever and never returns.  The entry point is main, per
+ * -Wl,-e,main in the Makefile — the kernel jumps straight here, so a
+ * freestanding image needs no crt0.
+ * ═════════════════════════════════════════════════════════════════════ */
+int main(void)
+{
+    /* No open().  Under this design fd 0/1/2 ARE the console, bound at
+     * boot — v1.0.0's uiox_kix_scfs_open("/dev/ttyS0", ...) was the
+     * boot-context model, and it could only ever fail here: the name
+     * parser's table has "uart" as the UART prefix, not "ttyS", so
+     * uiox_devparse() answers ENOENT for it by design. */
+    sh_fd0 = 0;
+    sh_fd1 = 1;
+    sh_fd2 = 2;
+
+    sh_puts("\nUIOX shell — type 'help'\n");
+
+    for (;;) {
+        char line[SH_LINE_MAX];
+        sh_puts(SH_PROMPT);
+
+        int n = sh_readline(line, sizeof line);
+
+        if (n == -3) {                 /* ^C: the discipline consumed it
+                                        * as a signal; nothing to run. */
+            sh_putc('\n');
+            continue;
+        }
+        if (n == 0) {                  /* VEOF: ^D on an empty line   */
+            sh_puts("EOF\n");
+            bi_exit(0, (char **)0);
+        }
+        if (n < 0) {
+            sh_puts("read error\n");
+            continue;
+        }
+
+        (void)sh_execute(line);
+    }
+}

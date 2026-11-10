@@ -8,11 +8,10 @@
  #ifndef UIX_POSIX_PROC_H
  #define UIX_POSIX_PROC_H
  
- #include "uix_syscall.h"
  #include "uix_signal.h"
- #include "../sys/uix_types.h"
- #include "../sys/uix_wait.h"
- #include "../sys/uix_resource.h"
+ #include "uix_errno.h"
+ #include "uix_string.h"
+
  
  #ifdef __cplusplus
  extern "C" {
@@ -22,8 +21,8 @@
   * Process creation / execution
   * ====================================================================== */
  
- pid_t   uix_fork        (void);
- pid_t   uix_vfork       (void);
+ uix_pid_t   uix_fork        (void);
+ uix_pid_t   uix_vfork       (void);
  int     uix_execve      (const char *path,
                            char *const argv[], char *const envp[]);
  int     uix_execvp      (const char *file, char *const argv[]);
@@ -34,40 +33,38 @@
   * Process wait
   * ====================================================================== */
  
- pid_t   uix_wait        (int *wstatus);
- pid_t   uix_waitpid     (pid_t pid, int *wstatus, int options);
- pid_t   uix_wait4       (pid_t pid, int *wstatus,
-                           int options, struct uix_rusage *rusage);
+ uix_pid_t   uix_wait        (int *wstatus);
+ uix_pid_t   uix_waitpid     (uix_pid_t pid, int *wstatus, int options);
  
  /* =========================================================================
   * Process identity
   * ====================================================================== */
  
- pid_t   uix_getpid      (void);
- pid_t   uix_getppid     (void);
- uid_t   uix_getuid      (void);
- uid_t   uix_geteuid     (void);
- gid_t   uix_getgid      (void);
- gid_t   uix_getegid     (void);
- int     uix_setuid      (uid_t uid);
- int     uix_setgid      (gid_t gid);
- int     uix_seteuid     (uid_t euid);
- int     uix_setegid     (gid_t egid);
+ uix_pid_t   uix_getpid      (void);
+ uix_pid_t   uix_getppid     (void);
+ uix_uid_t   uix_getuid      (void);
+ uix_uid_t   uix_geteuid     (void);
+ uix_gid_t   uix_getgid      (void);
+ uix_gid_t   uix_getegid     (void);
+ int     uix_setuid      (uix_uid_t uid);
+ int     uix_setgid      (uix_gid_t gid);
+ int     uix_seteuid     (uix_uid_t euid);
+ int     uix_setegid     (uix_gid_t egid);
  
  /* =========================================================================
   * Process groups / sessions
   * ====================================================================== */
  
- int     uix_setpgid     (pid_t pid, pid_t pgid);
- pid_t   uix_getpgid     (pid_t pid);
- pid_t   uix_setsid      (void);
- pid_t   uix_getsid      (pid_t pid);
+ int     uix_setpgid     (uix_pid_t pid, uix_pid_t pgid);
+ uix_pid_t   uix_getpgid     (uix_pid_t pid);
+ uix_pid_t   uix_setsid      (void);
+ uix_pid_t   uix_getsid      (uix_pid_t pid);
  
  /* =========================================================================
   * Signals
   * ====================================================================== */
  
- int     uix_kill        (pid_t pid, int sig);
+ int     uix_kill        (uix_pid_t pid, int sig);
  int     uix_raise       (int sig);
  int     uix_sigaction   (int signum,
                            const struct uix_sigaction *act,
@@ -89,8 +86,6 @@
   * Resource limits
   * ====================================================================== */
  
- int     uix_getrlimit   (int resource, struct uix_rlimit *rlim);
- int     uix_setrlimit   (int resource, const struct uix_rlimit *rlim);
  
  /* =========================================================================
   * Misc process operations
@@ -99,10 +94,8 @@
  int     uix_chdir       (const char *path);
  int     uix_fchdir      (int fd);
  int     uix_chroot      (const char *path);
- char   *uix_getcwd      (char *buf, size_t size);
- int     uix_umask       (int mask);
+ char   *uix_getcwd      (char *buf, uix_size_t size);
  int     uix_nice        (int inc);
- 
  /* POSIX aliases */
  #define fork        uix_fork
  #define vfork       uix_vfork

@@ -152,6 +152,8 @@
 #define SYS_BIND            104 //done
 #define SYS_SETSOCKOPT      105 //done
 #define SYS_LISTEN          106 //done
+#define SYS_SEND            44
+#define SYS_RECV            45
 #define SYS_CHFLAGSAT       107
 #define SYS_PLEDGE          108
 #define SYS_PPOLL           109
@@ -593,7 +595,7 @@
    {
        return my_syscall1(SYS_UNMOUNT, (long)(special));
    }
-   static inline int sys_getdents(int fd, uix_DIR *dirp, int count)
+   static inline int sys_getdents(int fd, void *dirp, int count)
    {
        return my_syscall3(SYS_GETDENTS, (long)(fd), (long)(dirp), (long)(count));
    }

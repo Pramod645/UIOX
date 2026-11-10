@@ -63,7 +63,6 @@
  *       ├─▶ uiox_socket_subsystem_init()  — 30_DSS: socket table
  *       ├─▶ uiox_eth_boot_init()          — 30_DSS: the NIC, over 02_FwHal
  *       ├─▶ uiox_drv_emmc_bind()          — 30_DSS: the block device
- *       └─▶ uiox_shell_start()            — 50_UIX/01_shell: first prompt
  *
  * Subsystems now in kernel (moved from 50_UIX):
  *   33_PCS/03_ksign   — kernel image signing, verification, runtime integrity

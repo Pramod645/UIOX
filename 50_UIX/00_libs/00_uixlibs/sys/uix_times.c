@@ -3,11 +3,7 @@
 #include "../PoStd/uix_string.h"
 #include "../PoStd/uix_errno.h"
 
-#if STUB
-#include "../uix_sys.h"
-#else
-#include "../../../40_SystemCallInterface/uix_sys.h"
-#endif
+#include "uix_sys.h"
 
 uix_clock_t uix_times(uix_tms_t *buf)
 {

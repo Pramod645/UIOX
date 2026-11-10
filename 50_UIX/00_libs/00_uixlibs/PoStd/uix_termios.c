@@ -3,20 +3,16 @@
 #include "uix_errno.h"
 #include "uix_string.h"
 
-#if STUB
-#include "../uix_sys.h"
-#else
-#include "../../../40_SystemCallInterface/uix_sys.h"
-#endif
 
 int uix_tcgetattr(int fd, uix_termios_t *termios_p)
 {
     //if (!termios_p) { uix_errno = UIX_EFAULT; return -1; }
-    //extern int sys_ioctl(int,unsigned long,void*)
+    //extern int uix_ioctl(int,unsigned long,void*)
     //    __attribute__((weak));
-    //if (sys_ioctl)
-     //   return sys_ioctl(fd, UIX_TCGETS, termios_p);
-     sys_ioctl(fd, UIX_TCGETS, termios_p);
+    //if (uix_ioctl)
+     //   return uix_ioctl(fd, UIX_TCGETS, termios_p);
+     if (uix_ioctl(fd, UIX_TCGETS, termios_p) == 0)
+        return 0;
     /* Provide sensible defaults */
     uix_memset(termios_p, 0, sizeof(*termios_p));
     termios_p->c_iflag = UIX_ICRNL | UIX_IXON;
@@ -34,24 +30,20 @@ int uix_tcgetattr(int fd, uix_termios_t *termios_p)
 }
 
 int uix_tcsetattr(int fd, int optional_actions,
-                  const uix_termios_t *termios_p)
+    const uix_termios_t *termios_p)
 {
-   /*if (!termios_p) { uix_errno = UIX_EFAULT; return -1; }
-    extern int sys_ioctl(int,unsigned long,void*)
-        __attribute__((weak));
-    unsigned long cmd;
-    switch (optional_actions) {
-    case UIX_TCSANOW:   cmd = UIX_TCSETS;  break;
-    case UIX_TCSADRAIN: cmd = UIX_TCSETSW; break;
-    case UIX_TCSAFLUSH: cmd = UIX_TCSETSF; break;
-    default: uix_errno = UIX_EINVAL; return -1;
-    }
-    if (sys_ioctl)
-        return sys_ioctl(fd, cmd, (void *)termios_p);
-    return 0;*/
-    unsigned long cmd;
-    return sys_ioctl(fd, cmd, (void *)termios_p);
+unsigned long cmd;
+
+switch (optional_actions) {
+case UIX_TCSANOW:   cmd = UIX_TCSETS;  break;
+case UIX_TCSADRAIN: cmd = UIX_TCSETSW; break;
+case UIX_TCSAFLUSH: cmd = UIX_TCSETSF; break;
+default: uix_errno = UIX_EINVAL; return -1;
 }
+
+return (int)uix_ioctl(fd, cmd, (void *)termios_p);
+}
+
 
 int uix_tcsendbreak(int fd, int duration)
     { (void)fd; (void)duration; return 0; }

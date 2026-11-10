@@ -12,6 +12,8 @@ mman.h is another standard POSIX header, used for memory management functions su
 
 
 #include "uix_types.h"
+#include "uix_stdint.h"
+
 
 #define UIX_PROT_NONE  0x0
 #define UIX_PROT_READ  0x1      // Pages can be read
@@ -45,8 +47,8 @@ int    uix_mlock     (const void *addr, uix_size_t len);    // Locks pages in RA
 int    uix_munlock   (const void *addr, uix_size_t len);
 int    uix_mlockall  (int flags);
 int    uix_munlockall(void);
-void  *uix_mremap    (void *old_addr, uix_size_t old_size,
-                       uix_size_t new_size, int flags);               // Linux extension — resizes mapping
+void  *uix_mremap    (void *old_addr, uix_size_t old_size, uix_size_t new_size, int flags, void *new_addr);
+
 int    uix_shm_open  (const char *name, int oflag, uix_mode_t mode);   // POSIX shared memory — creates named shared region
 int    uix_shm_unlink(const char *name);                              // Removes named shared memory object
 

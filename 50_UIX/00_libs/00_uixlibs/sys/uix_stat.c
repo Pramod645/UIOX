@@ -2,11 +2,7 @@
 #include "../PoStd/uix_errno.h"
 #include "../PoStd/uix_string.h"
 
-#if STUB
-#include "../uix_sys.h"
-#else
-#include "../../../40_SystemCallInterface/uix_sys.h"
-#endif
+#include "uix_sys.h"
 
 static uix_mode_t current_umask = 022;
 
