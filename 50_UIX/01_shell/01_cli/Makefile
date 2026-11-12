@@ -132,8 +132,7 @@ CFLAGS := -std=c99 -Wall -Wextra \
           -I$(UIXROOT)/40_SCIX \
           -I$(UIXLIB) \
           -I$(UIXLIB)/PoStd \
-          -I$(UIXLIB)/sys \
-          -DSYS_CALL_ENBLE_DISABLE=0
+          -I$(UIXLIB)/sys
 
 # ── the archive MUST come after the object that needs it ────────────────
 # ld walks archives in command order.  With the library ahead of

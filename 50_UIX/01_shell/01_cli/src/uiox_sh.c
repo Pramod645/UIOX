@@ -317,6 +317,15 @@ static void bi_exit(int argc, char **argv)
 
 /* ═════════════════════════════════════════════════════════════════════
  * Dispatch
+ *
+ * With no fork/exec and no process table, a command IS a function
+ * linked into this image — this chain is the whole command language.
+ * Linear comparison rather than a table: eight entries cost less than
+ * the indirection would, and the chain reads as a command list.
+ *
+ * Return:  0  handled, continue
+ *         -1  not a builtin
+ *          1  the user asked to leave
  * ═════════════════════════════════════════════════════════════════════ */
 static int sh_execute(char *line)
 {
@@ -331,7 +340,12 @@ static int sh_execute(char *line)
     if (sh_streq(argv[0], "ls"))   return bi_ls(argc, argv);
     if (sh_streq(argv[0], "cat"))  return bi_cat(argc, argv);
     if (sh_streq(argv[0], "ps"))   return bi_ps(argc, argv);
-    if (sh_streq(argv[0], "exit")) bi_exit(argc, argv);
+
+    /* exit must break the loop, and a builtin's int return cannot do
+     * that on its own — so it is reported to the caller as 1.  The
+     * fallthrough bug this replaces printed "exit: not a builtin"
+     * because there was no return here. */
+    if (sh_streq(argv[0], "exit")) { bi_exit(argc, argv); return 1; }
 
     /* Not a builtin.  There is no $PATH search and no exec yet, so this
      * is reported rather than silently ignored — the same rule the rest
@@ -342,45 +356,69 @@ static int sh_execute(char *line)
 }
 
 /* ═════════════════════════════════════════════════════════════════════
- * The program
+ * The builtin table
  *
- * Runs its loop forever and never returns.  The entry point is main, per
- * -Wl,-e,main in the Makefile — the kernel jumps straight here, so a
- * freestanding image needs no crt0.
+ * This IS the shell.  With no fork/exec and no process table, a command
+ * is a function linked into this image — the table is the whole command
+ * language.  Lookup is a linear scan: eight entries cost less than the
+ * hashing would.
  * ═════════════════════════════════════════════════════════════════════ */
-int main(void)
-{
-    /* No open().  Under this design fd 0/1/2 ARE the console, bound at
-     * boot — v1.0.0's uiox_kix_scfs_open("/dev/ttyS0", ...) was the
-     * boot-context model, and it could only ever fail here: the name
-     * parser's table has "uart" as the UART prefix, not "ttyS", so
-     * uiox_devparse() answers ENOENT for it by design. */
-    sh_fd0 = 0;
-    sh_fd1 = 1;
-    sh_fd2 = 2;
+typedef struct {
+    const char *name;
+    int (*fn)(int argc, char **argv);
+} sh_builtin_t;
 
-    sh_puts("\nUIOX shell — type 'help'\n");
+static const sh_builtin_t sh_builtins[] = {
+    { "help", bi_help },
+    { "echo", bi_echo },
+    { "cd",   bi_cd   },
+    { "pwd",  bi_pwd  },
+    { "ls",   bi_ls   },
+    { "cat",  bi_cat  },
+    { "ps",   bi_ps   },
+    { "exit", NULL    },   /* handled in the loop: it must break out */
+    { NULL,   NULL    }
+};
+
+
+/* ═════════════════════════════════════════════════════════════════════
+ * main — the loop
+ *
+ * prompt → read a line → split it → dispatch → repeat.
+ *
+ * sh_readline() gets a COMPLETE line: uiox_uart_if.c's canon_feed()
+ * already ran ICANON, ERASE, KILL and ECHO in the kernel, so there is
+ * no editor here and there must not be one.  The three returns that
+ * matter:
+ *   > 0   a line, NUL-terminated
+ *   0     VEOF on an empty line — exit, like a login shell
+ *   -3    VINTR: the discipline consumed the ^C as a signal
+ * ═════════════════════════════════════════════════════════════════════ */
+#define SH_LINE_MAX 256
+#define SH_ARG_MAX  32
+int uix_sh_main(void)
+{
+    char line[SH_LINE_MAX];
+
+    sh_puts("uiox shell — type 'help' for builtins\n");
 
     for (;;) {
-        char line[SH_LINE_MAX];
-        sh_puts(SH_PROMPT);
+        int r;
 
-        int n = sh_readline(line, sizeof line);
+        sh_puts("uiox> ");
 
-        if (n == -3) {                 /* ^C: the discipline consumed it
-                                        * as a signal; nothing to run. */
-            sh_putc('\n');
-            continue;
-        }
-        if (n == 0) {                  /* VEOF: ^D on an empty line   */
-            sh_puts("EOF\n");
-            bi_exit(0, (char **)0);
-        }
-        if (n < 0) {
-            sh_puts("read error\n");
-            continue;
-        }
+        r = sh_readline(line, sizeof(line));
+        if (r == 0)  { sh_putc('\n'); break; }       /* VEOF */
+        if (r == -3) { sh_puts("^C\n"); continue; }  /* VINTR, consumed */
+        if (r < 0)   { sh_puts("read error\n"); continue; }
 
-        (void)sh_execute(line);
+        if (sh_execute(line) == 1) break;            /* exit */
     }
+
+    sh_puts("bye\n");
+    return 0;
 }
+
+#ifndef UIOX_SH_NO_MAIN
+int main(void) { return uix_sh_main(); }
+#endif

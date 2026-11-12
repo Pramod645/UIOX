@@ -35,8 +35,7 @@ CFLAGS := -std=c99 -Wall -Wextra \
           -I$(MFDIR)../../40_SCIX \
           -I$(MFDIR)../../30_KIX/common \
           -I$(MFDIR)../00_libs/00_uixlibs \
-          -I$(MFDIR)../00_libs/00_uixlibs/PoStd \
-          -DSYS_CALL_ENBLE_DISABLE=0
+          -I$(MFDIR)../00_libs/00_uixlibs/PoStd
 
 LDFLAGS := -nostdlib -nostartfiles -ffreestanding -Wl,-e,main
 

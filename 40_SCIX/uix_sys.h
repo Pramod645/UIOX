@@ -9,20 +9,12 @@
  *               ├── fs_*()   ← 32_FileSystem/10_scfs/include/fs.h
  *               └── kernel_*()← 33_ProcessControlSubsystem/50_scps/include/
  *
- * SYS_CALL_ENBLE_DISABLE:
- *   0 = stub returns  (simulation / hosted build)
- *   1 = real calls into 32_FileSystem and 33_ProcessControlSubsystem
  */
 #include "sys/uix_types.h"
-//#define SYS_CALL_ENBLE_DISABLE  0   /* 0=stubs, 1=real kernel calls */
-/* uix_sys.h:17 — guard, so -D on the command line takes effect. */
-#ifndef SYS_CALL_ENBLE_DISABLE
-#define SYS_CALL_ENBLE_DISABLE  0   /* 0=stubs, 1=real kernel calls */
-#endif
+
 
 #define SYS_CALL_CAS_ENBLE  0   /* 0=stubs, 1=real kernel calls */
 
-//#define STUB 1// 0:STUB, 1:SYS funtinal call to Kernal
 /* ── Kernel layer headers ──────────────────────────────────── */
 /* ── Trap interface (userspace side of EL0/EL1) ─────────────── */
 #include "uix_archSysCall.h"

@@ -544,3 +544,82 @@ So the detour closed gap 2 — and it closed it properly: the store is built, ve
 7.
 ❌ uart0_irq_handler still a weak stub
 So the detour closed gap 2 — and it closed it properly: the store is built, verified byte-for-byte across four architectures, linked into every kernel image, and mounted at boot by code that compiles on all four targets.
+======================================================================
+
+Every one of the four ends its switch with the ordinary return. None uses sret, movs pc, lr, iretq, or eret. And the mode values in each arch_context_init confirm they were all written for kernel threads:
+
+Arch	Mode value written	Meaning
+arm64	mov x4, #0x05	EL1h
+riscv64	(1 << 8) | (1 << 5)	SPP=1 (S-mode), SPIE=1
+arm32	0x13 | 0x20	SVC mode, Thumb, IRQ enabled
+x86_64	$0x202	rflags IF=1, no CS/SS
+Four arches, four idioms, one consistent decision: each is a kernel-thread switch, and each returns with the non-privileged-transition instruction. That's not a defect in any one file — it's a layer written for a scheduler that switches between kernel threads, which is exactly what the comment at the top of arm64's file says: "Called by 33_ProcessControlSubsystem when switching threads."
+
+The comments even document the intent explicitly. riscv64:75 — /* ra = entry (context_switch does ret → jumps to entry) */. arm32:69 — /* lr = entry (when switch does bx lr it jumps to entry) */. x86_64:31 — /* rip = return address sitting on the stack */. The design is coherent and deliberate. It just can't lower privilege level.
+
+What this means for the shell
+Two things follow, and they're separable:
+
+For the first switch into userland, arch_context_init needs a user-mode variant on each arch — the four values above replaced by their user equivalents:
+
+Arch	Kernel value	User value needed
+arm64	0x05 (EL1h)	0x3C0 (EL0t, DAIF masked)
+riscv64	SPP=1	SPP=0 (U-mode), plus SUM/SPIE as needed
+arm32	0x13 SVC	0x10 User (+0x20 if Thumb)
+x86_64	0x202	ring-3 CS/SS selectors, and an iretq frame
+And arch_context_switch needs to return with the exception-return instruction when the target is a user context. That's the harder question, and the interesting one: eret/sret/movs pc, lr/iretq all read the mode field, so a switch can genuinely return to a different level — but a kernel thread switching to another kernel thread must not, because eret would consume a SPSR that holds the caller's EL1 state and can misfire.
+
+So there are two shapes, and this is a design decision rather than a bug fix:
+
+One routine, branching on the target's mode. arch_context_switch inspects the spsr/cpsr/sstatus it just loaded and chooses ret or eret. Correct for both cases, slightly more code, and it keeps one switch path.
+
+Two routines. arch_context_switch stays exactly as written for thread-to-thread, and a new arch_context_enter_user(ctx) does the eret form for the first entry into EL0. Cleaner to read, no branch on a hot path, and it names the distinction in the tree instead of encoding it in a comparison.
+
+I'd take the second — for the same reason as the arch_context_init_user suggestion: the existing routine is correct for its callers, and adding a second one documents why there are two modes rather than making the common path carry a check for the rare one.
+
+Where the plan now stands
+Piece	State
+arch_context.S — 4 arches, save/restore	written, coherent, kernel-thread semantics
+arch_context_init — 4 arches	written, all fill kernel-mode values
+user-mode spsr/cpsr/sstatus variant	to add — 4 small edits
+exception-return path (eret/sret/movs/iretq)	to add — 4 small edits
+vector table + VBAR_EL1	unverified — arch_irq.S
+svc registration	API exists (uiox_kix_psa_intr_register)
+ELF loader — map 2 segments, zero 0x800828, stack	to write
+uios_apps.c → start app_shell	to write
+Eight small edits across 10_BSP/10_Arch/, then the loader is the only new code. And the whole thing is now specified: 0x400000 entry, 0x3320 text R+E with PTE_USER, 0x413320/0x8009a8 data RW with PTE_USER|PTE_WRITE, 4096-byte pages from uiox_phys_alloc.c, pc_user filled, sc_switch set by the user-mode init, and eret to fire it.
+
+One last note on the earlier correction: my three wrong "it's missing" calls all came from grepping for aarch64 vocabulary in other arches' files. The files were there and complete throughout. What they actually told us — that they're kernel-thread switches — I could only see by reading the tails, which is where the answer lived all along.
+===================eight was my count of the table rows, and I labelled it badly. Four of those rows are already done; the work is smaller and more specific than "8."
+
+What's actually left, itemised
+In 10_BSP/10_Arch/ — per arch, 4 arches × 2 edits = 8 edits, but only 2 distinct changes:
+
+#	Change	Files touched
+1	A user-mode context-init variant — the mode value swapped from kernel to user	arm64/src/arch_context.S, riscv64/…, arm32/…, x86_64/…
+2	An exception-return entry path that actually consumes that mode value	same four files
+So "8 small edits" = change 1 in four files plus change 2 in four files. Two ideas, four transcriptions each.
+
+In the kernel/loader — 2 things to write:
+
+#	Change	Where
+3	Vector table + VBAR_EL1 install; register svc via uiox_kix_psa_intr_register	10_BSP/10_Arch/arm64/src/arch_irq.S + init
+4	The ELF loader — map 2 segments, zero 0x800828, allocate stack, fill pc_user, set sc_switch	50_UIX/20_uios/
+5	uios_apps.c reads app_shell and calls the loader	50_UIX/20_uios/
+Already done, no work needed: the save/restore sequences in all four arch_context.S files, the arch_context_t layout, the ctx API in 40_psa, the page geometry and PTE flags in uiox_kix_pagemap.h, uiox_phys_alloc.c, uiox_kix_page_fault.c, and the uix_tcgetattr stub seeing the shell through termios.
+
+The one path worth taking first
+Item 3 is the real unknown, and it's the one that decides whether items 4 and 5 are testable:
+
+sh
+
+
+grep -n 'VBAR\|vbar_el1\|vector\|eret\|SAVE_REGS' 10_BSP/10_Arch/arm64/src/arch_irq.S 10_BSP/10_Arch/arm64/src/arch_init.c | head -30
+If arch_irq.S has the vector table and a SAVE_REGS macro but no eret on the way out, that's the same gap as arch_context.S — the return path missing while the save path is complete. If it has neither, the vector table is new code.
+
+Either way it's the prerequisite: an eret into the shell with no vector table installed means the first uix_write's svc goes to a zero vector, and you get an exception you can't handle rather than a prompt.
+
+A note on the corrections
+Across the last several turns I made three "it's missing" calls that were wrong — the eret in 30_KIX (it was in 10_BSP), the riscv64/arm32 switches (they were 87–89 lines, my grep used aarch64 vocabulary), and the same again on the return instructions. Each came from treating an empty grep as absence when the pattern didn't match the thing being searched.
+
+What the real reading showed is more useful than any of those guesses: all four arches have complete, coherent kernel-thread switches, deliberately written for the scheduler's thread-to-thread case, and none of them can lower privilege level because that isn't what they were built for. That's not four defects. It's one layer with one scope, and the userland entry is a second path beside it — which is exactly what items 1 and 2 are.
