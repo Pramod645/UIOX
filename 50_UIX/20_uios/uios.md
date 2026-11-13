@@ -623,3 +623,30 @@ A note on the corrections
 Across the last several turns I made three "it's missing" calls that were wrong — the eret in 30_KIX (it was in 10_BSP), the riscv64/arm32 switches (they were 87–89 lines, my grep used aarch64 vocabulary), and the same again on the return instructions. Each came from treating an empty grep as absence when the pattern didn't match the thing being searched.
 
 What the real reading showed is more useful than any of those guesses: all four arches have complete, coherent kernel-thread switches, deliberately written for the scheduler's thread-to-thread case, and none of them can lower privilege level because that isn't what they were built for. That's not four defects. It's one layer with one scope, and the userland entry is a second path beside it — which is exactly what items 1 and 2 are.
+==============================================================================
+Stage	State
+Pack a binary → .upkg	✅ mk_uix_pkg.sh
+.upkg set → store.img	✅ mk_uix_pkg_all.sh
+store.img → uix_pkg.o → kernel	✅ 30_KIX/Makefile:376,388
+Kernel reads it into UNFS	✅ uiox_fs_populate.c
+Region machinery (alg 3/4/5/6/7/8/9)	✅ live, @version 1.0.0
+readi / readi_at from 01_fsa	✅ readwrite.c:104,153
+loadreg — frames + readi + PTE_VALID per page	✅ live — the commented one is the stub
+pfd_kva, FRAME_ADDR, alloc/free_physical_page	✅ present
+r_pgtbl walked by vfault	✅ page_fault.c:193,204
+UIOX_KIX_PSA_REG_TEXT/DATA/STACK = 1/2/3	✅ psa_region.h:52-54
+UIOX_KIX_PSA_PTE_WRITE = 0x002	✅
+pc_user / pc_regs / sc_switch	⚠️ union members of proc_context, not sys_context
+arch_context_init(ctx, entry, sp, arg)	✅ uiox_pcs_init.c:262
+namei signature	✅ namei.h:199 — (path, cwd, uid, gid) → InCoreInode *
+Load the ELF and eret	❌ the only gap
+==========================================
+
+The order from here
+#	Item	Where	Size
+1	Fix uiox_kix_scpcs_exec — drop the pc_user block, cast ip, fill sc_switch + the process's entry frame	33_PCS/50_scpcs/src/	1 edit
+2	Real syscall_dispatch with case SYS_EXECV	same directory	~40 lines
+3	User-mode mode value + exception return, four arches	10_BSP/10_Arch/*/src/arch_context.S	8 small edits
+4	uios_apps.c → uix_execv(...)	50_UIX/20_uios/	1 call
+
+Items 1 and 2 are independent of 3, and 3 is what decides whether a prompt proves anything. Add the first-byte print in the router's fd 1 path before 3 — otherwise EL0 and EL1 look identical from outside.
