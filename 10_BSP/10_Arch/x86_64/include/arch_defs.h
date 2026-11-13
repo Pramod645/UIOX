@@ -88,8 +88,10 @@
 /* ── GDT / IDT segment selectors ─────────────────────────────────── */
 #define SEG_KERN_CODE           0x08U
 #define SEG_KERN_DATA           0x10U
-#define SEG_USER_CODE           0x18U
-#define SEG_USER_DATA           0x20U
+//#define SEG_USER_CODE           0x18U
+#define SEG_USER_CODE | 3  =  0x18 | 3  =  0x1B
+//#define SEG_USER_DATA           0x20U
+#define SEG_USER_DATA | 3  =  0x20 | 3  =  0x23
 #define SEG_TSS                 0x28U
 
 /* ── Port I/O helpers ─────────────────────────────────────────────── */

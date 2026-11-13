@@ -1,5 +1,5 @@
 /*
- * 40_SystemCallInterface/uix_archSysCall.c
+ * 30_KIX/common/uiox_kix_router.c
  *
  * System Call Interface — the THIN LAYER.
  *
@@ -247,12 +247,35 @@ int uiox_console_write(const void *buf, uiox_uint32_t count);
      * The line editing is the kernel discipline's: canon_feed() runs
      * ERASE, KILL, VEOF and ECHO inside uiox_uart_if_read(), so a
      * userspace shell gets a whole line and no editor of its own. */
-     if(a0 <= 2u) {
-         if (nr == SYS_READ)
-             return (uiox_int64_t)uiox_console_readline((void *)a1, (uiox_uint32_t)a2);
-         if (nr == SYS_WRITE)
-            return (uiox_int64_t)uiox_console_write((const void *)a1, (uiox_uint32_t)a2);
-     }
+    if(a0 <= 2u) {
+        /* ── the first trap, made visible ───────────────────────────
+         * EL0 and EL1 produce the SAME prompt and the SAME build, so
+         * nothing else can tell you whether the arch files' spsr /
+         * sstatus / cpsr values took effect.  THIS branch is reachable
+         * only through an svc from userland — the number came out of a
+         * register — so one line here is the proof the trap fired.
+         *
+         * uiox_console_write is already called two lines below, so the
+         * symbol and its include are in scope and it cannot recurse
+         * back into syscall_dispatch.
+         *
+         * Remove once the boot is trusted: it proves one thing, once. */
+        {
+            static int shown = 0;
+            if (!shown && nr == SYS_WRITE) {
+                static const char tag[] =
+                    "[scix] svc reached the kernel — EL0\r\n";
+                shown = 1;
+                return (uiox_int64_t)uiox_console_write(
+                           tag, (uiox_uint32_t)(sizeof(tag) - 1u));
+            }
+        }
+
+        if (nr == SYS_READ)
+            return (uiox_int64_t)uiox_console_readline((void *)a1, (uiox_uint32_t)a2);
+        if (nr == SYS_WRITE)
+           return (uiox_int64_t)uiox_console_write((const void *)a1, (uiox_uint32_t)a2);
+    }
 
      /* ── file system ────────────────────────────────────────────── */
      if (scfs_owns(nr))

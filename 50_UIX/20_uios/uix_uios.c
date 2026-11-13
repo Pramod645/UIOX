@@ -34,9 +34,21 @@ static uix_pid_t start_app(uios_app_t *a)
         char *argv[] = { (char *)a->ua_path, (char *)0 };
 
         apply_policy(sys_getpid(), a->ua_policy, a->ua_priority);
-        sys_execve(a->ua_path, argv, (char *const *)0);
 
-        sys_exit(127);          /* execve returned — it failed */
+        /* sys_execv → SYS_EXECV = 250, the number the kernel dispatch
+         * handles (uiox_kix_scpcs_dispatch.c:605, and
+         * uiox_kix_scpcs_numbers.h:51).
+         *
+         * sys_execve sends SYS_EXECVE = 340 (uix_sys.h:275, wrapper
+         * :620), which has NO case in that table — the trap falls to
+         * `default:` and returns -1.  Two names, one letter apart, two
+         * different numbers. */
+        sys_execv(a->ua_path, argv);
+
+        sys_exit(127);          /* execv returned — it failed */
+        //sys_execve(a->ua_path, argv, (char *const *)0);
+
+        //sys_exit(127);          /* execve returned — it failed */
     }
 
     if (pid > 0)

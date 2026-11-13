@@ -42,5 +42,5 @@ uios_app_t g_apps[UIOS_MAX_APPS] = {
     { "memtest", "/bin/app_memtest",     0,  0, UIOS_RUN_ONCE,    UIOS_NO_DEP,     -1, -1, 0, 0 },
     { "sigtest", "/bin/app_sigtest",     0,  0, UIOS_RUN_ONCE,    UIOS_NO_DEP,     -1, -1, 0, 0 },
     { "clocktest","/bin/app_clocktest",  0,  0, UIOS_RUN_ONCE,    UIOS_NO_DEP,     -1, -1, 0, 0 },
-    { "shell",   "/bin/app_shell",       0,  0, UIOS_RESTART_CR,  UIOS_NO_DEP,     -1, -1, 0, 0 },
+    { "shell",   "/pkg/app_shell.upkg",  0,  0, UIOS_RESTART_CR,  UIOS_NO_DEP,     -1, -1, 0, 0 },
 };

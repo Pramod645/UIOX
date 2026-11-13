@@ -80,6 +80,28 @@
 #include "inode.h"
 #include "namei.h"
 #include "uiox_boot_handoff.h"   /* uiox_elf64_ehdr_t, PT_LOAD, PF_W */
+/* ── the .upkg wrapper ────────────────────────────────────────────────
+ * uiox_pkg_hdr_t is __attribute__((packed)) (uiox_pkg_types.h:119-136),
+ * so the offsets are the field sizes with no padding between them:
+ *
+ *      0  magic               4  format_version
+ *      8  name   [48]        56  desc   [128]
+ *    184  arch   [16]       200  url    [128]
+ *    328  version          332  installed_size
+ *    336  archive_size     340  sha256 [32]
+ *    372  num_deps         376  num_files
+ *    380  dep_offset       384  file_offset
+ *    388  data_offset      ← the payload
+ *    392  _pad   [24]
+ *         ──────────────
+ *         total 416
+ *
+ * The _pad[24] comment says "Pad to 512-byte alignment".  It does not:
+ * 392 + 24 = 416, which is the HDR_SIZE mk_uix_pkg.sh already measures. */
+#define PKG_MAGIC              0x55504B47u   /* 'UPKG' little-endian */
+#define PKG_FORMAT_VERSION     0x00010000u
+#define PKG_HDR_DATA_OFFSET    388u
+#define PKG_HDR_SIZE           416u
 
 /* ── readi's prototype ───────────────────────────────────────────────
  * readwrite.h reaches inode.h -> buffer.h -> bcache.h; dragging that
@@ -88,6 +110,10 @@
  * 32_FS/01_fsa/include/readwrite.h:27 and its first parameter is
  * InCoreInode *, which void * accepts. */
 int32_t readi(void *ip, char *kbuf, uint32_t count, uint32_t *off);
+
+/* Defined below; declared here because the loader calls it before its
+ * definition. */
+static int pkg_payload(InCoreInode *iip, uint32_t *elf_off);
 
 /* Largest path accepted, NUL included. */
 #define EXECVE_PATH_MAX   512u
@@ -294,7 +320,8 @@ static int zero_tail(uiox_kix_psa_pregion_t *prp, uint64_t filesz,
  * Returns 0 on success, -1 otherwise. */
 static int load_one_segment(InCoreInode *ip,
                             uiox_kix_psa_proc_t *proc,
-                            const uiox_elf64_phdr_t *ph)
+                            const uiox_elf64_phdr_t *ph,
+                            uint32_t base)
 {
     uiox_kix_psa_region_type_t type;
     uiox_kix_psa_region_t      *rp;
@@ -322,8 +349,12 @@ static int load_one_segment(InCoreInode *ip,
         /* loadreg grows the region -- allocating r_pgtbl and recomputing
          * r_npages -- then allocates a frame per page and reads the file
          * into each.  REG_VALID only when every byte arrived. */
+        /* base is added to p_offset: a segment's file offset is
+         * relative to the START OF THE ELF, which is base bytes into
+         * the archive.  Without it every segment is read out of the
+         * .upkg header and the image executes garbage. */
         uiox_kix_psa_loadreg(prp, (uintptr_t)ph->p_vaddr, (struct inode *)ip,
-                             (uint32_t)ph->p_offset,
+                             base + (uint32_t)ph->p_offset,
                              (uint32_t)ph->p_filesz);
 
         if (!(rp->r_status & UIOX_KIX_PSA_REG_VALID)) return -1;
@@ -338,7 +369,7 @@ static int load_one_segment(InCoreInode *ip,
 /* ── load_segments ──────────────────────────────────────────────────
  * Walk the program headers and load every PT_LOAD. */
 static int load_segments(InCoreInode *ip, uiox_kix_psa_proc_t *proc,
-                         const uiox_elf64_ehdr_t *eh)
+                         const uiox_elf64_ehdr_t *eh, uint32_t base)
 {
     uint32_t i;
 
@@ -357,7 +388,9 @@ static int load_segments(InCoreInode *ip, uiox_kix_psa_proc_t *proc,
         if ((uint32_t)i > ((0xFFFFFFFFu - (uint32_t)eh->e_phoff)
                            / (uint32_t)eh->e_phentsize)) return -1;
 
-        off = (uint32_t)eh->e_phoff
+        /* base is added HERE, not in the bound above: that bound is
+         * computed on the un-based e_phoff, so it stays conservative. */
+        off = base + (uint32_t)eh->e_phoff
               + (uint32_t)i * (uint32_t)eh->e_phentsize;
 
         if (readi(ip, (char *)&ph, (uint32_t)sizeof(ph), &off)
@@ -365,7 +398,7 @@ static int load_segments(InCoreInode *ip, uiox_kix_psa_proc_t *proc,
 
         if (ph.p_type != PT_LOAD) continue;
 
-        if (load_one_segment(ip, proc, &ph) != 0) return -1;
+        if (load_one_segment(ip, proc, &ph, base) != 0) return -1;
     }
 
     return 0;
@@ -374,6 +407,7 @@ static int load_segments(InCoreInode *ip, uiox_kix_psa_proc_t *proc,
 int64_t uiox_kix_scpcs_execve(uiox_uintptr_t path, uiox_uintptr_t argv,
                               uiox_uintptr_t envp)
 {
+    uint32_t               base;
     char                   kpath[EXECVE_PATH_MAX];
     uiox_elf64_ehdr_t      eh;
     uiox_kix_psa_proc_t   *proc;
@@ -408,10 +442,23 @@ int64_t uiox_kix_scpcs_execve(uiox_uintptr_t path, uiox_uintptr_t argv,
         return SCPCS_ENOENT;
     }
 
+    /* ── is the file a .upkg wrapper or a bare ELF? ─────────────────
+     * An app on the volume is a PACKAGE: uiox_fs_populate.c:219 writes
+     * every <name>.upkg into pkgdir (PKG_DIR_NAME "pkg"), so the image
+     * begins at uiox_pkg_hdr_t.data_offset — byte 388 — not byte 0.
+     *
+     * pkg_payload returns 0 and sets base for a package, -1 for a bare
+     * ELF, so base stays 0 and every read below is unchanged for a plain
+     * image. */
+    base = 0u;
+    (void)pkg_payload(iip, &base);
+
     /* 4. READ the header, then test what was read.  This is the step
      *    the stub faked: the magic is compared against bytes that came
      *    off the volume, not bytes written into this structure. */
-    off = 0u;
+    /* off starts at base, not 0: for a package the ELF begins after the
+     * .upkg header, and byte 0 holds 'UPKG' instead of 0x7F. */
+    off = base;
     if (readi(iip, (char *)&eh, (uint32_t)sizeof(eh), &off)
             != (int32_t)sizeof(eh)) {
         iput(iip); iput(root);
@@ -426,7 +473,7 @@ int64_t uiox_kix_scpcs_execve(uiox_uintptr_t path, uiox_uintptr_t argv,
     /* 5. one region per PT_LOAD, unwound on failure */
     g_exec_added_n = 0u;
 
-    if (load_segments(iip, proc, &eh) != 0) {
+    if (load_segments(iip, proc, &eh, base) != 0) {
         attach_failed();
         iput(iip); iput(root);
         return SCPCS_ENOEXEC;
@@ -458,4 +505,23 @@ int64_t uiox_kix_scpcs_execve(uiox_uintptr_t path, uiox_uintptr_t argv,
     iput(root);
 
     return SCPCS_EOK;
+}
+static int pkg_payload(InCoreInode *iip, uint32_t *elf_off)
+{
+    uint32_t magic = 0u, ver = 0u, data_off = 0u, off;
+
+    off = 0u;
+    if (readi(iip, (char *)&magic, 4u, &off) != 4) return -1;
+    if (magic != PKG_MAGIC) return -1;
+
+    off = 4u;
+    if (readi(iip, (char *)&ver, 4u, &off) != 4) return -1;
+    if (ver != PKG_FORMAT_VERSION) return -1;
+
+    off = PKG_HDR_DATA_OFFSET;
+    if (readi(iip, (char *)&data_off, 4u, &off) != 4) return -1;
+    if (data_off < PKG_HDR_SIZE) return -1;
+
+    *elf_off = data_off;
+    return 0;
 }

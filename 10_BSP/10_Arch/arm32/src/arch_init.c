@@ -23,7 +23,7 @@
  *   uiox_kernel_main() → arch_init() → uiox_soc_init()
  */
 
- #include "arch_defs.h"
+ #include "arch_defs.h"     /* SEG_USER_CODE, SEG_USER_DATA */
  #include "hw_types.h"   // resolved via -I<arch>/include (already in Makefile)
 #include "mmio.h"
 #include "irq.h"
