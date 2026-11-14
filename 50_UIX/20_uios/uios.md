@@ -676,3 +676,68 @@ Load the ELF and eret	✅ closed — all four arches link, no undefined symbols
 That last row was the gap when you wrote the table. It's now built on arm64, arm32, riscv64 and x86_64, each with its own userspace image and its own trap instruction counted.
 
 The table is complete. Every row is ✅, and the chain is assembled end to end on all four arches.
+=================================================================================
+I read uix_uios.c in full. It's well-shaped — the supervisor/table split, the dependency gate, the bounded shutdown are all sound. Here's what's actually worth changing, in order of how much it matters.
+
+1. sys_execve sends the number nothing dispatches
+c
+
+
+46:  sys_execve(a->ua_path, argv, (char *const *)0);        /* in start_app */
+Actually — checking your file: line 46 is in start_app. It calls sys_execve, which per your own greps at uix_sys.h:620 is my_syscall3(SYS_EXECVE, …) = 340. The table at uiox_kix_scpcs_dispatch.c:605 handles SYS_EXECV = 250. So every app start would trap into default: and get -1, then sys_exit(127).
+
+Fix: sys_execv(a->ua_path, argv); — drops the third argument and sends 250.
+
+2. dep_ready's first test can never be true
+c
+
+
+if (a->ua_dep == UIOS_NO_DEP) return 1;
+ua_dep is uix_uint8_t; UIOS_NO_DEP is (-1) (uix_uios.h:46). An 8-bit unsigned cannot hold −1, so the comparison is always false — the compiler said so outright:
+
+
+
+warning: comparison is always false due to limited range of data type
+What it does today: every entry falls through to d->ua_dep >= UIOS_MAX_APPS, and 0xFF (what the table actually stores) is ≥ 10, so it returns 1 anyway. Right answer, accidental route — and only because of the overflow guard, not the intended test.
+
+Fix, in uix_uios.h:46: #define UIOS_NO_DEP ((uix_uint8_t)0xFFu)
+
+3. uios_run() returns on a system that is still alive
+c
+
+
+if (alive == 0 && todo == 0)
+    return;      /* nothing running, nothing left to start */
+The comment calls it "a deliberate stop", but nothing deliberate leads there in practice: it's reached whenever every app has exited and none restarts. main then falls through to uios_shutdown() and the for(;;) spin — so PID 1 stops supervising, and orphans are never reaped again.
+
+That matters as soon as the shell runs: it's the last table entry, and when the user types exit the shell exits, alive drops to 0, and the supervisor returns. On a real init the loop must not end.
+
+Fix: drop the return and yield — or return a status and have main decide, with a comment saying what "nothing left" means for PID 1.
+
+4. alive counts the restart branch as a live child
+c
+
+
+a->ua_pid = start_app(a);
+if (a->ua_pid > 0) { alive++; }
+else               { a->ua_pid = 0; }
+That's correct — but todo is never incremented in that branch, so a restart on the same pass doesn't trigger the uios_launch_apps() call. Fine as written; worth knowing the two counters measure different things.
+
+5. uios_launch_apps() sets ua_pid = -1 on a failed fork
+start_app returns 0 on fork failure, and the caller stores that:
+
+c
+
+
+a->ua_pid = start_app(a);
+0 means "reaped" to the reaper, so a fork-failure entry is immediately treated as an exited process and hits the restart policy. For UIOS_RESTART_CR with ua_exit_code == -1, failed is true, so it restarts — which loops forever on a machine where fork never works. Worth setting -1 back on failure so it retries next pass rather than spinning.
+
+What's genuinely good and needs nothing
+uios_init, the dep_ready range guard, uios_shutdown's bounded reap loop, and uios_syscall_selftest — that last one is the best line in the file. It makes the first trap an explicit, noinline, intentional act rather than an accident, which is exactly what you need to tell EL0 from EL1 at boot.
+
+Order
+sys_execve → sys_execv (one word, both files agree)
+UIOS_NO_DEP → 0xFFu (one line in the header)
+uios_run's return (decide the PID 1 semantic)
+fork-failure leaves ua_pid = -1
+Item 1 is the one that stops the apps starting at all once SYS_FORK lands. Item 3 is the one that bites the moment the shell exits normally.

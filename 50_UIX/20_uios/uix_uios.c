@@ -99,12 +99,30 @@ void uios_launch_apps(void)
         if (a->ua_pid != -1) continue;      /* running, or already reaped */
         if (!dep_ready(a))   continue;      /* prerequisite not up yet    */
 
-        a->ua_pid = start_app(a);
-        if (a->ua_pid > 0)
-            a->ua_ticks = 0;
+        //a->ua_pid = start_app(a);
+        //if (a->ua_pid > 0)
+        //    a->ua_ticks = 0;
         /* start_app returning 0 means fork failed.  ua_pid becomes 0,
          * which the loop below treats as "not running" — see the
          * fork-failure branch there. */
+                /* ── fork failed ─────────────────────────────────────────────
+         * start_app returns 0 for "fork failed", and 0 means REAPED to
+         * the reaper.  Storing it would make a failed fork look like an
+         * exited process: for a UIOS_RESTART_CR entry ua_exit_code is
+         * still -1, so `failed` is true and it would restart on every
+         * pass — an infinite loop on a machine where fork never works.
+         *
+         * -1 means "idle, never started", so leaving it there retries
+         * on the next pass instead of spinning.  When SYS_FORK lands
+         * this branch stops being reachable in practice; it is here so
+         * that a fork that cannot work reports once per pass rather
+         * than forever. */
+        a->ua_pid = start_app(a);
+        if (a->ua_pid > 0)
+            a->ua_ticks = 0;
+        else
+            a->ua_pid = -1;
+
     }
 }
 
@@ -139,7 +157,7 @@ void uios_run(void)
                     a->ua_pid    = start_app(a);
                     a->ua_ticks  = 0;
                     if (a->ua_pid > 0) { alive++; }
-                    else               { a->ua_pid = 0; }
+                    else               { a->ua_pid = -1; }
                 }
                 continue;
             }
@@ -162,9 +180,21 @@ void uios_run(void)
             }
         }
 
+        //if (alive == 0 && todo == 0)
+           // return;                      /* nothing running, nothing left to
+         //                                 * start — a deliberate stop */
+                /* ── nothing is running and nothing is left to start ─────────
+         * This is NOT a reason for PID 1 to stop.  The shell is the last
+         * table entry; when the user types `exit` it exits, alive drops
+         * to 0, and returning here would end supervision — leaving
+         * nothing to reap orphans or respawn a service, which the file
+         * header says PID 1 must never do.
+         *
+         * So keep looping.  Yield first: with nothing runnable the
+         * scheduler has no other candidate, and a tight spin here would
+         * be the one place init burns the CPU. */
         if (alive == 0 && todo == 0)
-            return;                      /* nothing running, nothing left to
-                                          * start — a deliberate stop */
+            sys_sched_yield();
 
         /* start anything that became eligible this pass */
         if (todo) uios_launch_apps();
