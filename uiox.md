@@ -713,3 +713,4 @@ riscv64: $(RISCV64_SRCS)
     └── src/
         ├── arch_init.c            ← NEW: PLIC+UART+timer+VirtIO IRQ setup
         └── uiox_soc_riscv64_init.c ← NEW: medeleg/mideleg, SiFive L2, CLINT multi-hart
+=====================================================================================

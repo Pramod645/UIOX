@@ -741,3 +741,16 @@ UIOS_NO_DEP → 0xFFu (one line in the header)
 uios_run's return (decide the PID 1 semantic)
 fork-failure leaves ua_pid = -1
 Item 1 is the one that stops the apps starting at all once SYS_FORK lands. Item 3 is the one that bites the moment the shell exits normally.
+=================================================
+A rough order after that
+
+
+1. SYS_FORK  (task table, pid, dupreg wiring)
+2. SYS_EXIT + SYS_WAIT4       ← otherwise the reaper can't work
+3. SYS_KILL + signal delivery
+4. sched_yield / setscheduler with real tasks
+5. driver probing (uioxdssinit's missing caller)
+6. a mount table API, so /proc and a second volume are possible
+Items 1–3 are what turn uios_apps.c from a description into a running system. Items 4–6 are what make it a usable one rather than a boot demo.
+
+One thing I'd note: the tree is unusually honest about its own gaps — uios_apps.c says its paths aren't on the volume yet, uiox_kix_psa_region.h refuses to mark pages VALID it hasn't read, uiox_kix_router.c names what's unimplemented. That's worth keeping as you fill these in; it's the reason this list could be assembled at all.
