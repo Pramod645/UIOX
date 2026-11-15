@@ -12,7 +12,7 @@
  { uint8_t *p=(uint8_t*)d;while(n--)*p++=(uint8_t)v; }
  static void nfs_memcpy(void *d,const void *s,size_t n)
  { uint8_t *dp=(uint8_t*)d;const uint8_t *sp=(const uint8_t*)s;while(n--)*dp++=*sp++; }
- static size_t nfs_strlen(const char *s){size_t n=0;while(*s++)n++;return n;}
+ __attribute__((unused)) static size_t nfs_strlen(const char *s){size_t n=0;while(*s++)n++;return n;}
  static void nfs_strncpy(char *d,const char *s,size_t n)
  { size_t i=0;while(i<n-1&&s[i]){d[i]=s[i];i++;}d[i]='\0'; }
  

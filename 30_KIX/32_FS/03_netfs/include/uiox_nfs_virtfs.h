@@ -13,6 +13,8 @@
  #define UIOX_NFS_VIRTFS_H
  
  #include "uiox_nfs_types.h"
+ #include "uiox_nfs_proto.h"     /* uiox_nfs3_readdir_cb_t (uiox_nfs_proto.h:102) */
+
  
  #ifdef __cplusplus
  extern "C" {

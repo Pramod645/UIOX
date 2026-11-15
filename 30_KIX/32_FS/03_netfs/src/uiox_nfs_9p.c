@@ -6,7 +6,7 @@
 
  #include "../include/uiox_nfs_9p.h"
 
- static void p9_memset(void *d,int v,size_t n)
+ __attribute__((unused)) static void p9_memset(void *d,int v,size_t n)
  { uint8_t *p=(uint8_t*)d;while(n--)*p++=(uint8_t)v; }
  static void p9_memcpy(void *d,const void *s,size_t n)
  { uint8_t *dp=(uint8_t*)d;const uint8_t *sp=(const uint8_t*)s;while(n--)*dp++=*sp++; }
@@ -30,7 +30,7 @@
      return pos;
  }
  
- static uint32_t p9_dec_str(const uint8_t *buf, uint32_t pos, char *out, uint32_t max)
+ __attribute__((unused)) static uint32_t p9_dec_str(const uint8_t *buf, uint32_t pos, char *out, uint32_t max)
  {
      uint16_t len = rl16(buf+pos); pos += 2u;
      uint32_t copy = (len < max-1u) ? len : max-1u;
@@ -217,6 +217,7 @@
                                   uint32_t perm, uint8_t mode,
                                   uint32_t *new_fid)
  {
+    (void)dir_fid;
      /* Walk to dir, then TCREATE on the cloned fid */
      uint32_t cfid = uiox_9p_alloc_fid(ctx);
      uint32_t pos = 7u;

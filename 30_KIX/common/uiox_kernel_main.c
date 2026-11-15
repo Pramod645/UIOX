@@ -110,6 +110,9 @@
 #include "unfs_format.h"                          /* UNFS_GROUP0_PKG_INDEX */
 
 #include "uiox_devclass.h"
+
+#include "uiox_nfs_vfs.h"
+
 /*
  * Static build only: forward-declare the two BSP symbols we need without
  * including uiox_bsp.h (which conflicts with the headers above).
@@ -235,6 +238,7 @@ void uiox_sec_init(void)
     early_puts("[kernel]   uiox_sec_init: stub (33_PCS/05_sec not built)\r\n");
 }
 extern int uiox_fs_init(void);
+extern uiox_nfs_err_t uiox_nfs_vfs_init(void);
 //__attribute__((weak))
 //int uiox_fs_init(void)
 //{
@@ -425,6 +429,20 @@ static void __attribute__((noreturn)) kernel_common_init(void)
      *        succeeds whether or not 32_FS is in this build. */
     early_puts("[kernel] uiox_fs_init()...\r\n");
     (void)uiox_fs_init();
+
+    /* ── network filesystem ──────────────────────────────────────────
+     * 32_FS/03_netfs is compiled into libfs.a and named in this file's
+     * own header comment at :73, but NOTHING reached it — its only
+     * caller was uiox_netfs_demo.c:80.  Same shape uiox_dss_init was in.
+     *
+     * Safe to wire now: the mount layer selects its protocol at runtime
+     * from uiox_nfs_mount_params_t.type (uiox_nfs_vfs.c:65), so this
+     * does not bake a choice — the choice is made per mount.
+     *
+     * Non-fatal like uiox_fs_init() above: a machine with no network
+     * still reaches the console and the local package store. */
+    early_puts("[kernel] uiox_nfs_vfs_init()...\r\n");
+    (void)uiox_nfs_vfs_init();
 
     /* 33_PCS — scheduler, process table, security, live patching */
     early_puts("[kernel] uiox_proc_init()...\r\n");

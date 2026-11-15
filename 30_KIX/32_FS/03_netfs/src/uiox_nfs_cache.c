@@ -10,7 +10,7 @@
  
  static void c_memset(void *d,int v,size_t n)
  { uint8_t *p=(uint8_t*)d;while(n--)*p++=(uint8_t)v; }
- static void c_memcpy(void *d,const void *s,size_t n)
+ __attribute__((unused)) static void c_memcpy(void *d,const void *s,size_t n)
  { uint8_t *dp=(uint8_t*)d;const uint8_t *sp=(const uint8_t*)s;while(n--)*dp++=*sp++; }
  
  /* Simple FNV-1a hash of FH bytes */

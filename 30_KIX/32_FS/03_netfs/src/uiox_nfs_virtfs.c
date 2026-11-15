@@ -36,6 +36,7 @@
  static uiox_nfs_err_t fuse_submit(uiox_virtfs_ctx_t *ctx,
                                      uint32_t req_len)
  {
+     (void)req_len;
      /* Ring TX doorbell queue 0 */
      vw(ctx->mmio_base, VIRTIO_FS_MMIO_QUEUE_NOTIFY, 0u);
      /* Busy-wait for reply (real driver uses virtqueue completion) */

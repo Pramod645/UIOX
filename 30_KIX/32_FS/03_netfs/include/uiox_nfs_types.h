@@ -12,9 +12,11 @@
  #ifndef UIOX_NFS_TYPES_H
  #define UIOX_NFS_TYPES_H
  
- #include <stdint.h>
- #include <stdbool.h>
- #include <stddef.h>
+ /* The kernel build has -nostdinc, so <stdint.h> resolves to nothing.
+ * Types come from the tree's own header, the way uix_uios.h does it. */
+ #include "uiox_base_types.h"
+ #include "uiox_klibc.h"
+
  
  #ifdef __cplusplus
  extern "C" {

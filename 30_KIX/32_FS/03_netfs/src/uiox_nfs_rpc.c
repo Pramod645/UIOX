@@ -28,7 +28,7 @@
  void uiox_xdr_init_dec(uiox_xdr_t *x, uint8_t *buf, uint32_t size)
  { x->data=buf; x->size=size; x->pos=0u; x->error=false; }
  
- static void xdr_align(uiox_xdr_t *x, uint32_t n)
+ __attribute__((unused)) static void xdr_align(uiox_xdr_t *x, uint32_t n)
  {
      uint32_t pad = (4u - (n % 4u)) % 4u;
      if (x->pos + n + pad > x->size) { x->error=true; return; }
