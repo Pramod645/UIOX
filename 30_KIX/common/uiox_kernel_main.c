@@ -112,6 +112,16 @@
 #include "uiox_devclass.h"
 
 #include "uiox_nfs_vfs.h"
+#include "uiox_netif.h"     /* uiox_netif_find, uiox_netif_t */
+#include "uiox_nfs_vfs.h"   /* already there from the init */
+
+//#include "uiox_kix_scpcs.h"          /* uiox_kix_scpcs_clock_get_time */
+//#include "uiox_kix_time_service.h"   /* UIOX_CLOCK_MONOTONIC */
+/* Declared here rather than by including uiox_kix_scpcs.h: that header
+   pulls uiox_kix_psa_process.h, which pulls more of 40_psa's include
+   tree — several directories on the kernel path for one prototype. */
+ extern int64_t uiox_kix_scpcs_clock_get_time(uiox_uint64_t clock_id,uiox_uintptr_t out);
+
 
 /*
  * Static build only: forward-declare the two BSP symbols we need without
@@ -384,6 +394,16 @@ static int kernel_arch_init(void)
     return arch_init();
 #endif
 }
+/* scpcs packs (ns << 32 | sec); the cache wants plain milliseconds. */
+static uint64_t netfs_uptime_ms(void)
+{
+    uint64_t packed = 0;
+    //(void)uiox_kix_scpcs_clock_get_time(UIOX_CLOCK_MONOTONIC,
+    //                                    (uiox_uintptr_t)&packed);
+    /* 1 = UIOX_CLOCK_MONOTONIC (uiox_kix_time_service.h) */
+    (void)uiox_kix_scpcs_clock_get_time(1u, (uiox_uintptr_t)&packed);
+    return ((packed & 0xFFFFFFFFull) * 1000ull) + ((packed >> 32) / 1000000ull);
+}
 
 /* =========================================================================
  * Common kernel init — called from every arch entry after boot args saved
@@ -443,6 +463,55 @@ static void __attribute__((noreturn)) kernel_common_init(void)
      * still reaches the console and the local package store. */
     early_puts("[kernel] uiox_nfs_vfs_init()...\r\n");
     (void)uiox_nfs_vfs_init();
+
+        /* ── one mount, so the handshake actually runs ───────────────────
+     * uiox_nfs_vfs_mount() is written and dispatches on params.type
+     * (uiox_nfs_vfs.c:65).  Nothing called it, so neither the 9P nor the
+     * RPC handshake had ever executed.
+     *
+     * net_ctx is the Ethernet device.  uiox_eth_probe.c:47-48 declares
+     * s_eth_hw and s_eth_if as STATIC, so they are not reachable by name
+     * here — the interface is found through the registry it entered at
+     * uiox_eth_probe.c:97.  The name is "eth0" (uiox_eth_probe.c:92).
+     *
+     * Non-fatal, like the init above: a machine with no link should
+     * still reach the console and the local package store. */
+    {
+        uiox_netif_t *nif = uiox_netif_find("eth0");
+
+        if (!nif || !nif->hw) {
+            early_puts("[netfs] no eth0 — mount skipped\r\n");
+        } else {
+            uiox_nfs_mount_params_t mp;
+            uint8_t midx = 0u;
+            uint8_t *pp = (uint8_t *)&mp;
+            uiox_nfs_err_t mrc;
+            size_t i;
+            const char *s;
+
+            /* the zeroing idiom the deleted demo used — v_memset may not
+             * be linked in this translation unit */
+            for (i = 0u; i < sizeof(mp); i++) pp[i] = 0u;
+
+            mp.type       = UIOX_NETFS_9P2000;
+            mp.net_send   = uiox_nfs_net_send;   /* 03_netfs/src/uiox_nfs_transport.c */
+            mp.get_uptime_ms = netfs_uptime_ms;
+            mp.net_recv   = uiox_nfs_net_recv;
+            mp.net_ctx    = nif->hw;             /* uiox_net_dev_t *  (uiox_netif.h:106) */
+            mp.timeout_ms = 5000u;
+            mp.read_only  = true;
+
+            s = "/net";
+            for (i = 0u; s[i]; i++) mp.mount_point[i] = s[i];
+            s = "/";
+            for (i = 0u; s[i]; i++) mp.p9_aname[i] = s[i];
+
+            mrc = uiox_nfs_vfs_mount(&mp, &midx);
+            early_puts("[netfs] mount: ");
+            early_puts(uiox_nfs_err_str(mrc));
+            early_puts("\r\n");
+        }
+    }
 
     /* 33_PCS — scheduler, process table, security, live patching */
     early_puts("[kernel] uiox_proc_init()...\r\n");

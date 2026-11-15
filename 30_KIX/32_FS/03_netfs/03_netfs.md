@@ -159,6 +159,16 @@ Your 10_unfs is unambiguously the first. Netfs's headers (uiox_nfs_attr_t, uiox_
 
 Send the newer doc if it exists, and I'll pin the gap list to what the tree actually decided rather than to a draft its own author has moved past.
 
+==========================
 
+
+Step	State	Notes
+sys_mount to userspace	⬜ next	the wrapper/handler mismatch: 3 args vs 4, fstype is the gap
+50_UIX/01_shell in the kernel build	⬜	skipped (no sources yet) on all four — umbrella glob
+uiox_kernel_main.c:485 + stub at :211	⬜	delete, don't uncomment, under the EL0 design
+kernel_main.c:401-402 dead comment pair	⬜	cleanup, from the clock work
+kernel_main.c:119 time_service.h include	⬜	now unused — makes -I…01_schedular/include optional
+uiox_dss_init → eth_probe → netif_register runtime proof	⬜ deferred	rides along with the boot
+uiox_nfs_vfs_mount — the handshake	⬜ deferred	needs a run; nothing static left to check
 
 

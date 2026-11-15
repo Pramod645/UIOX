@@ -190,6 +190,7 @@ KERNEL_CFLAGS_BASE := \
   -I$(MFDIR)33_PCS/05_sec/include             \
   -I$(MFDIR)33_PCS/06_kpatch/include          \
   -I$(MFDIR)30_DSS/include                    \
+  -I$(MFDIR)30_DSS/20_DD/01_Com/eth           \
   -I$(SOCINC)                                 \
   -I$(MFDIR)../01_uBoot/include               \
   -I$(BSPDIR)/include
@@ -347,7 +348,12 @@ _build_kernel_main:
 	    -I$(MFDIR)32_FS/00_bcache/include \
 	    -I$(MFDIR)32_FS/10_unfs/include \
 	    -I$(MFDIR)32_FS/include \
+		-I$(MFDIR)32_FS/03_netfs/include \
+        -I$(MFDIR)30_DSS/20_DD/01_Com/eth \
+		-I$(MFDIR)30_DSS/10_DI/01_Com/eth \
+		-I$(MFDIR)32_FS/00_drvbuff/01_Com/eth \
 		-I$(MFDIR)33_PCS/50_scpcs/include \
+		-I$(MFDIR)33_PCS/01_schedular/include \
 	    -c $(MFDIR)common/uiox_kernel_main.c \
 	    -o $(_BUILD_DIR)/uiox_kernel_main.o
 	@echo "  [CC]  uiox_kernel_main.c  (BSP_MODE=$(BSP_MODE))"
@@ -360,6 +366,8 @@ _build_kernel_main:
 	    -I$(MFDIR)32_FS/00_bcache/include \
 	    -I$(MFDIR)32_FS/10_unfs/include \
 	    -I$(MFDIR)32_FS/include \
+		-I$(MFDIR)32_FS/03_netfs/include \
+        -I$(MFDIR)30_DSS/20_DD/01_Com/eth \
 		-I$(MFDIR)33_PCS/50_scpcs/include \
 	    -c $(MFDIR)common/uiox_kix_router.c \
 	    -o $(_BUILD_DIR)/uiox_kix_router.o

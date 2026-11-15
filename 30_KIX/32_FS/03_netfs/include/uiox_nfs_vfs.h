@@ -77,6 +77,10 @@
      uiox_nfs_err_t  (*net_recv)(void*, uint8_t*, uint32_t,
                                    uint32_t*, uint32_t);
      void             *net_ctx;
+     /* Monotonic uptime in ms for the attribute cache.  NULL = no clock:
+       the cache then treats every entry as expired rather than hanging. */
+     uint64_t        (*get_uptime_ms)(void);
+
      /* Options */
      bool              read_only;
      uint32_t          timeout_ms;
@@ -132,6 +136,12 @@
  long sys_umount (long tgt, long flags, long a2, long a3);
  long sys_statfs (long path, long buf,  long a2,   long a3);
  
+/* ── transport callbacks (defined in uiox_nfs_transport.c) ─────── */
+uiox_nfs_err_t uiox_nfs_net_send(void *ctx, const uint8_t *data, uint32_t len);
+uiox_nfs_err_t uiox_nfs_net_recv(void *ctx, uint8_t *out, uint32_t cap,
+                                 uint32_t *out_len, uint32_t timeout_ms);
+
+
  #ifdef __cplusplus
  }
  #endif

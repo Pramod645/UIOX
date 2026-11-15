@@ -98,7 +98,8 @@
      if (rc != UIOX_NFS_OK) return rc;
  
      /* Initialise cache (stub uptime — real kernel wires timer here) */
-     uiox_nfs_cache_init(&m->cache, NULL);
+     //uiox_nfs_cache_init(&m->cache, NULL);
+     uiox_nfs_cache_init(&m->cache, p->get_uptime_ms);
  
      m->mounted = true;
      if (mount_idx) *mount_idx = idx;
