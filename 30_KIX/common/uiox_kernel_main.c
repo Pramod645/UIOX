@@ -115,8 +115,6 @@
 #include "uiox_netif.h"     /* uiox_netif_find, uiox_netif_t */
 #include "uiox_nfs_vfs.h"   /* already there from the init */
 
-//#include "uiox_kix_scpcs.h"          /* uiox_kix_scpcs_clock_get_time */
-//#include "uiox_kix_time_service.h"   /* UIOX_CLOCK_MONOTONIC */
 /* Declared here rather than by including uiox_kix_scpcs.h: that header
    pulls uiox_kix_psa_process.h, which pulls more of 40_psa's include
    tree — several directories on the kernel path for one prototype. */

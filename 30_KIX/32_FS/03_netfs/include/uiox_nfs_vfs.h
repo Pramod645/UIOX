@@ -127,9 +127,9 @@
   * Syscall numbers (extension to 40_SystemCallInterface/uix_sys.h)
   * ====================================================================== */
  
- #define SYS_MOUNT      21u
- #define SYS_UMOUNT     52u
- #define SYS_STATFS     99u
+ //#define SYS_MOUNT      21u
+ //#define SYS_UMOUNT     52u
+ //#define SYS_STATFS     99u
  
  /* Syscall handlers */
  long sys_mount  (long src, long tgt, long fstype, long flags);

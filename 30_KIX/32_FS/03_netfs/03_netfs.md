@@ -160,7 +160,19 @@ Your 10_unfs is unambiguously the first. Netfs's headers (uiox_nfs_attr_t, uiox_
 Send the newer doc if it exists, and I'll pin the gap list to what the tree actually decided rather than to a draft its own author has moved past.
 
 ==========================
-
+Step	State
+six sources compile under -Wall -Wextra -Werror	✅
+uiox_nfs_transport.c compiles and archives	✅ all four
+libfs.a contains netfs	✅
+kernels link, no undefined symbols	✅ all four
+uiox_nfs_vfs_init() wired	✅ wired · ⬜ unverified
+uiox_dss_init → eth_probe → netif_register	✅ called · ⬜ unverified
+TX/RX entry points	✅
+VA→PA	✅ identity-mapped
+transport pair	✅
+monotonic clock	✅ landed — field, call site, adapter, assignment all agree
+one uiox_nfs_vfs_mount — the handshake	⬜ next
+sys_mount to userspace	⬜ separate pass
 
 Step	State	Notes
 sys_mount to userspace	⬜ next	the wrapper/handler mismatch: 3 args vs 4, fstype is the gap
@@ -172,3 +184,115 @@ uiox_dss_init → eth_probe → netif_register runtime proof	⬜ deferred	rides 
 uiox_nfs_vfs_mount — the handshake	⬜ deferred	needs a run; nothing static left to check
 
 
+Row	State
+four-arch kernel build	✅ 2d21ad8 · 2c1c288 · 2b18a69 · 2c6c2a5, no undefined symbols
+clean-subsys recipe	✅ fixed — ; do on the list's last line, verified end to end
+34_CAS typo	✅ removed
+30_KIX/Makefile + rebuildkernel.sh cleanup	✅ done
+netfs SYS_* redefinitions	✅ commented out; build unchanged
+sys_mount handler bodies + wrapper arity	⬜ next
+boot	⬜ deferred
+
+
+=======
+
+Table 1 — the netfs build/runtime chain
+Step	State	Everything behind it
+six sources compile under -Wall -Wextra -Werror	✅	mount caller compiles clean
+uiox_nfs_transport.c compiles and archives	✅ all four	in libfs.a on every arch
+libfs.a contains netfs	✅	1,859,632 arm64; sized on the other three
+kernels link, no undefined symbols	✅ all four	2d21ad8 · 2c1c288 · 2b18a69 · 2c6c2a5
+uiox_nfs_vfs_init() wired	✅ wired · ⬜ unverified	uiox_kernel_main.c:445; nothing has run
+uiox_dss_init → eth_probe → netif_register	✅ called · ⬜ unverified	called ≠ reached
+TX/RX entry points	✅	ops->tx_submit, ops->rx_poll
+VA→PA	✅ identity-mapped	holds only while the kernel stays identity-mapped
+transport pair	✅	uiox_nfs_net_send / _recv declared + assigned
+monotonic clock	✅ landed	field uiox_nfs_vfs.h:82, call site :102, adapter :398, assignment :498; code grew on three arches
+one uiox_nfs_vfs_mount — the handshake	⬜ next (needs a run)	statically exhausted — no sleep, bounded retries, params complete
+sys_mount to userspace	⬜ separate pass	now a session, not an edit — see below
+Table 2 — the cleanup/follow-on list
+Step	State	Notes
+sys_mount to userspace	⬜ next	three pieces: 3 dispatch slots at (fn_t)0, no handler bodies, wrapper 3-args vs handler 4-args — fstype is the gap
+netfs SYS_MOUNT/SYS_UMOUNT/SYS_STATFS redefinitions	✅ commented out	uiox_nfs_vfs.h:130-132; 22/63 authoritative
+50_UIX/01_shell in the kernel build	✅ deleted	block removed from rebuildkernel.sh; optional layers line gone from all four runs
+uiox_kernel_main.c:485 + stub at :211	✅ doesn't exist	uioxshellstart is in no revision of the file; :211 today is a fastboot stub
+kernel_main.c:401-402 dead comment pair	✅ done	
+kernel_main.c:119 time_service.h include	✅ done	-I…01_schedular/include now optional
+30_KIX/Makefile header cleanup	✅ done	:17 shell entry + :19-26 move-list corrected
+clean-subsys recipe	✅ fixed and verified	; do on the list's last line; make -C 30_KIX clean ran without the && error
+34_CAS typo	✅ removed	real directory is 34_CSS
+uiox_dss_init → eth_probe → netif_register runtime proof	⬜ deferred	rides along with the boot
+uiox_nfs_vfs_mount — the handshake	⬜ deferred	the only row a build can't answer
+What changed since you wrote these
+Three rows moved, and one was wrong:
+
+The shell row is done, not pending. The optional layers block came out of rebuildkernel.sh and your last four-arch run shows no such line.
+The :485/:211 row was never real. Those line numbers were from an earlier revision; that code isn't in the file. I carried them longer than I should have.
+clean-subsys is new to the list — a genuine bug found along the way, now fixed and confirmed by an actual make clean.
+What's genuinely left
+Two rows, and only one is code:
+
+The handshake — one boot. Four arches link identically across four consecutive runs; there is nothing left to learn statically. The single line [netfs] mount: <err> separates EOK from an error from no eth0 — mounted skipped.
+
+sys_mount to userspace — a session. Your own 03_netfs.md:151 already documents the route: "Kernel-side these route through 40_SCIX, which is above 32_FS." So the design decision is written down; what's missing is three handler bodies and a fourth argument in the userspace wrapper.
+
+Two cosmetic leftovers, neither blocking: the three commented //#define lines in uiox_nfs_vfs.h:130-132, and 03_netfs.md:93-95, which still quotes 52u/99u against the tree's 22/63.
+======
+The dispatch file has no netfs include, and the 32_FS/Makefile has the directory variable ready but doesn't show it on the 10_scfs path yet. Two things to add.
+
+1. The include
+30_KIX/32_FS/10_scfs/src/uiox_kix_scfs_dispatch.c, with the other includes:
+
+c
+
+
+#include "uiox_nfs_vfs.h"   /* sys_mount / sys_umount / sys_statfs */
+That's the 10_scfs → 03_netfs edge — lateral within 32_FS, not upward into 40_SCIX as 03_netfs.md:151 claimed.
+
+2. The include path
+The Makefile defines NETFS_DIR := $(MFDIR)03_netfs at :76, but the 10_scfs compile line needs its include on the path. Confirm with:
+
+sh
+
+
+grep -n 'NETFS_DIR' 30_KIX/32_FS/Makefile
+If $(NETFS_DIR)/include isn't in the include list for 10_scfs sources, add it — the same one-line-per-recipe pattern that took four rounds for kernel_main.c. Given the file already carries 03_netfs/include for the netfs sources themselves, it may already be global.
+
+3. The three table lines
+uiox_kix_scfs_dispatch.c:163-166, replacing the (uiox_kix_scfs_fn_t)0 entries:
+
+c
+
+
+[SYS_STATFS]      = { (uiox_kix_scfs_fn_t)(void *)sys_statfs,  "statfs"  },
+[SYS_MOUNT]       = { (uiox_kix_scfs_fn_t)(void *)sys_mount,   "mount"   },
+[SYS_UNMOUNT]     = { (uiox_kix_scfs_fn_t)(void *)sys_umount,  "unmount" },
+Same double cast the working entries at :108-115 use.
+
+4. The userspace wrapper
+40_SCIX/uix_sys.h:581, the arity defect — sys_mount must pass four words or fstype lands in the register the handler reads as flags:
+
+c
+
+
+static inline int sys_mount(const char *special, const char *dir,
+                            const char *fstype, int flags)
+{
+    return my_syscall4(SYS_MOUNT, (long)(special), (long)(dir),
+                       (long)(fstype), (long)(flags));
+}
+:586's sys_umount(special) is safe as-is only because the handler UIOX_NFS_UNUSEDs its three trailing args — luck rather than design, and worth a comment saying so.
+
+Why the handler bodies are the good news
+uiox_nfs_vfs.c:542 isn't a stub — it maps fstype (nfs/9p/else) to a protocol, takes read_only from flags & 1, parses W.X.Y.Z:/path into server_ip and export_path, and calls uiox_nfs_vfs_mount — the same entry kernel_main.c uses. :571 and :577 forward to uiox_nfs_vfs_umount and uiox_nfs_vfs_statfs. So this row is wiring, not writing.
+
+One consequence worth noting: with these wired, fstype becomes the thing that selects the protocol from userspace — and "9p" picks the branch you already armed in the kernel. The mount in kernel_main.c and a userspace mount("/", "/net", "9p", 0) reach the same code path, which is a reasonable thing for the first boot to confirm.
+
+Table
+Row	State
+handler bodies	✅ exist, full implementations
+dispatch slots	⬜ 3 lines + #include
+10_scfs → 03_netfs include path	⬜ confirm $(NETFS_DIR)/include
+userspace wrapper arity	⬜ my_syscall3 → my_syscall4
+boot	⬜ deferred
+Four edits, and then this row is closed. Send the NETFS_DIR grep if you want the path question answered before the build.

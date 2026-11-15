@@ -14,10 +14,9 @@
 #                               (includes 03_ksign, 04_fboot,
 #                                         05_sec,   06_kpatch)
 #   7. 34_CSS                → communication and sensor subsystem and health managment
-#   8. 50_UIX/01_shell       → first user shell
 #   9. uiox_kernel_main.c    → kernel entry point
 #
-# Subsystems moved from 50_UIX into kernel:
+#  kernel Subsystems:
 #   50_UIX/10_kpatch  → 33_PCS/06_kpatch   (live kernel patching)
 #   50_UIX/11_netfs   → 32_FS/03_netfs     (in-kernel NFS/RPC)
 #   50_UIX/12_ksign   → 33_PCS/03_ksign    (kernel signing + integrity)
@@ -165,7 +164,6 @@ endif
 BSPDIR ?= $(abspath $(MFDIR)../10_BSP)
 FWHAL  := $(abspath $(MFDIR)../02_FwHal)
 SOCINC  = $(BSPDIR)/03_SoC/include
-UIXDIR  := $(abspath $(MFDIR)../50_UIX)
 
 # ── kernel_main compiler flags ────────────────────────────────────────────────
 # Note: 12_ksign and 13_fboot headers now come from 33_PCS/include
@@ -446,10 +444,9 @@ clean-x86_64:  ; rm -rf $(MFDIR)build/x86_64
 .PHONY: clean-subsys
 clean-subsys:
 	@for d in $(FWHAL) $(MFDIR)30_DSS/10_DI $(MFDIR)30_DSS/20_DD \
-	           $(MFDIR)31_BufferCache $(MFDIR)32_FS $(MFDIR)33_PCS \
-	           $(MFDIR)34_CSS $(UIXDIR)/01_shell; do \
-	    [ -f $$d/Makefile ] && $(MAKE) -C $$d clean || true; \
-	done
+          $(MFDIR)31_BufferCache $(MFDIR)32_FS $(MFDIR)33_PCS; do \
+     [ -f $$d/Makefile ] && $(MAKE) -C $$d clean || true; \
+    done
 
 .PHONY: clean
 clean: clean-arm64 clean-arm32 clean-riscv64 clean-x86_64 clean-subsys

@@ -212,17 +212,6 @@ build_arch() {
         CC="$CC" AR="$AR" \
         ARCH_CFLAGS="$ARCH_CFLAGS" ARCH_CPUDEF="$ARCH_CPUDEF" || return 1
 
-    # optional: no .c files in 50_UIX/01_shell yet
-    say "optional layers ($ARCH)"
-    printf '   %-34s' "50_UIX/01_shell"
-    if [ -f "$ROOT/50_UIX/01_shell/Makefile" ]; then
-        ( cd "$ROOT/50_UIX/01_shell" && make "$ARCH" CC="$CC" AR="$AR" \
-            ARCH_CFLAGS="$ARCH_CFLAGS" ARCH_CPUDEF="$ARCH_CPUDEF" ) >>"$LOG" 2>&1 \
-            && ok || printf 'skipped (no sources yet)\n'
-    else
-        printf 'skipped (no Makefile)\n'
-    fi
-
     # 2. verify every archive the link needs exists
     say "archives ($ARCH)"
     local MISSING=0 a
