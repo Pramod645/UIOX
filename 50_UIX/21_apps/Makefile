@@ -87,6 +87,7 @@ CFLAGS := -std=c99 -Wall -Wextra \
           -I$(UIXLIB) \
           -I$(UIXLIB)/PoStd \
           -I$(UIXLIB)/sys \
+		  -I$(UIXLIB)/dev \
           -I$(SHLIB)
 
 LDFLAGS := -nostdlib -nostartfiles -ffreestanding -Wl,-e,main
@@ -102,9 +103,10 @@ UIXLIB_AR := $(UIXLIB)/build/$(_ARCH)/libUIXlib.a
 # must not run until the recipe expands.  With `:=` it would evaluate in
 # the PARENT, where CC is unset, and return the host runtime — which is
 # exactly the libclang_rt.osx.a that appeared in the failing link.
+UIXLIB_AR := $(UIXLIB)/build/$(_ARCH)/libUIXlib.a
 LIBS = $(UIXLIB_AR) $(shell $(CC) -print-libgcc-file-name)
 
-APPS := app_shell   app_logger   app_fileserver app_netserver \
+APPS := app_als	app_shell   app_logger   app_fileserver app_netserver \
         app_ipctest app_memtest app_scheduler  app_sigtest   \
         app_fstest  app_clocktest
 
@@ -185,7 +187,7 @@ $(_BUILD_DIR)/app_shell: $(MFDIR)app_shell.c $(SHLIB)/uiox_sh.c $(SHLIB)/uiox_sh
 $(_BUILD_DIR)/%: %.c
 	@mkdir -p $(dir $@)
 	@echo "  [CC]  $(_ARCH)  $<"
-	$(CC) $(CFLAGS) $(LDFLAGS) -o $@ $<
+	$(CC) $(CFLAGS) $(LDFLAGS) -o $@ $< $(LIBS)
 
 # ── check-binary — is the linked app self-contained? ──────────────────
 # Anything still undefined here is something the image cannot supply.

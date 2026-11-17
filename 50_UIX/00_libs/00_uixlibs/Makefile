@@ -169,8 +169,13 @@ LIB_SRCS_C += $(wildcard $(MFDIR)PoStd/*.c)
 LIB_SRCS_C += $(wildcard $(MFDIR)arpa/*.c)
 LIB_SRCS_C += $(wildcard $(MFDIR)net/*.c)
 LIB_SRCS_C += $(wildcard $(MFDIR)netinet/*.c)
-LIB_SRCS_C += $(wildcard $(MFDIR)dev/*.c)
 LIB_SRCS_C += $(wildcard $(MFDIR)sys/*.c)
+LIB_SRCS_C += $(wildcard $(MFDIR)sys/*.c)
+# ── device layer ───────────────────────────────────────────────────────────
+# Sources and include paths live in dev/devices.mk, listed rather than
+# globbed: an object missing from the archive must fail at link, not
+# disappear silently.  Must come after $(MFDIR) is assigned above.
+include $(MFDIR)dev/devices.mk
 
 ifeq ($(strip $(LIB_SRCS_C)),)
   $(error No .c files found under $(LIB_DIRS))

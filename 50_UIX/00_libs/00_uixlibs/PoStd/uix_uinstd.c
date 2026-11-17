@@ -9,59 +9,56 @@
 
 
 /* ── File I/O stubs — hook into your 40_syscall_interface ───── */
-uix_ssize_t uix_read(int fd, void *buf, uix_size_t count)
-{
-    //extern long sys_read(int, void *, uix_size_t)
-    //    __attribute__((weak));
-    if (SYS_READ) return (uix_ssize_t)sys_read(fd, buf, count);
-    uix_errno = UIX_EBADF; return -1;
+/* ── File I/O — the standard surface ─────────────────────────────────
+ * These seven were ALSO defined in uix_posix_io.c, so the two objects
+ * could not both be pulled into one link: `uix_read' had two `T' entries
+ * in libUIXlib.a and the linker refused the first app that needed both
+ * halves of the library.
+ *
+ * Callers want the POSIX name (uix_read), which stays where it is.  These
+ * keep the file's own history under a name that says which surface it is.
+ *
+ * The `if (SYS_READ)' tests are gone with the rename.  sys_read() is
+ * `static inline' in 40_SCIX/uix_sys.h, so the expression was always
+ * true and the failure branch unreachable — that is what produced the
+ * -Waddress warnings this file used to emit.  A wrapper that cannot
+ * fail should not pretend to check. */
 
-}
-
-uix_ssize_t uix_write(int fd, const void *buf, uix_size_t count)
-{
-    //extern long sys_write(int, const void *, uix_size_t)
-    //    __attribute__((weak));
-    if (SYS_WRITE) return (uix_ssize_t)sys_write(fd, buf, count);
-    uix_errno = UIX_EBADF; return -1;
-
-}
-
-int uix_close(int fd)
-{
-    //extern int sys_close(int) __attribute__((weak));
-    if (SYS_CLOSE) return sys_close(fd);
-    uix_errno = UIX_EBADF; return -1;
-
-}
-
-uix_off_t uix_lseek(int fd, uix_off_t offset, int whence)
-{
-    //extern long sys_lseek(int, uix_off_t, int) __attribute__((weak));
-    if (SYS_LSEEK) return (uix_off_t)sys_lseek(fd, offset, whence);
-    uix_errno = UIX_ESPIPE; return -1;
-
-}
-
-int uix_dup(int oldfd)
-{
-    //extern int sys_dup(int) __attribute__((weak));
-    return sys_dup ? sys_dup(oldfd) : (uix_errno = UIX_EBADF, -1);
-}
-
-int uix_dup2(int oldfd, int newfd)
-{
-    //extern int sys_dup2(int, int) __attribute__((weak));
-    return sys_dup2 ? sys_dup2(oldfd, newfd) : (uix_errno = UIX_EBADF, -1);
-
-}
-
-int uix_pipe(int pipefd[2])
-{
-    //extern int sys_pipe(int *) __attribute__((weak));
-    return sys_pipe ? sys_pipe(pipefd) : (uix_errno = UIX_ENFILE, -1);
-
-}
+ uix_ssize_t uix_std_read(int fd, void *buf, uix_size_t count)
+ {
+     return (uix_ssize_t)sys_read(fd, buf, count);
+ }
+ 
+ uix_ssize_t uix_std_write(int fd, const void *buf, uix_size_t count)
+ {
+     return (uix_ssize_t)sys_write(fd, buf, count);
+ }
+ 
+ int uix_std_close(int fd)
+ {
+     return sys_close(fd);
+ }
+ 
+ uix_off_t uix_std_lseek(int fd, uix_off_t offset, int whence)
+ {
+     return (uix_off_t)sys_lseek(fd, offset, whence);
+ }
+ 
+ int uix_std_dup(int oldfd)
+ {
+     return sys_dup(oldfd);
+ }
+ 
+ int uix_std_dup2(int oldfd, int newfd)
+ {
+     return sys_dup2(oldfd, newfd);
+ }
+ 
+ int uix_std_pipe(int pipefd[2])
+ {
+     return sys_pipe(pipefd);
+ }
+ 
 
 /* ── Process ────────────────────────────────────────────────── */
 uix_pid_t uix_fork(void)
