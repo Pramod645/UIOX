@@ -87,6 +87,7 @@ LIB_DIRS := \
   $(MFDIR)arpa     \
   $(MFDIR)net      \
   $(MFDIR)netinet  \
+  $(MFDIR)dev      \
   $(MFDIR)sys
 
 LIB_NAME := UIXlib
@@ -168,6 +169,7 @@ LIB_SRCS_C += $(wildcard $(MFDIR)PoStd/*.c)
 LIB_SRCS_C += $(wildcard $(MFDIR)arpa/*.c)
 LIB_SRCS_C += $(wildcard $(MFDIR)net/*.c)
 LIB_SRCS_C += $(wildcard $(MFDIR)netinet/*.c)
+LIB_SRCS_C += $(wildcard $(MFDIR)dev/*.c)
 LIB_SRCS_C += $(wildcard $(MFDIR)sys/*.c)
 
 ifeq ($(strip $(LIB_SRCS_C)),)

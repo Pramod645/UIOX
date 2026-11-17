@@ -297,3 +297,6 @@ create, close,
 
 ----call to---->sys_call(ex.sys_fstat)
 sys_dup .
+================== end here and device start here ========================
+dev //
+make -C 50_UIX/00_libs/00_uixlibs arm32 riscv64 x86_64 arm64
