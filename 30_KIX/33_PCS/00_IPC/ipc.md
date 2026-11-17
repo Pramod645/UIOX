@@ -276,3 +276,17 @@ parallels are worth stating because they predict the failure modes:
   never a channel in its own right.
 - **Sleeping on a deadline.** `nano_sleep` is `ENOSYS`; a timed sleep never wakes. Read the clock
   and compare.
+===================
+0.Dimension	1.Message-queue	2.Semaphore	3.Shared-memory	4.Socket
+0.What it moves	1.discrete typed messages	2.a counter, no data	3.raw bytes, direct	4.bytes over a stream/dgram
+0.Copy cost	1.2 copies (send + receive)	2.none — it's a count	3.1 copy to map, 0 per transfer	4.2 copies, plus protocol framing
+0.Kernel involvement	1.per operation	2.per operation	3.mapping only	4.per operation, plus routing
+0.Bandwidth	1.low	n/a	highest	medium
+0.Latency	1.low (one syscall each way)	2.lowest	3.lowest after mapping	4.highest (framing, routing)
+0.Producer/consumer sync built in	1.✅ queue semantics	2.✅ the counter IS the sync	3.❌ needs a semaphore beside it	4.⚠️ partial (stream buffering)
+0.Structured vs raw	1.structured	2.none	3.raw	4.raw
+0.Cross-machine	1.no	2.no	3.no	4.yes — the only one
+0.Namespacing needed	1.key or pathname	2.key or pathname	3.key or pathname	4.address + port
+0.Fits UIOX's in-kernel drivers	1.✅	2.✅	3.✅	4.⚠️ needs netif + proto stack
+0.Works with the service table	1.✅	2.✅	3.✅	4.✅ but heavier
+0.Failure mode	1.queue fills, sender blocks	2.waiter starvation	3.no sync = races	4.peer vanishes
