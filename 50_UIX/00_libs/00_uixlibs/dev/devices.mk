@@ -30,14 +30,41 @@ DEV_SRCS := \
 # Each class directory holds its own commands (the UIOX_*_IOC_* numbers) and
 # calls the shape it belongs to.  Add one line per class as it lands.
 DEV_SRCS += \
-  $(MFDIR)dev/als/uiox_dev_als.c
+  $(MFDIR)dev/als/uiox_dev_als.c  \
+  $(MFDIR)dev/therm/uiox_dev_therm.c  \
+  $(MFDIR)dev/bms/uiox_dev_bms.c  \
+  $(MFDIR)dev/chg/uiox_dev_chg.c \
+  $(MFDIR)dev/pmic/uiox_dev_pmic.c  \
+  $(MFDIR)dev/rtc/uiox_dev_rtc.c  \
+  $(MFDIR)dev/fan/uiox_dev_fan.c  \
+  $(MFDIR)dev/gpu/uiox_dev_gpu.c  \
+  $(MFDIR)dev/kbd/uiox_dev_kbd.c  \
+  $(MFDIR)dev/mouse/uiox_dev_mouse.c  \
+  $(MFDIR)dev/tpwd/uiox_dev_tpwd.c  \
+  $(MFDIR)dev/emmc/uiox_dev_emmc.c  \
+  $(MFDIR)dev/nvme/uiox_dev_nvme.c  \
+  $(MFDIR)dev/sata/uiox_dev_sata.c
+
 
 # ── include paths ──────────────────────────────────────────────────────────
 # The shapes include each other by relative path ("../uiox_dev_reg.h"), so
 # the class directories need their own -I as well as dev/ itself.
 DEV_INCS := \
   $(MFDIR)dev     \
-  $(MFDIR)dev/als
+  $(MFDIR)dev/als \
+  $(MFDIR)dev/therm \
+  $(MFDIR)dev/bms \
+  $(MFDIR)dev/chg \
+  $(MFDIR)dev/pmic \
+  $(MFDIR)dev/rtc \
+  $(MFDIR)dev/fan \
+  $(MFDIR)dev/gpu \
+  $(MFDIR)dev/kbd \
+  $(MFDIR)dev/mouse \
+  $(MFDIR)dev/tpwd  \
+  $(MFDIR)dev/emmc  \
+  $(MFDIR)dev/nvme  \
+  $(MFDIR)dev/sata
 
 # ── exported to the master Makefile ────────────────────────────────────────
 LIB_SRCS_C += $(DEV_SRCS)

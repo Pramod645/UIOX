@@ -300,3 +300,15 @@ sys_dup .
 ================== end here and device start here ========================
 dev //
 make -C 50_UIX/00_libs/00_uixlibs arm32 riscv64 x86_64 arm64
+
+
+
+# 2. library, all four arches (the habit from the stale-archive rounds)
+make -C 50_UIX/00_libs/00_uixlibs all
+
+# 3. apps
+cd 50_UIX/21_apps && make
+
+cd /Users/pramodkumar/Hack/WS/UIOX
+make -C 50_UIX/00_libs/00_uixlibs all
+cd 50_UIX/21_apps && make
