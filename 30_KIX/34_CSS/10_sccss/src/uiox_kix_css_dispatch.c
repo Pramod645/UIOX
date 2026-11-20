@@ -1,0 +1,202 @@
+/*
+ * 34_CSS/10_sccss/src/uiox_kix_css_dispatch.c
+ *
+ * SCCSS dispatcher — CSS numbers to CSS calls.
+ *
+ *   called by : 40_SystemCallInterface/uix_archSysCall.c
+ *               (through syscall_dispatch in 30_KIX/common/uiox_kix_router.c)
+ *   calls     : the uiox_kix_css_* entry points the CSS MODULES own —
+ *               one set per class under 01_Com / 02_Sensors /
+ *               03_NonSensors, each in its own directory
+ *
+ * ── numbering ───────────────────────────────────────────────────────
+ * The numbers are the BSD ones from 50_UIX's uix_sys.h, NOT numbers
+ * invented here.  SCiX decides which subsystem owns a number; this file
+ * decides which FUNCTION within the subsystem.
+ *
+ * That split keeps each layer's table small: SCiX knows only "97 belongs
+ * to CSS", and this file knows "97 is socket".  A number added to a
+ * class is one line here and one line in SCiX's ownership test, and
+ * neither has to learn the other's table.
+ *
+ * ── what this file is, and is NOT ───────────────────────────────────
+ * It is a ROUTER.  It knows a number and a function pointer, and it
+ * holds no behaviour of its own.
+ *
+ * It is NOT where a class lives.  A socket, a Bluetooth ACL send, a
+ * camera frame dequeue, a speaker stream — each of those is a CLASS
+ * with its own state, its own structs, its own flags and its own header,
+ * and each belongs in its own module directory beside the driver it
+ * drives:
+ *
+ *   01_Com/eth/            socket, protocol, netif bindings
+ *   01_Com/bt/             HCI, ACL, GATT
+ *   01_Com/usb/            USB class registration
+ *   02_Sensors/camera/     frame queues, CSI-2
+ *   02_Sensors/mic/        PCM capture
+ *   03_NonSensors/speaker/ playback streams
+ *
+ * A struct in this file would be a struct every other class had to
+ * share a header with, and a flag here would be a flag that meant one
+ * thing to one class and something else to another.  That is the
+ * boundary this file exists to keep: ONE table, N class headers.
+ *
+ * ── the bad-address/unsupported rules, held in one place ─────────────
+ * The two codes this file can produce on its own are EINVAL and ENOSYS,
+ * and they mean different things:
+ *
+ *   EINVAL  the number names no call in this subsystem at all
+ *   ENOSYS  the number names a REAL call with no implementation yet
+ *
+ * Collapsing them would erase the only signal separating "you asked for
+ * nothing" from "not finished yet".
+ *
+ * @version 1.0.0  @date 2026-11-20
+ */
+
+ #include "uiox_base_types.h"
+ #include "uiox_kix_sccss_numbers.h"  /* the BSD numbers, local         */
+ #include "uiox_kix_sccss.h"          /* SCCSS_EINVAL / _ENOSYS, the
+                                       * entry struct, and the boundary
+                                       * this file sits under          */
+ 
+ /* ── Return convention ──────────────────────────────────────────────
+  * Negative is an error, matching the file and process sides so SCiX can
+  * pass a value through without asking which subsystem produced it.
+  *
+  * The two values come from uiox_kix_sccss.h, included above, and are
+  * commented here only to show where an override would go — 10_scfs does
+  * the same with SCFS_ENOSYS / SCFS_EINVAL. */
+ //#define SCCSS_ENOSYS   ((uiox_int64_t)-38)
+ //#define SCCSS_EINVAL   ((uiox_int64_t)-22)
+ 
+ /* ── ONE ROW PER NUMBER, AND EVERY ROW IS A MODULE'S ─────────────────
+  * The rows are added as each class is written.  A class's entry points
+  * live in that class's own directory, and its row here names them.  No
+  * row's body is in this file, and no row's types are in this file.
+  *
+  * The table is empty at this version on purpose: it is the frame, not
+  * the content.  A number nobody has claimed yet has no name and returns
+  * EINVAL — which is correct, because no CSS class owns it yet.
+  *
+  * The eth socket rows are shown COMMENTED, as the shape a row takes
+  * once that class's header exists.  Uncomment them when 01_Com/eth
+  * declares the eight entry points and they are implemented; until then
+  * a live row would be a link error, and a table that cannot link is
+  * worse than a table that answers EINVAL. */
+ static const uiox_kix_css_entry_t uiox_kix_css_table[SCCSS_MAX] =
+ {
+     /* ── 01_Com/eth ─────────────────────────────────────────────────
+      * Socket calls.  Entry points are declared by the eth module's own
+      * header; this file only takes their address.
+      *
+      * [SYS_SOCKET]   = { (uiox_kix_css_fn_t)(void *)uiox_kix_css_socket,   "socket"   },
+      * [SYS_BIND]     = { (uiox_kix_css_fn_t)(void *)uiox_kix_css_bind,     "bind"     },
+      * [SYS_CONNECT]  = { (uiox_kix_css_fn_t)(void *)uiox_kix_css_connect,  "connect"  },
+      * [SYS_LISTEN]   = { (uiox_kix_css_fn_t)(void *)uiox_kix_css_listen,   "listen"   },
+      * [SYS_ACCEPT]   = { (uiox_kix_css_fn_t)(void *)uiox_kix_css_accept,   "accept"   },
+      * [SYS_SENDTO]   = { (uiox_kix_css_fn_t)(void *)uiox_kix_css_sendto,   "sendto"   },
+      * [SYS_RECVFROM] = { (uiox_kix_css_fn_t)(void *)uiox_kix_css_recvfrom, "recvfrom" },
+      * [SYS_SHUTDOWN] = { (uiox_kix_css_fn_t)(void *)uiox_kix_css_shutdown, "shutdown" },
+      */
+ 
+     /* ── 01_Com/bt ──────────────────────────────────────────────────
+      * Bluetooth.  No vocabulary exists in the kernel for this class —
+      * the ACL/HCI path is reached through uiox_bt_if, not a device
+      * node.  Rows land here if and when that changes.
+      */
+ 
+     /* ── 01_Com/usb · 02_Sensors/camera, mic · 03_NonSensors/speaker ─
+      * Same position: class headers, class directories, rows added per
+      * class as each is written.
+      */
+ };
+ 
+ /* ────────────────────────────────────────────────────────────────────
+  * uiox_kix_css_dispatch — one CSS number to one class's call.
+  *
+  * Returns the raw uiox_int64_t.  Where a register context is supplied
+  * the value is written back with the same convention the file and
+  * process sides use — positive error number in rc_r0 with rc_carry set —
+  * so SCiX can return any subsystem's result without knowing which
+  * produced it.
+  *
+  * The range this table spans is 0..SCCSS_MAX.  A number inside that
+  * range with no name belongs to no CSS class and this file answers
+  * EINVAL for it.
+  * ──────────────────────────────────────────────────────────────────── */
+ uiox_int64_t uiox_kix_css_dispatch(uiox_uint64_t  nr,
+                                    uiox_uintptr_t a0, uiox_uintptr_t a1,
+                                    uiox_uintptr_t a2, uiox_uintptr_t a3,
+                                    uiox_uintptr_t a4, uiox_uintptr_t a5,
+                                    void          *regs)
+ {
+     const uiox_kix_css_entry_t *e;
+     uiox_int64_t                rv;
+ 
+     /* Out of range: this table cannot speak for it.  EINVAL rather than
+      * ENOSYS, because the number is outside the BSD space this table
+      * models at all. */
+     if (nr >= (uiox_uint64_t)SCCSS_MAX)
+         return SCCSS_EINVAL;
+ 
+     e = &uiox_kix_css_table[nr];
+ 
+     /* A slot with no name is a number this SUBSYSTEM does not own.
+      * SCiX should have routed it elsewhere, so this is a routing bug
+      * rather than a missing implementation — hence EINVAL, and hence
+      * the name test rather than the function test. */
+     if (e->name == (const char *)0)
+         return SCCSS_EINVAL;
+ 
+     /* A named slot with no function is a real BSD syscall this kernel
+      * has not implemented.  ENOSYS: the number is valid, the body is
+      * not written, and a caller must be able to tell the two apart. */
+     if (e->fn == (uiox_kix_css_fn_t)0)
+         return SCCSS_ENOSYS;
+ 
+     rv = e->fn(a0, a1, a2, a3, a4, a5);
+ 
+     if (regs) {
+         /* The reg context type is 40_psa's.  Referred to through a
+          * local mirror so this file needs no 33_PCS include path — the
+          * three fields and the flag are all it touches, and they are
+          * the same ones the process and file dispatchers write.
+          *
+          * ⚠ The layout MUST match 40_psa's on EVERY target.  rc_gpr[16]
+          * is 128 bytes on the 64-bit arches and 64 on the 32-bit ones,
+          * so rc_r0's offset differs per architecture — it follows
+          * rc_gpr, and rc_gpr's size follows uiox_uintptr_t.  This holds
+          * only while the real struct has the same field order. */
+         struct sccss_reg_view {
+             uiox_uintptr_t rc_pc;
+             uiox_uintptr_t rc_sp;
+             uiox_uint32_t  rc_sr;
+             uiox_uint32_t  rc_carry;
+             uiox_uintptr_t rc_gpr[16];
+             uiox_uint32_t  rc_r0;
+             uiox_uint32_t  rc_r1;
+         } *rc = (struct sccss_reg_view *)regs;
+ 
+         if (rv < 0) {
+             rc->rc_r0    = (uiox_uint32_t)(-rv);
+             rc->rc_r1    = 0u;
+             rc->rc_carry = 1u;
+         } else {
+             rc->rc_r0    = (uiox_uint32_t)((uiox_uint64_t)rv & 0xFFFFFFFFu);
+             rc->rc_r1    = (uiox_uint32_t)((uiox_uint64_t)rv >> 32u);
+             rc->rc_carry = 0u;
+         }
+     }
+     return rv;
+ }
+ 
+ /* ── Introspection ────────────────────────────────────────────────────
+  * Same shape as uiox_kix_scfs_name().  Declared in uiox_kix_sccss.h so
+  * a diagnostic can call it without a second extern. */
+ const char *uiox_kix_css_name(uiox_uint64_t nr)
+ {
+     if (nr >= (uiox_uint64_t)SCCSS_MAX) return (const char *)0;
+     return uiox_kix_css_table[nr].name;
+ }
+ 

@@ -105,7 +105,14 @@ userspace obly
 ./build_uix.sh --continue            # don't stop on the first failure
 
 
+cd /Users/pramodkumar/Hack/WS/UIOX
+make -C 30_KIX clean
 
+cd /Users/pramodkumar/Hack/WS/UIOX
+rm -rf 02_FwHal/build 10_BSP/build \
+       30_KIX/build 30_KIX/30_DSS/10_DI/build 30_KIX/30_DSS/20_DD/build \
+       30_KIX/31_BufferCache/build 30_KIX/32_FS/build 30_KIX/33_PCS/build \
+       30_KIX/34_CAS/build 30_KIX/50_UIX/01_shell/build
 
 cd /Users/pramodkumar/Hack/WS/UIOX
 ./rebuildkernel.sh arm64 arm32 x86_64 riscv64 --continue

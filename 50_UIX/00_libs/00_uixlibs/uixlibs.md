@@ -312,3 +312,61 @@ cd 50_UIX/21_apps && make
 cd /Users/pramodkumar/Hack/WS/UIOX
 make -C 50_UIX/00_libs/00_uixlibs all
 cd 50_UIX/21_apps && make
+========
+
+Done — 14 classes, four architectures green
+#	Class	Family	Layer	Notes
+1	ALS	4 REG	✅	ambient light
+2	THERMAL	4 REG	✅	zone telemetry
+3	BMS	4 REG	✅	telemetry, FET control unexposed
+4	CHG	4 REG	✅	charger status/config
+5	PMIC	4 REG	✅	rail control unexposed
+6	RTC	4 REG	✅	time struct
+7	FAN	4 REG	✅	
+8	KBD	3 EVENT	✅	read-only event stream
+9	MOUSE	3 EVENT	✅	
+10	TPWD	3 EVENT	✅	enrol credential question
+11	GPU	5 CMD	✅	
+12	EMMC	1 BLOCK	✅	0xE0
+13	NVMe	1 BLOCK	✅	0xE2
+14	SATA	1 BLOCK	✅	0xE1; TRIM arg inferred
+14 done — plus libUIXlib.a (77 objects) and 24 app binaries, all on arm64/arm32/riscv64/x86_64.
+
+Parked — 12 classes
+#	Class	Family	Why parked
+15	SDMMC	1 BLOCK	deferred — vocabulary exists (0xE3)
+16	USBMS	1 BLOCK	deferred — vocabulary exists (0xE4, 4 cmds)
+
+17	UART	—	deferred — fully confirmed, 8 cmds 0xC1–0xC8
+
+18	HDMI	5 CMD	blocked — FLIP needs a pool framebuffer
+19	MONITOR	5 CMD	blocked — same decision as HDMI
+
+20	TB4	6 BUS	no vocabulary exists
+21	USBHC	6 BUS	no vocabulary exists
+
+22	ETH	2 STREAM	registry-only — probe + vocabulary read
+23	WiFi	2 STREAM	registry-only — probe + vocabulary read
+24	BT	2 STREAM	registry-only — probe + vocabulary read
+25	MIC	2 STREAM	registry-only — vocabulary checked
+26	SPK	2 STREAM	registry-only — no probe file
+27	CAMERA	2 STREAM	registry-only — probe read, no vocabulary
+12 parked — and they split into four different reasons, which matters more than the number.
+
+The breakdown that actually counts
+Category	Count	Meaning
+Done	14	layer written, four arches compiled
+Parked — work exists, just not done	3	SDMMC · USBMS · UART
+Parked — needs a kernel decision	2	HDMI · MONITOR
+Parked — nothing exists to wrap	2	TB4 · USBHC
+Parked — registry-only by design	6	ETH · WiFi · BT · MIC · SPK · CAMERA
+Provisional	1	USBHID — driver at 01_Com/usb, vocabulary grep not yet run
+=============================================================================
+What's still undecided
+Path	Status
+/ , /dev, /pkg, /usr/pkg, /bin	✅ spelled in code
+/lib	❌ never spelled — libUIXlib.a is the build name, not a runtime path
+/etc	❌ nothing config-shaped is stored as files
+/tmp , /var	❌ absent from the record entirely
+/proc , /sys	❌ absent by design — no pseudo-filesystems
+/sbin	❌ absent — UIOX splits by layer, not privilege

@@ -51,10 +51,54 @@ FWHAL       = $(abspath $(MFDIR)../../02_FwHal)
 BSPDIR      = $(abspath $(MFDIR)../../10_BSP)
 SOCINC      = $(BSPDIR)/03_SoC/include
 
-CC          ?= gcc
-AR          ?= ar
+# ── toolchain, per arch ───────────────────────────────────────────────
+# The default is NOT the host compiler.  `CC ?= gcc` resolved to Apple's
+# clang on this machine, so every CSS object came out Mach-O, and
+# aarch64-elf-ld skipped the whole archive: libcss.a was on the link line,
+# the symbol was inside it, and the link still reported
+# `undefined reference to uiox_kix_css_dispatch`.
+#
+# Same shape as 30_KIX/Makefile and 32_FS/Makefile — one pair per arch, so
+# a cross build cannot silently fall back to the host.
+ifeq ($(shell uname -s),Darwin)
+  ARM64_CC := aarch64-elf-gcc
+  ARM32_CC := arm-none-eabi-gcc
+  RV64_CC  := riscv64-elf-gcc
+  X86_CC   := x86_64-elf-gcc
+  ARM64_AR := aarch64-elf-ar
+  ARM32_AR := arm-none-eabi-ar
+  RV64_AR  := riscv64-elf-ar
+  X86_AR   := x86_64-elf-ar
+else
+  ARM64_CC := aarch64-linux-gnu-gcc
+  ARM32_CC := arm-linux-gnueabihf-gcc
+  RV64_CC  := riscv64-linux-gnu-gcc
+  X86_CC   := x86_64-linux-gnu-gcc
+  ARM64_AR := aarch64-linux-gnu-ar
+  ARM32_AR := arm-linux-gnueabihf-ar
+  RV64_AR  := riscv64-linux-gnu-ar
+  X86_AR   := x86_64-linux-gnu-ar
+endif
+
+# Fallback only when CC was not passed in.  The arch entry points below
+# pass the arch's pair explicitly, so this is the bare `make cc` case.
+CC          ?= $(ARM64_CC)
+AR          ?= $(ARM64_AR)
 ARCH_CFLAGS ?=
 ARCH_CPUDEF ?=
+# ── per-arch flags ────────────────────────────────────────────────────
+# Set ON THE RECURSIVE LINE in each arch target below, not in an ifeq here.
+#
+# The ifeq form was evaluated in the OUTER make, where _ARCH still held its
+# default `arm64` — the arch name only becomes `riscv64` inside the
+# recursive invocation.  So `else ifeq ($(_ARCH),riscv64)` never fired,
+# ARCH_CFLAGS stayed empty, and every riscv64 CSS compile ran medlow:
+# uiox_kix_css_table[512] then failed at link as R_RISCV_HI20.
+#
+# 32_FS:210-246 and 33_PCS:182-218 set these as arguments on the recursive
+# line for exactly this reason.  These defaults are for a bare
+# `make -f 34_CSS/Makefile _build` with no arch given.
+
 DEVICE_DEFS ?=
 _ARCH       ?= arm64
 
@@ -75,6 +119,7 @@ ENABLE_CAMERA    ?= yes
 ENABLE_MIC       ?= yes
 ENABLE_TOUCHPWD  ?= yes
 ENABLE_SPEAKER   ?= yes
+ENABLE_SCCSS     ?= yes
 
 # The names forwarded to _build.  Derived from the variables actually
 # declared above, so the two cannot drift — a typo like 10_DI v1.2.1's
@@ -104,6 +149,8 @@ CSS_mic       := 02_Sensors/mic
 CSS_touchpwd  := 02_Sensors/touchpwd
 # 03_NonSensors
 CSS_speaker   := 03_NonSensors/speaker
+# 10_sccss — the syscall arm, not a device class
+CSS_sccss     := 10_sccss
 
 # ── the module list, gated by its flag ────────────────────────────────
 # Each ifeq names one module.  A directory whose flag is `no` is absent
@@ -146,6 +193,9 @@ ifeq ($(ENABLE_TOUCHPWD),yes)
 endif
 ifeq ($(ENABLE_SPEAKER),yes)
   CSS_SUBDIRS += $(CSS_speaker)
+endif
+ifeq ($(ENABLE_SCCSS),yes)
+  CSS_SUBDIRS += $(CSS_sccss)
 endif
 
 # ── the three sides of every class — derived, not enumerated ──────────
@@ -192,6 +242,8 @@ COMMON_CFLAGS := \
   -I$(FWHAL)/include                      \
   -I$(SOCINC)                             \
   $(addprefix -I,$(CSS_CLASS_DIRS))       \
+  -I$(MFDIR)10_sccss/include              \
+  -I$(MFDIR)include                       \
   $(addprefix -I,$(DD_CLASS_DIRS))        \
   $(addprefix -I,$(DI_CLASS_DIRS))        \
   $(addprefix -I,$(DRV_CLASS_DIRS))
@@ -201,6 +253,12 @@ COMMON_CFLAGS := \
 # one wildcard level per group, not a recursive glob.  Iterating over
 # CSS_SUBDIRS rather than globbing the groups is what makes a flag bite.
 SRCS := $(foreach d,$(CSS_SUBDIRS),$(wildcard $(MFDIR)$(d)/*.c))
+# 10_sccss is not class-shaped: its sources are under src/, not directly
+# in the directory.  CSS_SUBDIRS gives it the -I it needs; this gives it
+# the compile rule that the two-level class glob cannot reach.
+SCCSS_SRCS := $(wildcard $(MFDIR)10_sccss/src/*.c)
+SRCS       += $(SCCSS_SRCS)
+
 SRCS += $(wildcard $(MFDIR)src/*.c)
 
 OBJS := $(patsubst $(MFDIR)%.c,$(_BUILD_DIR)/%.o,$(SRCS))
@@ -210,6 +268,7 @@ LIB  := $(_BUILD_DIR)/libcss.a
 # compiled nor found by the implicit rule.
 vpath %.c \
   $(MFDIR)src \
+  $(MFDIR)10_sccss/src \
   $(addprefix $(MFDIR),$(CSS_SUBDIRS))
 
 ARFLAGS := rcs
@@ -219,12 +278,39 @@ ARFLAGS := rcs
 # =============================================================================
 .PHONY: arm64 arm32 riscv64 x86_64
 
-arm64 arm32 riscv64 x86_64:
+arm64:
 	$(MAKE) -f $(MFDIR)Makefile _build  \
-	    _ARCH=$@                        \
-	    CC="$(CC)" AR="$(AR)"           \
-	    ARCH_CFLAGS="$(ARCH_CFLAGS)"    \
-	    ARCH_CPUDEF="$(ARCH_CPUDEF)"    \
+	    _ARCH=arm64                    \
+	    CC="$(ARM64_CC)" AR="$(ARM64_AR)"       \
+	    ARCH_CFLAGS="-march=armv8-a -mabi=lp64 -mlittle-endian" \
+	    ARCH_CPUDEF="-D__aarch64__" \
+	    DEVICE_DEFS="$(DEVICE_DEFS)"    \
+	    $(foreach f,$(ENABLE_FLAGS),$(f)=$($(f)))
+
+arm32:
+	$(MAKE) -f $(MFDIR)Makefile _build  \
+	    _ARCH=arm32                    \
+	    CC="$(ARM32_CC)" AR="$(ARM32_AR)"       \
+	    ARCH_CFLAGS="-march=armv7-a -marm -mfloat-abi=soft -mlittle-endian" \
+	    ARCH_CPUDEF="-D__arm__" \
+	    DEVICE_DEFS="$(DEVICE_DEFS)"    \
+	    $(foreach f,$(ENABLE_FLAGS),$(f)=$($(f)))
+
+riscv64:
+	$(MAKE) -f $(MFDIR)Makefile _build  \
+	    _ARCH=riscv64                    \
+	    CC="$(RV64_CC)" AR="$(RV64_AR)"       \
+	    ARCH_CFLAGS="-march=rv64imafdc_zicsr_zifencei -mabi=lp64d -mcmodel=medany" \
+	    ARCH_CPUDEF="-D__riscv -D__riscv_xlen=64" \
+	    DEVICE_DEFS="$(DEVICE_DEFS)"    \
+	    $(foreach f,$(ENABLE_FLAGS),$(f)=$($(f)))
+
+x86_64:
+	$(MAKE) -f $(MFDIR)Makefile _build  \
+	    _ARCH=x86_64                    \
+	    CC="$(X86_CC)" AR="$(X86_AR)"       \
+	    ARCH_CFLAGS="-m64 -mno-red-zone -mno-mmx -mno-sse -mno-sse2 -fno-pic -mcmodel=kernel" \
+	    ARCH_CPUDEF="-D__x86_64__" \
 	    DEVICE_DEFS="$(DEVICE_DEFS)"    \
 	    $(foreach f,$(ENABLE_FLAGS),$(f)=$($(f)))
 
@@ -278,7 +364,7 @@ srclist:
 .PHONY: info
 info:
 	@echo "CSS        : $(MFDIR)"
-	@echo "arch       : $(_ARCH)  CC=$(CC)"
+	@echo "arch       : $(_ARCH)  CC=$(CC)  AR=$(AR)"
 	@echo "modules    : $(words $(CSS_SUBDIRS))"
 	@echo "subdirs    : $(CSS_SUBDIRS)"
 	@echo "sources    : $(words $(SRCS)) -> $(LIB)"

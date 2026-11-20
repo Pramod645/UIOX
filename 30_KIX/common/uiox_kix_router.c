@@ -54,6 +54,7 @@
  #include "uiox_kix_scpcs_numbers.h"
  #include "uiox_kix_scfs_numbers.h"
  //#include "uiox_console.h"    /* uiox_console_readline / _write */
+ #include "uiox_kix_sccss_numbers.h"
  /* ── the console, by prototype only ──────────────────────────────────
  * Declared here rather than by including uiox_console.h: that header
  * pulls in uiox_uart_if.h, which pulls uiox_uart_hw.h and uiox_termios.h
@@ -84,7 +85,16 @@ int uiox_console_write(const void *buf, uiox_uint32_t count);
                                        uiox_uintptr_t a2, uiox_uintptr_t a3,
                                        uiox_uintptr_t a4, uiox_uintptr_t a5,
                                        void *regs);
- 
+ /* ── CSS ownership group ───────────────────────────────────────────
+ * 34_CSS's socket layer hands back a descriptor, and that descriptor's
+ * verbs belong to CSS, not to the file table.  A separate predicate,
+ * because a separate subsystem: the same reason scfs_owns() and
+ * scpcs_owns() are separate. */
+ extern uiox_int64_t uiox_kix_css_dispatch(uiox_uint64_t nr,
+                                            uiox_uintptr_t a0, uiox_uintptr_t a1,
+                                            uiox_uintptr_t a2, uiox_uintptr_t a3,
+                                            uiox_uintptr_t a4, uiox_uintptr_t a5,
+                                            void *regs);
  /* ── Return convention ──────────────────────────────────────────────
   * Negative is an error, and it propagates unchanged from the subsystem
   * below.  This layer does not reinterpret one subsystem's error as
@@ -212,7 +222,20 @@ int uiox_console_write(const void *buf, uiox_uint32_t count);
          return 0;
      }
  }
- 
+
+ static int scix_css_owns(uiox_uint64_t nr)
+{
+    switch (nr) {
+    case SYS_SOCKET:   case SYS_BIND:     case SYS_LISTEN:
+    case SYS_ACCEPT:   case SYS_CONNECT:  case SYS_SENDTO:
+    case SYS_RECVFROM: case SYS_SENDMSG:  case SYS_RECVMSG:
+    case SYS_SHUTDOWN: case SYS_SOCKETPAIR:
+        return 1;
+    default:
+        return 0;
+    }
+}
+
  /* ────────────────────────────────────────────────────────────────────
   * syscall_dispatch — the SCiX entry point.
   *
@@ -287,6 +310,10 @@ int uiox_console_write(const void *buf, uiox_uint32_t count);
       * boundary as the calls above. */
      if (scpcs_owns(nr) || scix_time_owns(nr) || scix_ipc_owns(nr))
          return uiox_kix_scpcs_dispatch(nr, a0, a1, a2, a3, a4, a5, regs);
+    
+     /* ── CSS stack system ────────────────────────────────────────────── */
+     if (scix_css_owns(nr))
+         return uiox_kix_css_dispatch(nr, a0, a1, a2, a3, a4, a5, regs);
  
      /* ── a real BSD number with no implementation here ─────────────
       * ENOSYS, not EINVAL.  SYS_KQUEUE is a genuine syscall; this kernel
@@ -307,12 +334,13 @@ int uiox_console_write(const void *buf, uiox_uint32_t count);
      if (scpcs_owns(nr))     return "proc";
      if (scix_time_owns(nr)) return "time";
      if (scix_ipc_owns(nr))  return "ipc";
+     if (scix_css_owns(nr))  return "css";
      return (const char *)0;
  }
  
  int uix_arch_syscall_owned(uiox_uint64_t nr)
  {
      return scfs_owns(nr) || scpcs_owns(nr) || scix_time_owns(nr) ||
-            scix_ipc_owns(nr);
+            scix_ipc_owns(nr) || scix_css_owns(nr);
  }
  

@@ -187,6 +187,8 @@ KERNEL_CFLAGS_BASE := \
   -I$(MFDIR)33_PCS/04_fboot/include           \
   -I$(MFDIR)33_PCS/05_sec/include             \
   -I$(MFDIR)33_PCS/06_kpatch/include          \
+  -I$(MFDIR)34_CSS/include                    \
+  -I$(MFDIR)34_CSS/10_sccss/include           \
   -I$(MFDIR)30_DSS/include                    \
   -I$(MFDIR)30_DSS/20_DD/01_Com/eth           \
   -I$(SOCINC)                                 \
@@ -329,7 +331,7 @@ _build_subsystems:
 	+$(MAKE) -C $(MFDIR)33_PCS CC="$(CC)" AR="$(AR)" \
 	    ARCH_CFLAGS="$(ARCH_CFLAGS)" ARCH_CPUDEF="$(ARCH_CPUDEF)" \
 	    $(_ARCH)
-	# 7. 34_CSS
+	# 7. 34_CSS	(includes 01_Com, 02_Sensors, 03_NonSensors - built by 34_CSS/Makefile)
 	+$(MAKE) -C $(MFDIR)34_CSS CC="$(CC)" AR="$(AR)" \
 	    ARCH_CFLAGS="$(ARCH_CFLAGS)" ARCH_CPUDEF="$(ARCH_CPUDEF)" \
 	    DEVICE_DEFS="$(DEVICE_DEFS)" $(ENABLE_FLAGS) \
@@ -390,7 +392,7 @@ _build_kernel_main:
 	else \
 	    $(OBJCOPY) -I binary -O $(OBJCOPY_BFD) -B $(OBJCOPY_ARCH) \
 	        --rename-section .data=.uix_pkg_blob,alloc,load,readonly,data,contents \
-	        /dev/null $(_BUILD_DIR)/uix_pkg.o ; \
+	        /dev/null $(wildcard $(_BUILD_DIR)/uix_pkg.o)                       \
 	    echo "  [PKG] uix_pkg.o  (EMPTY — run rebuild_uix.sh first)" ; \
 	fi
 	@echo "  [CC]  uiox_kix_router.c  (BSP_MODE=$(BSP_MODE))"
