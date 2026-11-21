@@ -107,6 +107,25 @@
  void uiox_hdmi_subsys_set_dpms   (uiox_hdmi_subsys_t *sys,
                                     uint32_t timeout_ms);
  
+ /* ── set_mode ────────────────────────────────────────────────────────
+ * Re-runs the two calls init makes, in the same order, without
+ * re-probing the sink.  uiox_hdmi_subsys_init() takes pref_w/pref_h/
+ * pref_hz but is bring-up; nothing re-selects a mode afterwards, so
+ * this is what row 424 routes to.
+ *
+ * cs and bpc are NOT arguments: they are the profile's, set at init,
+ * and a mode change does not alter them.  They are read back from
+ * sys->proto, which is where init put them. */
+int  uiox_hdmi_subsys_set_mode(uiox_hdmi_subsys_t *sys,
+    uint16_t w, uint16_t h, uint8_t hz);
+
+/* ── the instance the CSS entry points reach ────────────────────────
+ * uiox_kix_css_hdmi.h declares this too, so the entry points can call
+ * it without knowing where the instance lives.  This is the header that
+ * owns the type, so this is where it belongs. */
+uiox_hdmi_subsys_t *uiox_hdmi_subsys_current(void);
+
+         
  #ifdef __cplusplus
  }
  #endif

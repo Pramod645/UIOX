@@ -230,4 +230,13 @@
          sys->state      = UIOX_MON_SUBSYS_RUNNING;
      }
  }
- 
+ /* ── the instance ────────────────────────────────────────────────────
+ * ⚠ Nothing calls uiox_mon_subsys_init() on this instance yet, so it is
+ *   zeroed — sys->state reads UIOX_MON_SUBSYS_STOPPED and the panel is
+ *   empty.  The entry points guard on that rather than fault. */
+static uiox_mon_subsys_t s_mon_sys;
+
+uiox_mon_subsys_t *uiox_mon_subsys_current(void)
+{
+    return &s_mon_sys;
+}

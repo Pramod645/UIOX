@@ -229,6 +229,53 @@
 #define SYS_CAM_STREAM      420u   /* css-private — start/stop stream */
 #endif
 
+/* ══ 01_Com/hdmi — CSS-PRIVATE, continuation of the block ═══════════
+ *   400-403 wifi · 404 free · 405-408 bt · 409-412 mic
+ *   413-416 spk  · 417-420 cam · 421-424 hdmi
+ */
+#ifndef SYS_HDMI_STATE
+#define SYS_HDMI_STATE       421u   /* css-private — subsystem state  */
+#endif
+#ifndef SYS_HDMI_DPMS
+#define SYS_HDMI_DPMS        422u   /* css-private — DPMS timeout     */
+#endif
+#ifndef SYS_HDMI_ACTIVITY
+#define SYS_HDMI_ACTIVITY    423u   /* css-private — "still awake"    */
+#endif
+#ifndef SYS_HDMI_MODE
+#define SYS_HDMI_MODE        424u   /* css-private — w, h, hz         */
+#endif
+
+/* ══ 01_Com/monitor — CSS-PRIVATE, continuation of the block ════════
+ *   400-403 wifi · 404 free · 405-408 bt · 409-412 mic
+ *   413-416 spk  · 417-420 cam · 421-424 hdmi · 425-428 mon
+ */
+#ifndef SYS_MON_STATE
+#define SYS_MON_STATE       425u   /* css-private — subsystem state     */
+#endif
+#ifndef SYS_MON_DPMS
+#define SYS_MON_DPMS        426u   /* css-private — DPMS timeout (ms)   */
+#endif
+#ifndef SYS_MON_FPS
+#define SYS_MON_FPS         427u   /* css-private — frame rate (0=off)  */
+#endif
+#ifndef SYS_MON_ACTIVITY
+#define SYS_MON_ACTIVITY    428u   /* css-private — "still awake"       */
+#endif
+
+#ifndef SYS_GPU_STATE
+#define SYS_GPU_STATE        429u   /* css-private — subsystem state     */
+#endif
+#ifndef SYS_GPU_STATS
+#define SYS_GPU_STATS        430u   /* css-private — frame statistics    */
+#endif
+#ifndef SYS_GPU_PSO
+#define SYS_GPU_PSO          431u   /* css-private — PSO create/destroy  */
+#endif
+#ifndef SYS_GPU_FRAME
+#define SYS_GPU_FRAME        432u   /* css-private — submit one frame    */
+#endif
+
 
  #endif /* UIOX_KIX_SCCCS_NUMBERS_H */
  

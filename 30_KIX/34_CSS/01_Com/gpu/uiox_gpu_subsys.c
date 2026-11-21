@@ -132,4 +132,14 @@
      if (!sys || !out) return;
      memcpy(out, &sys->frame_stats, sizeof(*out));
  }
- 
+ /* ── the singleton ──────────────────────────────────────────────── */
+/* ── the instance ─────────────────────────────────────────────────
+ * ⚠ Nothing calls uiox_gpu_subsys_init() on this instance yet, so it is
+ *   zeroed — uiox_kix_css_gpu.c's guard turns that into ENODEV. */
+static uiox_gpu_subsys_t s_gpu_sys;
+
+uiox_gpu_subsys_t *uiox_gpu_subsys_current(void)
+{
+    return &s_gpu_sys;
+}
+

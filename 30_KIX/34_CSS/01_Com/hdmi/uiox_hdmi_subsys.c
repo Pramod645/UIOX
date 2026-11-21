@@ -203,4 +203,34 @@
  {
      if (sys) sys->dpms_timeout_ms = timeout_ms;
  }
- 
+ // below is addedfor syste call completetion
+ int uiox_hdmi_subsys_set_mode(uiox_hdmi_subsys_t *sys,
+    uint16_t w, uint16_t h, uint8_t hz)
+{
+const uiox_hdmi_timing_t *t;
+int rc;
+
+if (!sys) return -EINVAL;
+
+rc = uiox_hdmi_sink_select_mode(&sys->sink, w, h, hz);
+if (rc < 0) return rc;
+
+/* the timing the sink settled on, not the one requested — a sink
+* may pick a nearby mode, and if_config must be given what it chose */
+t = uiox_hdmi_sink_timing(&sys->sink);
+if (!t) return -EINVAL;
+
+return uiox_hdmi_if_config(&sys->hif, sys->hif.hw, t,
+     sys->hif.cs, sys->hif.bpc);
+}
+
+/* ── the instance ────────────────────────────────────────────────────
+ * ⚠ Nothing calls uiox_hdmi_subsys_init() on this instance yet, so it
+ *   is zeroed — sys->state reads UIOX_HDMI_SUBSYS_STOPPED and the sink
+ *   is empty.  The entry points guard on that rather than fault. */
+static uiox_hdmi_subsys_t s_hdmi_sys;
+
+uiox_hdmi_subsys_t *uiox_hdmi_subsys_current(void)
+{
+    return &s_hdmi_sys;
+}

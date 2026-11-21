@@ -65,6 +65,10 @@
  #include "uiox_kix_css_mic.h"
  #include "uiox_kix_css_spk.h"     /* beside the WiFi/BT/MIC includes */
  #include "uiox_kix_css_cam.h"     /* beside the WiFi/BT/MIC/SPK includes */
+ #include "uiox_kix_css_hdmi.h"    /* beside the WiFi/BT/MIC/SPK/CAM includes */
+ #include "uiox_kix_css_mon.h"     /* beside the HDMI include */
+ #include "uiox_kix_css_gpu.h"     /* beside the HDMI/MON includes */
+
 
  /* ── Return convention ──────────────────────────────────────────────
   * Negative is an error, matching the file and process sides so SCiX can
@@ -147,6 +151,22 @@
      [SYS_CAM_EXPOSURE] = { (uiox_kix_css_fn_t)(void *)uiox_kix_css_cam_exposure, "cam_exposure" },
      [SYS_CAM_GAIN]     = { (uiox_kix_css_fn_t)(void *)uiox_kix_css_cam_gain,     "cam_gain"     },
      [SYS_CAM_STREAM]   = { (uiox_kix_css_fn_t)(void *)uiox_kix_css_cam_stream,   "cam_stream"   },
+     /* ── 01_Com/hdmi — CSS-PRIVATE numbers (421-424) ──────────────────────── */
+     [SYS_HDMI_STATE]    = { (uiox_kix_css_fn_t)(void *)uiox_kix_css_hdmi_state,    "hdmi_state"    },
+     [SYS_HDMI_DPMS]     = { (uiox_kix_css_fn_t)(void *)uiox_kix_css_hdmi_dpms,     "hdmi_dpms"     },
+     [SYS_HDMI_ACTIVITY] = { (uiox_kix_css_fn_t)(void *)uiox_kix_css_hdmi_activity, "hdmi_activity" },
+     [SYS_HDMI_MODE]     = { (uiox_kix_css_fn_t)(void *)uiox_kix_css_hdmi_mode,     "hdmi_mode"     },
+     /* ── 01_Com/monitor — CSS-PRIVATE numbers (425-428) ───────────────────── */
+     [SYS_MON_STATE]    = { (uiox_kix_css_fn_t)(void *)uiox_kix_css_mon_state,    "mon_state"    },
+     [SYS_MON_DPMS]     = { (uiox_kix_css_fn_t)(void *)uiox_kix_css_mon_dpms,     "mon_dpms"     },
+     [SYS_MON_FPS]      = { (uiox_kix_css_fn_t)(void *)uiox_kix_css_mon_fps,      "mon_fps"      },
+     [SYS_MON_ACTIVITY] = { (uiox_kix_css_fn_t)(void *)uiox_kix_css_mon_activity, "mon_activity" },
+         /* ── 01_Com/gpu — CSS-PRIVATE numbers (429-432) ────────────────────── */
+     [SYS_GPU_STATE] = { (uiox_kix_css_fn_t)(void *)uiox_kix_css_gpu_state, "gpu_state" },
+     [SYS_GPU_STATS] = { (uiox_kix_css_fn_t)(void *)uiox_kix_css_gpu_stats, "gpu_stats" },
+     [SYS_GPU_PSO]   = { (uiox_kix_css_fn_t)(void *)uiox_kix_css_gpu_pso,   "gpu_pso"   },
+     [SYS_GPU_FRAME] = { (uiox_kix_css_fn_t)(void *)uiox_kix_css_gpu_frame, "gpu_frame" },
+
  
      /* ── 01_Com/usb · 02_Sensors/camera, mic · 03_NonSensors/speaker ─
       * Same position: class headers, class directories, rows added per

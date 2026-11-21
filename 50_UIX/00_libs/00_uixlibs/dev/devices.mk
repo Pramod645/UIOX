@@ -49,7 +49,9 @@ DEV_SRCS += \
   $(MFDIR)dev/bt/uiox_bt_device.c \
   $(MFDIR)dev/mic/uiox_mic_device.c \
   $(MFDIR)dev/spk/uiox_spk_device.c \
-  $(MFDIR)dev/cam/uiox_cam_device.c
+  $(MFDIR)dev/cam/uiox_cam_device.c \
+  $(MFDIR)dev/hdmi/uiox_hdmi_device.c \
+  $(MFDIR)dev/monitor/uiox_mon_device.c
 
 
 # ── include paths ──────────────────────────────────────────────────────────
@@ -76,7 +78,9 @@ DEV_INCS := \
   $(MFDIR)dev/bt \
   $(MFDIR)dev/mic \
   $(MFDIR)dev/spk \
-  $(MFDIR)dev/cam
+  $(MFDIR)dev/cam \
+  $(MFDIR)dev/hdmi \
+  $(MFDIR)dev/monitor
 
 # ── exported to the master Makefile ────────────────────────────────────────
 LIB_SRCS_C += $(DEV_SRCS)

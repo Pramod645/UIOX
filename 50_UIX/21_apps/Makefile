@@ -110,7 +110,8 @@ APPS := app_als	app_therm	app_shell   app_logger   app_fileserver	\
 		app_netserver app_ipctest app_memtest app_scheduler  app_sigtest	\
         app_fstest  app_clocktest	app_bms	app_chg	app_pmic	app_rtc	\
 		app_fan	app_gpu	app_kbd	app_mouse	app_tpwd	app_emmc	app_nvme	\
-		app_sata	app_eth	app_wifi	app_bt	app_mic	app_spk	app_cam
+		app_sata	app_eth	app_wifi	app_bt	app_mic	app_spk	app_cam	app_hdmi	\
+		app_mon
 
 TARGETS := $(addprefix $(_BUILD_DIR)/,$(APPS))
 

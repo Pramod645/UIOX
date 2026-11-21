@@ -243,6 +243,21 @@ int uiox_console_write(const void *buf, uiox_uint32_t count);
      case SYS_CAM_EXPOSURE:    /* 418  css-private */
      case SYS_CAM_GAIN:        /* 419  css-private */
      case SYS_CAM_STREAM:      /* 420  css-private */
+     /* hdmi*/
+     case SYS_HDMI_STATE:      /* 421  css-private */
+     case SYS_HDMI_DPMS:       /* 422  css-private */
+     case SYS_HDMI_ACTIVITY:   /* 423  css-private */
+     case SYS_HDMI_MODE:       /* 424  css-private */
+     /*Mon*/
+     case SYS_MON_STATE:       /* 425  css-private */
+     case SYS_MON_DPMS:        /* 426  css-private */
+     case SYS_MON_FPS:         /* 427  css-private */
+     case SYS_MON_ACTIVITY:    /* 428  css-private */
+     /* gpu */
+     case SYS_GPU_STATE:       /* 429  css-private */
+     case SYS_GPU_STATS:       /* 430  css-private */
+     case SYS_GPU_PSO:         /* 431  css-private */
+     case SYS_GPU_FRAME:       /* 432  css-private */
          return 1;
      default:
          return 0;
