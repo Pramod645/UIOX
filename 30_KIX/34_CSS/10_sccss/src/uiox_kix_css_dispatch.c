@@ -59,7 +59,8 @@
  #include "uiox_kix_sccss.h"          /* SCCSS_EINVAL / _ENOSYS, the
                                        * entry struct, and the boundary
                                        * this file sits under          */
- 
+ #include "uiox_socket.h"
+
  /* ── Return convention ──────────────────────────────────────────────
   * Negative is an error, matching the file and process sides so SCiX can
   * pass a value through without asking which subsystem produced it.
@@ -89,16 +90,18 @@
      /* ── 01_Com/eth ─────────────────────────────────────────────────
       * Socket calls.  Entry points are declared by the eth module's own
       * header; this file only takes their address.
-      *
-      * [SYS_SOCKET]   = { (uiox_kix_css_fn_t)(void *)uiox_kix_css_socket,   "socket"   },
-      * [SYS_BIND]     = { (uiox_kix_css_fn_t)(void *)uiox_kix_css_bind,     "bind"     },
-      * [SYS_CONNECT]  = { (uiox_kix_css_fn_t)(void *)uiox_kix_css_connect,  "connect"  },
-      * [SYS_LISTEN]   = { (uiox_kix_css_fn_t)(void *)uiox_kix_css_listen,   "listen"   },
-      * [SYS_ACCEPT]   = { (uiox_kix_css_fn_t)(void *)uiox_kix_css_accept,   "accept"   },
-      * [SYS_SENDTO]   = { (uiox_kix_css_fn_t)(void *)uiox_kix_css_sendto,   "sendto"   },
-      * [SYS_RECVFROM] = { (uiox_kix_css_fn_t)(void *)uiox_kix_css_recvfrom, "recvfrom" },
-      * [SYS_SHUTDOWN] = { (uiox_kix_css_fn_t)(void *)uiox_kix_css_shutdown, "shutdown" },
       */
+     [SYS_SOCKET]   = { (uiox_kix_css_fn_t)(void *)uiox_socket,   "socket"   },
+     [SYS_BIND]     = { (uiox_kix_css_fn_t)(void *)uiox_bind,     "bind"     },
+     [SYS_CONNECT]  = { (uiox_kix_css_fn_t)(void *)uiox_connect,  "connect"  },
+     [SYS_LISTEN]   = { (uiox_kix_css_fn_t)(void *)uiox_listen,   "listen"   },
+     [SYS_ACCEPT]   = { (uiox_kix_css_fn_t)(void *)uiox_accept,   "accept"   },
+     [SYS_SENDTO]   = { (uiox_kix_css_fn_t)(void *)uiox_sendto,   "sendto"   },
+     [SYS_RECVFROM] = { (uiox_kix_css_fn_t)(void *)uiox_recvfrom, "recvfrom" },
+     [SYS_SHUTDOWN] = { (uiox_kix_css_fn_t)(void *)uiox_shutdown, "shutdown" },
+     [SYS_SENDMSG]    = { (uiox_kix_css_fn_t)0, "sendmsg"    },
+     [SYS_RECVMSG]    = { (uiox_kix_css_fn_t)0, "recvmsg"    },
+     [SYS_SOCKETPAIR] = { (uiox_kix_css_fn_t)0, "socketpair" },
  
      /* ── 01_Com/bt ──────────────────────────────────────────────────
       * Bluetooth.  No vocabulary exists in the kernel for this class —

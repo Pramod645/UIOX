@@ -43,7 +43,8 @@ DEV_SRCS += \
   $(MFDIR)dev/tpwd/uiox_dev_tpwd.c  \
   $(MFDIR)dev/emmc/uiox_dev_emmc.c  \
   $(MFDIR)dev/nvme/uiox_dev_nvme.c  \
-  $(MFDIR)dev/sata/uiox_dev_sata.c
+  $(MFDIR)dev/sata/uiox_dev_sata.c  \
+  $(MFDIR)dev/eth/uiox_connectivity.c
 
 
 # ── include paths ──────────────────────────────────────────────────────────
@@ -64,7 +65,8 @@ DEV_INCS := \
   $(MFDIR)dev/tpwd  \
   $(MFDIR)dev/emmc  \
   $(MFDIR)dev/nvme  \
-  $(MFDIR)dev/sata
+  $(MFDIR)dev/sata  \
+  $(MFDIR)dev/eth
 
 # ── exported to the master Makefile ────────────────────────────────────────
 LIB_SRCS_C += $(DEV_SRCS)
