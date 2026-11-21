@@ -60,6 +60,11 @@
                                        * entry struct, and the boundary
                                        * this file sits under          */
  #include "uiox_socket.h"
+ #include "uiox_kix_css_wifi.h"    /* WiFi's four entry points */
+ #include "uiox_kix_css_bt.h"      /* BT's four   */
+ #include "uiox_kix_css_mic.h"
+ #include "uiox_kix_css_spk.h"     /* beside the WiFi/BT/MIC includes */
+ #include "uiox_kix_css_cam.h"     /* beside the WiFi/BT/MIC/SPK includes */
 
  /* ── Return convention ──────────────────────────────────────────────
   * Negative is an error, matching the file and process sides so SCiX can
@@ -102,12 +107,46 @@
      [SYS_SENDMSG]    = { (uiox_kix_css_fn_t)0, "sendmsg"    },
      [SYS_RECVMSG]    = { (uiox_kix_css_fn_t)0, "recvmsg"    },
      [SYS_SOCKETPAIR] = { (uiox_kix_css_fn_t)0, "socketpair" },
- 
+
+     /* ── 02_Sensors/WiFi ───────────────────────────────────────────────────
+     * Entry points defined in 02_Sensors/WiFi/uiox_kix_css_wifi.c.
+     *
+     * The numbers are CSS-PRIVATE (400-403), not BSD's — 802.11 has no BSD
+     * syscall vocabulary.  See uiox_kix_sccss_numbers.h for the block and
+     * why it sits at 400. */
+     [SYS_WIFI_SCAN]       = { (uiox_kix_css_fn_t)(void *)uiox_kix_css_wifi_scan,       "wifi_scan"       },
+     [SYS_WIFI_DISCONNECT] = { (uiox_kix_css_fn_t)(void *)uiox_kix_css_wifi_disconnect, "wifi_disconnect" },
+     [SYS_WIFI_QUALITY]    = { (uiox_kix_css_fn_t)(void *)uiox_kix_css_wifi_quality,    "wifi_quality"    },
+     [SYS_WIFI_STATE]      = { (uiox_kix_css_fn_t)(void *)uiox_kix_css_wifi_state,      "wifi_state"      },
+    
      /* ── 01_Com/bt ──────────────────────────────────────────────────
       * Bluetooth.  No vocabulary exists in the kernel for this class —
       * the ACL/HCI path is reached through uiox_bt_if, not a device
       * node.  Rows land here if and when that changes.
       */
+     /* ── 01_Com/bt — CSS-PRIVATE numbers (405-408) ─────────────────────────
+     * Entry points defined in 01_Com/bt/uiox_kix_css_bt.c.  Bluetooth has
+     * no BSD syscall vocabulary, so these are borrowed from the block this
+     * kernel marks as its own — see uiox_kix_sccss_numbers.h. */
+     [SYS_BT_SCAN_START] = { (uiox_kix_css_fn_t)(void *)uiox_kix_css_bt_scan_start, "bt_scan_start" },
+     [SYS_BT_SCAN_STOP]  = { (uiox_kix_css_fn_t)(void *)uiox_kix_css_bt_scan_stop,  "bt_scan_stop"  },
+     [SYS_BT_DISCONNECT] = { (uiox_kix_css_fn_t)(void *)uiox_kix_css_bt_disconnect, "bt_disconnect" },
+     [SYS_BT_STATE]      = { (uiox_kix_css_fn_t)(void *)uiox_kix_css_bt_state,      "bt_state"      },
+     /* ── 02_Sensors/mic — CSS-PRIVATE numbers (409-412) ───────────────────── */
+     [SYS_MIC_READ]  = { (uiox_kix_css_fn_t)(void *)uiox_kix_css_mic_read,  "mic_read"  },
+     [SYS_MIC_GAIN]  = { (uiox_kix_css_fn_t)(void *)uiox_kix_css_mic_gain,  "mic_gain"  },
+     [SYS_MIC_MUTE]  = { (uiox_kix_css_fn_t)(void *)uiox_kix_css_mic_mute,  "mic_mute"  },
+     [SYS_MIC_STATE] = { (uiox_kix_css_fn_t)(void *)uiox_kix_css_mic_state, "mic_state" },
+     /* ── 03_NonSensors/speaker — CSS-PRIVATE numbers (413-416) ────────────── */
+     [SYS_SPK_WRITE]  = { (uiox_kix_css_fn_t)(void *)uiox_kix_css_spk_write,  "spk_write"  },
+     [SYS_SPK_VOLUME] = { (uiox_kix_css_fn_t)(void *)uiox_kix_css_spk_volume, "spk_volume" },
+     [SYS_SPK_MUTE]   = { (uiox_kix_css_fn_t)(void *)uiox_kix_css_spk_mute,   "spk_mute"   },
+     [SYS_SPK_STATE]  = { (uiox_kix_css_fn_t)(void *)uiox_kix_css_spk_state,  "spk_state"  },
+     /* ── 02_Sensors/camera — CSS-PRIVATE numbers (417-420) ────────────────── */
+     [SYS_CAM_STATE]    = { (uiox_kix_css_fn_t)(void *)uiox_kix_css_cam_state,    "cam_state"    },
+     [SYS_CAM_EXPOSURE] = { (uiox_kix_css_fn_t)(void *)uiox_kix_css_cam_exposure, "cam_exposure" },
+     [SYS_CAM_GAIN]     = { (uiox_kix_css_fn_t)(void *)uiox_kix_css_cam_gain,     "cam_gain"     },
+     [SYS_CAM_STREAM]   = { (uiox_kix_css_fn_t)(void *)uiox_kix_css_cam_stream,   "cam_stream"   },
  
      /* ── 01_Com/usb · 02_Sensors/camera, mic · 03_NonSensors/speaker ─
       * Same position: class headers, class directories, rows added per

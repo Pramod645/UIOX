@@ -217,6 +217,32 @@ int uiox_console_write(const void *buf, uiox_uint32_t count);
      case SYS_SEMCTL:      /* 295  semaphore control          */
      case SYS_SHMCTL:      /* 296  shared memory control      */
      case SYS_MSGCTL:      /* 297  message queue control      */
+     /* 02_Sensors/WiFi — CSS-private numbers, see uiox_kix_sccss_numbers.h */
+     /* 02_Sensors/WiFi — CSS-private numbers, see uiox_kix_sccss_numbers.h */
+     case SYS_WIFI_SCAN:       /* 400  css-private */
+     case SYS_WIFI_DISCONNECT: /* 401  css-private */
+     case SYS_WIFI_QUALITY:    /* 402  css-private */
+     case SYS_WIFI_STATE:      /* 403  css-private */
+     /* 01_Com/bt — css-private, continuation of the same block */
+     case SYS_BT_SCAN_START:   /* 405  css-private */
+     case SYS_BT_SCAN_STOP:    /* 406  css-private */
+     case SYS_BT_DISCONNECT:   /* 407  css-private */
+     case SYS_BT_STATE:        /* 408  css-private */
+     /* MIC */
+     case SYS_MIC_READ:        /* 409  css-private */
+     case SYS_MIC_GAIN:        /* 410  css-private */
+     case SYS_MIC_MUTE:        /* 411  css-private */
+     case SYS_MIC_STATE:       /* 412  css-private */
+        /* SPK */
+     case SYS_SPK_WRITE:       /* 413  css-private */
+     case SYS_SPK_VOLUME:      /* 414  css-private */
+     case SYS_SPK_MUTE:        /* 415  css-private */
+     case SYS_SPK_STATE:       /* 416  css-private */
+        /* CAM */
+     case SYS_CAM_STATE:       /* 417  css-private */
+     case SYS_CAM_EXPOSURE:    /* 418  css-private */
+     case SYS_CAM_GAIN:        /* 419  css-private */
+     case SYS_CAM_STREAM:      /* 420  css-private */
          return 1;
      default:
          return 0;

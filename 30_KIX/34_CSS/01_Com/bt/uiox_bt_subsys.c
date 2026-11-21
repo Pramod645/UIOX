@@ -83,3 +83,50 @@ void uiox_bt_subsys_tick(uiox_bt_subsys_t *sys, uint32_t now_ms)
 void uiox_bt_subsys_set_cb(uiox_bt_subsys_t *sys,
                              uiox_bt_evt_cb_t cb, void *ctx)
 { if (!sys) return; sys->evt_cb = cb; sys->evt_ctx = ctx; }
+/* ── the instance ────────────────────────────────────────────────────
+ * uiox_bt_probe() binds the DRIVER (s_bt_hw, s_bt_i2c, s_bt_fwops);
+ * this is the subsystem above it — the one the trap routes to.
+ *
+ * ⚠ Nothing calls uiox_bt_subsys_init() on this instance yet, so it is
+ *   zeroed: sys->state reads UIOX_BT_SUBSYS_OFF and the manager is
+ *   empty.  The entry points guard on that rather than fault. */
+static uiox_bt_subsys_t s_bt_sys;
+
+uiox_bt_subsys_t *uiox_kix_css_bt_current(void)
+{
+    return &s_bt_sys;
+}
+
+/* ── the operations ──────────────────────────────────────────────── */
+
+int uiox_bt_subsys_scan_start(uiox_bt_subsys_t *sys, uint8_t dur_s)
+{
+    if (!sys) return -EINVAL;
+
+    /* Refuse rather than dereference: the manager is only usable after
+     * uiox_bt_subsys_init() has run.  Same guard the entry points carry,
+     * because a caller in-kernel can reach this too. */
+    if (sys->state == UIOX_BT_SUBSYS_OFF) return -ENODEV;
+
+    sys->state = UIOX_BT_SUBSYS_SCANNING;
+    return uiox_bt_mgr_scan_start(&sys->mgr, dur_s);
+}
+
+int uiox_bt_subsys_scan_stop(uiox_bt_subsys_t *sys)
+{
+    if (!sys) return -EINVAL;
+    if (sys->state != UIOX_BT_SUBSYS_SCANNING) return 0;  /* nothing to stop */
+
+    sys->state = UIOX_BT_SUBSYS_IDLE;
+    return uiox_bt_mgr_scan_stop(&sys->mgr);
+}
+
+int uiox_bt_subsys_disconnect(uiox_bt_subsys_t *sys, uint16_t handle)
+{
+    if (!sys) return -EINVAL;
+    if (sys->state == UIOX_BT_SUBSYS_OFF) return -ENODEV;
+
+    /* The manager keeps state straight here — it is the one that knows
+     * whether the handle names a live connection. */
+    return uiox_bt_mgr_disconnect(&sys->mgr, handle);
+}

@@ -44,7 +44,12 @@ DEV_SRCS += \
   $(MFDIR)dev/emmc/uiox_dev_emmc.c  \
   $(MFDIR)dev/nvme/uiox_dev_nvme.c  \
   $(MFDIR)dev/sata/uiox_dev_sata.c  \
-  $(MFDIR)dev/eth/uiox_connectivity.c
+  $(MFDIR)dev/eth/uiox_connectivity.c  \
+  $(MFDIR)dev/WiFi/uiox_wifi_device.c \
+  $(MFDIR)dev/bt/uiox_bt_device.c \
+  $(MFDIR)dev/mic/uiox_mic_device.c \
+  $(MFDIR)dev/spk/uiox_spk_device.c \
+  $(MFDIR)dev/cam/uiox_cam_device.c
 
 
 # ── include paths ──────────────────────────────────────────────────────────
@@ -66,7 +71,12 @@ DEV_INCS := \
   $(MFDIR)dev/emmc  \
   $(MFDIR)dev/nvme  \
   $(MFDIR)dev/sata  \
-  $(MFDIR)dev/eth
+  $(MFDIR)dev/eth  \
+  $(MFDIR)dev/WiFi \
+  $(MFDIR)dev/bt \
+  $(MFDIR)dev/mic \
+  $(MFDIR)dev/spk \
+  $(MFDIR)dev/cam
 
 # ── exported to the master Makefile ────────────────────────────────────────
 LIB_SRCS_C += $(DEV_SRCS)

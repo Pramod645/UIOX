@@ -43,6 +43,38 @@ void uiox_bt_subsys_stop   (uiox_bt_subsys_t *sys);
 void uiox_bt_subsys_tick   (uiox_bt_subsys_t *sys, uint32_t now_ms);
 void uiox_bt_subsys_set_cb (uiox_bt_subsys_t *sys,
                              uiox_bt_evt_cb_t cb, void *ctx);
+/* =========================================================================
+ * Subsystem API — the OPERATIONS, beside the lifecycle above
+ *
+ * ── why these exist ─────────────────────────────────────────────────
+ * uiox_bt_device.h (one layer above, in userspace) has had scan_start,
+ * scan_stop, connect and disconnect from the start, and the subsystem
+ * below it had only init/start/stop/tick/set_cb.  A lifecycle alone
+ * cannot be routed: init(sys, hw) is bring-up, tick(sys, now_ms) is the
+ * kernel's timer, and set_cb registers a FUNCTION POINTER — a callback
+ * into EL0, which is worse than a credential.
+ *
+ * These four delegate to sys->mgr, the manager the subsystem already
+ * owns, and keep sys->state honest as they go.  No new machinery: the
+ * calls the device layer makes are the calls the subsystem now exposes.
+ * ========================================================================= */
+
+/** Start a classic (BR/EDR) inquiry.  duration is in units of 1.28 s. */
+int  uiox_bt_subsys_scan_start  (uiox_bt_subsys_t *sys, uint8_t dur_s);
+
+/** Stop an inquiry already running. */
+int  uiox_bt_subsys_scan_stop   (uiox_bt_subsys_t *sys);
+
+/** Disconnect an established connection by handle. */
+int  uiox_bt_subsys_disconnect  (uiox_bt_subsys_t *sys, uint16_t handle);
+
+/* The one instance the CSS entry points reach.  Same role as
+ * uiox_kix_css_wifi_current() on the WiFi side, and the same caveat:
+ * the subsystem is built but nothing has called uiox_bt_subsys_init()
+ * yet, so this returns a zeroed struct until something does. */
+uiox_bt_subsys_t *uiox_kix_css_bt_current(void);
+
+
 #ifdef __cplusplus
 }
 #endif

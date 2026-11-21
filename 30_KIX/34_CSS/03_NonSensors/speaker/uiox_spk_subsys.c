@@ -206,4 +206,15 @@
      sys->evt_cb  = cb;
      sys->evt_ctx = ctx;
  }
- 
+ /* ── the instance ────────────────────────────────────────────────────
+ * The CSS entry points reach this.  ⚠ SPK has NO PROBE FILE: nothing
+ * binds a device for it and nothing calls uiox_spk_subsys_init() on this
+ * instance, so it is zeroed — sys->state reads UIOX_SPK_STATE_STOPPED
+ * and sys->sif is empty.  The entry points guard on state rather than
+ * fault. */
+static uiox_spk_subsys_t s_spk_sys;
+
+uiox_spk_subsys_t *uiox_spk_subsys_current(void)
+{
+    return &s_spk_sys;
+}

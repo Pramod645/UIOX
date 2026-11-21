@@ -115,4 +115,16 @@
  void uiox_mic_subsys_set_cb(uiox_mic_subsys_t *sys,
                                uiox_mic_evt_cb_t cb, void *ctx)
  { if (!sys) return; sys->evt_cb = cb; sys->evt_ctx = ctx; }
- 
+ /* ── the instance ────────────────────────────────────────────────────
+ * uiox_mic_probe() binds the DRIVER (s_mic_hw, s_mic_i2c, s_mic_fwops);
+ * this is the subsystem above it — the one the trap routes to.
+ *
+ * ⚠ Nothing calls uiox_mic_subsys_init() on this instance yet, so it is
+ *   zeroed: sys->state reads UIOX_MIC_STATE_STOPPED and sys->mif is
+ *   empty.  The entry points guard on state rather than fault. */
+static uiox_mic_subsys_t s_mic_sys;
+
+uiox_mic_subsys_t *uiox_mic_subsys_current(void)
+{
+    return &s_mic_sys;
+}

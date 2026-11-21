@@ -180,4 +180,10 @@
      if (count_out) *count_out = sys->proto.bss_count;
      return sys->proto.bss_cache;
  }
- 
+ // below added du to system call implementation
+ /* the instance the CSS entry points reach.  uiox_wifi_probe() binds the
+ * driver (s_wifi_dev, drv_priv = &s_wifi_if); this is the subsystem
+ * above it — the one the trap routes to. */
+ static uiox_wifi_subsys_t s_wifi_sys;
+
+ uiox_wifi_subsys_t *uiox_kix_css_wifi_current(void) { return &s_wifi_sys; }

@@ -78,3 +78,18 @@ uiox_cam_frame_t *uiox_cam_pipeline_dequeue(uiox_cam_pipeline_t *pl)
     if (!pl || pl->state != UIOX_CAM_STATE_STREAMING) return NULL;
     return uiox_cam_if_complete(&pl->cif);
 }
+/* ── the instance ────────────────────────────────────────────────────
+ * The CSS entry points reach this.  ⚠ uiox_cam_probe() binds the HAL and
+ * the sensor bus; nothing calls uiox_cam_pipeline_build() on this
+ * instance yet, so it is zeroed — pl->state reads UIOX_CAM_STATE_STOPPED
+ * and pl->sensor is empty.  The entry points guard on state rather than
+ * fault.
+ *
+ * The object is a PIPELINE, not a subsystem: uiox_cam_subsys.h declares
+ * uiox_cam_pipeline_t and there is no uiox_cam_subsys_t. */
+static uiox_cam_pipeline_t s_cam_pl;
+
+uiox_cam_pipeline_t *uiox_kix_css_cam_current(void)
+{
+    return &s_cam_pl;
+}

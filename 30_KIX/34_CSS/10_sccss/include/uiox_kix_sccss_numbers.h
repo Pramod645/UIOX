@@ -108,6 +108,127 @@
   * camera, mic, speaker, touchpwd: each has a driver and a userspace
   * layer, none has a syscall vocabulary.  Rows are added per class as
   * each one gets one. */
- 
+ /* ══ 02_Sensors/WiFi — CSS-PRIVATE numbers ══════════════════════════
+ * ── THESE ARE BORROWED, NOT BSD'S ───────────────────────────────────
+ * Every number above this block is a genuine BSD syscall number that
+ * this tree routes.  These are not.  802.11 has no BSD syscall
+ * vocabulary — there is no SYS_WIFI_SCAN in any BSD — so the block
+ * below is a CSS-PRIVATE allocation taken from the range this kernel
+ * leaves unimplemented.
+ *
+ *   400–511   unused: verified against every header in the tree
+ *
+ * ── WHY 400 AND NOT A LOW NUMBER ────────────────────────────────────
+ * A low free slot would sit among real BSD numbers and read as one —
+ * which is the failure the file's own banner warns about: "a wrong
+ * number does not fail to compile; it routes a syscall to another
+ * handler, silently."  A block at 400, far above anything BSD defines
+ * for these families, cannot be confused with a borrowed BSD number by
+ * a reader who checks.
+ *
+ * ── THE MARK IS LOAD-BEARING ────────────────────────────────────────
+ * SCCSS_PRIVATE marks them so a future audit can find every one.  If
+ * BSD ever allocates 400–511, these must move — and the grep for the
+ * marker is how that migration starts.
+ *
+ * ── WHAT IS NOT HERE ────────────────────────────────────────────────
+ *   wifi_connect    carries a passphrase.  Whether a credential may
+ *                   cross the trap from EL0 is a design decision, and
+ *                   no number is allocated until it is made.
+ *   wifi_bss_list   returns a pointer into kernel memory (proto's
+ *                   bss_cache).  It becomes a copy-into-caller call or
+ *                   it gets no number.
+ */
+#ifndef SCCSS_PRIVATE
+#define SCCSS_PRIVATE   400u    /* first CSS-private syscall number */
+#endif
+
+/* the block — one number per call, 400 upward */
+#ifndef SYS_WIFI_SCAN
+#define SYS_WIFI_SCAN        400u   /* css-private — 802.11 scan      */
+#endif
+#ifndef SYS_WIFI_DISCONNECT
+#define SYS_WIFI_DISCONNECT  401u   /* css-private — leave the BSS    */
+#endif
+#ifndef SYS_WIFI_QUALITY
+#define SYS_WIFI_QUALITY     402u   /* css-private — rssi/link quality */
+#endif
+#ifndef SYS_WIFI_STATE
+#define SYS_WIFI_STATE       403u   /* css-private — connection state  */
+#endif
+
+/* ══ 01_Com/bt — CSS-PRIVATE numbers, continuation of the 400 block ══
+ * Bluetooth has no BSD syscall vocabulary either.  Same allocation, same
+ * mark, same place in the range this kernel leaves unimplemented:
+ *
+ *   400-403  wifi   (above)
+ *   404      free   (kept — a fifth WiFi call would take it)
+ *   405-408  bt
+ */
+#ifndef SYS_BT_SCAN_START
+#define SYS_BT_SCAN_START    405u   /* css-private — inquiry start     */
+#endif
+#ifndef SYS_BT_SCAN_STOP
+#define SYS_BT_SCAN_STOP     406u   /* css-private — inquiry stop      */
+#endif
+#ifndef SYS_BT_DISCONNECT
+#define SYS_BT_DISCONNECT    407u   /* css-private — drop the link     */
+#endif
+#ifndef SYS_BT_STATE
+#define SYS_BT_STATE         408u   /* css-private — subsystem state   */
+#endif
+/* ══ 02_Sensors/mic — CSS-PRIVATE numbers, continuation of the block ══
+ *   400-403  wifi
+ *   404      free   (kept)
+ *   405-408  bt
+ *   409-412  mic
+ */
+#ifndef SYS_MIC_READ
+#define SYS_MIC_READ       409u   /* css-private — PCM into caller buf */
+#endif
+#ifndef SYS_MIC_GAIN
+#define SYS_MIC_GAIN       410u   /* css-private — set gain (dB)       */
+#endif
+#ifndef SYS_MIC_MUTE
+#define SYS_MIC_MUTE       411u   /* css-private — mute on/off         */
+#endif
+#ifndef SYS_MIC_STATE
+#define SYS_MIC_STATE      412u   /* css-private — subsystem state     */
+#endif
+
+/* ══ 03_NonSensors/speaker — CSS-PRIVATE, continuation of the block ══
+ *   400-403 wifi · 404 free · 405-408 bt · 409-412 mic · 413-416 spk
+ */
+#ifndef SYS_SPK_WRITE
+#define SYS_SPK_WRITE      413u   /* css-private — PCM into the ring    */
+#endif
+#ifndef SYS_SPK_VOLUME
+#define SYS_SPK_VOLUME     414u   /* css-private — master volume 0..100 */
+#endif
+#ifndef SYS_SPK_MUTE
+#define SYS_SPK_MUTE       415u   /* css-private — mute on/off          */
+#endif
+#ifndef SYS_SPK_STATE
+#define SYS_SPK_STATE      416u   /* css-private — subsystem state      */
+#endif
+
+/* ══ 02_Sensors/camera — CSS-PRIVATE, continuation of the block ══════
+ *   400-403 wifi · 404 free · 405-408 bt · 409-412 mic
+ *   413-416 spk  · 417-420 cam
+ */
+#ifndef SYS_CAM_STATE
+#define SYS_CAM_STATE       417u   /* css-private — pipeline state    */
+#endif
+#ifndef SYS_CAM_EXPOSURE
+#define SYS_CAM_EXPOSURE    418u   /* css-private — exposure (µs)     */
+#endif
+#ifndef SYS_CAM_GAIN
+#define SYS_CAM_GAIN        419u   /* css-private — gain ×100         */
+#endif
+#ifndef SYS_CAM_STREAM
+#define SYS_CAM_STREAM      420u   /* css-private — start/stop stream */
+#endif
+
+
  #endif /* UIOX_KIX_SCCCS_NUMBERS_H */
  
